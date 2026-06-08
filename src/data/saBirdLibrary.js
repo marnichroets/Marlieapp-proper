@@ -29,7 +29,9 @@ function makeBird(entry) {
     funFact: entry.funFact || funFacts[0] || '',
     funFacts,
     soundDescription: entry.soundDescription,
-    imageUrl: entry.imageUrl || '',
+    imageUrl:
+      entry.imageUrl ||
+      `https://placehold.co/400x300?text=${encodeURIComponent(entry.commonName)}`,
     soundUrl: entry.soundUrl || '',
     rarity: entry.rarity || 'Common',
     featuredInMagazine: true,
