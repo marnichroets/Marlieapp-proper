@@ -955,6 +955,22 @@ function mergeByKey(defaultItems, savedItems, key) {
   ]
 }
 
+// imageUrl and soundUrl are static reference data that lives in code, so they
+// must always come from the latest defaults — never from stale saved state
+// (otherwise an old empty imageUrl in localStorage hides the real photo).
+function mergeBirdLibrary(defaultItems, savedItems) {
+  const saved = Array.isArray(savedItems) ? savedItems : []
+  const savedMap = new Map(saved.map((item) => [item.id, item]))
+  const merged = defaultItems.map((item) => ({
+    ...item,
+    ...(savedMap.get(item.id) || {}),
+    imageUrl: item.imageUrl,
+    soundUrl: item.soundUrl,
+  }))
+  const defaultKeys = new Set(defaultItems.map((item) => item.id))
+  return [...merged, ...saved.filter((item) => !defaultKeys.has(item.id))]
+}
+
 function loadState() {
   const base = buildDefaultState()
   try {
@@ -987,7 +1003,7 @@ function loadState() {
         typeof saved.dailyChallengeCompletions === 'object'
           ? saved.dailyChallengeCompletions
           : base.dailyChallengeCompletions,
-      birdLibrary: normalizeBirdLibrary(mergeByKey(base.birdLibrary, saved.birdLibrary, 'id')),
+      birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
         ...base.magazineIssue,
         ...(saved.magazineIssue || {}),
