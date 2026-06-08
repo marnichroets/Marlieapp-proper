@@ -3,6 +3,9 @@ import './App.css'
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
 const INTRO_STORAGE_KEY = 'marlie-bird-intro-seen-v1'
+const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
+const OFFLINE_BIRD_COUNCIL_MESSAGE =
+  'The Bird Council is practicing offline, so this is a demo result.'
 
 const navItems = [
   ['home', 'Home', '🏡'],
@@ -47,6 +50,66 @@ const loadingMessages = [
   'Asking the nearest pigeon...',
   'Checking if this is a bird or a suspicious leaf...',
   'Almost done. The bird is being dramatic.',
+]
+
+const mockAiBirdMatches = [
+  {
+    commonName: 'Cape Robin-Chat',
+    afrikaansName: 'Gewone Janfrederik',
+    scientificName: 'Cossypha caffra',
+    confidence: 91,
+    whyThisBird:
+      'The warm orange chest, upright posture and garden setting point strongly to a Cape Robin-Chat.',
+    habitat: 'Leafy gardens, forest edges, thickets and quiet suburban corners.',
+    diet: 'Insects, small invertebrates, fruit and tiny snacks found while hopping around.',
+    whereFoundInSouthAfrica:
+      'Common across much of South Africa, especially in gardens and wooded places.',
+    funFacts: [
+      'It often sings from a hidden perch before stepping into view.',
+      'Pairs can become regular garden visitors when the habitat feels safe.',
+    ],
+    cutePersonalityLine: 'Tiny garden soloist with very serious main-character energy.',
+    soundDescription: 'A rich, melodic series of whistles and chatty phrases.',
+    similarBirds: ['Karoo Scrub-Robin', 'White-browed Robin-Chat'],
+  },
+  {
+    commonName: 'Hadeda Ibis',
+    afrikaansName: 'Hadeda',
+    scientificName: 'Bostrychia hagedash',
+    confidence: 78,
+    whyThisBird:
+      'The long curved bill, grey-brown body and glossy wing sheen match a Hadeda Ibis.',
+    habitat: 'Lawns, parks, wetlands, sports fields and rooftops after rain.',
+    diet: 'Earthworms, insects and other small creatures pulled from damp soil.',
+    whereFoundInSouthAfrica:
+      'Widespread in South Africa, especially around towns, gardens and wet grassy areas.',
+    funFacts: [
+      'Its loud call is one of the classic South African morning sounds.',
+      'The glossy wing patch can flash green and purple in sunlight.',
+    ],
+    cutePersonalityLine: 'A dramatic neighbourhood announcer with zero indoor voice.',
+    soundDescription: 'A loud, nasal haa-haa-haa call, often while flying.',
+    similarBirds: ['African Sacred Ibis', 'Glossy Ibis'],
+  },
+  {
+    commonName: 'Southern Masked Weaver',
+    afrikaansName: 'Swartkeelgeelvink',
+    scientificName: 'Ploceus velatus',
+    confidence: 64,
+    whyThisBird:
+      'Yellow plumage, compact shape and possible garden or reed habitat suggest a Southern Masked Weaver.',
+    habitat: 'Gardens, reeds, grassland, savanna and trees near water.',
+    diet: 'Seeds, insects, nectar and soft fruit depending on the season.',
+    whereFoundInSouthAfrica:
+      'Found across most of South Africa wherever suitable nesting trees and food occur.',
+    funFacts: [
+      'Males weave detailed hanging nests to impress females.',
+      'A rejected nest may be stripped apart and rebuilt with impressive commitment.',
+    ],
+    cutePersonalityLine: 'Tiny architect with bright feathers and a strict building code.',
+    soundDescription: 'Busy chattering and scratchy calls from trees or reeds.',
+    similarBirds: ['Village Weaver', 'Cape Weaver'],
+  },
 ]
 
 const levels = [
@@ -454,7 +517,6 @@ const sponsorLines = [
 ]
 
 const futureFeatures = [
-  'AI bird photo identification with top 3 suggestions and user confirmation.',
   'Bird sound playback and later sound recognition.',
   'Postmark daily emails from a backend scheduler.',
   'Marnich voice narrator clips with mute and unmute.',
@@ -472,7 +534,7 @@ const moodOptions = [
 ]
 
 function normalizeBirdName(name) {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function createId(prefix) {
@@ -485,6 +547,132 @@ function todayValue() {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function normalizeAiText(value) {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+function normalizeAiList(value) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeAiText).filter(Boolean)
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/\n|;|,/)
+      .map(normalizeAiText)
+      .filter(Boolean)
+  }
+
+  return []
+}
+
+function normalizeConfidence(value) {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.max(0, Math.min(100, Math.round(parsed)))
+}
+
+function normalizeAiMatch(match = {}) {
+  return {
+    commonName: normalizeAiText(match.commonName || match.common_name || match.name),
+    afrikaansName: normalizeAiText(match.afrikaansName || match.afrikaans_name),
+    scientificName: normalizeAiText(match.scientificName || match.scientific_name),
+    confidence: normalizeConfidence(match.confidence),
+    whyThisBird: normalizeAiText(match.whyThisBird || match.why_this_bird || match.reason),
+    funFacts: normalizeAiList(match.funFacts || match.fun_facts),
+    habitat: normalizeAiText(match.habitat),
+    diet: normalizeAiText(match.diet),
+    whereFoundInSouthAfrica: normalizeAiText(
+      match.whereFoundInSouthAfrica || match.where_found_in_south_africa || match.region,
+    ),
+    cutePersonalityLine: normalizeAiText(
+      match.cutePersonalityLine || match.cute_personality_line || match.personality,
+    ),
+    soundDescription: normalizeAiText(
+      match.soundDescription || match.sound_description || match.sound,
+    ),
+    similarBirds: normalizeAiList(match.similarBirds || match.similar_birds),
+  }
+}
+
+function normalizeAiIdentificationResponse(payload) {
+  const rawMatches = Array.isArray(payload)
+    ? payload
+    : payload?.topMatches || payload?.matches || payload?.results || payload?.birds || []
+  const matchList = Array.isArray(rawMatches) ? rawMatches : []
+
+  return {
+    uncertain: Boolean(payload?.uncertain),
+    matches: matchList
+      .slice(0, 3)
+      .map((match) => normalizeAiMatch(match))
+      .filter((match) => match.commonName),
+  }
+}
+
+function formatConfidence(value) {
+  return value ? `${value}% confidence` : 'Confidence unknown'
+}
+
+function getBirdLibraryId(name) {
+  return normalizeBirdName(name).replaceAll(' ', '-')
+}
+
+function upsertBirdLibraryFromAi(library, match, dateSpotted) {
+  if (!match?.commonName) return library
+
+  const normalizedMatch = normalizeAiMatch(match)
+  const birdKey = normalizeBirdName(normalizedMatch.commonName)
+  const existingIndex = library.findIndex(
+    (bird) => normalizeBirdName(bird.commonName) === birdKey,
+  )
+  const region = normalizedMatch.whereFoundInSouthAfrica || normalizedMatch.habitat
+  const description = normalizedMatch.whyThisBird || normalizedMatch.cutePersonalityLine
+  const funFact = normalizedMatch.funFacts[0] || ''
+
+  if (existingIndex >= 0) {
+    return library.map((bird, index) =>
+      index === existingIndex
+        ? {
+            ...bird,
+            afrikaansName: bird.afrikaansName || normalizedMatch.afrikaansName,
+            scientificName: bird.scientificName || normalizedMatch.scientificName,
+            region: bird.region || region,
+            description: bird.description || description,
+            funFact: bird.funFact || funFact,
+            aiDetails: normalizedMatch,
+            seen: true,
+            seenAt: bird.seenAt || dateSpotted,
+            lastSeen: dateSpotted,
+          }
+        : bird,
+    )
+  }
+
+  return [
+    ...library,
+    {
+      id: `ai-${getBirdLibraryId(normalizedMatch.commonName)}`,
+      commonName: normalizedMatch.commonName,
+      afrikaansName: normalizedMatch.afrikaansName,
+      scientificName: normalizedMatch.scientificName,
+      category: 'AI identified',
+      region,
+      description,
+      funFact,
+      imageUrl: '',
+      soundUrl: '',
+      rarity: 'AI suggestion',
+      featuredInMagazine: false,
+      aiDetails: normalizedMatch,
+      seen: true,
+      seenAt: dateSpotted,
+      lastSeen: dateSpotted,
+    },
+  ]
 }
 
 function parseTime(time) {
@@ -797,6 +985,7 @@ function buildBirdRecords(sightings) {
         notes: sighting.notes,
         photo: sighting.photo,
         featherCoinsEarned: sighting.coinsEarned,
+        aiMatch: sighting.aiMatch || null,
       })
       return
     }
@@ -818,6 +1007,7 @@ function buildBirdRecords(sightings) {
       notes: sighting.notes || existing.notes,
       photo: sighting.photo || existing.photo,
       featherCoinsEarned: existing.featherCoinsEarned + sighting.coinsEarned,
+      aiMatch: sighting.aiMatch || existing.aiMatch || null,
     })
   })
 
@@ -947,36 +1137,42 @@ function App() {
     setShowIntro(true)
   }
 
-  function addBird(form) {
-    const speciesKey = normalizeBirdName(form.birdName)
+  function addBird(form, options = {}) {
+    const birdName = String(form.birdName || '').trim()
+    const speciesKey = normalizeBirdName(birdName)
     if (!speciesKey) return
     const isNewSpecies = !data.birds.some((bird) => bird.id === speciesKey)
     const coinsEarned = isNewSpecies ? 25 : 5
-    const birdName = form.birdName.trim()
+    const aiMatch = form.aiMatch ? normalizeAiMatch(form.aiMatch) : null
     const nickname =
-      form.nickname.trim() || nicknameIdeas[speciesKey] || 'Officially Cute Bird'
+      String(form.nickname || '').trim() || nicknameIdeas[speciesKey] || 'Officially Cute Bird'
     const sighting = {
       id: createId('sighting'),
       speciesKey,
       birdName,
       nickname,
       dateSpotted: form.dateSpotted || todayValue(),
-      timeSpotted: form.timeSpotted,
-      location: form.location.trim(),
-      notes: form.notes.trim(),
-      mood: form.mood,
-      seenWithMarnich: form.seenWithMarnich,
-      favorite: form.favorite,
-      photo: form.photo,
+      timeSpotted: form.timeSpotted || '',
+      location: String(form.location || '').trim(),
+      notes: String(form.notes || '').trim(),
+      mood: form.mood || moodOptions[0],
+      seenWithMarnich: Boolean(form.seenWithMarnich),
+      favorite: Boolean(form.favorite),
+      photo: form.photo || '',
       coinsEarned,
       createdAt: new Date().toISOString(),
       personality: personalityComments[speciesKey] || '',
+      source: form.source || (aiMatch ? 'ai' : 'manual'),
+      aiMatch,
     }
     const sightings = [...data.sightings, sighting]
     const nextState = {
       ...data,
       sightings,
       birds: buildBirdRecords(sightings),
+      birdLibrary: aiMatch
+        ? upsertBirdLibraryFromAi(data.birdLibrary, aiMatch, sighting.dateSpotted)
+        : data.birdLibrary,
       featherCoins: data.featherCoins + coinsEarned,
       settings: {
         ...data.settings,
@@ -986,9 +1182,18 @@ function App() {
 
     commit(nextState, {
       title: isNewSpecies ? 'New species logged!' : 'Repeat sighting logged!',
-      body: `${getCouncilMessage(data.sightings.length)} +${coinsEarned} Feather Coins.`,
+      body: [
+        `${getCouncilMessage(data.sightings.length)} +${coinsEarned} Feather Coins.`,
+        options.checkedOff ? "Checked off Marlie's South African Bird List \u2705" : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
     })
-    setActivePage('birds')
+    if (!options.stayOnPage) {
+      setActivePage('birds')
+    }
+
+    return { birdName, coinsEarned, isNewSpecies }
   }
 
   function logMissedSighting(draft = missedDraft) {
@@ -1713,40 +1918,33 @@ function StatCard({ label, value, detail }) {
 }
 
 function AddBirdPage({ addBird }) {
-  const [form, setForm] = useState({
-    birdName: '',
-    nickname: '',
-    dateSpotted: todayValue(),
-    timeSpotted: '',
-    location: '',
-    notes: '',
-    mood: moodOptions[0],
-    seenWithMarnich: false,
-    favorite: false,
-    photo: '',
-  })
+  const [form, setForm] = useState(() => createEmptyForm())
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoInputKey, setPhotoInputKey] = useState(0)
+  const [aiStatus, setAiStatus] = useState('idle')
+  const [aiMatches, setAiMatches] = useState([])
+  const [aiUncertain, setAiUncertain] = useState(false)
+  const [offlineNotice, setOfflineNotice] = useState('')
+  const [loadingIndex, setLoadingIndex] = useState(0)
+  const [confirmation, setConfirmation] = useState(null)
 
   const speciesKey = normalizeBirdName(form.birdName)
   const nicknameSuggestion = nicknameIdeas[speciesKey]
   const personality = personalityComments[speciesKey]
+  const canAskCouncil = Boolean(photoFile) && aiStatus !== 'loading'
 
-  function updateField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }))
-  }
+  useEffect(() => {
+    if (aiStatus !== 'loading') return undefined
 
-  function handlePhoto(event) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => updateField('photo', reader.result)
-    reader.readAsDataURL(file)
-  }
+    const intervalId = window.setInterval(() => {
+      setLoadingIndex((current) => (current + 1) % loadingMessages.length)
+    }, 1500)
 
-  function handleSubmit(event) {
-    event.preventDefault()
-    if (!form.birdName.trim()) return
-    addBird(form)
-    setForm({
+    return () => window.clearInterval(intervalId)
+  }, [aiStatus])
+
+  function createEmptyForm() {
+    return {
       birdName: '',
       nickname: '',
       dateSpotted: todayValue(),
@@ -1757,7 +1955,133 @@ function AddBirdPage({ addBird }) {
       seenWithMarnich: false,
       favorite: false,
       photo: '',
-    })
+    }
+  }
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function clearAiState() {
+    setAiMatches([])
+    setAiUncertain(false)
+    setOfflineNotice('')
+    setAiStatus('idle')
+  }
+
+  function resetSpotter({ keepConfirmation = false } = {}) {
+    setForm(createEmptyForm())
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    clearAiState()
+    if (!keepConfirmation) {
+      setConfirmation(null)
+    }
+  }
+
+  function handlePhoto(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setPhotoFile(file)
+    setConfirmation(null)
+    clearAiState()
+
+    const reader = new FileReader()
+    reader.onload = () => updateField('photo', reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  function removePhoto() {
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    updateField('photo', '')
+    clearAiState()
+  }
+
+  async function handleAskCouncil(event) {
+    event.preventDefault()
+    if (!photoFile) return
+
+    setAiStatus('loading')
+    setLoadingIndex(0)
+    setConfirmation(null)
+    setAiMatches([])
+    setAiUncertain(false)
+    setOfflineNotice('')
+
+    try {
+      if (!BIRD_API_URL) {
+        throw new Error('Missing VITE_BIRD_API_URL')
+      }
+
+      const body = new FormData()
+      body.append('file', photoFile)
+
+      const response = await fetch(`${BIRD_API_URL}/api/identify-bird`, {
+        method: 'POST',
+        body,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Bird API returned ${response.status}`)
+      }
+
+      const payload = await response.json()
+      const result = normalizeAiIdentificationResponse(payload)
+
+      if (!result.matches.length) {
+        throw new Error('Bird API returned no matches')
+      }
+
+      setAiMatches(result.matches)
+      setAiUncertain(result.uncertain)
+      setAiStatus('results')
+    } catch (error) {
+      console.warn('Bird Council fallback result used', error)
+      const result = normalizeAiIdentificationResponse(mockAiBirdMatches)
+      setAiMatches(result.matches)
+      setAiUncertain(false)
+      setOfflineNotice(OFFLINE_BIRD_COUNCIL_MESSAGE)
+      setAiStatus('results')
+    }
+  }
+
+  function handleConfirmMatch(match) {
+    const details = [
+      form.notes,
+      match.whyThisBird ? `Bird Council reason: ${match.whyThisBird}` : '',
+      match.cutePersonalityLine,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
+    const saved = addBird(
+      {
+        ...form,
+        birdName: match.commonName,
+        nickname: '',
+        notes: details,
+        source: 'ai',
+        aiMatch: match,
+      },
+      { stayOnPage: true, checkedOff: true },
+    )
+
+    if (!saved) return
+
+    setConfirmation(saved)
+    resetSpotter({ keepConfirmation: true })
+  }
+
+  function handleManualSubmit(event) {
+    event.preventDefault()
+    if (!form.birdName.trim()) return
+
+    const saved = addBird({ ...form, source: 'manual' })
+    if (saved) {
+      resetSpotter()
+    }
   }
 
   return (
@@ -1766,121 +2090,298 @@ function AddBirdPage({ addBird }) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Spot a Bird</p>
-            <h2>Save a new bird memory</h2>
+            <h2>Ask the Bird Council</h2>
           </div>
           <span className="status-pill">+25 new / +5 repeat</span>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form className="council-form" onSubmit={handleAskCouncil}>
           <label className="photo-input featured-photo-input">
             Bird photo
-            <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} />
+            <input
+              key={photoInputKey}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhoto}
+            />
           </label>
+
           {form.photo ? (
             <div className="photo-preview large-preview">
               <img src={form.photo} alt="Bird preview" />
-              <button className="ghost-btn" type="button" onClick={() => updateField('photo', '')}>
+              <button className="ghost-btn" type="button" onClick={removePhoto}>
                 Remove photo
               </button>
             </div>
           ) : (
             <div className="photo-empty-preview">
-              <span>{getBirdPhotoPlaceholderLabel(form.birdName)}</span>
-              <p>Upload or take a photo to start the memory.</p>
+              <span>{getBirdPhotoPlaceholderLabel('Bird')}</span>
+              <p>Upload or take a bird photo to begin.</p>
             </div>
           )}
 
-        <div className="form-grid two">
-          <label>
-            Bird name
-            <input
-              required
-              value={form.birdName}
-              onChange={(event) => updateField('birdName', event.target.value)}
-              placeholder="Cape Robin-Chat"
-            />
-          </label>
-          <label>
-            Nickname
-            <input
-              value={form.nickname}
-              onChange={(event) => updateField('nickname', event.target.value)}
-              placeholder={nicknameSuggestion || 'Tiny celebrity name'}
-            />
-          </label>
-          <label>
-            Date spotted
-            <input
-              type="date"
-              value={form.dateSpotted}
-              onChange={(event) => updateField('dateSpotted', event.target.value)}
-            />
-          </label>
-          <label>
-            Location
-            <input
-              value={form.location}
-              onChange={(event) => updateField('location', event.target.value)}
-              placeholder="Garden, park, coffee date"
-            />
-          </label>
-          <label>
-            Mood
-            <select value={form.mood} onChange={(event) => updateField('mood', event.target.value)}>
-              {moodOptions.map((mood) => (
-                <option key={mood}>{mood}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+          <div className="form-grid two">
+            <label>
+              Date spotted
+              <input
+                type="date"
+                value={form.dateSpotted}
+                onChange={(event) => updateField('dateSpotted', event.target.value)}
+              />
+            </label>
+            <label>
+              Location
+              <input
+                value={form.location}
+                onChange={(event) => updateField('location', event.target.value)}
+                placeholder="Garden, park, coffee date"
+              />
+            </label>
+            <label>
+              Mood
+              <select
+                value={form.mood}
+                onChange={(event) => updateField('mood', event.target.value)}
+              >
+                {moodOptions.map((mood) => (
+                  <option key={mood}>{mood}</option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-        <label>
-          Notes
-          <textarea
-            value={form.notes}
-            onChange={(event) => updateField('notes', event.target.value)}
-            placeholder="What was it doing? Was it cute? Did it look guilty?"
-          />
-        </label>
-
-        <div className="toggle-row">
-          <label className="check-card">
-            <input
-              type="checkbox"
-              checked={form.seenWithMarnich}
-              onChange={(event) => updateField('seenWithMarnich', event.target.checked)}
+          <label>
+            Notes
+            <textarea
+              value={form.notes}
+              onChange={(event) => updateField('notes', event.target.value)}
+              placeholder="What was it doing? Was it cute? Did it look guilty?"
             />
-            Seen with Marnich
           </label>
-          <label className="check-card">
-            <input
-              type="checkbox"
-              checked={form.favorite}
-              onChange={(event) => updateField('favorite', event.target.checked)}
-            />
-            Favourite
-          </label>
-        </div>
 
-        {(nicknameSuggestion || personality) && (
-          <div className="hint-panel">
-            {nicknameSuggestion && <p>Nickname idea: {nicknameSuggestion}</p>}
-            {personality && <p>{personality}</p>}
+          <div className="toggle-row">
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.seenWithMarnich}
+                onChange={(event) => updateField('seenWithMarnich', event.target.checked)}
+              />
+              Seen with Marnich
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.favorite}
+                onChange={(event) => updateField('favorite', event.target.checked)}
+              />
+              Favourite
+            </label>
+          </div>
+
+          <button className="primary-btn submit-btn" type="submit" disabled={!canAskCouncil}>
+            Ask the Bird Council
+          </button>
+        </form>
+
+        {aiStatus === 'loading' && (
+          <div className="council-loading" role="status" aria-live="polite">
+            <span aria-hidden="true"></span>
+            <p>{loadingMessages[loadingIndex]}</p>
           </div>
         )}
 
-        <button className="primary-btn submit-btn" type="submit">
-          Save to My Birds
-        </button>
-      </form>
+        {offlineNotice && (
+          <div className="hint-panel offline-council-note">
+            <p>{offlineNotice}</p>
+          </div>
+        )}
+
+        {confirmation && (
+          <div className="checked-off-banner" role="status">
+            <strong>Checked off Marlie&apos;s South African Bird List {'\u2705'}</strong>
+            <p>
+              {confirmation.birdName} saved to My Birds. +{confirmation.coinsEarned} Feather
+              Coins.
+            </p>
+          </div>
+        )}
+
+        {aiMatches.length > 0 && (
+          <section className="ai-results-panel" aria-live="polite">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Bird Council answers</p>
+                <h3>Top 3 AI matches</h3>
+              </div>
+              <span className={aiUncertain ? 'status-pill locked' : 'status-pill'}>
+                {aiUncertain ? 'Council is unsure' : `${aiMatches.length} matches`}
+              </span>
+            </div>
+            <div className="ai-match-grid">
+              {aiMatches.map((match, index) => (
+                <AiMatchCard
+                  key={`${match.commonName}-${index}`}
+                  index={index}
+                  match={match}
+                  onConfirm={handleConfirmMatch}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </section>
 
-      <section className="soft-card ai-placeholder-card full-span" aria-disabled="true">
-        <p className="eyebrow">Future magic</p>
-        <h3>AI bird identification coming soon</h3>
-        <p>Upload a photo and the app will suggest the bird. For now, the Bird Council still requires manual paperwork.</p>
-        <span className="status-pill locked">Coming soon</span>
+      <section className="soft-card manual-entry-card full-span">
+        <details>
+          <summary>Add manually instead</summary>
+          <form onSubmit={handleManualSubmit}>
+            <div className="form-grid two">
+              <label>
+                Bird name
+                <input
+                  required
+                  value={form.birdName}
+                  onChange={(event) => updateField('birdName', event.target.value)}
+                  placeholder="Cape Robin-Chat"
+                />
+              </label>
+              <label>
+                Nickname
+                <input
+                  value={form.nickname}
+                  onChange={(event) => updateField('nickname', event.target.value)}
+                  placeholder={nicknameSuggestion || 'Tiny celebrity name'}
+                />
+              </label>
+              <label>
+                Date spotted
+                <input
+                  type="date"
+                  value={form.dateSpotted}
+                  onChange={(event) => updateField('dateSpotted', event.target.value)}
+                />
+              </label>
+              <label>
+                Location
+                <input
+                  value={form.location}
+                  onChange={(event) => updateField('location', event.target.value)}
+                  placeholder="Garden, park, coffee date"
+                />
+              </label>
+              <label>
+                Mood
+                <select
+                  value={form.mood}
+                  onChange={(event) => updateField('mood', event.target.value)}
+                >
+                  {moodOptions.map((mood) => (
+                    <option key={mood}>{mood}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Notes
+              <textarea
+                value={form.notes}
+                onChange={(event) => updateField('notes', event.target.value)}
+                placeholder="Manual bird paperwork goes here."
+              />
+            </label>
+
+            <div className="toggle-row">
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.seenWithMarnich}
+                  onChange={(event) => updateField('seenWithMarnich', event.target.checked)}
+                />
+                Seen with Marnich
+              </label>
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.favorite}
+                  onChange={(event) => updateField('favorite', event.target.checked)}
+                />
+                Favourite
+              </label>
+            </div>
+
+            {(nicknameSuggestion || personality) && (
+              <div className="hint-panel">
+                {nicknameSuggestion && <p>Nickname idea: {nicknameSuggestion}</p>}
+                {personality && <p>{personality}</p>}
+              </div>
+            )}
+
+            <button className="secondary-btn submit-btn" type="submit">
+              Save manual bird
+            </button>
+          </form>
+        </details>
       </section>
+    </div>
+  )
+}
+
+function AiMatchCard({ match, index, onConfirm }) {
+  const detailRows = [
+    ['Common name', match.commonName],
+    ['Afrikaans name', match.afrikaansName],
+    ['Scientific name', match.scientificName],
+    ['Confidence', formatConfidence(match.confidence)],
+    ['Why this bird', match.whyThisBird],
+    ['Habitat', match.habitat],
+    ['Diet', match.diet],
+    ['Where found in South Africa', match.whereFoundInSouthAfrica],
+    ['Personality', match.cutePersonalityLine],
+    ['Sound', match.soundDescription],
+  ]
+
+  return (
+    <article className="ai-match-card">
+      <div className="ai-match-title">
+        <span className="status-pill">Match {index + 1}</span>
+        <h3>{match.commonName}</h3>
+        <p className="fine-print">{match.scientificName || 'Scientific name unknown'}</p>
+      </div>
+
+      <dl className="bird-meta ai-match-meta">
+        {detailRows.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value || 'Not sure yet'}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <AiList title="Fun facts" items={match.funFacts} />
+      <AiList title="Similar birds" items={match.similarBirds} />
+
+      <button className="primary-btn" type="button" onClick={() => onConfirm(match)}>
+        Confirm this bird
+      </button>
+    </article>
+  )
+}
+
+function AiList({ title, items }) {
+  return (
+    <div className="ai-list-block">
+      <strong>{title}</strong>
+      {items.length ? (
+        <ul>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>Not sure yet</p>
+      )}
     </div>
   )
 }
@@ -1918,6 +2419,29 @@ function BirdsPage({ data }) {
               </div>
               <p>{bird.location || 'Secret location'}</p>
               {bird.notes && <p className="notes-preview">{bird.notes}</p>}
+              {bird.aiMatch && (
+                <div className="saved-ai-details">
+                  <p className="eyebrow">AI bird notes</p>
+                  <dl className="bird-meta">
+                    <div>
+                      <dt>Afrikaans</dt>
+                      <dd>{bird.aiMatch.afrikaansName || 'Not sure yet'}</dd>
+                    </div>
+                    <div>
+                      <dt>Scientific</dt>
+                      <dd>{bird.aiMatch.scientificName || 'Not sure yet'}</dd>
+                    </div>
+                    <div>
+                      <dt>Habitat</dt>
+                      <dd>{bird.aiMatch.habitat || 'Not sure yet'}</dd>
+                    </div>
+                    <div>
+                      <dt>Diet</dt>
+                      <dd>{bird.aiMatch.diet || 'Not sure yet'}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
             </div>
           </article>
         ))}

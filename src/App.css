@@ -733,6 +733,141 @@ textarea:focus {
   justify-self: start;
 }
 
+.council-form,
+.manual-entry-card form {
+  display: grid;
+  gap: 14px;
+}
+
+.council-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid rgba(71, 112, 77, 0.18);
+  border-radius: 16px;
+  background: rgba(231, 241, 223, 0.68);
+  padding: 12px 14px;
+}
+
+.council-loading span {
+  flex: 0 0 auto;
+  width: 18px;
+  aspect-ratio: 1;
+  border: 3px solid rgba(71, 112, 77, 0.18);
+  border-top-color: var(--leaf);
+  border-radius: 999px;
+  animation: council-spin 800ms linear infinite;
+}
+
+.council-loading p,
+.offline-council-note p,
+.checked-off-banner p {
+  margin: 0;
+}
+
+.offline-council-note,
+.checked-off-banner,
+.ai-results-panel {
+  margin-top: 14px;
+}
+
+.checked-off-banner {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(71, 112, 77, 0.24);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(231, 241, 223, 0.92), rgba(255, 246, 222, 0.86));
+  padding: 14px;
+}
+
+.checked-off-banner strong {
+  color: var(--leaf-dark);
+}
+
+.ai-results-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.ai-match-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+
+.ai-match-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px;
+}
+
+.ai-match-title {
+  display: grid;
+  gap: 6px;
+}
+
+.ai-match-title h3 {
+  margin: 0;
+  color: var(--ink-strong);
+}
+
+.ai-match-meta {
+  grid-template-columns: 1fr;
+}
+
+.ai-list-block {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.58);
+  padding: 11px;
+}
+
+.ai-list-block strong {
+  color: var(--leaf-dark);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.ai-list-block ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ai-list-block p {
+  margin: 0;
+}
+
+.manual-entry-card details {
+  display: grid;
+  gap: 14px;
+}
+
+.manual-entry-card summary {
+  cursor: pointer;
+  color: var(--ink-strong);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.manual-entry-card details[open] summary {
+  margin-bottom: 14px;
+}
+
+.saved-ai-details {
+  display: grid;
+  gap: 8px;
+}
+
 .bird-list,
 .bird-gallery,
 .reward-grid,
@@ -1349,6 +1484,12 @@ textarea:focus {
 
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes council-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
