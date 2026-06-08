@@ -105,7 +105,10 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                         "You are an expert South African ornithologist helping a "
                         "birding app identify birds from photos. Use South African "
                         "context first. Prefer birds found in South Africa, include "
-                        "Afrikaans names where commonly known, and do not invent facts."
+                        "Afrikaans names where commonly known, and do not invent facts. "
+                        "Be honest about uncertainty: it is far better to admit you are "
+                        "unsure than to sound confident and be wrong. Never overstate "
+                        "confidence."
                     ),
                 },
                 {
@@ -115,11 +118,15 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                             "type": "text",
                             "text": (
                                 "Identify the bird in this image. Return only valid JSON "
-                                "with exactly this shape. Provide the top 3 likely bird "
-                                "matches. Set uncertain to true if the image is unclear, "
-                                "too distant, partially obstructed, or not a bird. Use "
-                                "confidence as a number from 0 to 100. Use empty strings "
-                                "or empty arrays where a field is genuinely unknown.\n\n"
+                                "with exactly this shape. Always provide the top 3 most "
+                                "likely bird matches, ordered from most to least likely. "
+                                "Use confidence as a number from 0 to 100 that genuinely "
+                                "reflects how sure you are — keep it low when the photo is "
+                                "ambiguous, and do not force a single confident answer. "
+                                "Set uncertain to true whenever the best match is below 70 "
+                                "confidence, or the image is unclear, too distant, "
+                                "partially obstructed, or not a bird. Use empty strings or "
+                                "empty arrays where a field is genuinely unknown.\n\n"
                                 "{\n"
                                 '  "uncertain": false,\n'
                                 '  "topMatches": [\n'

@@ -870,6 +870,8 @@ textarea:focus {
 
 .bird-list,
 .bird-gallery,
+.memory-gallery,
+.library-grid,
 .reward-grid,
 .shop-grid,
 .challenge-list,
@@ -878,6 +880,7 @@ textarea:focus {
 .photo-wall,
 .future-grid,
 .admin-stats,
+.profile-sighting-grid,
 .report-grid {
   display: grid;
   gap: 12px;
@@ -885,12 +888,15 @@ textarea:focus {
 
 .bird-list,
 .bird-gallery,
+.memory-gallery,
 .reward-grid,
 .shop-grid,
 .notes-grid,
 .certificate-grid,
 .photo-wall,
-.future-grid {
+.future-grid,
+.library-grid,
+.profile-sighting-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 
@@ -910,6 +916,10 @@ textarea:focus {
 .bird-card {
   background:
     linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(238, 247, 226, 0.78));
+}
+
+.memory-gallery {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
 }
 
 .memory-bird-card {
@@ -949,6 +959,18 @@ textarea:focus {
   display: grid;
   gap: 10px;
   padding: 16px;
+}
+
+.memory-meta {
+  grid-template-columns: 1fr;
+}
+
+.compact-list {
+  gap: 6px;
+}
+
+.compact-list p {
+  padding: 10px;
 }
 
 .notes-preview {
@@ -994,6 +1016,88 @@ textarea:focus {
   margin: 2px 0 0;
   color: var(--ink-strong);
   font-weight: 800;
+}
+
+.library-page {
+  align-items: start;
+}
+
+.checklist-hero {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(231, 241, 223, 0.78)),
+    linear-gradient(90deg, rgba(223, 166, 79, 0.18), rgba(216, 131, 115, 0.16));
+}
+
+.library-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 900;
+  min-height: 38px;
+  padding: 0 13px;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.filter-chip.active {
+  border-color: rgba(71, 112, 77, 0.42);
+  background: var(--leaf);
+  color: #fff;
+}
+
+.library-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+}
+
+.library-bird-card,
+.profile-sighting-card {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(255, 243, 218, 0.76));
+  box-shadow: var(--shadow);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.library-bird-card.seen {
+  border-color: rgba(71, 112, 77, 0.34);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.94), rgba(231, 241, 223, 0.86));
+}
+
+.library-placeholder {
+  background:
+    linear-gradient(135deg, rgba(231, 241, 223, 0.92), rgba(255, 226, 182, 0.8)),
+    linear-gradient(45deg, rgba(216, 131, 115, 0.18), transparent);
+}
+
+.library-bird-card h3,
+.magazine-bird-card h3,
+.profile-sighting-card strong {
+  color: var(--ink-strong);
 }
 
 .photo-wall figure {
@@ -1175,6 +1279,83 @@ textarea:focus {
 
 .magazine-note {
   min-height: 170px;
+}
+
+.bird-of-week-card,
+.bird-profile-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.bird-of-week-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 230, 198, 0.82)),
+    linear-gradient(90deg, rgba(71, 112, 77, 0.14), rgba(216, 131, 115, 0.12));
+}
+
+.profile-main-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.profile-main-photo.placeholder-photo {
+  display: grid;
+  place-items: center;
+}
+
+.bird-profile-page {
+  align-items: start;
+}
+
+.bird-profile-hero {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(231, 241, 223, 0.8)),
+    linear-gradient(135deg, rgba(223, 166, 79, 0.16), rgba(216, 131, 115, 0.14));
+}
+
+.profile-meta {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+}
+
+.back-btn {
+  justify-self: start;
+  margin: 0 0 8px;
+  padding-left: 0;
+}
+
+.sound-card audio {
+  width: 100%;
+}
+
+.sound-placeholder {
+  display: grid;
+  min-height: 72px;
+  place-items: center;
+  border: 1px dashed rgba(71, 112, 77, 0.28);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(231, 241, 223, 0.72), rgba(255, 246, 222, 0.82));
+  color: var(--muted);
+  font-weight: 900;
+  text-align: center;
+}
+
+.profile-sighting-card img,
+.profile-sighting-card .placeholder-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.profile-sighting-card > div:not(.placeholder-photo) {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
 }
 
 .profile-hero {
@@ -1457,6 +1638,8 @@ textarea:focus {
   .shop-card:hover,
   .challenge-card:hover,
   .bird-card:hover,
+  .library-bird-card:hover,
+  .profile-sighting-card:hover,
   .note-card:hover,
   .certificate:hover,
   .missed-card:hover,
@@ -1600,12 +1783,14 @@ textarea:focus {
   .home-simple-grid,
   .hero-panel,
   .mystery-hero,
-  .magazine-page,
-  .form-grid.two,
-  .challenge-card,
-  .alert-card,
-  .profile-hero,
-  .admin-edit-row {
+    .magazine-page,
+    .form-grid.two,
+    .challenge-card,
+    .alert-card,
+    .bird-of-week-card,
+    .bird-profile-hero,
+    .profile-hero,
+    .admin-edit-row {
     grid-template-columns: 1fr;
   }
 
@@ -1745,6 +1930,259 @@ textarea:focus {
 
   .reward-unlock-card h2 {
     font-size: 1.75rem;
+  }
+}
+
+/* ---- Magical ambient sky (floating feathers + tiny birds) ---- */
+.app-shell {
+  position: relative;
+}
+
+.app-header,
+.tabs,
+.page-wrap,
+.app-footer {
+  position: relative;
+  z-index: 1;
+}
+
+.ambient-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ambient-sky span {
+  position: absolute;
+  will-change: transform;
+  filter: drop-shadow(0 8px 12px rgba(71, 86, 56, 0.12));
+}
+
+.floating-feather {
+  opacity: 0.42;
+}
+
+.feather-one {
+  left: 7%;
+  top: 20%;
+  font-size: 1.7rem;
+  animation: drift-feather 13s ease-in-out infinite;
+}
+
+.feather-two {
+  right: 11%;
+  top: 30%;
+  font-size: 1.2rem;
+  animation: drift-feather 17s ease-in-out infinite 2s;
+}
+
+.feather-three {
+  left: 20%;
+  bottom: 12%;
+  font-size: 2rem;
+  animation: drift-feather 15s ease-in-out infinite 1s;
+}
+
+.tiny-bird {
+  opacity: 0.34;
+}
+
+.bird-one {
+  right: 16%;
+  top: 13%;
+  font-size: 1.5rem;
+  animation: glide-bird 24s ease-in-out infinite;
+}
+
+.bird-two {
+  left: 12%;
+  top: 58%;
+  font-size: 1.3rem;
+  animation: glide-bird 30s ease-in-out infinite 5s;
+}
+
+@keyframes drift-feather {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-8deg);
+  }
+
+  50% {
+    transform: translateY(-26px) rotate(10deg);
+  }
+}
+
+@keyframes glide-bird {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-42px, -16px);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* ---- Gentle transition between screens ---- */
+.page-stage {
+  animation: page-enter 440ms ease both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- AI match confidence + ambiguity ---- */
+.ai-results-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.ai-confidence {
+  display: grid;
+  gap: 6px;
+}
+
+.ai-confidence-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--leaf-dark);
+}
+
+.ai-confidence-head strong {
+  font-size: 1.1rem;
+  color: var(--ink-strong);
+}
+
+.confidence-bar {
+  height: 9px;
+  border-radius: 999px;
+  background: #efe8db;
+  overflow: hidden;
+}
+
+.confidence-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--leaf), var(--honey));
+  transition: width 700ms ease;
+}
+
+.confidence-bar span.low {
+  background: linear-gradient(90deg, #d8a373, var(--rose));
+}
+
+.ai-confidence-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.ai-match-card.best-match {
+  border-color: rgba(71, 112, 77, 0.4);
+  box-shadow: var(--shadow);
+}
+
+.ai-match-card.unsure {
+  border-style: dashed;
+  border-color: rgba(216, 131, 115, 0.5);
+  background: rgba(255, 250, 246, 0.82);
+}
+
+.ai-reject-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.ai-guidance-note {
+  margin-top: 14px;
+}
+
+/* ---- Bird discovery celebration ---- */
+.celebration-burst {
+  position: relative;
+  height: 0;
+  pointer-events: none;
+}
+
+.celebration-burst span {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  font-size: 1.5rem;
+  opacity: 0;
+  animation: celebrate-rise 1500ms ease-out forwards;
+}
+
+.celebration-burst span:nth-child(1) {
+  --x: -90px;
+  --r: -24deg;
+  animation-delay: 0ms;
+}
+
+.celebration-burst span:nth-child(2) {
+  --x: -45px;
+  --r: 18deg;
+  animation-delay: 90ms;
+}
+
+.celebration-burst span:nth-child(3) {
+  --x: 0px;
+  --r: -10deg;
+  animation-delay: 40ms;
+}
+
+.celebration-burst span:nth-child(4) {
+  --x: 48px;
+  --r: 20deg;
+  animation-delay: 120ms;
+}
+
+.celebration-burst span:nth-child(5) {
+  --x: 92px;
+  --r: -16deg;
+  animation-delay: 60ms;
+}
+
+.celebration-burst span:nth-child(6) {
+  --x: 24px;
+  --r: 30deg;
+  animation-delay: 150ms;
+}
+
+@keyframes celebrate-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5) rotate(0deg);
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--x), -118px) scale(1.1) rotate(var(--r));
   }
 }
 
