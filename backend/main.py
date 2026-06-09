@@ -33,13 +33,25 @@ MATCH_TEMPLATE: dict[str, Any] = {
 app = FastAPI(title="Marlie Bird API")
 
 
+# Known production + dev origins, allowed even if FRONTEND_URL is unset or
+# incomplete. This prevents the frontend silently falling back to the demo
+# result because of a CORS block.
+DEFAULT_ALLOWED_ORIGINS = [
+    "https://pooksbooks.co.za",
+    "https://www.pooksbooks.co.za",
+    "https://marlieapp-proper.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:4173",
+]
+
+
 def get_allowed_origins() -> list[str]:
     frontend_url = os.getenv("FRONTEND_URL", "")
-    origins = []
+    origins = list(DEFAULT_ALLOWED_ORIGINS)
 
     for origin in frontend_url.split(","):
         cleaned_origin = origin.strip().rstrip("/")
-        if cleaned_origin:
+        if cleaned_origin and cleaned_origin not in origins:
             origins.append(cleaned_origin)
 
     return origins
@@ -48,6 +60,8 @@ def get_allowed_origins() -> list[str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_allowed_origins(),
+    # Also allow any Vercel preview/production deploy URL.
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],

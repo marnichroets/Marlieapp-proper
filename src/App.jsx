@@ -18,7 +18,13 @@ import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
-const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
+// Fall back to the known Railway backend if the build env var is missing, so
+// real AI identification still works even when VITE_BIRD_API_URL wasn't set.
+const DEFAULT_BIRD_API_URL = 'https://marlieapp-proper-production.up.railway.app'
+const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || DEFAULT_BIRD_API_URL).replace(
+  /\/+$/,
+  '',
+)
 const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
 // NOTE: import.meta.env.VITE_* is inlined at BUILD time, not read at runtime.
 // .trim() guards against a stray newline/space if the key was pasted in Vercel.
@@ -3294,20 +3300,17 @@ function AddBirdPage({ addBird }) {
     setAiUncertain(false)
     setOfflineNotice('')
 
+    const endpoint = `${BIRD_API_URL}/api/identify-bird`
     try {
-      if (!BIRD_API_URL) {
-        throw new Error('Missing VITE_BIRD_API_URL')
-      }
-
       const body = new FormData()
       body.append('file', photoFile)
 
-      const response = await fetch(`${BIRD_API_URL}/api/identify-bird`, {
-        method: 'POST',
-        body,
-      })
+      console.log('[bird-id] POST', endpoint)
+      const response = await fetch(endpoint, { method: 'POST', body })
 
       if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        console.warn('[bird-id] API error', response.status, text.slice(0, 300))
         throw new Error(`Bird API returned ${response.status}`)
       }
 
@@ -3318,11 +3321,17 @@ function AddBirdPage({ addBird }) {
         throw new Error('Bird API returned no matches')
       }
 
+      console.log('[bird-id] success —', result.matches.length, 'match(es)')
       setAiMatches(result.matches)
       setAiUncertain(result.uncertain)
       setAiStatus('results')
     } catch (error) {
-      console.warn('Bird Council fallback result used', error)
+      // Only reach the demo result on a genuine failure (network/CORS/API error).
+      console.warn(
+        `[bird-id] real identification failed (${error?.message || error}) — showing demo fallback. ` +
+          `Endpoint: ${endpoint}. If this is CORS, the backend must allow this site's origin; ` +
+          'if it is a network error, check the backend is awake.',
+      )
       const result = normalizeAiIdentificationResponse(mockAiBirdMatches)
       setAiMatches(result.matches)
       setAiUncertain(false)
