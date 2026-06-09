@@ -5,14 +5,34 @@ import { defaultBirdLibrary } from './data/saBirdLibrary'
 const STORAGE_KEY = 'marlie-bird-app-v1'
 const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
 const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
-const XENO_CANTO_ENV_KEY = String(import.meta.env.VITE_XENO_CANTO_KEY || '')
+// NOTE: import.meta.env.VITE_* is inlined at BUILD time, not read at runtime.
+// .trim() guards against a stray newline/space if the key was pasted in Vercel.
+const XENO_CANTO_ENV_KEY = String(import.meta.env.VITE_XENO_CANTO_KEY || '').trim()
+
+// Mask a secret for safe logging: show length + a tiny preview only.
+function maskKey(key) {
+  if (!key) return '(empty)'
+  if (key.length <= 5) return `set (${key.length} chars)`
+  return `${key.slice(0, 3)}…${key.slice(-2)} (${key.length} chars)`
+}
 
 function getXenoCantoKey() {
   try {
-    return XENO_CANTO_ENV_KEY || localStorage.getItem(XENO_CANTO_KEY_STORAGE) || ''
+    const stored = (localStorage.getItem(XENO_CANTO_KEY_STORAGE) || '').trim()
+    return XENO_CANTO_ENV_KEY || stored
   } catch {
     return XENO_CANTO_ENV_KEY
   }
+}
+
+// One-time diagnostic on load: confirms whether the build baked in the key.
+if (typeof window !== 'undefined') {
+  console.log(
+    '[xeno-canto] VITE_XENO_CANTO_KEY baked into this build?',
+    Boolean(XENO_CANTO_ENV_KEY),
+    '| preview:',
+    maskKey(XENO_CANTO_ENV_KEY),
+  )
 }
 const OFFLINE_BIRD_COUNCIL_MESSAGE =
   'The Bird Council is practicing offline, so this is a demo result.'
@@ -3615,12 +3635,43 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
 
     let cancelled = false
     const apiKey = getXenoCantoKey()
-    fetch(
-      `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`,
-    )
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('bad'))))
+    const keySource = XENO_CANTO_ENV_KEY
+      ? 'build env (VITE_XENO_CANTO_KEY)'
+      : apiKey
+        ? 'localStorage (admin-entered)'
+        : 'NONE'
+    const requestUrl = `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`
+    console.log('[xeno-canto] requesting recording', {
+      query,
+      keySource,
+      keyPreview: maskKey(apiKey),
+      url: `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${maskKey(apiKey)}`,
+    })
+    if (!apiKey) {
+      console.warn(
+        '[xeno-canto] No API key found. The build env key is empty and no admin key is saved. ' +
+          'Set VITE_XENO_CANTO_KEY in the Vercel (frontend) build and REDEPLOY, ' +
+          'or paste a key in Admin → Bird song API key.',
+      )
+    }
+
+    fetch(requestUrl)
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = await response.text().catch(() => '')
+          console.warn('[xeno-canto] API responded with an error', {
+            status: response.status,
+            statusText: response.statusText,
+            body: body.slice(0, 300),
+          })
+          throw new Error(`xeno-canto HTTP ${response.status}`)
+        }
+        return response.json()
+      })
       .then((payload) => {
         if (cancelled) return
+        const count = payload?.recordings?.length || 0
+        console.log(`[xeno-canto] success — ${count} recording(s) for "${query}"`)
         const recording = (payload?.recordings || []).find((item) => item.file)
         const raw = recording?.file || ''
         const normalized = raw.startsWith('//') ? `https:${raw}` : raw
@@ -3641,7 +3692,10 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
           setStatus('empty')
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        // A genuine network/CORS failure throws a TypeError here; an API error
+        // (e.g. 401 invalid key) is logged above with its status + body.
+        console.warn('[xeno-canto] request failed:', error?.message || error)
         if (!cancelled) setStatus('empty')
       })
 
