@@ -9,13 +9,6 @@ const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
 // .trim() guards against a stray newline/space if the key was pasted in Vercel.
 const XENO_CANTO_ENV_KEY = String(import.meta.env.VITE_XENO_CANTO_KEY || '').trim()
 
-// Mask a secret for safe logging: show length + a tiny preview only.
-function maskKey(key) {
-  if (!key) return '(empty)'
-  if (key.length <= 5) return `set (${key.length} chars)`
-  return `${key.slice(0, 3)}…${key.slice(-2)} (${key.length} chars)`
-}
-
 function getXenoCantoKey() {
   try {
     const stored = (localStorage.getItem(XENO_CANTO_KEY_STORAGE) || '').trim()
@@ -26,12 +19,13 @@ function getXenoCantoKey() {
 }
 
 // One-time diagnostic on load: confirms whether the build baked in the key.
+// Only a boolean + length are logged — never any part of the key value.
 if (typeof window !== 'undefined') {
   console.log(
     '[xeno-canto] VITE_XENO_CANTO_KEY baked into this build?',
     Boolean(XENO_CANTO_ENV_KEY),
-    '| preview:',
-    maskKey(XENO_CANTO_ENV_KEY),
+    '| length:',
+    XENO_CANTO_ENV_KEY.length,
   )
 }
 const OFFLINE_BIRD_COUNCIL_MESSAGE =
@@ -3885,12 +3879,18 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
       : apiKey
         ? 'localStorage (admin-entered)'
         : 'NONE'
+    // The real request URL always uses the raw key value, nothing else.
     const requestUrl = `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`
+    // For logging only, redact the key so the secret never prints and the
+    // placeholder can't be mistaken for the value being sent.
+    const loggedUrl = apiKey
+      ? requestUrl.replace(encodeURIComponent(apiKey), 'KEY_REDACTED')
+      : requestUrl
     console.log('[xeno-canto] requesting recording', {
       query,
       keySource,
-      keyPreview: maskKey(apiKey),
-      url: `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${maskKey(apiKey)}`,
+      keyLength: apiKey.length,
+      url: loggedUrl,
     })
     if (!apiKey) {
       console.warn(
