@@ -208,13 +208,20 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert South African ornithologist helping a "
-                        "birding app identify birds from photos. Use South African "
-                        "context first. Prefer birds found in South Africa, include "
-                        "Afrikaans names where commonly known, and do not invent facts. "
-                        "Be honest about uncertainty: it is far better to admit you are "
-                        "unsure than to sound confident and be wrong. Never overstate "
-                        "confidence."
+                        "You are an expert South African ornithologist powering the "
+                        "bird-identification feature of a South African birding app. "
+                        "Only ever suggest bird species that genuinely occur in South "
+                        "Africa. Work through the most OBVIOUS physical features FIRST and "
+                        "let them rule out impossible matches: overall body size, body "
+                        "shape, beak shape and length, leg length, dominant colours and "
+                        "markings, and posture. A large brown bird with a long down-curved "
+                        "beak and long legs (such as an ibis) cannot be a small upright "
+                        "garden songbird (such as a robin-chat) — never confuse birds with "
+                        "clearly different body types, sizes or beak shapes. Include "
+                        "Afrikaans names where commonly known, and do not invent facts. Be "
+                        "genuinely honest about uncertainty: it is far better to admit you "
+                        "are unsure than to sound confident and be wrong, and you must "
+                        "never overstate confidence."
                     ),
                 },
                 {
@@ -223,16 +230,23 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                         {
                             "type": "text",
                             "text": (
-                                "Identify the bird in this image. Return only valid JSON "
-                                "with exactly this shape. Always provide the top 3 most "
-                                "likely bird matches, ordered from most to least likely. "
-                                "Use confidence as a number from 0 to 100 that genuinely "
-                                "reflects how sure you are — keep it low when the photo is "
-                                "ambiguous, and do not force a single confident answer. "
-                                "Set uncertain to true whenever the best match is below 70 "
+                                "Identify the bird in this photo. Only suggest South "
+                                "African bird species. Consider the bird's size, shape, "
+                                "beak, colour, and posture carefully before deciding, and "
+                                "make sure your top match is physically consistent with "
+                                "those features (a large, long-legged, curved-beak bird is "
+                                "not a tiny garden robin). Return the top 3 most likely SA "
+                                "species, ordered from most to least likely.\n\n"
+                                "Be honest about confidence — use a number from 0 to 100 "
+                                "that genuinely reflects how sure you are. Keep it low "
+                                "(below 60) when the image is unclear, distant, blurry, "
+                                "partially hidden, or the key features are not clearly "
+                                "visible, and do not force a single confident answer. Set "
+                                "uncertain to true whenever the best match is below 70 "
                                 "confidence, or the image is unclear, too distant, "
                                 "partially obstructed, or not a bird. Use empty strings or "
                                 "empty arrays where a field is genuinely unknown.\n\n"
+                                "Return only valid JSON with exactly this shape:\n\n"
                                 "{\n"
                                 '  "uncertain": false,\n'
                                 '  "topMatches": [\n'
@@ -267,6 +281,8 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                 },
             ],
             max_tokens=1200,
+            # Lower temperature for steadier, less speculative identifications.
+            temperature=0.2,
         )
     except OpenAIError as exc:
         raise HTTPException(
