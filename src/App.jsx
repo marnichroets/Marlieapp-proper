@@ -3559,6 +3559,9 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
 }
 
 function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
+  // Declared before the early return so hook order stays stable when a bird
+  // flips from mystery to caught.
+  const [imgError, setImgError] = useState(false)
   const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
   const spottedPhoto = herPhoto || bird.imageUrl
   const withMarnich =
@@ -3602,19 +3605,21 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
     )
   }
 
-  // Mystery card: black silhouette + ??? + one cryptic clue + go-spot button.
+  // Mystery card: darkened silhouette + ??? + one cryptic clue + go-spot button.
   // The only way to unlock is to upload a real photo the AI confirms.
-  const hasRealPhoto = bird.imageUrl && !bird.imageUrl.includes('placehold')
+  // If there's no real photo, or it fails to load, show a big ? — never a black box.
+  const showSilhouette = bird.imageUrl && !bird.imageUrl.includes('placehold') && !imgError
 
   return (
     <article className="library-bird-card mystery-card">
-      {hasRealPhoto ? (
+      {showSilhouette ? (
         <div className="bird-card-photo-frame mystery-frame">
           <img
             className="bird-card-photo silhouette-shape"
             src={bird.imageUrl}
             alt="Mystery bird silhouette"
             loading="lazy"
+            onError={() => setImgError(true)}
           />
         </div>
       ) : (

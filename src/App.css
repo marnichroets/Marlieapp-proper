@@ -3382,11 +3382,10 @@ textarea:focus {
     linear-gradient(160deg, rgba(231, 241, 223, 0.95), rgba(255, 235, 205, 0.88));
 }
 
-/* Turn the real photo into a solid black mystery silhouette. */
+/* Darken the real photo into a visible (not solid black) mystery shape. */
 .silhouette-shape {
-  filter: brightness(0) saturate(0);
+  filter: grayscale(100%) brightness(20%) contrast(100%);
   background: transparent !important;
-  opacity: 0.9;
 }
 
 .mystery-card h3 {
