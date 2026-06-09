@@ -701,6 +701,52 @@ function getBirdLibraryMatchIndex(library, { commonName, scientificName }) {
   )
 }
 
+function hashString(value) {
+  let hash = 0
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0
+  }
+  return hash
+}
+
+// Deterministic order so the guess options don't reshuffle on every render.
+function shuffleByKey(items, key) {
+  return [...items]
+    .map((value) => [value, hashString(`${value}-${key}`)])
+    .sort((a, b) => a[1] - b[1])
+    .map(([value]) => value)
+}
+
+// Build a 3-option guess: the correct bird + 2 similar decoys.
+function buildGuessOptions(bird, library) {
+  const correctKey = normalizeBirdName(bird.commonName)
+  const others = library.filter((item) => normalizeBirdName(item.commonName) !== correctKey)
+  const similarKeys = new Set((bird.similarSpecies || []).map((name) => normalizeBirdName(name)))
+
+  let decoys = others.filter((item) => similarKeys.has(normalizeBirdName(item.commonName)))
+  if (decoys.length < 2) {
+    const sameCategory = others.filter(
+      (item) => item.category === bird.category && !decoys.some((d) => d.id === item.id),
+    )
+    decoys = decoys.concat(sameCategory)
+  }
+  if (decoys.length < 2) {
+    decoys = decoys.concat(others.filter((item) => !decoys.some((d) => d.id === item.id)))
+  }
+
+  const seen = new Set()
+  decoys = decoys
+    .filter((item) => {
+      const key = normalizeBirdName(item.commonName)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 2)
+
+  return shuffleByKey([bird.commonName, ...decoys.map((item) => item.commonName)], bird.id)
+}
+
 function buildSightingPhotoRecord(sighting, aiMatch) {
   return {
     id: sighting.id,
@@ -1085,6 +1131,7 @@ function buildDefaultState() {
         "I can't wait to see what tiny bird you find today. Have the best adventure. 💛",
       unlockedProfiles: [],
       unlockedDateIdeas: [],
+      partialUnlocks: [],
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -1510,6 +1557,47 @@ function App() {
     })
   }
 
+  // A guess never awards coins and never penalises — a correct guess only
+  // partially reveals the card and nudges her to find it for the full unlock.
+  function guessBird(bird, guessedName) {
+    const correct = normalizeBirdName(guessedName) === normalizeBirdName(bird.commonName)
+    if (!correct) {
+      setToast({
+        title: 'Not quite 🐦',
+        body: "Lovely try! The Bird Council is keeping this one a secret — keep looking. No penalty, promise. 💛",
+        tone: 'calm',
+      })
+      return false
+    }
+
+    const already = data.settings.partialUnlocks || []
+    if (bird.seen || already.includes(bird.id)) {
+      setToast({
+        title: 'You already know this one',
+        body: `Yes — it's the ${bird.commonName}. Find it in real life for the full unlock.`,
+        tone: 'calm',
+      })
+      return true
+    }
+
+    setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        settings: {
+          ...data.settings,
+          partialUnlocks: [...already, bird.id],
+        },
+      },
+      {
+        title: 'Great guess! 🐦',
+        body: `It really is the ${bird.commonName}! Now go find it for the full unlock. No coins yet — the real photo earns those. 💛`,
+        tone: 'success',
+      },
+    )
+    return true
+  }
+
   function commit(nextState, message) {
     const recalculated = recalculateState(nextState)
     const unlockSummary = getUnlockSummary(data, recalculated)
@@ -1605,6 +1693,16 @@ function App() {
       source: form.source || (aiMatch ? 'ai' : 'manual'),
       aiMatch,
     }
+    // Did this confirmed photo just unlock a previously-mysterious Bird Book card?
+    const libraryMatchIndex = getBirdLibraryMatchIndex(data.birdLibrary, {
+      commonName: birdName,
+      scientificName: aiMatch?.scientificName,
+    })
+    const unlockedMysteryBird =
+      libraryMatchIndex >= 0 && !data.birdLibrary[libraryMatchIndex].seen
+        ? data.birdLibrary[libraryMatchIndex]
+        : null
+
     const sightings = [...data.sightings, sighting]
     const nextState = {
       ...data,
@@ -1619,7 +1717,11 @@ function App() {
     }
 
     commit(nextState, {
-      title: isNewSpecies ? 'New species logged!' : 'Repeat sighting logged!',
+      title: unlockedMysteryBird
+        ? 'Mystery card unlocked! \ud83c\udf89'
+        : isNewSpecies
+          ? 'New species logged!'
+          : 'Repeat sighting logged!',
       body: [
         `${getCouncilMessage(data.sightings.length)} +${coinsEarned} Feather Coins.`,
         options.checkedOff ? "Checked off Marlie's South African Bird List \u2705" : '',
@@ -1627,11 +1729,23 @@ function App() {
         .filter(Boolean)
         .join(' '),
     })
+
+    if (unlockedMysteryBird) {
+      // Full unlock celebration: confetti + reveal the card with her own photo.
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: `You unlocked the ${unlockedMysteryBird.commonName}! \ud83d\udc26`,
+        body: `A mystery card just turned real \u2014 captured with your own photo. +${coinsEarned} Feather Coins. \ud83d\udc9b`,
+        photo: form.photo || unlockedMysteryBird.imageUrl || '',
+      })
+    }
+
     if (!options.stayOnPage) {
       setActivePage('birds')
     }
 
-    return { birdName, coinsEarned, isNewSpecies }
+    return { birdName, coinsEarned, isNewSpecies, unlockedMystery: Boolean(unlockedMysteryBird) }
   }
 
   function logMissedSighting(draft = missedDraft) {
@@ -2187,6 +2301,7 @@ function App() {
             data={data}
             openBirdProfile={openBirdProfile}
             unlockBirdProfile={unlockBirdProfile}
+            guessBird={guessBird}
           />
         )}
         {activePage === 'birdProfile' && (
@@ -2458,6 +2573,9 @@ function RevealModal({ reveal, onClose }) {
           {reveal.tone === 'note' ? '💌' : reveal.tone === 'date' ? '💕' : reveal.tone === 'bird' ? '✨' : '🎁'}
         </div>
         <h2 id="reveal-title">{reveal.title}</h2>
+        {reveal.photo && (
+          <img className="reveal-photo" src={reveal.photo} alt="Your unlocked bird" />
+        )}
         <p>{reveal.body}</p>
         <button className="primary-btn wide big-btn" type="button" onClick={onClose}>
           Yay 💛
@@ -3457,10 +3575,11 @@ function libraryBirdMatchesFilter(bird, filter) {
     .some((value) => value.toLowerCase() === filterKey)
 }
 
-function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
+function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile, guessBird }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
   const unlockedProfiles = data.settings.unlockedProfiles || []
+  const partialUnlocks = data.settings.partialUnlocks || []
   const seenCount = data.birdLibrary.filter((bird) => bird.seen).length
   const searchKey = searchTerm.trim().toLowerCase()
   const filteredBirds = data.birdLibrary
@@ -3520,87 +3639,213 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
         {filteredBirds.length === 0 && (
           <EmptyState text="No birds match this checklist search yet." />
         )}
-        {filteredBirds.map((bird) => {
-          const profileUnlocked = unlockedProfiles.includes(bird.id)
-          const locked = bird.special && !bird.seen && !profileUnlocked
-          const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
-          const spottedPhoto = herPhoto || bird.imageUrl
-          const withMarnich =
-            bird.seen &&
-            (marnichSpecies.has(normalizeBirdName(bird.commonName)) ||
-              marnichSpecies.has(normalizeBirdName(bird.scientificName)))
-          return (
-            <article
-              className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ' tappable'}`}
-              key={bird.id}
-              onClick={
-                locked ? undefined : () => openBirdProfile({ source: 'library', id: bird.id })
-              }
-            >
-              {bird.seen && spottedPhoto ? (
-                <div className="bird-card-photo-frame">
-                  <img className="bird-card-photo" src={spottedPhoto} alt={bird.commonName} />
-                  {withMarnich && <span className="marnich-heart" aria-hidden="true">❤️</span>}
-                </div>
-              ) : locked ? (
-                <div className="bird-card-photo silhouette-photo locked-silhouette">
-                  <span aria-hidden="true">🔒</span>
-                </div>
-              ) : (
-                <div className="bird-card-photo silhouette-photo">
-                  <span aria-hidden="true">?</span>
-                </div>
-              )}
-              <div className="bird-card-body">
-                <span
-                  className={
-                    bird.seen
-                      ? 'status-pill paid'
-                      : bird.special
-                        ? 'status-pill rare'
-                        : 'status-pill locked'
-                  }
-                >
-                  {bird.seen ? 'Discovered ✅' : bird.special ? 'Rare 🔒' : 'Not spotted yet'}
-                </span>
-                <h3>{bird.seen || profileUnlocked ? bird.commonName : '? ? ?'}</h3>
-                <p className="nickname">
-                  {bird.seen || profileUnlocked
-                    ? bird.afrikaansName || bird.category
-                    : locked
-                      ? 'A rare hidden bird'
-                      : 'A mystery waiting to be found'}
-                </p>
-                <p className="memory-caption">
-                  {bird.seen
-                    ? `${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}${withMarnich ? ' · with Marnich ❤️' : ''}`
-                    : locked
-                      ? 'Spot it, or unlock its secrets'
-                      : 'Waiting to be discovered'}
-                </p>
-                {locked ? (
-                  <button
-                    className="secondary-btn wide big-btn"
-                    type="button"
-                    onClick={() => unlockBirdProfile(bird.id)}
-                  >
-                    Unlock profile · {SHOP.birdProfile} 🪙
-                  </button>
-                ) : (
-                  <button
-                    className="secondary-btn wide big-btn"
-                    type="button"
-                    onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
-                  >
-                    Open profile
-                  </button>
-                )}
-              </div>
-            </article>
-          )
-        })}
+        {filteredBirds.map((bird) => (
+          <LibraryCard
+            key={bird.id}
+            bird={bird}
+            library={data.birdLibrary}
+            unlockedProfiles={unlockedProfiles}
+            partialUnlocks={partialUnlocks}
+            marnichSpecies={marnichSpecies}
+            openBirdProfile={openBirdProfile}
+            unlockBirdProfile={unlockBirdProfile}
+            guessBird={guessBird}
+          />
+        ))}
       </section>
     </div>
+  )
+}
+
+function LibraryCard({
+  bird,
+  library,
+  unlockedProfiles,
+  partialUnlocks,
+  marnichSpecies,
+  openBirdProfile,
+  unlockBirdProfile,
+  guessBird,
+}) {
+  const [cluesOpen, setCluesOpen] = useState(false)
+  const [guessOpen, setGuessOpen] = useState(false)
+  const [guessResult, setGuessResult] = useState(null)
+
+  const profileUnlocked = unlockedProfiles.includes(bird.id)
+  const partiallyUnlocked = partialUnlocks.includes(bird.id)
+  const locked = bird.special && !bird.seen && !profileUnlocked
+  const isMystery = !bird.seen && !locked
+  const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
+  const spottedPhoto = herPhoto || bird.imageUrl
+  const withMarnich =
+    bird.seen &&
+    (marnichSpecies.has(normalizeBirdName(bird.commonName)) ||
+      marnichSpecies.has(normalizeBirdName(bird.scientificName)))
+  const nameKnown = bird.seen || profileUnlocked || partiallyUnlocked
+
+  const guessOptions = useMemo(
+    () => (isMystery ? buildGuessOptions(bird, library) : []),
+    [isMystery, bird, library],
+  )
+
+  function handleGuess(option) {
+    const correct = guessBird(bird, option)
+    setGuessResult({ option, correct })
+    if (correct) setGuessOpen(false)
+  }
+
+  // Mystery cards reveal clues on tap; discovered cards open the profile.
+  const handleCardClick = locked
+    ? undefined
+    : isMystery
+      ? () => setCluesOpen((open) => !open)
+      : () => openBirdProfile({ source: 'library', id: bird.id })
+
+  return (
+    <article
+      className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ' tappable'}${partiallyUnlocked ? ' partial-bird' : ''}`}
+      onClick={handleCardClick}
+    >
+      {bird.seen && spottedPhoto ? (
+        <div className="bird-card-photo-frame">
+          <img className="bird-card-photo" src={spottedPhoto} alt={bird.commonName} />
+          {withMarnich && <span className="marnich-heart" aria-hidden="true">❤️</span>}
+        </div>
+      ) : locked ? (
+        <div className="bird-card-photo silhouette-photo locked-silhouette">
+          <span aria-hidden="true">🔒</span>
+        </div>
+      ) : (
+        <div className={`bird-card-photo silhouette-photo${partiallyUnlocked ? ' partial-silhouette' : ''}`}>
+          <span aria-hidden="true">{partiallyUnlocked ? '🐦' : '?'}</span>
+        </div>
+      )}
+      <div
+        className="bird-card-body"
+        onClick={isMystery ? (event) => event.stopPropagation() : undefined}
+      >
+        <span
+          className={
+            bird.seen
+              ? 'status-pill paid'
+              : partiallyUnlocked
+                ? 'status-pill rare'
+                : bird.special
+                  ? 'status-pill rare'
+                  : 'status-pill locked'
+          }
+        >
+          {bird.seen
+            ? 'Discovered ✅'
+            : partiallyUnlocked
+              ? 'Guessed 🐦 · find it!'
+              : bird.special
+                ? 'Rare 🔒'
+                : 'Mystery ?'}
+        </span>
+        <h3>{nameKnown ? bird.commonName : '? ? ?'}</h3>
+        <p className="nickname">
+          {nameKnown
+            ? bird.afrikaansName || bird.category
+            : locked
+              ? 'A rare hidden bird'
+              : 'A mystery waiting to be found'}
+        </p>
+
+        {bird.seen && (
+          <p className="memory-caption">
+            {`${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}${withMarnich ? ' · with Marnich ❤️' : ''}`}
+          </p>
+        )}
+
+        {/* Mystery interactions: clues + a 3-option guess. */}
+        {isMystery && (
+          <>
+            <button
+              className="text-btn clue-toggle"
+              type="button"
+              onClick={() => setCluesOpen((open) => !open)}
+            >
+              {cluesOpen ? 'Hide clues' : 'Tap for clues 🔍'}
+            </button>
+            {cluesOpen && (
+              <dl className="clue-list">
+                <div>
+                  <dt>Size</dt>
+                  <dd>{bird.size || 'A little secret'}</dd>
+                </div>
+                <div>
+                  <dt>Habitat</dt>
+                  <dd>{bird.habitat || bird.region || 'Somewhere out there'}</dd>
+                </div>
+                <div>
+                  <dt>Region</dt>
+                  <dd>
+                    {(bird.regionTags && bird.regionTags[0]) ||
+                      bird.whereFoundInSouthAfrica ||
+                      'Across South Africa'}
+                  </dd>
+                </div>
+              </dl>
+            )}
+
+            {partiallyUnlocked ? (
+              <p className="memory-caption">
+                Great guess — now find the real {bird.commonName} to fully unlock it! 🐦
+              </p>
+            ) : nameKnown ? null : guessOpen ? (
+              <div className="guess-options">
+                <p className="eyebrow">Which bird is it?</p>
+                {guessOptions.map((option) => (
+                  <button
+                    className="secondary-btn wide guess-option"
+                    type="button"
+                    key={option}
+                    onClick={() => handleGuess(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+                {guessResult && !guessResult.correct && (
+                  <p className="guess-feedback">
+                    Not the {guessResult.option} — keep looking! No penalty. 💛
+                  </p>
+                )}
+              </div>
+            ) : (
+              <button
+                className="primary-btn wide guess-btn"
+                type="button"
+                onClick={() => {
+                  setGuessOpen(true)
+                  setGuessResult(null)
+                }}
+              >
+                Make a guess 🤔
+              </button>
+            )}
+          </>
+        )}
+
+        {locked ? (
+          <button
+            className="secondary-btn wide big-btn"
+            type="button"
+            onClick={() => unlockBirdProfile(bird.id)}
+          >
+            Unlock profile · {SHOP.birdProfile} 🪙
+          </button>
+        ) : (
+          <button
+            className="secondary-btn wide big-btn"
+            type="button"
+            onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
+          >
+            Open profile
+          </button>
+        )}
+      </div>
+    </article>
   )
 }
 
