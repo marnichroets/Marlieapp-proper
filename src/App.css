@@ -1518,7 +1518,7 @@ textarea:focus {
 .reward-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 90;
   display: grid;
   place-items: center;
   background: rgba(38, 48, 34, 0.34);
@@ -1592,7 +1592,7 @@ textarea:focus {
   position: fixed;
   left: 50%;
   top: 14px;
-  z-index: 30;
+  z-index: 100;
   display: grid;
   gap: 5px;
   width: min(460px, calc(100% - 24px));
@@ -2195,4 +2195,538 @@ textarea:focus {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+/* ============================================================
+   MOBILE-FIRST REDESIGN (Pooks Birds)
+   ============================================================ */
+
+/* All buttons comfortably tappable. */
+.primary-btn,
+.secondary-btn,
+.ghost-btn,
+.danger-btn {
+  min-height: 48px;
+}
+
+.big-btn {
+  min-height: 52px;
+  font-size: 1rem;
+}
+
+/* --- Top bar: just the brand + a gear --- */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(720px, calc(100% - 24px));
+  padding: 12px 0;
+  background: linear-gradient(180deg, rgba(250, 246, 238, 0.96), rgba(250, 246, 238, 0.7));
+  backdrop-filter: blur(14px);
+}
+
+.brand-pill {
+  border: 0;
+  background: transparent;
+  color: var(--ink-strong);
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  padding: 6px 4px;
+}
+
+.gear-btn {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 1.2rem;
+}
+
+/* --- Page wrap is mobile-width, leaves room for the bottom nav --- */
+.app-shell.has-bottom-nav .page-wrap {
+  width: min(720px, calc(100% - 24px));
+  padding: 8px 0 110px;
+}
+
+.app-shell.has-bottom-nav .app-footer {
+  display: none;
+}
+
+/* --- Bottom tab bar (4 tabs) --- */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  width: min(560px, 100%);
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.86), rgba(255, 253, 248, 0.98));
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+.bottom-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 56px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 6px 2px;
+}
+
+.bottom-tab-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.bottom-tab.active {
+  background: var(--mint);
+  color: var(--leaf-dark);
+}
+
+.bottom-tab.active .bottom-tab-icon {
+  transform: translateY(-1px) scale(1.08);
+}
+
+/* --- Settings sheet --- */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  background: rgba(33, 46, 35, 0.34);
+  padding: 64px 14px;
+  animation: backdrop-in 160ms ease both;
+}
+
+.menu-sheet {
+  width: min(280px, 100%);
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: var(--shadow-strong);
+  padding: 16px;
+  animation: modal-in 220ms ease both;
+}
+
+.menu-list {
+  display: grid;
+  gap: 6px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  font-weight: 800;
+  padding: 0 14px;
+  text-align: left;
+}
+
+/* --- Login screen --- */
+.login-screen {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(244, 250, 232, 0.82)),
+    radial-gradient(circle at 80% 0%, rgba(255, 197, 102, 0.3), transparent 40%);
+  box-shadow: var(--shadow-strong);
+  padding: 28px 22px;
+}
+
+.login-logo {
+  font-size: 3.4rem;
+  line-height: 1;
+  animation: floaty 4.8s ease-in-out infinite;
+}
+
+.login-tag {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.login-sub {
+  margin: 0;
+  color: var(--muted);
+}
+
+.login-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+  text-align: left;
+}
+
+.login-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.login-error {
+  margin: 0;
+  color: var(--rose);
+  font-weight: 800;
+  font-size: 0.86rem;
+}
+
+.login-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* --- Home: game feel --- */
+.home-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.home-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.streak-chip,
+.coin-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.streak-chip {
+  background: #fff0d6;
+  color: #9a5a14;
+  border: 1px solid rgba(223, 166, 79, 0.4);
+}
+
+.coin-chip {
+  background: var(--mint);
+  color: var(--leaf-dark);
+  border: 1px solid rgba(71, 112, 77, 0.22);
+}
+
+.mission-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(223, 166, 79, 0.34);
+  border-radius: 26px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 244, 224, 0.9)),
+    radial-gradient(circle at 90% 0%, rgba(255, 197, 102, 0.34), transparent 46%);
+  box-shadow: var(--shadow);
+  padding: 22px 20px;
+}
+
+.mission-card.done {
+  border-color: rgba(71, 112, 77, 0.34);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(231, 241, 223, 0.92));
+}
+
+.mission-eyebrow {
+  margin: 0;
+  color: var(--honey);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+
+.mission-text {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+.mission-message {
+  margin: 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.mission-btn {
+  margin-top: 4px;
+}
+
+.giant-spot-btn {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 168px;
+  border: 0;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.28), transparent 60%),
+    linear-gradient(160deg, var(--leaf), #2f5a38);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  box-shadow: 0 22px 44px rgba(47, 90, 56, 0.32);
+  animation: gentle-pulse 3.2s ease-in-out infinite;
+}
+
+.giant-spot-btn:active {
+  transform: scale(0.985);
+}
+
+.giant-spot-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+@keyframes gentle-pulse {
+  0%,
+  100% {
+    box-shadow: 0 22px 44px rgba(47, 90, 56, 0.32);
+  }
+  50% {
+    box-shadow: 0 26px 56px rgba(47, 90, 56, 0.46);
+  }
+}
+
+.home-secondary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mini-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  min-height: 92px;
+}
+
+.mini-card-top {
+  display: grid;
+  gap: 2px;
+}
+
+.mini-card strong {
+  color: var(--ink-strong);
+  font-size: 1.1rem;
+}
+
+.mini-card small {
+  color: var(--muted);
+}
+
+/* --- Confetti --- */
+.confetti-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -8%;
+  font-size: 1.4rem;
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(108vh) rotate(420deg);
+    opacity: 0;
+  }
+}
+
+/* --- Reveal + milestone celebration modals --- */
+.reveal-card {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 12px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  box-shadow: var(--shadow-strong);
+  padding: 26px 22px;
+  animation: modal-in 240ms ease both;
+}
+
+.reveal-emoji {
+  font-size: 3rem;
+  line-height: 1;
+  animation: badge-pop 320ms ease both;
+}
+
+.reward-unlock-card.celebration {
+  text-align: center;
+}
+
+.sent-line {
+  margin: 0;
+  color: var(--leaf-dark);
+  font-weight: 800;
+}
+
+.pending-line {
+  margin: 0;
+  color: var(--honey);
+  font-weight: 800;
+}
+
+/* --- Coin shop --- */
+.coin-shop-hero {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.coin-balance {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 2.4rem;
+  font-weight: 900;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.shop-tile {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow);
+  padding: 16px 12px;
+}
+
+.shop-tile h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink-strong);
+}
+
+.shop-tile small {
+  color: var(--muted);
+  min-height: 2.4em;
+}
+
+.shop-emoji {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+/* --- Locked / rare birds --- */
+.status-pill.rare {
+  background: #f3e8ff;
+  border-color: rgba(141, 96, 196, 0.3);
+  color: #6b3fa0;
+}
+
+.library-bird-card.locked-bird {
+  background: rgba(247, 244, 252, 0.9);
+}
+
+.locked-photo {
+  display: grid;
+  place-items: center;
+  background:
+    repeating-linear-gradient(135deg, #efe7f6 0 12px, #e7dcf2 12px 24px);
+  color: #8a6fb0;
+  font-size: 2.2rem;
+}
+
+.locked-bird h3 {
+  letter-spacing: 0.2em;
+}
+
+/* --- 390px polish --- */
+@media (max-width: 400px) {
+  .mission-text {
+    font-size: 1.5rem;
+  }
+  .giant-spot-btn {
+    min-height: 150px;
+    font-size: 1.35rem;
+  }
+  .shop-tile small {
+    min-height: 0;
+  }
+}
+
+/* Keep the magical bottom nav clear of the floating ambient layer */
+.app-shell.has-bottom-nav .ambient-sky {
+  bottom: 86px;
 }

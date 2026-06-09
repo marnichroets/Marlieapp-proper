@@ -3,21 +3,56 @@ import './App.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
-const INTRO_STORAGE_KEY = 'marlie-bird-intro-seen-v1'
 const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
 const OFFLINE_BIRD_COUNCIL_MESSAGE =
   'The Bird Council is practicing offline, so this is a demo result.'
 
-const navItems = [
-  ['home', 'Nest', '🏡'],
+const SESSION_STORAGE_KEY = 'marlie-bird-session-v1'
+
+// Coin earning rules.
+const COINS = {
+  spot: 50,
+  firstSpecies: 20,
+  withMarnich: 40,
+  dailyChallenge: 30,
+  streakBonus: 25,
+}
+
+// Coin shop costs.
+const SHOP = {
+  mysteryBox: 100,
+  hiddenNote: 50,
+  birdProfile: 75,
+  dateIdea: 150,
+}
+
+// Bottom tab bar (4 only) + everything else tucked behind the settings menu.
+const bottomTabs = [
+  ['home', 'Home', '🏡'],
   ['add', 'Spot', '📷'],
-  ['birds', 'Album', '🐦'],
-  ['library', 'Bird Book', '📖'],
-  ['magazine', 'Weekly', '📰'],
+  ['library', 'Collection', '📖'],
   ['rewards', 'Gifts', '🎁'],
+]
+
+const menuItems = [
+  ['magazine', 'Weekly', '📰'],
   ['date', 'Date', '💕'],
   ['profile', 'Pooks', '🪶'],
-  ['admin', 'Admin', '🔒'],
+  ['birds', 'My memories', '🐦'],
+]
+
+const defaultMysteryGifts = [
+  'You found a secret hug. Consider it delivered. 💛',
+  'The Bird Council declares you officially adorable today.',
+  'Surprise: Marnich owes you one chosen snack of your choice.',
+  'A tiny love note fell out of the gift box: you make ordinary days magical.',
+]
+
+const defaultDateIdeas = [
+  'Slow sunrise bird walk with takeaway coffee.',
+  'Pack a picnic and see who can spot a yellow bird first.',
+  'Golden-hour stroll, phones away, just birds and us.',
+  'Botanical garden wander with a bird-spotting scorecard.',
 ]
 
 const nicknameIdeas = {
@@ -873,6 +908,30 @@ function getCompletionForDate(state, date = todayValue()) {
   return state.dailyChallengeCompletions?.[date] || {}
 }
 
+function dateKeyOffset(days) {
+  const date = new Date()
+  date.setDate(date.getDate() - days)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Consecutive days (ending today or yesterday) with a completed daily mission.
+function getDailyStreak(completions = {}) {
+  let streak = 0
+  let offset = 0
+  if (!completions[dateKeyOffset(0)]?.daily) {
+    if (!completions[dateKeyOffset(1)]?.daily) return 0
+    offset = 1
+  }
+  while (completions[dateKeyOffset(offset)]?.daily) {
+    streak += 1
+    offset += 1
+  }
+  return streak
+}
+
 function getBirdPhotoPlaceholderLabel(name) {
   return (name || 'Bird')
     .split(/\s+/)
@@ -935,7 +994,15 @@ function buildDefaultState() {
       soundDetectiveUnlocked: false,
       secretCodesVisible: false,
       pinnedBirdOfWeekId: '',
+      pooksSecret: 'feather',
+      adminSecret: 'marnich',
+      marnichDailyMessage:
+        "I can't wait to see what tiny bird you find today. Have the best adventure. 💛",
+      unlockedProfiles: [],
+      unlockedDateIdeas: [],
     },
+    mysteryGifts: defaultMysteryGifts,
+    dateIdeas: defaultDateIdeas,
     dateMemories: [],
     rewardCertificates: [],
   }
@@ -1175,13 +1242,24 @@ function App() {
   const [activePage, setActivePage] = useState('home')
   const [data, setData] = useState(loadState)
   const [toast, setToast] = useState(null)
-  const [showIntro, setShowIntro] = useState(
-    () => localStorage.getItem(INTRO_STORAGE_KEY) !== 'seen',
-  )
+  const [session, setSession] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || 'null')
+    } catch {
+      return null
+    }
+  })
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confetti, setConfetti] = useState(0)
+  const [reveal, setReveal] = useState(null)
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
-  const [showMissedQuickForm, setShowMissedQuickForm] = useState(false)
   const [birdProfile, setBirdProfile] = useState(null)
+
+  const dailyStreak = useMemo(
+    () => getDailyStreak(data.dailyChallengeCompletions),
+    [data.dailyChallengeCompletions],
+  )
 
   const stats = useMemo(() => {
     const uniqueCount = data.birds.length
@@ -1248,6 +1326,45 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
+  useEffect(() => {
+    if (!confetti) return undefined
+    const timer = window.setTimeout(() => setConfetti(0), 2400)
+    return () => window.clearTimeout(timer)
+  }, [confetti])
+
+  function login(name, secret) {
+    const cleanName = String(name || '').trim().toLowerCase()
+    const cleanSecret = String(secret || '').trim()
+    if (cleanName === 'admin' || cleanName === 'marnich') {
+      if (cleanSecret && cleanSecret === data.settings.adminSecret) {
+        const next = { role: 'admin', name: 'Marnich' }
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next))
+        setSession(next)
+        setActivePage('home')
+        return true
+      }
+      return false
+    }
+    if (cleanName === 'pooks' || cleanName === 'marlie') {
+      if (cleanSecret && cleanSecret === data.settings.pooksSecret) {
+        const next = { role: 'pooks', name: 'Pooks' }
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next))
+        setSession(next)
+        setActivePage('home')
+        return true
+      }
+      return false
+    }
+    return false
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_STORAGE_KEY)
+    setSession(null)
+    setMenuOpen(false)
+    setActivePage('home')
+  }
+
   function commit(nextState, message) {
     const recalculated = recalculateState(nextState)
     const unlockSummary = getUnlockSummary(data, recalculated)
@@ -1263,11 +1380,6 @@ function App() {
     })
   }
 
-  function completeIntro() {
-    localStorage.setItem(INTRO_STORAGE_KEY, 'seen')
-    setShowIntro(false)
-  }
-
   function resetData() {
     if (
       !window.confirm(
@@ -1281,7 +1393,6 @@ function App() {
     setData(fresh)
     setActivePage('home')
     setRewardUnlockQueue([])
-    setShowMissedQuickForm(false)
     setBirdProfile(null)
     setMissedDraft({ location: '', note: '' })
     setToast({
@@ -1289,11 +1400,6 @@ function App() {
       body: "Marlie's local bird notebook is back to a clean page.",
       tone: 'calm',
     })
-  }
-
-  function resetIntroScreen() {
-    localStorage.removeItem(INTRO_STORAGE_KEY)
-    setShowIntro(true)
   }
 
   function openBirdProfile(profile) {
@@ -1310,7 +1416,11 @@ function App() {
     const speciesKey = normalizeBirdName(birdName)
     if (!speciesKey) return
     const isNewSpecies = !data.birds.some((bird) => bird.id === speciesKey)
-    const coinsEarned = isNewSpecies ? 25 : 5
+    const withMarnich = Boolean(form.seenWithMarnich)
+    const coinsEarned =
+      COINS.spot +
+      (isNewSpecies ? COINS.firstSpecies : 0) +
+      (withMarnich ? COINS.withMarnich : 0)
     const aiMatch = form.aiMatch ? normalizeAiMatch(form.aiMatch) : null
     const nickname =
       String(form.nickname || '').trim() || nicknameIdeas[speciesKey] || 'Officially Cute Bird'
@@ -1382,29 +1492,6 @@ function App() {
       },
     )
     setMissedDraft({ location: '', note: '' })
-    setShowMissedQuickForm(false)
-  }
-
-  function sendBirdAlert() {
-    const alert = {
-      id: createId('alert'),
-      date: todayValue(),
-      message: 'Marnich, I saw a bird!',
-    }
-    commit(
-      {
-        ...data,
-        settings: {
-          ...data.settings,
-          alerts: [alert, ...data.settings.alerts],
-        },
-      },
-      {
-        title: 'Emergency bird alert',
-        body: 'Alert logged. Marnich has been spiritually notified.',
-        tone: 'calm',
-      },
-    )
   }
 
   function completeChallenge(challengeId) {
@@ -1443,23 +1530,36 @@ function App() {
     }
 
     const bonus = kind === 'bonus'
+    const nextCompletions = {
+      ...data.dailyChallengeCompletions,
+      [date]: {
+        ...completion,
+        [kind]: challenge.id,
+      },
+    }
+
+    let coins = bonus ? 20 : COINS.dailyChallenge
+    let streakNote = ''
+    if (!bonus) {
+      const newStreak = getDailyStreak(nextCompletions)
+      if (newStreak >= 3 && newStreak % 3 === 0) {
+        coins += COINS.streakBonus
+        streakNote = ` ${newStreak}-day streak bonus! +${COINS.streakBonus} more. 🔥`
+      }
+    }
+
+    setConfetti(Date.now())
     commit(
       {
         ...data,
-        featherCoins: data.featherCoins + (bonus ? 20 : 50),
-        dailyChallengeCompletions: {
-          ...data.dailyChallengeCompletions,
-          [date]: {
-            ...completion,
-            [kind]: challenge.id,
-          },
-        },
+        featherCoins: data.featherCoins + coins,
+        dailyChallengeCompletions: nextCompletions,
       },
       {
-        title: bonus ? 'Bonus mission complete' : 'Daily mission complete',
+        title: bonus ? 'Bonus mission complete' : 'Mission complete! 🐦',
         body: bonus
           ? 'The optional Bird Council side quest has been quietly stamped. +20 Feather Coins.'
-          : 'The Bird Council has approved today’s mission. +50 Feather Coins.',
+          : `You found one! +${COINS.dailyChallenge} Feather Coins.${streakNote}`,
       },
     )
   }
@@ -1567,36 +1667,106 @@ function App() {
     )
   }
 
-  function redeemShopItem(item) {
-    if (data.featherCoins < item.cost) {
+  function notEnoughCoins() {
+    setToast({
+      title: 'Not enough Feather Coins',
+      body: 'Spot a few more birds and come back to the shop. 🪙',
+      tone: 'warning',
+    })
+  }
+
+  function buyMysteryBox() {
+    if (data.featherCoins < SHOP.mysteryBox) return notEnoughCoins()
+    const gifts = data.mysteryGifts?.length ? data.mysteryGifts : defaultMysteryGifts
+    const message = gifts[Math.floor(Math.random() * gifts.length)]
+    setConfetti(Date.now())
+    setReveal({ tone: 'gift', title: 'Mystery gift opened! 🎁', body: message })
+    commit(
+      { ...data, featherCoins: data.featherCoins - SHOP.mysteryBox },
+      { title: 'Mystery gift opened! 🎁', body: message },
+    )
+  }
+
+  function buyHiddenNote() {
+    if (data.featherCoins < SHOP.hiddenNote) return notEnoughCoins()
+    const note = data.hiddenNotes.find((item) => !item.unlocked)
+    if (!note) {
       setToast({
-        title: 'Not enough Feather Coins',
-        body: 'Your sponsor is currently financially nervous.',
-        tone: 'warning',
+        title: 'All notes unlocked',
+        body: 'Every hidden note is already open. 💛',
+        tone: 'calm',
       })
       return
     }
-
-    const redemption = {
-      id: createId('shop'),
-      itemId: item.id,
-      name: item.name,
-      cost: item.cost,
-      date: todayValue(),
-      status: 'Claimed',
-    }
-
+    setConfetti(Date.now())
+    setReveal({ tone: 'note', title: note.title, body: note.message })
     commit(
       {
         ...data,
-        featherCoins: data.featherCoins - item.cost,
-        shopRedemptions: [redemption, ...data.shopRedemptions],
+        featherCoins: data.featherCoins - SHOP.hiddenNote,
+        hiddenNotes: data.hiddenNotes.map((item) =>
+          item.id === note.id ? { ...item, unlocked: true, unlockedAt: todayValue() } : item,
+        ),
       },
-      {
-        title: 'Shop reward redeemed',
-        body: `${item.name} claimed. Sponsored by Marnich Bank.`,
-      },
+      { title: 'Hidden note unlocked 💌', body: 'A folded note from Marnich just opened.' },
     )
+  }
+
+  function buyDateIdea() {
+    if (data.featherCoins < SHOP.dateIdea) return notEnoughCoins()
+    const ideas = data.dateIdeas?.length ? data.dateIdeas : defaultDateIdeas
+    const unlocked = data.settings.unlockedDateIdeas || []
+    const next = ideas.find((idea) => !unlocked.includes(idea)) || ideas[0]
+    setConfetti(Date.now())
+    setReveal({ tone: 'date', title: 'Date idea unlocked 💕', body: next })
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - SHOP.dateIdea,
+        settings: {
+          ...data.settings,
+          unlockedDateIdeas: unlocked.includes(next) ? unlocked : [...unlocked, next],
+        },
+      },
+      { title: 'Date idea unlocked 💕', body: next },
+    )
+  }
+
+  function unlockBirdProfile(birdId) {
+    if (data.featherCoins < SHOP.birdProfile) return notEnoughCoins()
+    const already = data.settings.unlockedProfiles || []
+    if (already.includes(birdId)) return
+    const bird = data.birdLibrary.find((item) => item.id === birdId)
+    setConfetti(Date.now())
+    setReveal({
+      tone: 'bird',
+      title: `${bird?.commonName || 'Special bird'} revealed ✨`,
+      body: 'Profile unlocked! You can read all about it — now go spot it for real to add it to your collection.',
+    })
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - SHOP.birdProfile,
+        settings: { ...data.settings, unlockedProfiles: [...already, birdId] },
+      },
+      { title: 'Special bird profile unlocked ✨', body: bird?.commonName || '' },
+    )
+  }
+
+  function buyFeaturedBirdProfile() {
+    const already = data.settings.unlockedProfiles || []
+    const locked = data.birdLibrary.find(
+      (bird) => bird.special && !bird.seen && !already.includes(bird.id),
+    )
+    if (!locked) {
+      setToast({
+        title: 'All special birds revealed',
+        body: 'Every special profile is already unlocked. ✨',
+        tone: 'calm',
+      })
+      return
+    }
+    unlockBirdProfile(locked.id)
   }
 
   function redeemCode(codeValue) {
@@ -1773,24 +1943,16 @@ function App() {
     )
   }
 
-  const visibleNavItems = data.settings.secretCodesVisible
-    ? [
-        ...navItems.slice(0, -1),
-        ['codes', 'Secret', '🔐'],
-        navItems[navItems.length - 1],
-      ]
-    : navItems
-  const activeNav =
-    visibleNavItems.find((item) => item[0] === activePage) ||
-    (activePage === 'birdProfile' ? ['birdProfile', 'Bird Profile', '🪶'] : null)
   const activeRewardUnlock = rewardUnlockQueue[0] || null
+  const fullMenu =
+    session?.role === 'admin' ? [...menuItems, ['admin', 'Admin', '🔒']] : menuItems
 
-  if (showIntro) {
-    return <WelcomeIntro onStart={completeIntro} />
+  if (!session) {
+    return <LoginScreen data={data} onLogin={login} />
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell has-bottom-nav">
       <div className="ambient-sky" aria-hidden="true">
         <span className="floating-feather feather-one">🪶</span>
         <span className="floating-feather feather-two">🪶</span>
@@ -1799,48 +1961,50 @@ function App() {
         <span className="tiny-bird bird-two">🐤</span>
       </div>
       <Toast toast={toast} />
+      {confetti ? <Confetti seed={confetti} /> : null}
       <RewardUnlockModal
         reward={activeRewardUnlock}
+        markRewardPaid={markRewardPaid}
+        isAdmin={session.role === 'admin'}
         onClose={() => setRewardUnlockQueue((current) => current.slice(1))}
       />
+      <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
 
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Made for Pooks</p>
-          <h1>Pooks' magical bird adventure</h1>
-        </div>
-        <div className="coin-pill" aria-label="Coin balances">
-          <span>{data.featherCoins} Feather Coins</span>
-        </div>
+        <button className="brand-pill" type="button" onClick={() => setActivePage('home')}>
+          🐦 Pooks
+        </button>
+        <button
+          className="gear-btn"
+          type="button"
+          aria-label="More"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          ⚙️
+        </button>
       </header>
 
-      <nav className="tabs" aria-label="App sections">
-        {visibleNavItems.map(([id, label, icon]) => (
-          <button
-            className={activePage === id ? 'tab active' : 'tab'}
-            key={id}
-            type="button"
-            onClick={() => setActivePage(id)}
-          >
-            <span aria-hidden="true">{icon}</span>
-            {label}
-          </button>
-        ))}
-      </nav>
+      {menuOpen && (
+        <SettingsMenu
+          items={fullMenu}
+          session={session}
+          onPick={(id) => {
+            setActivePage(id)
+            setMenuOpen(false)
+          }}
+          onLogout={logout}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
 
       <main className="page-wrap page-stage" key={activePage}>
-        <p className="mobile-page-title">{activeNav?.[2]} {activeNav?.[1]}</p>
         {activePage === 'home' && (
           <HomePage
             data={data}
             stats={stats}
             dailyChallenge={dailyChallenge}
-            missedDraft={missedDraft}
-            setMissedDraft={setMissedDraft}
-            showMissedQuickForm={showMissedQuickForm}
-            setShowMissedQuickForm={setShowMissedQuickForm}
-            logMissedSighting={logMissedSighting}
-            sendBirdAlert={sendBirdAlert}
+            dailyStreak={dailyStreak}
             completeDailyChallenge={completeDailyChallenge}
             goTo={setActivePage}
           />
@@ -1850,7 +2014,11 @@ function App() {
           <BirdsPage data={data} openBirdProfile={openBirdProfile} />
         )}
         {activePage === 'library' && (
-          <SaBirdLibraryPage data={data} openBirdProfile={openBirdProfile} />
+          <SaBirdLibraryPage
+            data={data}
+            openBirdProfile={openBirdProfile}
+            unlockBirdProfile={unlockBirdProfile}
+          />
         )}
         {activePage === 'birdProfile' && (
           <BirdProfilePage
@@ -1865,7 +2033,11 @@ function App() {
             stats={stats}
             claimReward={claimReward}
             markRewardPaid={markRewardPaid}
-            redeemShopItem={redeemShopItem}
+            isAdmin={session.role === 'admin'}
+            buyMysteryBox={buyMysteryBox}
+            buyHiddenNote={buyHiddenNote}
+            buyDateIdea={buyDateIdea}
+            buyFeaturedBirdProfile={buyFeaturedBirdProfile}
           />
         )}
         {activePage === 'challenges' && (
@@ -1907,7 +2079,6 @@ function App() {
             addAdminCode={addAdminCode}
             markRewardPaid={markRewardPaid}
             resetData={resetData}
-            resetIntroScreen={resetIntroScreen}
             previewMarlieView={() => setActivePage('home')}
             previewMagazineIssue={() => setActivePage('magazine')}
             setData={setData}
@@ -1915,45 +2086,188 @@ function App() {
         )}
       </main>
 
-      <footer className="app-footer">
-        <span>{loadingMessages[(stats.totalSightings + stats.uniqueCount) % loadingMessages.length]}</span>
-        <span>Made for Marlie by Marnich.</span>
-      </footer>
+      <nav className="bottom-nav" aria-label="Main sections">
+        {bottomTabs.map(([id, label, icon]) => (
+          <button
+            className={activePage === id ? 'bottom-tab active' : 'bottom-tab'}
+            key={id}
+            type="button"
+            onClick={() => setActivePage(id)}
+          >
+            <span className="bottom-tab-icon" aria-hidden="true">{icon}</span>
+            <span className="bottom-tab-label">{label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
 
-function WelcomeIntro({ onStart }) {
+function LoginScreen({ data, onLogin }) {
+  const [name, setName] = useState('')
+  const [secret, setSecret] = useState('')
+  const [error, setError] = useState('')
+
+  function submit(event) {
+    event.preventDefault()
+    if (!onLogin(name, secret)) {
+      setError('That name and secret word don’t match. Try again. 🪶')
+    }
+  }
+
   return (
-    <main className="welcome-screen">
-      <section className="welcome-card" aria-labelledby="welcome-title">
-        <p className="eyebrow">Made for Marlie by Marnich</p>
-        <h1 id="welcome-title">Marlie's Bird Journey</h1>
-        <p>
-          I made this for you because your bird obsession became one of my favourite things.
-          Every bird you spot now becomes part of your little adventure.
-        </p>
-        <button className="primary-btn" type="button" onClick={onStart}>
-          Start my bird journey
-        </button>
+    <main className="login-screen">
+      <div className="ambient-sky" aria-hidden="true">
+        <span className="floating-feather feather-one">🪶</span>
+        <span className="floating-feather feather-two">🪶</span>
+        <span className="floating-feather feather-three">🪶</span>
+        <span className="tiny-bird bird-one">🐦</span>
+        <span className="tiny-bird bird-two">🐤</span>
+      </div>
+      <section className="login-card" aria-labelledby="login-title">
+        <div className="login-logo" aria-hidden="true">🐦</div>
+        <p className="login-tag" id="login-title">Your adventure awaits 🐦</p>
+        <p className="login-sub">Whisper your name and secret word to come inside.</p>
+        <form className="login-form" onSubmit={submit}>
+          <label>
+            Your name
+            <input
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value)
+                setError('')
+              }}
+              placeholder="Pooks"
+              autoComplete="off"
+            />
+          </label>
+          <label>
+            Secret word
+            <input
+              type="password"
+              value={secret}
+              onChange={(event) => {
+                setSecret(event.target.value)
+                setError('')
+              }}
+              placeholder="••••••"
+              autoComplete="off"
+            />
+          </label>
+          {error && <p className="login-error">{error}</p>}
+          <button className="primary-btn wide big-btn" type="submit">
+            Open my bird world 🪶
+          </button>
+        </form>
+        {!data.settings.pooksSecret && (
+          <p className="login-hint">Ask Marnich to set your secret word.</p>
+        )}
       </section>
     </main>
   )
 }
 
-function RewardUnlockModal({ reward, onClose }) {
+function SettingsMenu({ items, session, onPick, onLogout, onClose }) {
+  return (
+    <div className="menu-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="menu-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="More"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="eyebrow">Signed in as {session.name}</p>
+        <div className="menu-list">
+          {items.map(([id, label, icon]) => (
+            <button key={id} className="menu-item" type="button" onClick={() => onPick(id)}>
+              <span aria-hidden="true">{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+        <button className="ghost-btn wide big-btn" type="button" onClick={onLogout}>
+          Log out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Confetti({ seed }) {
+  const pieces = useMemo(() => {
+    const emojis = ['🪶', '✨', '🎉', '🐦', '💛', '🌟']
+    return Array.from({ length: 26 }, (_, index) => ({
+      id: `${seed}-${index}`,
+      left: Math.round((index / 26) * 100 + (index % 3) * 4),
+      delay: (index % 7) * 90,
+      duration: 1500 + (index % 5) * 240,
+      emoji: emojis[index % emojis.length],
+    }))
+  }, [seed])
+
+  return (
+    <div className="confetti-layer" aria-hidden="true">
+      {pieces.map((piece) => (
+        <span
+          key={piece.id}
+          className="confetti-piece"
+          style={{
+            left: `${piece.left}%`,
+            animationDelay: `${piece.delay}ms`,
+            animationDuration: `${piece.duration}ms`,
+          }}
+        >
+          {piece.emoji}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function RevealModal({ reveal, onClose }) {
+  if (!reveal) return null
+  return (
+    <div className="reward-modal-backdrop" role="presentation" onClick={onClose}>
+      <article
+        className={`reveal-card reveal-${reveal.tone || 'gift'}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reveal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="reveal-emoji" aria-hidden="true">
+          {reveal.tone === 'note' ? '💌' : reveal.tone === 'date' ? '💕' : reveal.tone === 'bird' ? '✨' : '🎁'}
+        </div>
+        <h2 id="reveal-title">{reveal.title}</h2>
+        <p>{reveal.body}</p>
+        <button className="primary-btn wide big-btn" type="button" onClick={onClose}>
+          Yay 💛
+        </button>
+      </article>
+    </div>
+  )
+}
+
+function RewardUnlockModal({ reward, markRewardPaid, isAdmin, onClose }) {
   if (!reward) return null
 
   return (
     <div className="reward-modal-backdrop" role="presentation">
       <article
-        className="reward-unlock-card"
+        className="reward-unlock-card celebration"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reward-unlock-title"
       >
-        <p className="eyebrow">Reward unlocked!</p>
+        <div className="reveal-emoji" aria-hidden="true">🎉</div>
+        <p className="eyebrow">Milestone reward unlocked!</p>
         <h2 id="reward-unlock-title">{reward.name}</h2>
+        {reward.status === 'Paid' ? (
+          <p className="sent-line">Marnich sent this on {formatDate(reward.paidAt)} 💛</p>
+        ) : (
+          <p className="pending-line">Pending — waiting for Marnich to send it. 💛</p>
+        )}
         <div className="reward-unlock-details">
           <p>
             <strong>Reason unlocked</strong>
@@ -1978,7 +2292,16 @@ function RewardUnlockModal({ reward, onClose }) {
             </span>
           </p>
         </div>
-        <button className="primary-btn wide" type="button" onClick={onClose}>
+        {isAdmin && reward.status !== 'Paid' && (
+          <button
+            className="secondary-btn wide big-btn"
+            type="button"
+            onClick={() => markRewardPaid(reward.id)}
+          >
+            Mark as sent 💛
+          </button>
+        )}
+        <button className="primary-btn wide big-btn" type="button" onClick={onClose}>
           Close
         </button>
       </article>
@@ -1998,73 +2321,63 @@ function Toast({ toast }) {
 
 function HomePage({
   data,
-  stats,
   dailyChallenge,
+  dailyStreak,
   completeDailyChallenge,
   goTo,
 }) {
-  const recent = stats.recentSighting
   const seenLibraryCount = data.birdLibrary.filter((bird) => bird.seen).length
   const collectionProgress = data.birdLibrary.length
     ? Math.round((seenLibraryCount / data.birdLibrary.length) * 100)
     : 0
+  const done = dailyChallenge.mainComplete
 
   return (
-    <div className="page-grid home-adventure-grid">
-      <section className="hero-panel mystery-hero adventure-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Today's tiny adventure</p>
-          <h2>What bird will Pooks find?</h2>
-          <p>A photo, a feather, a little mystery. The Bird Council is waiting.</p>
-          <div className="hero-actions">
-            <button className="primary-btn big-action" type="button" onClick={() => goTo('add')}>
-              Start bird adventure
-            </button>
-          </div>
-        </div>
-        <div className="storybook-bird" aria-hidden="true">
-          <span className="bird-body">🐦</span>
-          <span className="nest-shape">nest</span>
-        </div>
+    <div className="home-stack">
+      <div className="home-topline">
+        <span className="streak-chip">Day {dailyStreak} streak 🔥</span>
+        <span className="coin-chip">{data.featherCoins} 🪙</span>
+      </div>
+
+      <section className={`mission-card${done ? ' done' : ''}`}>
+        <p className="mission-eyebrow">Today&apos;s Mission 🐦</p>
+        <h2 className="mission-text">
+          {dailyChallenge.main?.text || 'Find one tiny bird moment today'}
+        </h2>
+        <p className="mission-message">{data.settings.marnichDailyMessage}</p>
+        <button
+          className="primary-btn wide mission-btn"
+          type="button"
+          disabled={done}
+          onClick={() => completeDailyChallenge('daily')}
+        >
+          {done ? 'Done for today ✓' : 'I found one! ✓'}
+        </button>
       </section>
 
-      <section className="soft-card quest-card">
-        <p className="eyebrow">Tiny quest</p>
-        <h3>{dailyChallenge.main?.text || 'Find one suspicious bird moment'}</h3>
-        <div className="quest-footer">
-          <span className={dailyChallenge.mainComplete ? 'status-pill paid' : 'status-pill'}>
-            {dailyChallenge.mainComplete ? 'Stamped' : '+50'}
+      <button className="giant-spot-btn" type="button" onClick={() => goTo('add')}>
+        <span className="giant-spot-emoji" aria-hidden="true">🐦</span>
+        Spot a Bird
+      </button>
+
+      <div className="home-secondary">
+        <button className="mini-card" type="button" onClick={() => goTo('library')}>
+          <span className="mini-card-top">
+            <span className="eyebrow">Collection</span>
+            <strong>{seenLibraryCount} found</strong>
           </span>
-          <button
-            className="secondary-btn"
-            type="button"
-            disabled={dailyChallenge.mainComplete}
-            onClick={() => completeDailyChallenge('daily')}
-          >
-            {dailyChallenge.mainComplete ? 'Done' : 'Stamp quest'}
-          </button>
-        </div>
-      </section>
-
-      <button className="soft-card home-link-card scrapbook-link" type="button" onClick={() => goTo('birds')}>
-        <span className="eyebrow">Memory album</span>
-        <strong>{recent ? recent.birdName : 'First bird photo'}</strong>
-        <small>{recent ? 'Open the latest polaroid' : 'Your scrapbook is waiting.'}</small>
-        {recent?.photo ? (
-          <img src={recent.photo} alt={recent.birdName} />
-        ) : (
-          <span className="album-doodle" aria-hidden="true">📷</span>
-        )}
-      </button>
-
-      <button className="soft-card home-link-card collection-link" type="button" onClick={() => goTo('library')}>
-        <span className="eyebrow">Bird Book</span>
-        <strong>{seenLibraryCount} creatures found</strong>
-        <div className="progress-track">
-          <span style={{ width: `${collectionProgress}%` }}></span>
-        </div>
-        <small>Tap to collect more birds.</small>
-      </button>
+          <div className="progress-track">
+            <span style={{ width: `${collectionProgress}%` }}></span>
+          </div>
+        </button>
+        <button className="mini-card" type="button" onClick={() => goTo('rewards')}>
+          <span className="mini-card-top">
+            <span className="eyebrow">Gifts</span>
+            <strong>{data.featherCoins} 🪙</strong>
+          </span>
+          <small>Open the coin shop</small>
+        </button>
+      </div>
     </div>
   )
 }
@@ -2721,9 +3034,10 @@ function libraryBirdMatchesFilter(bird, filter) {
     .some((value) => value.toLowerCase() === filterKey)
 }
 
-function SaBirdLibraryPage({ data, openBirdProfile }) {
+function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
+  const unlockedProfiles = data.settings.unlockedProfiles || []
   const seenCount = data.birdLibrary.filter((bird) => bird.seen).length
   const searchKey = searchTerm.trim().toLowerCase()
   const filteredBirds = data.birdLibrary
@@ -2778,36 +3092,71 @@ function SaBirdLibraryPage({ data, openBirdProfile }) {
         {filteredBirds.length === 0 && (
           <EmptyState text="No birds match this checklist search yet." />
         )}
-        {filteredBirds.map((bird) => (
-          <article className={`library-bird-card ${bird.seen ? 'seen' : ''}`} key={bird.id}>
-            {bird.imageUrl ? (
-              <img className="bird-card-photo" src={bird.imageUrl} alt={bird.commonName} />
-            ) : (
-              <div className="bird-card-photo placeholder-photo library-placeholder">
-                <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
+        {filteredBirds.map((bird) => {
+          const profileUnlocked = unlockedProfiles.includes(bird.id)
+          const locked = bird.special && !bird.seen && !profileUnlocked
+          return (
+            <article
+              className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ''}`}
+              key={bird.id}
+            >
+              {locked ? (
+                <div className="bird-card-photo locked-photo">
+                  <span aria-hidden="true">🔒</span>
+                </div>
+              ) : bird.imageUrl ? (
+                <img className="bird-card-photo" src={bird.imageUrl} alt={bird.commonName} />
+              ) : (
+                <div className="bird-card-photo placeholder-photo library-placeholder">
+                  <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
+                </div>
+              )}
+              <div className="bird-card-body">
+                <span
+                  className={
+                    bird.seen
+                      ? 'status-pill paid'
+                      : bird.special
+                        ? 'status-pill rare'
+                        : 'status-pill locked'
+                  }
+                >
+                  {bird.seen
+                    ? 'Collected ✅'
+                    : bird.special
+                      ? 'Rare 🔒'
+                      : 'Mystery bird'}
+                </span>
+                <h3>{locked ? '? ? ?' : bird.commonName}</h3>
+                <p className="nickname">{locked ? 'A rare hidden bird' : bird.afrikaansName || bird.category}</p>
+                <p className="memory-caption">
+                  {bird.seen
+                    ? `${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}`
+                    : locked
+                      ? 'Spot it, or unlock its secrets'
+                      : 'Waiting to be discovered'}
+                </p>
+                {locked ? (
+                  <button
+                    className="secondary-btn wide big-btn"
+                    type="button"
+                    onClick={() => unlockBirdProfile(bird.id)}
+                  >
+                    Unlock profile · {SHOP.birdProfile} 🪙
+                  </button>
+                ) : (
+                  <button
+                    className="secondary-btn wide big-btn"
+                    type="button"
+                    onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
+                  >
+                    Open profile
+                  </button>
+                )}
               </div>
-            )}
-            <div className="bird-card-body">
-              <span className={bird.seen ? 'status-pill paid' : 'status-pill locked'}>
-                {bird.seen ? 'Collected ✅' : 'Mystery bird'}
-              </span>
-              <h3>{bird.commonName}</h3>
-              <p className="nickname">{bird.afrikaansName || bird.category}</p>
-              <p className="memory-caption">
-                {bird.seen
-                  ? `${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}`
-                  : 'Waiting to be discovered'}
-              </p>
-              <button
-                className="secondary-btn wide"
-                type="button"
-                onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
-              >
-                Open profile
-              </button>
-            </div>
-          </article>
-        ))}
+            </article>
+          )
+        })}
       </section>
     </div>
   )
@@ -3001,7 +3350,17 @@ function BirdProfilePage({ data, profile, onBack }) {
   )
 }
 
-function RewardsPage({ data, stats, claimReward }) {
+function RewardsPage({
+  data,
+  stats,
+  claimReward,
+  markRewardPaid,
+  isAdmin,
+  buyMysteryBox,
+  buyHiddenNote,
+  buyDateIdea,
+  buyFeaturedBirdProfile,
+}) {
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
   const claimedRewards = revealedRewards.filter((reward) =>
     ['Claimed', 'Paid'].includes(reward.status),
@@ -3010,24 +3369,51 @@ function RewardsPage({ data, stats, claimReward }) {
   const birdsUntilReward = stats.nextReward
     ? Math.max(stats.nextReward.milestone - stats.uniqueCount, 0)
     : 0
+  const coins = data.featherCoins
+  const shopItems = [
+    { id: 'mysteryBox', name: 'Mystery gift box', emoji: '🎁', cost: SHOP.mysteryBox, action: buyMysteryBox, hint: 'A surprise message or reward' },
+    { id: 'hiddenNote', name: 'Hidden note from Marnich', emoji: '💌', cost: SHOP.hiddenNote, action: buyHiddenNote, hint: 'Unlock a folded love note' },
+    { id: 'birdProfile', name: 'Special bird profile', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird' },
+    { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'Unlock a real date plan' },
+  ]
 
   return (
     <div className="page-grid surprises-page">
-      <section className="soft-card full-span mystery-reward-card">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Gift shelf</p>
-            <h2>The next gift is wrapped</h2>
-          </div>
-          <span className="status-pill">🎁</span>
+      <section className="soft-card full-span coin-shop-hero">
+        <div>
+          <p className="eyebrow">Feather Coins</p>
+          <h2 className="coin-balance">{coins} 🪙</h2>
         </div>
         <p>
           {stats.nextReward
-            ? `${birdsUntilReward} bird${birdsUntilReward === 1 ? '' : 's'} until it opens.`
-            : 'Every visible gift is open. Legendary shelves are whispering.'}
+            ? `${birdsUntilReward} bird${birdsUntilReward === 1 ? '' : 's'} until your next milestone gift.`
+            : 'Every milestone gift is open. Legendary shelves are whispering.'}
         </p>
-        <div className="progress-track">
-          <span style={{ width: `${stats.progressValue}%` }}></span>
+      </section>
+
+      <section className="soft-card full-span">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Coin shop</p>
+            <h2>Spend your coins</h2>
+          </div>
+        </div>
+        <div className="shop-grid">
+          {shopItems.map((item) => (
+            <article className="shop-tile" key={item.id}>
+              <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
+              <h3>{item.name}</h3>
+              <small>{item.hint}</small>
+              <button
+                className="primary-btn wide big-btn"
+                type="button"
+                disabled={coins < item.cost}
+                onClick={item.action}
+              >
+                {item.cost} 🪙
+              </button>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -3047,21 +3433,39 @@ function RewardsPage({ data, stats, claimReward }) {
                 <div className="gift-box" aria-hidden="true">🎁</div>
                 <div>
                   <span className={`status-pill ${reward.status.toLowerCase()}`}>
-                    {reward.status === 'Unlocked' ? 'Ready' : reward.status}
+                    {reward.status === 'Unlocked'
+                      ? 'Ready'
+                      : reward.status === 'Paid'
+                        ? 'Sent 💛'
+                        : reward.status === 'Claimed'
+                          ? 'Pending'
+                          : reward.status}
                   </span>
                   <h3>{reward.name}</h3>
                   <details className="tiny-details">
                     <summary>Peek at why</summary>
                     <p>{reward.unlockReason}</p>
                   </details>
+                  {reward.status === 'Paid' && (
+                    <p className="sent-line">Marnich sent this on {formatDate(reward.paidAt)} 💛</p>
+                  )}
                 </div>
                 {reward.status === 'Unlocked' && (
                   <button
-                    className="primary-btn"
+                    className="primary-btn wide big-btn"
                     type="button"
                     onClick={() => claimReward(reward.id)}
                   >
                     Open gift
+                  </button>
+                )}
+                {isAdmin && reward.status === 'Claimed' && (
+                  <button
+                    className="secondary-btn wide big-btn"
+                    type="button"
+                    onClick={() => markRewardPaid(reward.id)}
+                  >
+                    Mark as sent 💛
                   </button>
                 )}
               </article>
@@ -3529,7 +3933,6 @@ function AdminPage({
   addAdminCode,
   markRewardPaid,
   resetData,
-  resetIntroScreen,
   previewMarlieView,
   previewMagazineIssue,
   setData,
@@ -3750,6 +4153,18 @@ function AdminPage({
     }))
   }
 
+  function updateSetting(field, value) {
+    setData((current) => ({
+      ...current,
+      settings: { ...current.settings, [field]: value },
+    }))
+  }
+
+  function updateList(field, value) {
+    const items = value.split('\n').map((line) => line.trim()).filter(Boolean)
+    setData((current) => ({ ...current, [field]: items }))
+  }
+
   function unlockRareBeauty() {
     setData((current) =>
       recalculateState({
@@ -3777,9 +4192,6 @@ function AdminPage({
             <button className="secondary-btn" type="button" onClick={previewMagazineIssue}>
               Preview weekly issue
             </button>
-            <button className="ghost-btn" type="button" onClick={resetIntroScreen}>
-              Reset intro screen
-            </button>
             <button className="ghost-btn" type="button" onClick={resetSaBirdLibraryProgress}>
               Reset SA Bird progress
             </button>
@@ -3800,6 +4212,88 @@ function AdminPage({
           />
           <StatCard label="Library" value={data.birdLibrary.length} detail="SA bird entries" />
         </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <h3>Login secret words</h3>
+        <div className="form-grid two">
+          <label>
+            Pooks secret word
+            <input
+              value={data.settings.pooksSecret}
+              onChange={(event) => updateSetting('pooksSecret', event.target.value)}
+              placeholder="feather"
+            />
+          </label>
+          <label>
+            Admin secret word
+            <input
+              value={data.settings.adminSecret}
+              onChange={(event) => updateSetting('adminSecret', event.target.value)}
+              placeholder="marnich"
+            />
+          </label>
+        </div>
+        <p className="fine-print">
+          Pooks logs in with the name “Pooks”. You log in with the name “Admin”.
+        </p>
+      </section>
+
+      <section className="soft-card full-span">
+        <h3>Today&apos;s message to Pooks</h3>
+        <textarea
+          value={data.settings.marnichDailyMessage}
+          onChange={(event) => updateSetting('marnichDailyMessage', event.target.value)}
+          placeholder="A little message under today's mission"
+        />
+      </section>
+
+      <section className="soft-card full-span">
+        <h3>Milestone rewards (mark as sent)</h3>
+        <div className="admin-edit-list">
+          {data.rewards
+            .filter((reward) => reward.status !== 'Locked')
+            .map((reward) => (
+              <article key={reward.id} className="admin-edit-row">
+                <span>
+                  <strong>{reward.name}</strong>{' '}
+                  <span className="fine-print">
+                    {reward.status === 'Paid'
+                      ? `Sent ${formatDate(reward.paidAt)} 💛`
+                      : reward.status}
+                  </span>
+                </span>
+                {reward.status !== 'Paid' && (
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={() => markRewardPaid(reward.id)}
+                  >
+                    Mark as sent 💛
+                  </button>
+                )}
+              </article>
+            ))}
+        </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <h3>Mystery gift box messages</h3>
+        <textarea
+          value={(data.mysteryGifts || []).join('\n')}
+          onChange={(event) =>
+            updateList('mysteryGifts', event.target.value)
+          }
+          placeholder="One surprise message per line"
+          rows={4}
+        />
+        <h3>Date ideas</h3>
+        <textarea
+          value={(data.dateIdeas || []).join('\n')}
+          onChange={(event) => updateList('dateIdeas', event.target.value)}
+          placeholder="One date idea per line"
+          rows={4}
+        />
       </section>
 
       <section className="soft-card">

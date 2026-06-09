@@ -1,0 +1,19 @@
+{
+  "name": "Pooks Birds",
+  "short_name": "Pooks Birds",
+  "description": "Pooks' magical bird adventure world.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf6ee",
+  "theme_color": "#faf6ee",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
