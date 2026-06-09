@@ -3909,6 +3909,75 @@ textarea:focus {
 .tweety-stage.nest-treehouse,
 .tweety-stage.nest-luxury { position: relative; }
 
+/* ===================== Bird Date polaroids ===================== */
+.date-confirm {
+  display: grid;
+  gap: 10px;
+}
+.date-confirm input[type='text'],
+.date-confirm input:not([type]),
+.date-confirm input[inputmode='numeric'] {
+  width: 100%;
+}
+.date-photo-label { font-weight: 700; font-size: 0.85rem; display: grid; gap: 4px; }
+.date-photo-preview {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.date-memory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.date-polaroid {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 10px 10px 14px;
+  background: #fffdf7;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(60, 50, 30, 0.16);
+  transform: rotate(-1.2deg);
+}
+.date-memory-grid .date-polaroid:nth-child(even) { transform: rotate(1.4deg); }
+.date-polaroid.favourite {
+  box-shadow: 0 8px 22px rgba(216, 131, 115, 0.4);
+  outline: 2px solid rgba(216, 131, 115, 0.5);
+}
+.date-polaroid img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.date-polaroid-placeholder {
+  display: grid;
+  place-items: center;
+  height: 140px;
+  border-radius: 6px;
+  font-size: 2rem;
+  background: linear-gradient(160deg, rgba(231, 241, 223, 0.9), rgba(255, 226, 182, 0.8));
+}
+.date-polaroid-body { display: grid; gap: 4px; }
+.date-polaroid-body h3 { margin: 0; font-size: 1rem; color: var(--ink-strong); }
+.date-polaroid-body p { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.date-fav-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
 .reveal-photo {
   width: 100%;
   max-height: 240px;

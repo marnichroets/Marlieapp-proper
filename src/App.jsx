@@ -1116,6 +1116,7 @@ function buildDefaultState() {
       unlockedProfiles: [],
       unlockedDateIdeas: [],
       tweetyLetter: 'Dear Tweety, please look after my Pooks for me. 💛 — Marnich',
+      marnichCode: '1972',
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -2063,24 +2064,56 @@ function App() {
     })
   }
 
-  function completeBirdDate() {
+  function completeBirdDate({ confirmed = false, photo = '' } = {}) {
+    const today = todayValue()
+    const mission = data.settings.currentDateMission
+    // Dedupe: the same mission on the same day saves only once.
+    if (data.dateMemories.some((m) => m.date === today && m.mission === mission)) {
+      setToast({
+        title: 'Already saved',
+        body: 'This bird date is already in your memories. 💛',
+        tone: 'calm',
+      })
+      return
+    }
+    const base = 100
+    const bonus = confirmed ? 200 : 0
     const memory = {
       id: createId('date-memory'),
-      date: todayValue(),
-      mission: data.settings.currentDateMission,
-      note: 'Spotted with Marnich',
+      date: today,
+      mission,
+      note: confirmed ? 'Spotted with Marnich ❤️' : 'Solo bird date',
+      marnichConfirmed: Boolean(confirmed),
+      favorite: false,
+      photo: photo || '',
     }
+    // On a confirmed date, today's sightings count as "with Marnich".
+    const sightings = confirmed
+      ? data.sightings.map((s) => (s.dateSpotted === today ? { ...s, seenWithMarnich: true } : s))
+      : data.sightings
     commit(
       {
         ...data,
-        featherCoins: data.featherCoins + 100,
+        featherCoins: data.featherCoins + base + bonus,
         dateMemories: [memory, ...data.dateMemories],
+        sightings,
       },
       {
-        title: 'Bird Date completed',
-        body: 'Memory saved as "Spotted with Marnich". +100 Feather Coins.',
+        title: confirmed ? 'Date confirmed by Marnich 💛' : 'Bird Date saved',
+        body: confirmed
+          ? `+${base + bonus} Feather Coins! Birds spotted today are now marked "Spotted with Marnich ❤️".`
+          : `+${base} Feather Coins. Memory saved.`,
       },
     )
+  }
+
+  function toggleDateFavourite(id) {
+    setData((current) => ({
+      ...current,
+      dateMemories: current.dateMemories.map((m) =>
+        m.id === id ? { ...m, favorite: !m.favorite } : m,
+      ),
+    }))
   }
 
   function claimReward(rewardId) {
@@ -2546,6 +2579,7 @@ function App() {
             data={data}
             rotateDateMission={rotateDateMission}
             completeBirdDate={completeBirdDate}
+            toggleDateFavourite={toggleDateFavourite}
           />
         )}
         {activePage === 'bingo' && <BingoPage data={data} toggleBingo={toggleBingo} />}
@@ -5044,42 +5078,135 @@ function MissedBirdsPage({ data, missedDraft, setMissedDraft, logMissedSighting 
   )
 }
 
-function BirdDatePage({ data, rotateDateMission, completeBirdDate }) {
+function BirdDatePage({ data, rotateDateMission, completeBirdDate, toggleDateFavourite }) {
+  const [step, setStep] = useState('idle')
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [photo, setPhoto] = useState('')
+
+  function reset() {
+    setStep('idle')
+    setCode('')
+    setError('')
+    setPhoto('')
+  }
+
+  function handlePhoto(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setPhoto(reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  function confirmCode() {
+    if (code.trim() === String(data.settings.marnichCode || '1972')) {
+      completeBirdDate({ confirmed: true, photo })
+      reset()
+    } else {
+      setError("That's not Marnich's code 🐦 try again")
+    }
+  }
+
   return (
     <div className="page-grid">
       <section className="soft-card feature-card full-span">
         <p className="eyebrow">Bird Date Mode</p>
         <h2>{data.settings.currentDateMission}</h2>
-        <p>
-          Complete the mission together to earn +100 of Marlie's Feather Coins and save a memory as
-          "Spotted with Marnich".
-        </p>
-        <div className="button-row">
-          <button className="secondary-btn" type="button" onClick={rotateDateMission}>
-            New mission
-          </button>
-          <button className="primary-btn" type="button" onClick={completeBirdDate}>
-            Complete Bird Date
-          </button>
-        </div>
+        {step === 'idle' && (
+          <>
+            <p>
+              Complete the mission together to earn +100 Feather Coins (and +200 bonus if Marnich
+              confirms he joined you).
+            </p>
+            <div className="button-row">
+              <button className="secondary-btn" type="button" onClick={rotateDateMission}>
+                New mission
+              </button>
+              <button className="primary-btn" type="button" onClick={() => setStep('confirm')}>
+                Complete Bird Date
+              </button>
+            </div>
+          </>
+        )}
+        {step === 'confirm' && (
+          <div className="date-confirm">
+            <p className="eyebrow">Did Marnich join you? Enter his secret code 🔐</p>
+            <label className="date-photo-label">
+              Add a date photo (optional)
+              <input type="file" accept="image/*" onChange={handlePhoto} />
+            </label>
+            {photo && <img className="date-photo-preview" src={photo} alt="Date" />}
+            <input
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value)
+                setError('')
+              }}
+              placeholder="Marnich's code"
+              inputMode="numeric"
+            />
+            {error && <p className="login-error">{error}</p>}
+            <div className="button-row">
+              <button className="primary-btn" type="button" onClick={confirmCode}>
+                Confirm with Marnich 💛
+              </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => {
+                  completeBirdDate({ confirmed: false, photo })
+                  reset()
+                }}
+              >
+                We birded solo
+              </button>
+            </div>
+            <button className="text-btn" type="button" onClick={reset}>
+              Cancel
+            </button>
+          </div>
+        )}
       </section>
+
       <section className="soft-card full-span">
         <div className="section-heading">
           <div>
             <p className="eyebrow">Date memories</p>
-            <h2>Marlie's bird date memories</h2>
+            <h2>Our bird dates</h2>
           </div>
           <span className="status-pill">{data.dateMemories.length}</span>
         </div>
-        <div className="memory-timeline">
+        <div className="date-memory-grid">
           {data.dateMemories.length === 0 && (
             <EmptyState text="Your next bird date memory will land here." />
           )}
           {data.dateMemories.map((memory) => (
-            <article className="memory-card" key={memory.id}>
-              <p className="eyebrow">{formatDate(memory.date)}</p>
-              <h3>{memory.note}</h3>
-              <p>{memory.mission}</p>
+            <article
+              className={`date-polaroid${memory.favorite ? ' favourite' : ''}`}
+              key={memory.id}
+            >
+              {memory.photo ? (
+                <img src={memory.photo} alt="Date memory" />
+              ) : (
+                <div className="date-polaroid-placeholder" aria-hidden="true">💕🐦</div>
+              )}
+              <div className="date-polaroid-body">
+                <p className="eyebrow">{formatDate(memory.date)}</p>
+                <h3>{memory.note}</h3>
+                <p>{memory.mission}</p>
+                {memory.marnichConfirmed && (
+                  <span className="status-pill paid">Spotted with Marnich ❤️</span>
+                )}
+              </div>
+              <button
+                className={`date-fav-btn${memory.favorite ? ' on' : ''}`}
+                type="button"
+                aria-label="Favourite date"
+                onClick={() => toggleDateFavourite(memory.id)}
+              >
+                {memory.favorite ? '❤️' : '🤍'}
+              </button>
             </article>
           ))}
         </div>
@@ -5952,9 +6079,26 @@ function AdminPage({
               placeholder="marnich"
             />
           </label>
+          <label>
+            Bird Date confirmation code
+            <input
+              value={data.settings.marnichCode || ''}
+              onChange={(event) => updateSetting('marnichCode', event.target.value)}
+              placeholder="1972"
+            />
+          </label>
+          <label>
+            Tweety love-letter message
+            <input
+              value={data.settings.tweetyLetter || ''}
+              onChange={(event) => updateSetting('tweetyLetter', event.target.value)}
+              placeholder="Dear Tweety…"
+            />
+          </label>
         </div>
         <p className="fine-print">
-          Pooks logs in with the name “Pooks”. You log in with the name “Admin”.
+          Pooks logs in with the name “Pooks”. You log in with the name “Admin”. The date code
+          confirms you joined a Bird Date.
         </p>
       </section>
 
