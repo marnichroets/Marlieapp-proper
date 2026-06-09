@@ -920,9 +920,13 @@ textarea:focus {
 
 .memory-gallery {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
 }
 
 .memory-bird-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
   overflow: hidden;
   padding: 0;
 }
@@ -932,16 +936,30 @@ textarea:focus {
   width: 100%;
   height: 200px;
   min-height: 200px;
-  object-fit: cover;
+  /* Show the whole bird, never cropped, on a soft coloured cushion. */
+  object-fit: contain;
   object-position: center;
+  padding: 10px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
   transform: none;
 }
 
-/* Every bird image in a card stays perfectly straight. */
+/* Every bird image in a card shows the full bird on a soft background. */
 .magazine-bird-card img,
 .bird-of-week-card img,
-.profile-sighting-card img,
 .bird-card-photo-frame img {
+  object-fit: contain;
+  object-position: center;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
+  transform: none;
+}
+
+/* Personal sighting photos are her own framed memories — keep them filled. */
+.profile-sighting-card img {
   object-fit: cover;
   object-position: center;
   transform: none;
@@ -957,6 +975,7 @@ textarea:focus {
 
 .bird-card-photo-frame .bird-card-photo {
   height: 100%;
+  padding: 10px;
 }
 
 .marnich-heart {
@@ -1010,9 +1029,16 @@ textarea:focus {
 }
 
 .bird-card-body {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 16px;
+}
+
+/* Keep the action button pinned to the bottom so cards align in the grid. */
+.bird-card-body > .secondary-btn,
+.bird-card-body > .primary-btn {
+  margin-top: auto;
 }
 
 .memory-meta {
@@ -1118,11 +1144,15 @@ textarea:focus {
 
 .library-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  /* Equal-height cards, perfectly aligned across every row. */
+  grid-auto-rows: 1fr;
+  align-items: stretch;
 }
 
 .library-bird-card,
 .profile-sighting-card {
   display: grid;
+  grid-template-rows: auto 1fr;
   gap: 0;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -1134,6 +1164,11 @@ textarea:focus {
     transform 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease;
+}
+
+.library-bird-card.tappable,
+.memory-bird-card.tappable {
+  cursor: pointer;
 }
 
 .library-bird-card.seen {
@@ -2979,4 +3014,363 @@ textarea:focus {
 .discovered-sub {
   margin: 0;
   color: var(--muted);
+}
+
+/* --- Bird profile: reference photo strip (polaroids) --- */
+.polaroid-strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 6px 2px 14px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.polaroid {
+  flex: 0 0 auto;
+  width: 160px;
+  margin: 0;
+  padding: 10px 10px 14px;
+  background: #fffdf7;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(60, 50, 30, 0.16);
+  transform: rotate(-1.4deg);
+  scroll-snap-align: center;
+}
+
+.polaroid:nth-child(even) {
+  transform: rotate(1.6deg);
+}
+
+.polaroid img {
+  display: block;
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: linear-gradient(160deg, rgba(231, 241, 223, 0.9), rgba(255, 235, 205, 0.8));
+}
+
+.polaroid figcaption {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+/* --- Their Home (nest) --- */
+.nest-card .nest-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 560px) {
+  .nest-card .nest-layout {
+    grid-template-columns: 1.4fr 1fr;
+    align-items: start;
+  }
+}
+
+.nest-photo {
+  margin: 0;
+}
+
+.nest-photo img {
+  width: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+  max-height: 220px;
+}
+
+.nest-photo figcaption {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* --- Field guide + field notes --- */
+.field-guide-card .profile-meta dt {
+  color: var(--leaf-dark);
+}
+
+.my-photos-heading {
+  margin-top: 14px;
+}
+
+.photo-upload-btn {
+  cursor: pointer;
+}
+
+.my-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.my-photo {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.my-photo img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.remove-photo {
+  font-size: 0.78rem;
+  color: var(--clay, #b5654b);
+}
+
+/* --- Weekly magazine: flip-through feel --- */
+.magazine-book {
+  perspective: 1600px;
+}
+
+.magazine-spread {
+  position: relative;
+  border-radius: 18px;
+  background:
+    linear-gradient(150deg, rgba(255, 252, 244, 0.98), rgba(250, 240, 220, 0.95));
+  box-shadow:
+    0 18px 44px rgba(70, 55, 30, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  padding: 22px 20px;
+  animation: page-turn 620ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transform-origin: left center;
+}
+
+.magazine-spread::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, transparent, rgba(120, 90, 50, 0.18), transparent);
+  pointer-events: none;
+}
+
+@keyframes page-turn {
+  0% {
+    opacity: 0;
+    transform: rotateY(-22deg) translateX(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
+}
+
+.magazine-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.magazine-dots {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.magazine-dots button {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: rgba(120, 90, 50, 0.25);
+  cursor: pointer;
+}
+
+.magazine-dots button.active {
+  background: var(--honey, #e0a04a);
+  transform: scale(1.25);
+}
+
+.magazine-cover-page {
+  text-align: center;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.magazine-cover-photo {
+  width: 100%;
+  max-width: 360px;
+  height: 280px;
+  object-fit: contain;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.7), transparent 60%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
+  box-shadow: 0 12px 30px rgba(70, 55, 30, 0.2);
+}
+
+.magazine-quote {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--ink-strong);
+  font-style: italic;
+  margin: 6px 0;
+}
+
+.magazine-issue-no {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.magazine-recap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.magazine-recap-grid .stat-card {
+  text-align: center;
+}
+
+/* --- Challenge proof form --- */
+.proof-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed rgba(120, 90, 50, 0.3);
+}
+
+.proof-or {
+  text-align: center;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.proof-verdict {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.proof-verdict.yes {
+  background: rgba(120, 180, 120, 0.18);
+  color: #2f6b34;
+}
+
+.proof-verdict.no {
+  background: rgba(220, 150, 90, 0.18);
+  color: #9a5a2a;
+}
+
+/* --- Install prompt --- */
+.install-prompt {
+  position: fixed;
+  left: 50%;
+  bottom: 90px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(92vw, 420px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(150deg, #fffdf7, #f7ecd0);
+  box-shadow: 0 16px 40px rgba(70, 55, 30, 0.28);
+  border: 1px solid rgba(120, 90, 50, 0.18);
+  animation: install-rise 420ms ease;
+}
+
+@keyframes install-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.install-prompt p {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink-strong);
+  flex: 1;
+}
+
+.install-prompt .install-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* --- Secret admin tap target --- */
+.brand-pill {
+  user-select: none;
+}
+
+.admin-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(40, 32, 20, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+/* --- Admin dashboard --- */
+.admin-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.admin-thumb-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.admin-thumb {
+  flex: 0 0 auto;
+  width: 96px;
+  text-align: center;
+}
+
+.admin-thumb img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.admin-thumb small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.admin-list-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
 }

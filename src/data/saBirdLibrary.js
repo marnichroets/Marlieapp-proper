@@ -98,17 +98,30 @@ function makeBird(entry) {
     rarity: entry.rarity || 'Common',
     special: Boolean(entry.special),
     featuredInMagazine: true,
+    // Field-guide + nest + region details.
+    nest: entry.nest || null,
+    regionTags: entry.regionTags || [],
+    nearMe: Boolean(entry.nearMe),
+    idTips: entry.idTips || '',
+    similarSpecies: entry.similarSpecies || entry.similarBirds || [],
+    bestTime: entry.bestTime || '',
+    behaviour: entry.behaviour || '',
+    callDescription: entry.callDescription || entry.soundDescription || '',
+    conservationStatus: entry.conservationStatus || 'Least Concern',
     seen: false,
     firstSeenDate: '',
     lastSeenDate: '',
     timesSeen: 0,
     herPhotos: [],
+    fieldNotes: '',
+    spottedAt: '',
+    myPhotos: [],
     aiDetails: null,
     birdCouncilReason: '',
   }
 }
 
-export const defaultBirdLibrary = [
+const baseBirdLibrary = [
   makeBird({
     commonName: 'Cape Robin-Chat',
     afrikaansName: 'Gewone Janfrederik',
@@ -1129,4 +1142,281 @@ export const defaultBirdLibrary = [
     ],
     soundDescription: 'Deep booming hoots at night.',
   }),
+  makeBird({
+    commonName: 'Common Fiscal',
+    afrikaansName: 'Fiskaallaksman',
+    scientificName: 'Lanius collaris',
+    category: 'Garden birds',
+    tags: ['Garden birds', 'Birds of prey'],
+    region: 'Gardens, farms, roadsides and open country across South Africa',
+    habitat: 'Open gardens, farmland, fences, roadsides and grassland edges.',
+    diet: 'Insects, small reptiles, rodents and small birds.',
+    colours: 'Black above, white below, with a long black tail and white wing flash.',
+    size: 'Medium songbird, about 21-23 cm.',
+    description: 'A bold black-and-white perch hunter often called the "butcher bird".',
+    funFacts: [
+      'It impales prey on thorns or barbed wire as a larder.',
+      'It hunts from an exposed perch, dropping onto prey below.',
+    ],
+    soundDescription: 'Harsh chattering mixed with surprisingly sweet warbles.',
+    idTips: 'Pied black-and-white with a long tail; sits upright on an open perch. Females show a rufous flank patch.',
+    behaviour: 'A solitary sit-and-wait hunter that fiercely defends its territory.',
+    bestTime: 'All day, most active early morning from open perches.',
+    similarSpecies: ['Fiscal Flycatcher', 'Magpie Shrike'],
+  }),
+  makeBird({
+    commonName: 'Arrow-marked Babbler',
+    afrikaansName: 'Pylvlekkatlagter',
+    scientificName: 'Turdoides jardineii',
+    category: 'Noisy birds',
+    tags: ['Garden birds', 'Noisy birds'],
+    region: 'Thickets, riverine bush and leafy gardens in the north and east',
+    habitat: 'Dense thickets, riverine bush, bushveld and well-wooded gardens.',
+    diet: 'Insects, fruit and small invertebrates foraged on the ground.',
+    colours: 'Brown bird flecked with white arrow marks on the throat and breast; orange eye.',
+    size: 'Medium babbler, about 22-24 cm.',
+    description: 'A sociable brown bird that moves in noisy, chattering family groups.',
+    funFacts: [
+      'Whole groups burst into a babbling chorus together.',
+      'They breed cooperatively, with helpers raising the chicks.',
+    ],
+    soundDescription: 'A rising, cackling babble given by the whole group at once.',
+    idTips: 'Look for the orange eye and white "arrow" flecks on the throat; always in groups.',
+    behaviour: 'Lives in tight, vocal family parties that forage and bathe together.',
+    bestTime: 'Early morning when groups are loudest and most active.',
+    similarSpecies: ['Southern Pied Babbler', 'Black-faced Babbler'],
+  }),
+  makeBird({
+    commonName: 'African Green Pigeon',
+    afrikaansName: 'Papegaaiduif',
+    scientificName: 'Treron calvus',
+    category: 'Colourful birds',
+    tags: ['Colourful birds', 'Garden birds'],
+    region: 'Fruiting trees, riverine forest and bushveld in the north and east',
+    habitat: 'Fruiting trees, riverine forest, bushveld and well-wooded gardens.',
+    diet: 'Mainly fruit, especially wild figs.',
+    colours: 'Yellow-green body, mauve shoulder patch, red-and-yellow feet and bill base.',
+    size: 'Medium pigeon, about 25-30 cm.',
+    description: 'A parrot-like green pigeon that clambers through fig trees feeding on fruit.',
+    funFacts: [
+      'It clambers and hangs upside down like a parrot to reach figs.',
+      'Flocks gather quietly in fruiting trees and are easy to overlook.',
+    ],
+    soundDescription: 'Whistling, growling and clucking notes from the canopy.',
+    idTips: 'Unmistakable yellow-green pigeon with red feet; usually seen in fruiting figs.',
+    behaviour: 'Feeds acrobatically in fruiting trees, often in small flocks.',
+    bestTime: 'Mornings, in fruiting trees.',
+    similarSpecies: ['Lemon Dove', 'Tambourine Dove'],
+  }),
+  makeBird({
+    commonName: 'Black-headed Oriole',
+    afrikaansName: 'Swartkopwielewaal',
+    scientificName: 'Oriolus larvatus',
+    category: 'Colourful birds',
+    tags: ['Colourful birds', 'Garden birds'],
+    region: 'Wooded gardens, bushveld and riverine forest in the north and east',
+    habitat: 'Leafy gardens, woodland, bushveld and riverine forest.',
+    diet: 'Insects, caterpillars, fruit and nectar.',
+    colours: 'Bright golden-yellow body with a glossy black head and pink-red bill.',
+    size: 'Medium songbird, about 20-24 cm.',
+    description: 'A glowing yellow bird with a black hood and a beautiful liquid call.',
+    funFacts: [
+      'Its rich, liquid whistle is one of the prettiest garden sounds.',
+      'The black hood and yellow body make it unmistakable.',
+    ],
+    soundDescription: 'A loud, liquid, fluty pheee-oo whistle.',
+    idTips: 'Golden-yellow with a clean black head and a coral-pink bill; listen for the fluty call.',
+    behaviour: 'Keeps to the canopy; more often heard than seen.',
+    bestTime: 'Early morning, when calling from treetops.',
+    similarSpecies: ['African Golden Oriole', 'Eurasian Golden Oriole'],
+  }),
 ]
+
+// --- Nests: "Their Home 🪺" for the most common birds -----------------------
+const NEST_DATA = {
+  'Cape Robin-Chat': {
+    type: 'Open cup nest',
+    description: 'A neat cup of rootlets, leaves and moss tucked low in dense cover.',
+    location: 'Low in shrubs, creepers, banks or hidden corners of the garden.',
+    appearance: 'A soft, mossy bowl lined with fine roots and hair.',
+  },
+  'Hadeda Ibis': {
+    type: 'Stick platform',
+    description: 'A flattish platform of sticks lined with grass and leaves.',
+    location: 'High in a large tree, often over a road, garden or water.',
+    appearance: 'An untidy raft of twigs balanced on a horizontal branch.',
+  },
+  'Cape White-eye': {
+    type: 'Tiny slung cup',
+    description: 'A delicate cup woven from grass, tendrils and spider web.',
+    location: 'Slung between thin forked twigs in a shrub or tree.',
+    appearance: 'A miniature hammock-like bowl bound with cobweb.',
+  },
+  'Southern Masked Weaver': {
+    type: 'Woven hanging nest',
+    description: 'The male weaves an elaborate hanging nest from strips of grass and reed.',
+    location: 'Hung from the tip of a branch or reed, often over water.',
+    appearance: 'A tightly woven kidney-shaped ball with the entrance below.',
+  },
+  'African Hoopoe': {
+    type: 'Cavity nest',
+    description: 'Nests in a natural hole, rarely adding much lining.',
+    location: 'In tree holes, wall cavities, drainpipes or among rocks.',
+    appearance: 'A bare hollow that can become famously smelly while in use.',
+  },
+  'Laughing Dove': {
+    type: 'Flimsy stick platform',
+    description: 'A thin, see-through platform of a few twigs.',
+    location: 'In a shrub, creeper, tree fork or on a ledge.',
+    appearance: 'A loose scatter of sticks you can almost see the eggs through.',
+  },
+  'Speckled Pigeon': {
+    type: 'Untidy stick nest',
+    description: 'A rough pad of sticks, grass and debris.',
+    location: 'On cliff ledges, building rafters, gutters and roof spaces.',
+    appearance: 'A messy mat wedged onto a sheltered ledge.',
+  },
+  'Egyptian Goose': {
+    type: 'Down-lined hollow',
+    description: 'A simple scrape or hollow generously lined with down.',
+    location: 'On the ground, on cliff ledges, in old nests or even on rooftops.',
+    appearance: 'A soft pale bed of down tucked into a sheltered spot.',
+  },
+  'Red-eyed Dove': {
+    type: 'Stick platform',
+    description: 'A frail platform of twigs, typical of doves.',
+    location: 'Well hidden in a leafy tree or tall shrub.',
+    appearance: 'A thin saucer of sticks among foliage.',
+  },
+  'Fiscal Flycatcher': {
+    type: 'Open cup nest',
+    description: 'An untidy cup of twigs, grass and rootlets.',
+    location: 'In a dense shrub or thorny bush a few metres up.',
+    appearance: 'A bulky bowl lined with finer material.',
+  },
+  'Karoo Thrush': {
+    type: 'Mud-lined cup',
+    description: 'A sturdy cup of grass and roots strengthened with mud.',
+    location: 'In a tree fork or sturdy shrub in a garden or park.',
+    appearance: 'A solid bowl plastered with mud and lined with fine grass.',
+  },
+  'African Fish Eagle': {
+    type: 'Huge stick eyrie',
+    description: 'A massive stick nest reused and enlarged year after year.',
+    location: 'High in a tall tree near a river, dam or lake.',
+    appearance: 'An enormous platform of branches lined with grass and reeds.',
+  },
+  'Pied Crow': {
+    type: 'Bulky stick basket',
+    description: 'A large basket of sticks lined with wool, hair and soft bits.',
+    location: 'High in a tall tree, on a pylon or on a tall structure.',
+    appearance: 'A deep, rough bowl of twigs with a cosy lining.',
+  },
+  'Helmeted Guineafowl': {
+    type: 'Ground scrape',
+    description: 'A simple scrape on the ground, lightly lined with grass.',
+    location: 'Hidden in long grass or under a bush.',
+    appearance: 'A shallow hollow that can hold a big clutch of eggs.',
+  },
+  'Fork-tailed Drongo': {
+    type: 'Slung cup nest',
+    description: 'A thin but strong cup bound with spider web.',
+    location: 'Slung in a high horizontal fork of a tree.',
+    appearance: 'A shallow hammock-like bowl high in the canopy.',
+  },
+  'Cape Sparrow': {
+    type: 'Untidy ball nest',
+    description: 'A large untidy ball of grass and feathers with a side entrance.',
+    location: 'In trees, shrubs, on buildings or in old nests of other birds.',
+    appearance: 'A scruffy dome of dry grass with a feather-lined chamber.',
+  },
+  'Cape Wagtail': {
+    type: 'Open cup nest',
+    description: 'A cup of grass, roots and moss lined with soft material.',
+    location: 'Low near water — on banks, ledges or among plants.',
+    appearance: 'A tidy bowl tucked into a sheltered nook.',
+  },
+  'Common Myna': {
+    type: 'Cavity nest',
+    description: 'A stuffed cavity filled with grass, paper and assorted litter.',
+    location: 'In roof spaces, holes, pipes and building cavities.',
+    appearance: 'A messy jumble of material crammed into a hole.',
+  },
+  'Blacksmith Lapwing': {
+    type: 'Ground scrape',
+    description: 'A bare scrape sometimes ringed with small stones.',
+    location: 'On open ground near water, often on a slight rise.',
+    appearance: 'A shallow hollow with beautifully camouflaged eggs.',
+  },
+  'Spotted Eagle-Owl': {
+    type: 'Scrape or ledge',
+    description: 'No real nest — eggs are laid on a scrape, ledge or old nest.',
+    location: 'On cliff ledges, building tops, tree forks or the ground.',
+    appearance: 'A bare hollow sheltered from view, reused over years.',
+  },
+  'Common Fiscal': {
+    type: 'Open cup nest',
+    description: 'A bulky but neat cup of twigs, grass and roots.',
+    location: 'In a thorny shrub or small tree, well concealed.',
+    appearance: 'A sturdy bowl lined with fine grass and rootlets.',
+  },
+  'Arrow-marked Babbler': {
+    type: 'Deep cup nest',
+    description: 'A deep cup of rootlets and twigs, built with helpers.',
+    location: 'Hidden in a dense thicket or tangle a few metres up.',
+    appearance: 'A neat, deep bowl tucked deep inside cover.',
+  },
+  'African Green Pigeon': {
+    type: 'Flimsy stick platform',
+    description: 'A thin platform of twigs, typical of pigeons.',
+    location: 'In a leafy or fruiting tree, often a fig.',
+    appearance: 'A see-through saucer of sticks among the leaves.',
+  },
+  'Black-headed Oriole': {
+    type: 'Slung cup nest',
+    description: 'A deep cup bound to a horizontal fork with bark and web.',
+    location: 'Slung near the end of a high outer branch.',
+    appearance: 'A neat hanging bowl woven into the canopy.',
+  },
+}
+
+// --- "Near Potchefstroom / North West" birds --------------------------------
+const POTCH_BIRDS = new Set([
+  'Cape Turtle Dove', 'Laughing Dove', 'Red-eyed Dove', 'Hadeda Ibis', 'Egyptian Goose',
+  'African Hoopoe', 'Southern Masked Weaver', 'Cape Sparrow', 'Common Fiscal', 'Pied Crow',
+  'Fork-tailed Drongo', 'Arrow-marked Babbler', 'African Green Pigeon', 'Black-headed Oriole',
+  'Speckled Pigeon', 'Crested Barbet', 'Karoo Thrush', 'Southern Red Bishop', 'Cape Wagtail',
+  'Common Myna', 'Cape Glossy Starling', 'Cape White-eye', 'Cape Robin-Chat',
+])
+
+function firstNonEmpty(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== '') || ''
+}
+
+function enrichBird(bird) {
+  const nearMe = bird.nearMe || POTCH_BIRDS.has(bird.commonName)
+  const regionTags = Array.from(
+    new Set([
+      ...(bird.regionTags || []),
+      ...(nearMe ? ['Near Potchefstroom', 'North West'] : []),
+    ]),
+  )
+
+  return {
+    ...bird,
+    nearMe,
+    regionTags,
+    nest: bird.nest || NEST_DATA[bird.commonName] || null,
+    idTips: firstNonEmpty(
+      bird.idTips,
+      [bird.colours, bird.size].filter(Boolean).join(' '),
+    ),
+    similarSpecies: bird.similarSpecies?.length ? bird.similarSpecies : [],
+    bestTime: firstNonEmpty(bird.bestTime, 'Early morning and late afternoon'),
+    behaviour: firstNonEmpty(bird.behaviour, bird.description),
+    callDescription: firstNonEmpty(bird.callDescription, bird.soundDescription),
+    conservationStatus: firstNonEmpty(bird.conservationStatus, 'Least Concern'),
+  }
+}
+
+export const defaultBirdLibrary = baseBirdLibrary.map(enrichBird)

@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI, OpenAIError
 
@@ -83,6 +83,112 @@ async def identify_bird(file: UploadFile = File(...)) -> dict[str, Any]:
 
     image_data_url = build_image_data_url(image_bytes, file.content_type)
     return await asyncio.to_thread(identify_bird_with_openai, api_key, image_data_url)
+
+
+@app.post("/api/validate-challenge")
+async def validate_challenge(
+    challenge: str = Form(...),
+    description: str = Form(""),
+    file: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    challenge_text = challenge.strip()
+    if not challenge_text:
+        raise HTTPException(status_code=400, detail="A challenge is required.")
+
+    description_text = (description or "").strip()
+    has_photo = file is not None and bool(file.content_type)
+
+    if not has_photo and not description_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide a photo or a written description.",
+        )
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is not configured on the server.",
+        )
+
+    image_data_url = ""
+    if has_photo:
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Please upload an image file.")
+        image_bytes = await file.read()
+        if len(image_bytes) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Uploaded image is too large. Maximum size is 10 MB.",
+            )
+        if image_bytes:
+            image_data_url = build_image_data_url(image_bytes, file.content_type)
+
+    return await asyncio.to_thread(
+        validate_challenge_with_openai,
+        api_key,
+        challenge_text,
+        description_text,
+        image_data_url,
+    )
+
+
+def validate_challenge_with_openai(
+    api_key: str,
+    challenge_text: str,
+    description_text: str,
+    image_data_url: str,
+) -> dict[str, Any]:
+    client = OpenAI(api_key=api_key)
+    model = os.getenv("OPENAI_VISION_MODEL", DEFAULT_MODEL)
+
+    instruction = (
+        "You are the warm, encouraging 'Bird Council' for a cute birdwatching app. "
+        "Decide whether the submission reasonably matches the challenge. Be generous "
+        "and kind — this is meant to be fun, not strict — but the submission must be a "
+        "genuine attempt that plausibly relates to the challenge. "
+        f'Challenge: "{challenge_text}". '
+        "Reply with ONLY valid JSON of the form "
+        '{"verdict": "YES" or "NO", "reason": "one short friendly sentence"}.'
+    )
+
+    user_content: list[dict[str, Any]] = [{"type": "text", "text": instruction}]
+    if description_text:
+        user_content.append(
+            {"type": "text", "text": f"Her description: {description_text}"}
+        )
+    if image_data_url:
+        user_content.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": image_data_url, "detail": "low"},
+            }
+        )
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": user_content}],
+            max_tokens=200,
+        )
+    except OpenAIError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Challenge validation failed. Please try again.",
+        ) from exc
+
+    content = response.choices[0].message.content or ""
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        parsed = {}
+
+    verdict_raw = str(parsed.get("verdict", "")).strip().lower()
+    verdict = "YES" if verdict_raw.startswith("y") else "NO"
+    reason = str(parsed.get("reason", "")).strip()
+
+    return {"verdict": verdict, "reason": reason}
 
 
 def build_image_data_url(image_bytes: bytes, content_type: str) -> str:

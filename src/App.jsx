@@ -91,6 +91,28 @@ const councilMessages = [
   'A tiny stamp has been placed on the official bird paperwork.',
 ]
 
+// A new motivational/funny bird quote surfaces on the magazine cover each week.
+const weeklyQuotes = [
+  'Be bold like an eagle 🦅',
+  'Even penguins find their flock 🐧',
+  'The early bird gets the adventure ☀️',
+  'Spread your wings, Pooks 🐦',
+  'Tiny bird, big main-character energy ✨',
+  'Stay curious, fly gently 🪶',
+  'Some days you soar, some days you waddle — both count 🐧',
+  'Find joy in small feathered things 💛',
+  'Look up — the sky is full of stories 🌤️',
+  'You + birds = the best kind of quiet 🌿',
+  'Brave hearts notice the smallest wings 🤍',
+  'Adventure is just outside the window 🍃',
+  'Sing your own song like a robin 🎶',
+  'Flock together, glow together 🌅',
+]
+
+function getWeeklyQuote(weekIndex = getAbsoluteWeekIndex()) {
+  return weeklyQuotes[Math.abs(weekIndex) % weeklyQuotes.length]
+}
+
 const loadingMessages = [
   'Consulting the Bird Council...',
   'Looking for feathers...',
@@ -331,17 +353,36 @@ const shopItems = [
 ]
 
 const defaultChallengeTexts = [
-  'Spot a bird with yellow on it',
-  'Spot 3 birds in one day',
-  'Hear a bird before seeing it',
-  'Spot a bird while drinking coffee',
-  'Spot a bird with Marnich',
-  'Find a bird you have never seen before',
-  'Spot a bird on a roof',
-  'Spot a bird near water',
-  'Spot a loud bird',
-  'Spot a tiny bird',
-  'Take a clear bird photo',
+  'Find a bird making noise and describe its song',
+  'Spot a bird on a roof or fence',
+  "Find a bird that isn't brown or grey",
+  'Spot two different birds within 10 minutes',
+  'Find a bird near water',
+  "Spot a bird you've never photographed before",
+  'Find a bird sitting perfectly still',
+  'Spot a bird with yellow somewhere on it',
+  'Catch a bird mid-flight with your eyes',
+  'Find a bird that is eating something',
+  'Spot a bird smaller than your hand',
+  'Find a bird bigger than a loaf of bread',
+  'Hear a bird before you see it',
+  'Spot a bird in a tree above your head',
+  'Find a bird walking on the ground',
+  'Spot a bird with Marnich and describe the moment',
+  'Find a bird doing something funny',
+  'Spot a bird drinking or bathing in water',
+  'Find a pair of birds together',
+  'Spot a bird with a long tail',
+  'Find a bird with a curved or pointy beak',
+  'Spot a bird at sunrise or sunset',
+  'Find a bird hiding in a bush',
+  'Spot a bird sitting on a wire',
+  'Find the most colourful bird you can today',
+  'Spot a bird and guess what it was thinking',
+  'Find a bird near your home',
+  'Spot a bird you can hear but barely see',
+  'Find a bird building or sitting near a nest',
+  'Spot a bird and give it a secret nickname',
 ]
 
 const defaultMagazineIssue = {
@@ -501,6 +542,7 @@ const moodOptions = [
 
 const libraryFilters = [
   'All',
+  'Near me',
   'Seen',
   'Not seen',
   'Garden birds',
@@ -758,6 +800,18 @@ function normalizeLibraryBird(bird) {
     soundUrl: '',
     rarity: 'Common',
     featuredInMagazine: true,
+    nest: null,
+    regionTags: [],
+    nearMe: false,
+    idTips: '',
+    similarSpecies: [],
+    bestTime: '',
+    behaviour: '',
+    callDescription: '',
+    conservationStatus: 'Least Concern',
+    fieldNotes: '',
+    spottedAt: '',
+    myPhotos: [],
     seen: Boolean(bird.seen || firstSeenDate),
     firstSeenDate,
     lastSeenDate,
@@ -994,6 +1048,7 @@ function buildDefaultState() {
       marnichNote: 'I loved seeing you enjoy this.',
     },
     dailyChallengeCompletions: {},
+    fieldGuideNotes: {},
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
     settings: {
@@ -1080,6 +1135,10 @@ function loadState() {
         typeof saved.dailyChallengeCompletions === 'object'
           ? saved.dailyChallengeCompletions
           : base.dailyChallengeCompletions,
+      fieldGuideNotes:
+        saved.fieldGuideNotes && typeof saved.fieldGuideNotes === 'object'
+          ? saved.fieldGuideNotes
+          : base.fieldGuideNotes,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
         ...base.magazineIssue,
@@ -1265,6 +1324,29 @@ function App() {
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
   const [birdProfile, setBirdProfile] = useState(null)
+  // Open the hidden admin login when the URL is /admin (or #admin).
+  const [adminGate, setAdminGate] = useState(() => {
+    try {
+      return `${window.location.pathname}${window.location.hash}`.toLowerCase().includes('admin')
+    } catch {
+      return false
+    }
+  })
+  const tapTrackerRef = useRef({ count: 0, last: 0 })
+
+  // Secret tap sequence: 5 quick taps on the bird logo opens admin login.
+  function handleBrandTap() {
+    const now = Date.now()
+    const tracker = tapTrackerRef.current
+    tracker.count = now - tracker.last < 600 ? tracker.count + 1 : 1
+    tracker.last = now
+    if (tracker.count >= 5) {
+      tracker.count = 0
+      setAdminGate(true)
+      return
+    }
+    setActivePage('home')
+  }
 
   const dailyStreak = useMemo(
     () => getDailyStreak(data.dailyChallengeCompletions),
@@ -1342,19 +1424,10 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [confetti])
 
+  // Pooks' normal login. Admin is intentionally NOT reachable from here.
   function login(name, secret) {
     const cleanName = String(name || '').trim().toLowerCase()
     const cleanSecret = String(secret || '').trim()
-    if (cleanName === 'admin' || cleanName === 'marnich') {
-      if (cleanSecret && cleanSecret === data.settings.adminSecret) {
-        const next = { role: 'admin', name: 'Marnich' }
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next))
-        setSession(next)
-        setActivePage('home')
-        return true
-      }
-      return false
-    }
     if (cleanName === 'pooks' || cleanName === 'marlie') {
       if (cleanSecret && cleanSecret === data.settings.pooksSecret) {
         const next = { role: 'pooks', name: 'Pooks' }
@@ -1363,7 +1436,25 @@ function App() {
         setActivePage('home')
         return true
       }
-      return false
+    }
+    return false
+  }
+
+  // Separate, hidden admin login reached only via /admin or the secret tap.
+  function adminLogin(secret) {
+    const cleanSecret = String(secret || '').trim()
+    if (cleanSecret && cleanSecret === data.settings.adminSecret) {
+      const next = { role: 'admin', name: 'Marnich' }
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next))
+      setSession(next)
+      setAdminGate(false)
+      setActivePage('admin')
+      try {
+        window.history.replaceState(null, '', '/')
+      } catch {
+        // ignore
+      }
+      return true
     }
     return false
   }
@@ -1373,6 +1464,30 @@ function App() {
     setSession(null)
     setMenuOpen(false)
     setActivePage('home')
+  }
+
+  function sendSurpriseNote(message) {
+    const text = String(message || '').trim()
+    if (!text) return
+    setData((current) => ({
+      ...current,
+      hiddenNotes: [
+        {
+          id: createId('surprise-note'),
+          milestone: null,
+          title: 'A surprise from Marnich 💛',
+          message: text,
+          unlocked: true,
+          unlockedAt: new Date().toISOString(),
+        },
+        ...current.hiddenNotes,
+      ],
+    }))
+    setToast({
+      title: 'Surprise note sent 💌',
+      body: 'It is now waiting in her hidden notes.',
+      tone: 'success',
+    })
   }
 
   function commit(nextState, message) {
@@ -1419,6 +1534,23 @@ function App() {
 
   function closeBirdProfile() {
     setActivePage(birdProfile?.source === 'library' ? 'library' : 'birds')
+  }
+
+  function saveFieldGuideNotes(key, patch) {
+    if (!key) return
+    setData((current) => ({
+      ...current,
+      fieldGuideNotes: {
+        ...current.fieldGuideNotes,
+        [key]: {
+          fieldNotes: '',
+          spottedAt: '',
+          myPhotos: [],
+          ...(current.fieldGuideNotes?.[key] || {}),
+          ...patch,
+        },
+      },
+    }))
   }
 
   function addBird(form, options = {}) {
@@ -1958,6 +2090,9 @@ function App() {
     session?.role === 'admin' ? [...menuItems, ['admin', 'Admin', '🔒']] : menuItems
 
   if (!session) {
+    if (adminGate) {
+      return <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} />
+    }
     return <LoginScreen data={data} onLogin={login} />
   }
 
@@ -1971,6 +2106,10 @@ function App() {
         <span className="tiny-bird bird-two">🐤</span>
       </div>
       <Toast toast={toast} />
+      <InstallPrompt />
+      {adminGate && session.role !== 'admin' && (
+        <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} overlay />
+      )}
       {confetti ? <Confetti seed={confetti} /> : null}
       <RewardUnlockModal
         reward={activeRewardUnlock}
@@ -1981,7 +2120,7 @@ function App() {
       <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
 
       <header className="app-header">
-        <button className="brand-pill" type="button" onClick={() => setActivePage('home')}>
+        <button className="brand-pill" type="button" onClick={handleBrandTap}>
           🐦 Pooks
         </button>
         <button
@@ -2035,6 +2174,7 @@ function App() {
             data={data}
             profile={birdProfile}
             onBack={closeBirdProfile}
+            saveFieldGuideNotes={saveFieldGuideNotes}
           />
         )}
         {activePage === 'rewards' && (
@@ -2080,14 +2220,17 @@ function App() {
           <WeeklyMagazinePage data={data} openBirdProfile={openBirdProfile} />
         )}
         {activePage === 'profile' && <ProfilePage data={data} stats={stats} goTo={setActivePage} />}
-        {activePage === 'admin' && (
+        {activePage === 'admin' && session.role === 'admin' && (
           <AdminPage
             data={data}
+            stats={stats}
+            dailyStreak={dailyStreak}
             addAdminReward={addAdminReward}
             addAdminChallenge={addAdminChallenge}
             addAdminNote={addAdminNote}
             addAdminCode={addAdminCode}
             markRewardPaid={markRewardPaid}
+            sendSurpriseNote={sendSurpriseNote}
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
             previewMagazineIssue={() => setActivePage('magazine')}
@@ -2110,6 +2253,51 @@ function App() {
         ))}
       </nav>
     </div>
+  )
+}
+
+function AdminGate({ onLogin, onCancel, overlay = false }) {
+  const [secret, setSecret] = useState('')
+  const [error, setError] = useState('')
+
+  function submit(event) {
+    event.preventDefault()
+    if (!onLogin(secret)) {
+      setError('Wrong admin password.')
+    }
+  }
+
+  return (
+    <main className={overlay ? 'login-screen admin-gate-overlay' : 'login-screen'}>
+      <section className="login-card" aria-labelledby="admin-gate-title">
+        <div className="login-logo" aria-hidden="true">🔒</div>
+        <p className="login-tag" id="admin-gate-title">Marnich control room</p>
+        <p className="login-sub">Admin access only.</p>
+        <form className="login-form" onSubmit={submit}>
+          <label>
+            Admin password
+            <input
+              type="password"
+              value={secret}
+              onChange={(event) => {
+                setSecret(event.target.value)
+                setError('')
+              }}
+              placeholder="••••••"
+              autoComplete="off"
+              autoFocus
+            />
+          </label>
+          {error && <p className="login-error">{error}</p>}
+          <button className="primary-btn wide big-btn" type="submit">
+            Enter control room
+          </button>
+          <button className="text-btn" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        </form>
+      </section>
+    </main>
   )
 }
 
@@ -2329,6 +2517,211 @@ function Toast({ toast }) {
   )
 }
 
+// Send the proof (photo or written description) to the AI challenge validator.
+async function validateChallenge({ challengeText, description, photoFile }) {
+  try {
+    if (!BIRD_API_URL) throw new Error('Missing VITE_BIRD_API_URL')
+    const body = new FormData()
+    body.append('challenge', challengeText)
+    if (photoFile) body.append('file', photoFile)
+    if (description) body.append('description', description)
+
+    const response = await fetch(`${BIRD_API_URL}/api/validate-challenge`, {
+      method: 'POST',
+      body,
+    })
+    if (!response.ok) throw new Error(`Validator returned ${response.status}`)
+    const payload = await response.json()
+    const verdict = String(payload.verdict || '').trim().toLowerCase().startsWith('y')
+      ? 'yes'
+      : 'no'
+    return { verdict, reason: String(payload.reason || ''), offline: false }
+  } catch (error) {
+    console.warn('Challenge validation fell back to offline check', error)
+    const words = String(description || '').trim().split(/\s+/).filter(Boolean).length
+    if (photoFile || words >= 20) {
+      return {
+        verdict: 'yes',
+        reason: 'The Bird Council accepted your effort.',
+        offline: true,
+      }
+    }
+    return {
+      verdict: 'no',
+      reason: 'Add a photo or at least 20 words so the Council can be sure.',
+      offline: true,
+    }
+  }
+}
+
+function ChallengeProof({ challenge, complete, onValidated, label = 'I completed this' }) {
+  const [open, setOpen] = useState(false)
+  const [description, setDescription] = useState('')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [status, setStatus] = useState('idle')
+  const [verdict, setVerdict] = useState(null)
+
+  const wordCount = description.trim().split(/\s+/).filter(Boolean).length
+  const canSubmit = (Boolean(photoFile) || wordCount >= 20) && status !== 'checking'
+
+  if (complete) {
+    return (
+      <button className="primary-btn wide mission-btn" type="button" disabled>
+        Done for today ✓
+      </button>
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        className="primary-btn wide mission-btn"
+        type="button"
+        onClick={() => setOpen(true)}
+      >
+        {label}
+      </button>
+    )
+  }
+
+  async function submit() {
+    if (!canSubmit) return
+    setStatus('checking')
+    setVerdict(null)
+    const result = await validateChallenge({
+      challengeText: challenge?.text || '',
+      description,
+      photoFile,
+    })
+    setVerdict(result)
+    if (result.verdict === 'yes') {
+      setStatus('yes')
+      onValidated()
+    } else {
+      setStatus('no')
+    }
+  }
+
+  return (
+    <div className="proof-form">
+      <p className="eyebrow">Prove it to the Bird Council 🐦</p>
+      <label>
+        Upload a photo
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
+        />
+      </label>
+      <p className="proof-or">— or —</p>
+      <label>
+        Describe what you saw ({wordCount}/20 words)
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="What bird was it, what was it doing, and where were you?"
+        />
+      </label>
+      <button className="primary-btn" type="button" onClick={submit} disabled={!canSubmit}>
+        {status === 'checking' ? 'Asking the Bird Council…' : 'Submit to the Bird Council'}
+      </button>
+      {verdict && status === 'yes' && (
+        <div className="proof-verdict yes">Yes! {verdict.reason} 🎉</div>
+      )}
+      {verdict && status === 'no' && (
+        <div className="proof-verdict no">
+          The Bird Council isn&apos;t quite convinced yet 🐦 Try again!
+          {verdict.reason ? ` ${verdict.reason}` : ''}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const INSTALL_DISMISS_KEY = 'pooks-install-dismissed'
+
+function InstallPrompt() {
+  const [deferred, setDeferred] = useState(null)
+  const [visible, setVisible] = useState(false)
+  const [isIos] = useState(() => {
+    try {
+      return /iphone|ipad|ipod/i.test(window.navigator.userAgent || '')
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true
+    if (standalone) return undefined
+    try {
+      if (localStorage.getItem(INSTALL_DISMISS_KEY)) return undefined
+    } catch {
+      // ignore
+    }
+    if (!window.matchMedia('(max-width: 820px)').matches) return undefined
+
+    function onBeforeInstall(event) {
+      event.preventDefault()
+      setDeferred(event)
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    const timer = window.setTimeout(() => setVisible(true), 30000)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+      window.clearTimeout(timer)
+    }
+  }, [])
+
+  if (!visible) return null
+  if (!deferred && !isIos) return null
+
+  function dismiss() {
+    setVisible(false)
+    try {
+      localStorage.setItem(INSTALL_DISMISS_KEY, '1')
+    } catch {
+      // ignore
+    }
+  }
+
+  async function install() {
+    if (deferred) {
+      deferred.prompt()
+      try {
+        await deferred.userChoice
+      } catch {
+        // ignore
+      }
+      setDeferred(null)
+    }
+    dismiss()
+  }
+
+  return (
+    <div className="install-prompt" role="dialog" aria-label="Install Pooks Books">
+      <span aria-hidden="true" style={{ fontSize: '1.7rem' }}>🐦</span>
+      <p>
+        Add Pooks Books to your home screen for the full adventure 🐦
+        {isIos && !deferred ? ' — tap Share, then “Add to Home Screen”.' : ''}
+      </p>
+      <div className="install-actions">
+        {deferred && (
+          <button className="primary-btn" type="button" onClick={install}>
+            Add
+          </button>
+        )}
+        <button className="text-btn" type="button" onClick={dismiss}>
+          Later
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function HomePage({
   data,
   dailyChallenge,
@@ -2355,14 +2748,11 @@ function HomePage({
           {dailyChallenge.main?.text || 'Find one tiny bird moment today'}
         </h2>
         <p className="mission-message">{data.settings.marnichDailyMessage}</p>
-        <button
-          className="primary-btn wide mission-btn"
-          type="button"
-          disabled={done}
-          onClick={() => completeDailyChallenge('daily')}
-        >
-          {done ? 'Done for today ✓' : 'I found one! ✓'}
-        </button>
+        <ChallengeProof
+          challenge={dailyChallenge.main}
+          complete={done}
+          onValidated={() => completeDailyChallenge('daily')}
+        />
       </section>
 
       <button className="giant-spot-btn" type="button" onClick={() => goTo('add')}>
@@ -2952,7 +3342,11 @@ function BirdsPage({ data, openBirdProfile }) {
             aiMatch?.whyThisBird || libraryBird?.birdCouncilReason || 'Manual bird memory'
 
           return (
-            <article className="bird-card memory-bird-card" key={bird.id}>
+            <article
+              className="bird-card memory-bird-card tappable"
+              key={bird.id}
+              onClick={() => openBirdProfile({ source: 'memory', id: bird.id })}
+            >
               {bird.photo ? (
                 <img className="bird-card-photo" src={bird.photo} alt={bird.birdName} />
               ) : (
@@ -3024,6 +3418,7 @@ function getBirdSearchText(bird) {
     bird.habitat,
     bird.whereFoundInSouthAfrica,
     ...(bird.tags || []),
+    ...(bird.regionTags || []),
   ]
     .filter(Boolean)
     .join(' ')
@@ -3032,6 +3427,7 @@ function getBirdSearchText(bird) {
 
 function libraryBirdMatchesFilter(bird, filter) {
   if (filter === 'All') return true
+  if (filter === 'Near me') return Boolean(bird.nearMe)
   if (filter === 'Seen') return Boolean(bird.seen)
   if (filter === 'Not seen') return !bird.seen
 
@@ -3115,8 +3511,11 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
               marnichSpecies.has(normalizeBirdName(bird.scientificName)))
           return (
             <article
-              className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ''}`}
+              className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ' tappable'}`}
               key={bird.id}
+              onClick={
+                locked ? undefined : () => openBirdProfile({ source: 'library', id: bird.id })
+              }
             >
               {bird.seen && spottedPhoto ? (
                 <div className="bird-card-photo-frame">
@@ -3190,20 +3589,26 @@ const SOUND_CACHE_PREFIX = 'pooks-bird-sound-'
 function readSoundCache(query, cacheKey, presetUrl) {
   if (presetUrl) return { status: 'ready', url: presetUrl }
   if (!query) return { status: 'none', url: '' }
-  const cached = localStorage.getItem(cacheKey)
-  if (cached === 'NONE') return { status: 'none', url: '' }
-  if (cached) return { status: 'ready', url: cached }
-  if (!getXenoCantoKey()) return { status: 'none', url: '' }
-  return { status: 'loading', url: '' }
+  try {
+    const cached = localStorage.getItem(cacheKey)
+    if (cached === 'NONE') return { status: 'empty', url: '' }
+    if (cached) return { status: 'ready', url: cached }
+  } catch {
+    // ignore cache read errors
+  }
+  // Button is always offered; the recording is fetched on first tap.
+  return { status: 'idle', url: '' }
 }
 
 function BirdSound({ scientificName, fallbackName, presetUrl }) {
   const query = String(scientificName || fallbackName || '').trim()
   const cacheKey = `${SOUND_CACHE_PREFIX}${query.toLowerCase()}`
-  const [status, setStatus] = useState(() => readSoundCache(query, cacheKey, presetUrl).status)
-  const [url, setUrl] = useState(() => readSoundCache(query, cacheKey, presetUrl).url)
+  const initial = readSoundCache(query, cacheKey, presetUrl)
+  const [status, setStatus] = useState(initial.status)
+  const [url, setUrl] = useState(initial.url)
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef(null)
+  const wantsPlayRef = useRef(false)
 
   useEffect(() => {
     if (status !== 'loading') return undefined
@@ -3220,16 +3625,24 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
         const raw = recording?.file || ''
         const normalized = raw.startsWith('//') ? `https:${raw}` : raw
         if (normalized) {
-          localStorage.setItem(cacheKey, normalized)
+          try {
+            localStorage.setItem(cacheKey, normalized)
+          } catch {
+            // ignore
+          }
           setUrl(normalized)
           setStatus('ready')
         } else {
-          localStorage.setItem(cacheKey, 'NONE')
-          setStatus('none')
+          try {
+            localStorage.setItem(cacheKey, 'NONE')
+          } catch {
+            // ignore
+          }
+          setStatus('empty')
         }
       })
       .catch(() => {
-        if (!cancelled) setStatus('none')
+        if (!cancelled) setStatus('empty')
       })
 
     return () => {
@@ -3237,17 +3650,39 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
     }
   }, [status, query, cacheKey])
 
+  // Once a recording is ready after the user asked to play, start it.
+  useEffect(() => {
+    if (status === 'ready' && wantsPlayRef.current && audioRef.current) {
+      wantsPlayRef.current = false
+      audioRef.current.play().catch(() => setStatus('empty'))
+    }
+  }, [status, url])
+
+  if (status === 'none') return null
+
   function toggle() {
+    if (status === 'idle' || status === 'empty') {
+      wantsPlayRef.current = true
+      setStatus('loading')
+      return
+    }
     const audio = audioRef.current
     if (!audio) return
     if (audio.paused) {
-      audio.play().catch(() => setStatus('none'))
+      audio.play().catch(() => setStatus('empty'))
     } else {
       audio.pause()
     }
   }
 
-  if (status === 'none') return null
+  const label =
+    status === 'loading'
+      ? 'Finding a recording…'
+      : status === 'empty'
+        ? 'Try for a recording 🎵'
+        : playing
+          ? 'Pause 🎵'
+          : 'Hear this bird 🎵'
 
   return (
     <div className="bird-sound">
@@ -3257,7 +3692,7 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
         onClick={toggle}
         disabled={status === 'loading'}
       >
-        {status === 'loading' ? 'Finding a recording…' : playing ? 'Pause 🎵' : 'Hear this bird 🎵'}
+        {label}
       </button>
       {playing && (
         <div className="sound-wave" aria-hidden="true">
@@ -3280,7 +3715,312 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
   )
 }
 
-function BirdProfilePage({ data, profile, onBack }) {
+const WIKI_PHOTO_CACHE_PREFIX = 'pooks-wiki-photos-'
+const WIKI_NEST_CACHE_PREFIX = 'pooks-wiki-nest-'
+
+function prettyWikiCaption(fileTitle) {
+  return String(fileTitle || '')
+    .replace(/^File:/i, '')
+    .replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\d{3,}\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 70)
+}
+
+// Pull a few real photos for a bird from Wikipedia's media list (CORS-friendly).
+function fetchWikipediaPhotos(title) {
+  const slug = String(title || '').trim().replace(/\s+/g, '_')
+  const url = `https://en.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent(slug)}`
+  return fetch(url)
+    .then((response) => (response.ok ? response.json() : Promise.reject(new Error('bad'))))
+    .then((payload) => {
+      const items = Array.isArray(payload?.items) ? payload.items : []
+      const photos = []
+      for (const item of items) {
+        if (item.type !== 'image') continue
+        const fileTitle = String(item.title || '')
+        if (/(logo|icon|map|distribution|range|locator|\.svg|sound|audio|\.ogg)/i.test(fileTitle)) {
+          continue
+        }
+        const srcset = Array.isArray(item.srcset) ? item.srcset : []
+        const best = srcset[srcset.length - 1] || srcset[0]
+        let src = best?.src || ''
+        if (!src) continue
+        if (src.startsWith('//')) src = `https:${src}`
+        if (/\.svg/i.test(src)) continue
+        photos.push({ src, caption: prettyWikiCaption(fileTitle) })
+        if (photos.length >= 4) break
+      }
+      return photos
+    })
+}
+
+function useWikipediaPhotos(scientificName, commonName) {
+  const primary = String(scientificName || '').trim()
+  const secondary = String(commonName || '').trim()
+  const cacheKey = `${WIKI_PHOTO_CACHE_PREFIX}${(primary || secondary).toLowerCase()}`
+  const [state, setState] = useState(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) return { status: 'ready', photos: JSON.parse(cached) }
+    } catch {
+      // ignore cache read errors
+    }
+    return { status: primary || secondary ? 'loading' : 'none', photos: [] }
+  })
+
+  useEffect(() => {
+    if (state.status !== 'loading') return undefined
+    let cancelled = false
+    const titles = [primary, secondary].filter(Boolean)
+
+    ;(async () => {
+      for (const title of titles) {
+        try {
+          const photos = await fetchWikipediaPhotos(title)
+          if (cancelled) return
+          if (photos.length) {
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify(photos))
+            } catch {
+              // ignore cache write errors
+            }
+            setState({ status: 'ready', photos })
+            return
+          }
+        } catch {
+          // try the next title
+        }
+      }
+      if (!cancelled) setState({ status: 'none', photos: [] })
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [state.status, primary, secondary, cacheKey])
+
+  return state
+}
+
+function BirdPhotoStrip({ scientificName, commonName, fallbackPhoto }) {
+  const { status, photos } = useWikipediaPhotos(scientificName, commonName)
+  const showFallback = status !== 'ready' && fallbackPhoto
+
+  return (
+    <section className="soft-card full-span photo-strip-card">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Is this your bird?</p>
+          <h3>Reference photos</h3>
+        </div>
+        <span className="status-pill">Wikipedia</span>
+      </div>
+      {status === 'loading' && <p className="fine-print">Fetching photos from Wikipedia…</p>}
+      {status === 'none' && !fallbackPhoto && (
+        <p className="fine-print">No reference photos found for this bird yet.</p>
+      )}
+      <div className="polaroid-strip" role="list">
+        {showFallback && (
+          <figure className="polaroid" role="listitem">
+            <img src={fallbackPhoto} alt={commonName} loading="lazy" />
+            <figcaption>{commonName}</figcaption>
+          </figure>
+        )}
+        {photos.map((photo, index) => (
+          <figure className="polaroid" role="listitem" key={`${photo.src}-${index}`}>
+            <img src={photo.src} alt={`${commonName} reference ${index + 1}`} loading="lazy" />
+            <figcaption>{photo.caption || commonName}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function useWikipediaNestPhoto(scientificName, commonName) {
+  const query = `${String(scientificName || commonName || '').trim()} nest`.trim()
+  const cacheKey = `${WIKI_NEST_CACHE_PREFIX}${query.toLowerCase()}`
+  const [url, setUrl] = useState(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) return cached === 'NONE' ? '' : cached
+    } catch {
+      // ignore
+    }
+    return ''
+  })
+  const [done, setDone] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem(cacheKey))
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    if (done || query.length < 5) return undefined
+    let cancelled = false
+    const api = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url&iiurlwidth=500`
+    fetch(api)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('bad'))))
+      .then((payload) => {
+        if (cancelled) return
+        const pages = payload?.query?.pages ? Object.values(payload.query.pages) : []
+        const found = pages
+          .map((page) => page?.imageinfo?.[0]?.thumburl || page?.imageinfo?.[0]?.url || '')
+          .find((candidate) => candidate && !/\.svg/i.test(candidate))
+        try {
+          localStorage.setItem(cacheKey, found || 'NONE')
+        } catch {
+          // ignore
+        }
+        if (found) setUrl(found)
+        setDone(true)
+      })
+      .catch(() => {
+        if (!cancelled) setDone(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [done, query, cacheKey])
+
+  return url
+}
+
+function NestSection({ nest, scientificName, commonName }) {
+  const nestPhoto = useWikipediaNestPhoto(scientificName, commonName)
+  if (!nest) return null
+
+  return (
+    <section className="soft-card full-span nest-card">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Their Home 🪺</p>
+          <h3>{nest.type || 'Nest'}</h3>
+        </div>
+      </div>
+      <div className="nest-layout">
+        <div className="nest-text">
+          {nest.description && <p>{nest.description}</p>}
+          <dl className="bird-meta">
+            {nest.location && (
+              <div>
+                <dt>Where they build it</dt>
+                <dd>{nest.location}</dd>
+              </div>
+            )}
+            {nest.appearance && (
+              <div>
+                <dt>What it looks like</dt>
+                <dd>{nest.appearance}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+        {(nest.nestPhoto || nestPhoto) && (
+          <figure className="nest-photo">
+            <img src={nest.nestPhoto || nestPhoto} alt={`${commonName} nest`} loading="lazy" />
+            <figcaption>Nest photo · Wikimedia</figcaption>
+          </figure>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function FieldNotesSection({ profileKey, saved, saveFieldGuideNotes }) {
+  const [fieldNotes, setFieldNotes] = useState(saved.fieldNotes || '')
+  const [spottedAt, setSpottedAt] = useState(saved.spottedAt || '')
+  const [justSaved, setJustSaved] = useState(false)
+  const myPhotos = saved.myPhotos || []
+
+  function handleSave() {
+    saveFieldGuideNotes(profileKey, { fieldNotes, spottedAt })
+    setJustSaved(true)
+    window.setTimeout(() => setJustSaved(false), 2200)
+  }
+
+  function handleMyPhoto(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      saveFieldGuideNotes(profileKey, {
+        myPhotos: [...myPhotos, { id: createId('myphoto'), photo: reader.result }],
+      })
+    }
+    reader.readAsDataURL(file)
+    event.target.value = ''
+  }
+
+  function removeMyPhoto(id) {
+    saveFieldGuideNotes(profileKey, { myPhotos: myPhotos.filter((item) => item.id !== id) })
+  }
+
+  return (
+    <section className="soft-card full-span field-notes-card">
+      <p className="eyebrow">My field notes ✏️</p>
+      <h3>Your own observations</h3>
+      <div className="form-grid">
+        <label>
+          Spotted at location
+          <input
+            value={spottedAt}
+            onChange={(event) => setSpottedAt(event.target.value)}
+            placeholder="e.g. Kruger National Park, near Skukuza"
+          />
+        </label>
+        <label>
+          Field notes
+          <textarea
+            value={fieldNotes}
+            onChange={(event) => setFieldNotes(event.target.value)}
+            placeholder="What did it look like, what was it doing, who were you with?"
+          />
+        </label>
+      </div>
+      <button className="primary-btn" type="button" onClick={handleSave}>
+        {justSaved ? 'Saved ✓' : 'Save my notes'}
+      </button>
+
+      <div className="section-heading my-photos-heading">
+        <div>
+          <p className="eyebrow">My photos 📷</p>
+          <h4>Your own shots of this bird</h4>
+        </div>
+        <label className="secondary-btn photo-upload-btn">
+          Add a photo
+          <input type="file" accept="image/*" onChange={handleMyPhoto} hidden />
+        </label>
+      </div>
+      {myPhotos.length === 0 ? (
+        <p className="fine-print">No personal photos yet — add your own when you spot it.</p>
+      ) : (
+        <div className="my-photo-grid">
+          {myPhotos.map((item) => (
+            <figure className="my-photo" key={item.id}>
+              <img src={item.photo} alt="My bird photo" loading="lazy" />
+              <button
+                className="text-btn remove-photo"
+                type="button"
+                onClick={() => removeMyPhoto(item.id)}
+              >
+                Remove
+              </button>
+            </figure>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function BirdProfilePage({ data, profile, onBack, saveFieldGuideNotes }) {
   const source = profile?.source || 'library'
   const memoryBird =
     source === 'memory' ? data.birds.find((bird) => bird.id === profile?.id) : null
@@ -3340,6 +4080,24 @@ function BirdProfilePage({ data, profile, onBack }) {
     ['Bird Council reason', profileBird.birdCouncilReason || aiDetails?.whyThisBird],
   ]
 
+  const profileKey = libraryBird
+    ? libraryBird.id
+    : `memory:${memoryBird?.id || normalizeBirdName(profileBird.commonName)}`
+  const savedNotes = data.fieldGuideNotes?.[profileKey] || {
+    fieldNotes: '',
+    spottedAt: '',
+    myPhotos: [],
+  }
+  const fieldGuideRows = [
+    ['Identification tips', profileBird.idTips],
+    ['Similar species', (profileBird.similarSpecies || aiDetails?.similarBirds || []).join(', ')],
+    ['Best time to spot', profileBird.bestTime],
+    ['Behaviour notes', profileBird.behaviour],
+    ['Call description', profileBird.callDescription || profileBird.soundDescription || aiDetails?.soundDescription],
+    ['Habitat', profileBird.habitat || aiDetails?.habitat],
+    ['Conservation status', profileBird.conservationStatus],
+  ].filter(([, value]) => Boolean(value))
+
   if (!profileBird.commonName || (!libraryBird && !memoryBird)) {
     return (
       <section className="soft-card full-span">
@@ -3378,8 +4136,39 @@ function BirdProfilePage({ data, profile, onBack }) {
         )}
       </section>
 
+      <BirdPhotoStrip
+        scientificName={profileBird.scientificName || aiDetails?.scientificName}
+        commonName={profileBird.commonName}
+        fallbackPhoto={profileBird.imageUrl || latestPhoto}
+      />
+
+      {fieldGuideRows.length > 0 && (
+        <section className="soft-card full-span field-guide-card">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Field guide 🔎</p>
+              <h3>How to know it in the field</h3>
+            </div>
+          </div>
+          <dl className="bird-meta profile-meta">
+            {fieldGuideRows.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      <NestSection
+        nest={profileBird.nest}
+        scientificName={profileBird.scientificName}
+        commonName={profileBird.commonName}
+      />
+
       <details className="soft-card full-span profile-detail-card">
-        <summary>Open field notes</summary>
+        <summary>All recorded details</summary>
         <dl className="bird-meta profile-meta">
           {detailRows.map(([label, value]) => (
             <div key={label}>
@@ -3432,11 +4221,17 @@ function BirdProfilePage({ data, profile, onBack }) {
         </details>
       )}
 
+      <FieldNotesSection
+        profileKey={profileKey}
+        saved={savedNotes}
+        saveFieldGuideNotes={saveFieldGuideNotes}
+      />
+
       <section className="soft-card full-span">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Marlie's sightings</p>
-            <h3>Photos and memories</h3>
+            <p className="eyebrow">Marlie's logged sightings</p>
+            <h3>Your spotting history</h3>
           </div>
           <span className="status-pill">{sightings.length} sighting{sightings.length === 1 ? '' : 's'}</span>
         </div>
@@ -3658,29 +4453,25 @@ function ChallengesPage({ dailyChallenge, completeDailyChallenge }) {
       <section className="soft-card feature-card full-span">
         <p className="eyebrow">Today's Challenge</p>
         <h2>{dailyChallenge.main?.text || 'Find one suspicious bird moment'}</h2>
-        <p>The Bird Council has prepared today’s mission.</p>
-        <button
-          className="primary-btn"
-          type="button"
-          disabled={dailyChallenge.mainComplete}
-          onClick={() => completeDailyChallenge('daily')}
-        >
-          {dailyChallenge.mainComplete ? 'Council stamped' : 'Complete daily mission'}
-        </button>
+        <p>Show the Bird Council a photo or describe what you saw in at least 20 words.</p>
+        <ChallengeProof
+          challenge={dailyChallenge.main}
+          complete={dailyChallenge.mainComplete}
+          onValidated={() => completeDailyChallenge('daily')}
+          label="I completed this"
+        />
       </section>
 
       <section className="soft-card subtle-bonus-card full-span">
         <p className="eyebrow">Optional bonus</p>
         <h3>{dailyChallenge.bonus?.text || 'Notice one extra tiny detail'}</h3>
-        <p>This one is optional. The Bird Council will pretend to be casual about it.</p>
-        <button
-          className="secondary-btn"
-          type="button"
-          disabled={dailyChallenge.bonusComplete}
-          onClick={() => completeDailyChallenge('bonus')}
-        >
-          {dailyChallenge.bonusComplete ? 'Bonus stamped' : 'Complete bonus'}
-        </button>
+        <p>This one is optional — the same proof rules apply.</p>
+        <ChallengeProof
+          challenge={dailyChallenge.bonus}
+          complete={dailyChallenge.bonusComplete}
+          onValidated={() => completeDailyChallenge('bonus')}
+          label="I did the bonus"
+        />
       </section>
     </div>
   )
@@ -3890,103 +4681,206 @@ function SecretCodesPage({ data, redeemCode }) {
   )
 }
 
+function getWeeklyRecap(data) {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 7)
+  const cutoffValue = cutoff.toISOString().slice(0, 10)
+  const sightingsThisWeek = data.sightings.filter(
+    (sighting) => (sighting.dateSpotted || '') >= cutoffValue,
+  )
+  const speciesThisWeek = new Set(sightingsThisWeek.map((sighting) => sighting.speciesKey)).size
+  const seenLibrary = data.birdLibrary.filter((bird) => bird.seen).length
+
+  return {
+    sightingsThisWeek: sightingsThisWeek.length,
+    speciesThisWeek,
+    totalSpecies: data.birds.length,
+    seenLibrary,
+    coins: data.featherCoins,
+    streak: getDailyStreak(data.dailyChallengeCompletions),
+  }
+}
+
 function WeeklyMagazinePage({ data, openBirdProfile }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
-  const featuredBirds = issue.featuredBirds
-  const birdOfWeek = issue.birdOfWeek
+  const weekIndex = getAbsoluteWeekIndex()
+  const quote = getWeeklyQuote(weekIndex)
+  const coverBird = issue.birdOfWeek
+  // The featured bird is deliberately different from the cover bird.
+  const featuredBird =
+    issue.featuredBirds.find((bird) => bird.id !== coverBird?.id) || issue.featuredBirds[1] || null
+  const recap = getWeeklyRecap(data)
+  const [page, setPage] = useState(0)
 
-  return (
-    <div className="magazine-page">
-      <section className="magazine-cover">
-        <p className="eyebrow">Open the cover</p>
-        <h2>Weekly Feather</h2>
-        <p>Issue: Week {issue.week}</p>
-        <span className="status-pill">This week’s feather issue</span>
-      </section>
+  const coverPhoto = (commonName, imageUrl) =>
+    imageUrl ? (
+      <img className="magazine-cover-photo" src={imageUrl} alt={commonName} />
+    ) : (
+      <div className="magazine-cover-photo placeholder-photo">
+        <span>{getBirdPhotoPlaceholderLabel(commonName)}</span>
+      </div>
+    )
 
-      {birdOfWeek && (
-        <section className="soft-card full-span bird-of-week-card">
-          <div>
-            <p className="eyebrow">Cover bird</p>
-            <h2>{birdOfWeek.commonName}</h2>
-            <p>{birdOfWeek.description}</p>
-            <div className="tag-row">
-              <span className={birdOfWeek.seen ? 'status-pill paid' : 'status-pill locked'}>
-                {birdOfWeek.seen ? 'Seen by Marlie ✅' : 'Not spotted yet'}
-              </span>
-              <span className="tag">{birdOfWeek.category}</span>
-            </div>
-            <button
-              className="primary-btn"
-              type="button"
-              onClick={() => openBirdProfile({ source: 'library', id: birdOfWeek.id })}
-            >
-              Open bird profile
-            </button>
-          </div>
-          {birdOfWeek.imageUrl ? (
-            <img className="profile-main-photo" src={birdOfWeek.imageUrl} alt={birdOfWeek.commonName} />
-          ) : (
-            <div className="profile-main-photo placeholder-photo">
-              <span>{getBirdPhotoPlaceholderLabel(birdOfWeek.commonName)}</span>
-            </div>
-          )}
-        </section>
+  const pages = []
+
+  // Page 1 — the cover.
+  pages.push(
+    <div className="magazine-cover-page" key="cover">
+      <p className="magazine-issue-no">The Weekly Feather · Issue {issue.week}</p>
+      {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
+      <p className="magazine-quote">“{quote}”</p>
+      {coverBird && (
+        <>
+          <h2>Cover bird: {coverBird.commonName}</h2>
+          <p className="nickname">{coverBird.afrikaansName}</p>
+          <button
+            className="primary-btn"
+            type="button"
+            onClick={() => openBirdProfile({ source: 'library', id: coverBird.id })}
+          >
+            Meet the cover bird
+          </button>
+        </>
       )}
+    </div>,
+  )
 
-      <section className="soft-card full-span">
-        <div className="section-heading">
+  // Page 2 — featured bird (different content from the cover).
+  if (featuredBird) {
+    pages.push(
+      <div className="magazine-feature-page" key="feature">
+        <p className="eyebrow">Featured this week</p>
+        <h2>{featuredBird.commonName}</h2>
+        <p className="nickname">{featuredBird.afrikaansName}</p>
+        <dl className="bird-meta profile-meta">
           <div>
-            <p className="eyebrow">Inside this issue</p>
-            <h2>Five birds to dream about</h2>
+            <dt>Habitat</dt>
+            <dd>{featuredBird.habitat || featuredBird.region || 'Across South Africa'}</dd>
           </div>
-        </div>
-        <div className="magazine-grid">
-          {featuredBirds.map((bird) => (
-            <article className="magazine-bird-card" key={bird.id}>
-              {bird.imageUrl ? (
-                <img src={bird.imageUrl} alt={bird.commonName} />
-              ) : (
-                <div className="magazine-photo-placeholder">
-                  <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
-                </div>
-              )}
-              <div>
-                <span className={bird.seen ? 'status-pill paid' : 'status-pill locked'}>
-                  {bird.seen ? 'Seen by Marlie ✅' : 'Not spotted yet'}
-                </span>
-                <h3>{bird.commonName}</h3>
-                <p className="nickname">{bird.afrikaansName}</p>
-                <p>{bird.funFact || bird.description}</p>
-                <button
-                  className="secondary-btn wide"
-                  type="button"
-                  onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
-                >
-                  Open bird profile
-                </button>
-              </div>
-            </article>
+          <div>
+            <dt>Field notes</dt>
+            <dd>{featuredBird.behaviour || featuredBird.description}</dd>
+          </div>
+        </dl>
+        <p className="eyebrow">Fun facts</p>
+        <div className="mini-list">
+          {getFunFacts(featuredBird.funFacts).slice(0, 3).map((fact) => (
+            <p key={fact}>{fact}</p>
           ))}
         </div>
-      </section>
+        <button
+          className="secondary-btn wide"
+          type="button"
+          onClick={() => openBirdProfile({ source: 'library', id: featuredBird.id })}
+        >
+          Open full profile
+        </button>
+      </div>,
+    )
+  }
 
+  // Page 3 — challenge + date idea.
+  pages.push(
+    <div className="magazine-activities-page" key="activities">
       <section className="soft-card magazine-note">
-        <p className="eyebrow">This week’s challenge</p>
+        <p className="eyebrow">This week’s challenge 🎯</p>
         <h3>{data.magazineIssue.monthlyChallenge}</h3>
       </section>
       <section className="soft-card magazine-note">
-        <p className="eyebrow">Try this</p>
-        <h3>Try to spot one of this week’s birds</h3>
+        <p className="eyebrow">Bird date idea 💕</p>
+        <h3>{data.magazineIssue.birdDateIdea}</h3>
       </section>
+    </div>,
+  )
+
+  // Page 4 — message from Marnich + Pooks' weekly recap.
+  pages.push(
+    <div className="magazine-recap-page" key="recap">
       <section className="soft-card magazine-note">
-        <p className="eyebrow">Marnich’s note</p>
+        <p className="eyebrow">A message from Marnich 💌</p>
         <h3>{data.magazineIssue.marnichMessage}</h3>
       </section>
-      <section className="soft-card magazine-note">
-        <p className="eyebrow">Reward hint</p>
-        <h3>{data.magazineIssue.rewardHint}</h3>
-      </section>
+      <p className="eyebrow">Pooks’ weekly recap</p>
+      <div className="magazine-recap-grid">
+        <StatCard label="Birds this week" value={recap.sightingsThisWeek} detail="sightings logged" />
+        <StatCard label="New species" value={recap.speciesThisWeek} detail="this week" />
+        <StatCard label="Feather coins" value={recap.coins} detail="in the bank" />
+        <StatCard label="Day streak" value={recap.streak} detail="keep it going 🔥" />
+      </div>
+    </div>,
+  )
+
+  // Page 5 — inside this issue gallery.
+  pages.push(
+    <div className="magazine-gallery-page" key="gallery">
+      <p className="eyebrow">Inside this issue</p>
+      <h2>More birds to dream about</h2>
+      <div className="magazine-grid">
+        {issue.featuredBirds.map((bird) => (
+          <article className="magazine-bird-card" key={bird.id}>
+            {bird.imageUrl ? (
+              <img src={bird.imageUrl} alt={bird.commonName} />
+            ) : (
+              <div className="magazine-photo-placeholder">
+                <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
+              </div>
+            )}
+            <div>
+              <h3>{bird.commonName}</h3>
+              <p className="nickname">{bird.afrikaansName}</p>
+              <p>{bird.funFact || bird.description}</p>
+              <button
+                className="secondary-btn wide"
+                type="button"
+                onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
+              >
+                Open bird profile
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>,
+  )
+
+  const total = pages.length
+  const safePage = Math.min(page, total - 1)
+
+  return (
+    <div className="magazine-page magazine-book">
+      <div className="magazine-spread" key={safePage}>
+        {pages[safePage]}
+      </div>
+
+      <div className="magazine-nav">
+        <button
+          className="secondary-btn"
+          type="button"
+          onClick={() => setPage((current) => Math.max(0, current - 1))}
+          disabled={safePage === 0}
+        >
+          ‹ Flip back
+        </button>
+        <div className="magazine-dots" aria-label="Magazine pages">
+          {pages.map((node, index) => (
+            <button
+              key={node.key}
+              type="button"
+              className={index === safePage ? 'active' : ''}
+              aria-label={`Page ${index + 1}`}
+              onClick={() => setPage(index)}
+            />
+          ))}
+        </div>
+        <button
+          className="secondary-btn"
+          type="button"
+          onClick={() => setPage((current) => Math.min(total - 1, current + 1))}
+          disabled={safePage === total - 1}
+        >
+          Turn page ›
+        </button>
+      </div>
     </div>
   )
 }
@@ -4044,16 +4938,20 @@ function ProfilePage({ data, stats, goTo }) {
 
 function AdminPage({
   data,
+  stats,
+  dailyStreak,
   addAdminReward,
   addAdminChallenge,
   addAdminNote,
   addAdminCode,
   markRewardPaid,
+  sendSurpriseNote,
   resetData,
   previewMarlieView,
   previewMagazineIssue,
   setData,
 }) {
+  const [surpriseNote, setSurpriseNote] = useState('')
   const [rewardDraft, setRewardDraft] = useState({
     name: '',
     milestone: '',
@@ -4314,6 +5212,33 @@ function AdminPage({
     )
   }
 
+  const recentSightings = [...data.sightings].reverse().slice(0, 12)
+  const challengeHistory = Object.entries(data.dailyChallengeCompletions || {})
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, 14)
+  const pendingRewards = data.rewards.filter((reward) => reward.status === 'Claimed')
+  const upcomingChallenges = Array.from({ length: 5 }, (_, index) => {
+    const date = new Date()
+    date.setDate(date.getDate() + index)
+    const dateValue = date.toISOString().slice(0, 10)
+    return { date: dateValue, challenge: getDailyChallenge(data.challenges, dateValue) }
+  })
+  const nameForFieldKey = (key) => {
+    if (key.startsWith('memory:')) return key.slice(7)
+    const match = data.birdLibrary.find((bird) => bird.id === key)
+    return match ? match.commonName : key
+  }
+  const fieldNoteEntries = Object.entries(data.fieldGuideNotes || {}).filter(
+    ([, value]) =>
+      value && (value.fieldNotes || value.spottedAt || (value.myPhotos || []).length),
+  )
+
+  function submitSurpriseNote(event) {
+    event.preventDefault()
+    sendSurpriseNote(surpriseNote)
+    setSurpriseNote('')
+  }
+
   return (
     <div className="page-grid admin-grid">
       <section className="soft-card full-span">
@@ -4349,6 +5274,150 @@ function AdminPage({
           />
           <StatCard label="Library" value={data.birdLibrary.length} detail="SA bird entries" />
         </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">Pooks at a glance 🐦</p>
+        <div className="admin-dashboard-grid">
+          <StatCard label="Feather coins" value={data.featherCoins} detail="earned" />
+          <StatCard label="Day streak" value={dailyStreak} detail="current 🔥" />
+          <StatCard label="Species" value={stats?.uniqueCount ?? data.birds.length} detail="unique birds" />
+          <StatCard label="Sightings" value={data.sightings.length} detail="logged" />
+          <StatCard
+            label="Seen in book"
+            value={data.birdLibrary.filter((bird) => bird.seen).length}
+            detail={`of ${data.birdLibrary.length}`}
+          />
+          <StatCard label="Pending gifts" value={pendingRewards.length} detail="to send" />
+        </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">Send a surprise note instantly 💌</p>
+        <form onSubmit={submitSurpriseNote} className="form-grid">
+          <label>
+            Note for Pooks
+            <textarea
+              value={surpriseNote}
+              onChange={(event) => setSurpriseNote(event.target.value)}
+              placeholder="A little something to make her smile right now…"
+            />
+          </label>
+          <button className="primary-btn" type="submit" disabled={!surpriseNote.trim()}>
+            Send surprise note
+          </button>
+        </form>
+      </section>
+
+      <section className="soft-card full-span">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Her sightings</p>
+            <h3>Recent photos</h3>
+          </div>
+          <span className="status-pill">{data.sightings.length} total</span>
+        </div>
+        {recentSightings.length === 0 ? (
+          <EmptyState text="No sightings logged yet." />
+        ) : (
+          <div className="admin-thumb-row">
+            {recentSightings.map((sighting) => (
+              <div className="admin-thumb" key={sighting.id}>
+                {sighting.photo ? (
+                  <img src={sighting.photo} alt={sighting.birdName} loading="lazy" />
+                ) : (
+                  <div className="admin-thumb placeholder-photo">
+                    <span>{getBirdPhotoPlaceholderLabel(sighting.birdName)}</span>
+                  </div>
+                )}
+                <small>{sighting.birdName}</small>
+                <small>{formatDate(sighting.dateSpotted)}</small>
+                {sighting.location && <small>{sighting.location}</small>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">Pending gifts to send 🎁</p>
+        {pendingRewards.length === 0 ? (
+          <EmptyState text="No rewards waiting to be sent." />
+        ) : (
+          <div className="admin-list-scroll">
+            {pendingRewards.map((reward) => (
+              <article className="admin-edit-row" key={reward.id}>
+                <div>
+                  <strong>{reward.name}</strong>
+                  <p className="fine-print">{reward.unlockReason}</p>
+                </div>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  onClick={() => markRewardPaid(reward.id)}
+                >
+                  Mark as sent
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">Upcoming challenges queue 🗓️</p>
+        <div className="admin-list-scroll">
+          {upcomingChallenges.map(({ date, challenge }) => (
+            <article className="admin-edit-row" key={date}>
+              <div>
+                <strong>{formatDate(date)}</strong>
+                <p>{challenge?.text}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">Challenge completion history ✅</p>
+        {challengeHistory.length === 0 ? (
+          <EmptyState text="No completed challenges yet." />
+        ) : (
+          <div className="admin-list-scroll">
+            {challengeHistory.map(([date, completion]) => (
+              <article className="admin-edit-row" key={date}>
+                <div>
+                  <strong>{formatDate(date)}</strong>
+                  <p className="fine-print">
+                    {completion.daily ? 'Daily ✓' : ''} {completion.bonus ? 'Bonus ✓' : ''}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">Her field notes ✏️</p>
+        {fieldNoteEntries.length === 0 ? (
+          <EmptyState text="No personal field notes yet." />
+        ) : (
+          <div className="admin-list-scroll">
+            {fieldNoteEntries.map(([key, value]) => (
+              <article className="admin-edit-row" key={key}>
+                <div>
+                  <strong>{nameForFieldKey(key)}</strong>
+                  {value.spottedAt && <p className="fine-print">📍 {value.spottedAt}</p>}
+                  {value.fieldNotes && <p>{value.fieldNotes}</p>}
+                  {(value.myPhotos || []).length > 0 && (
+                    <p className="fine-print">{value.myPhotos.length} personal photo(s)</p>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="soft-card full-span">
