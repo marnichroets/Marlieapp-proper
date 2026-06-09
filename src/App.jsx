@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
 const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
+const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
+const XENO_CANTO_ENV_KEY = String(import.meta.env.VITE_XENO_CANTO_KEY || '')
+
+function getXenoCantoKey() {
+  try {
+    return XENO_CANTO_ENV_KEY || localStorage.getItem(XENO_CANTO_KEY_STORAGE) || ''
+  } catch {
+    return XENO_CANTO_ENV_KEY
+  }
+}
 const OFFLINE_BIRD_COUNCIL_MESSAGE =
   'The Bird Council is practicing offline, so this is a demo result.'
 
@@ -26,16 +36,16 @@ const SHOP = {
   dateIdea: 150,
 }
 
-// Bottom tab bar (4 only) + everything else tucked behind the settings menu.
+// Bottom tab bar (5) + everything else tucked behind the settings menu.
 const bottomTabs = [
   ['home', 'Home', '🏡'],
   ['add', 'Spot', '📷'],
-  ['library', 'Collection', '📖'],
+  ['magazine', 'Magazine', '📖'],
+  ['library', 'Collection', '🦜'],
   ['rewards', 'Gifts', '🎁'],
 ]
 
 const menuItems = [
-  ['magazine', 'Weekly', '📰'],
   ['date', 'Date', '💕'],
   ['profile', 'Pooks', '🪶'],
   ['birds', 'My memories', '🐦'],
@@ -2573,38 +2583,35 @@ function AddBirdPage({ addBird }) {
   return (
     <div className="page-grid spot-page">
       <section className="soft-card form-page spot-card full-span">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Bird adventure moment</p>
-            <h2>Show the Council a bird photo</h2>
-          </div>
-          <span className="status-pill">Magic scan</span>
+        <div className="spot-intro">
+          <p className="spot-heading">Show the Council your bird 🐦</p>
+          <p className="spot-sub">Snap a photo or pick one, and let the feathers fly.</p>
         </div>
 
         <form className="council-form" onSubmit={handleAskCouncil}>
-          <label className="photo-input featured-photo-input">
-            Bird photo
-            <input
-              key={photoInputKey}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handlePhoto}
-            />
-          </label>
-
           {form.photo ? (
-            <div className="photo-preview large-preview">
-              <img src={form.photo} alt="Bird preview" />
-              <button className="ghost-btn" type="button" onClick={removePhoto}>
-                Remove photo
+            <div className="spot-preview-card">
+              <img className="spot-preview-photo" src={form.photo} alt="Bird preview" />
+              <p className="spot-preview-caption">Looking good! Ready for the Council. 🪶</p>
+              <button className="ghost-btn wide big-btn" type="button" onClick={removePhoto}>
+                Choose a different photo
               </button>
             </div>
           ) : (
-            <div className="photo-empty-preview">
-              <span>{getBirdPhotoPlaceholderLabel('Bird')}</span>
-              <p>Tap here, choose a photo, and let the feathers fly.</p>
-            </div>
+            <label className="camera-button">
+              <input
+                key={photoInputKey}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhoto}
+              />
+              <span className="camera-ring" aria-hidden="true">
+                <span className="camera-icon">🐦</span>
+                <span className="camera-lens">📷</span>
+              </span>
+              <span className="camera-hint">Tap to open camera</span>
+            </label>
           )}
 
           <details className="hidden-paperwork">
@@ -3048,18 +3055,23 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
     ? Math.round((seenCount / data.birdLibrary.length) * 100)
     : 0
 
+  const marnichSpecies = useMemo(() => {
+    const set = new Set()
+    data.sightings.forEach((sighting) => {
+      if (!sighting.seenWithMarnich) return
+      set.add(normalizeBirdName(sighting.birdName))
+      if (sighting.aiMatch?.commonName) set.add(normalizeBirdName(sighting.aiMatch.commonName))
+      if (sighting.aiMatch?.scientificName) set.add(normalizeBirdName(sighting.aiMatch.scientificName))
+    })
+    return set
+  }, [data.sightings])
+
   return (
     <div className="page-grid library-page">
-      <section className="soft-card full-span checklist-hero">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Creature collection</p>
-            <h2>Pooks' Bird Book</h2>
-          </div>
-          <span className="status-pill">
-            {seenCount} / {data.birdLibrary.length} collected
-          </span>
-        </div>
+      <section className="soft-card full-span checklist-hero scrapbook-hero">
+        <p className="eyebrow">Creature collection</p>
+        <h2 className="discovered-count">{seenCount} bird{seenCount === 1 ? '' : 's'} discovered 🐦</h2>
+        <p className="discovered-sub">{seenCount} of {data.birdLibrary.length} in Pooks&apos; scrapbook</p>
         <div className="progress-track">
           <span style={{ width: `${progressValue}%` }}></span>
         </div>
@@ -3095,20 +3107,29 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
         {filteredBirds.map((bird) => {
           const profileUnlocked = unlockedProfiles.includes(bird.id)
           const locked = bird.special && !bird.seen && !profileUnlocked
+          const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
+          const spottedPhoto = herPhoto || bird.imageUrl
+          const withMarnich =
+            bird.seen &&
+            (marnichSpecies.has(normalizeBirdName(bird.commonName)) ||
+              marnichSpecies.has(normalizeBirdName(bird.scientificName)))
           return (
             <article
               className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ''}`}
               key={bird.id}
             >
-              {locked ? (
-                <div className="bird-card-photo locked-photo">
+              {bird.seen && spottedPhoto ? (
+                <div className="bird-card-photo-frame">
+                  <img className="bird-card-photo" src={spottedPhoto} alt={bird.commonName} />
+                  {withMarnich && <span className="marnich-heart" aria-hidden="true">❤️</span>}
+                </div>
+              ) : locked ? (
+                <div className="bird-card-photo silhouette-photo locked-silhouette">
                   <span aria-hidden="true">🔒</span>
                 </div>
-              ) : bird.imageUrl ? (
-                <img className="bird-card-photo" src={bird.imageUrl} alt={bird.commonName} />
               ) : (
-                <div className="bird-card-photo placeholder-photo library-placeholder">
-                  <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
+                <div className="bird-card-photo silhouette-photo">
+                  <span aria-hidden="true">?</span>
                 </div>
               )}
               <div className="bird-card-body">
@@ -3121,17 +3142,19 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
                         : 'status-pill locked'
                   }
                 >
-                  {bird.seen
-                    ? 'Collected ✅'
-                    : bird.special
-                      ? 'Rare 🔒'
-                      : 'Mystery bird'}
+                  {bird.seen ? 'Discovered ✅' : bird.special ? 'Rare 🔒' : 'Not spotted yet'}
                 </span>
-                <h3>{locked ? '? ? ?' : bird.commonName}</h3>
-                <p className="nickname">{locked ? 'A rare hidden bird' : bird.afrikaansName || bird.category}</p>
+                <h3>{bird.seen || profileUnlocked ? bird.commonName : '? ? ?'}</h3>
+                <p className="nickname">
+                  {bird.seen || profileUnlocked
+                    ? bird.afrikaansName || bird.category
+                    : locked
+                      ? 'A rare hidden bird'
+                      : 'A mystery waiting to be found'}
+                </p>
                 <p className="memory-caption">
                   {bird.seen
-                    ? `${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}`
+                    ? `${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}${withMarnich ? ' · with Marnich ❤️' : ''}`
                     : locked
                       ? 'Spot it, or unlock its secrets'
                       : 'Waiting to be discovered'}
@@ -3158,6 +3181,101 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile }) {
           )
         })}
       </section>
+    </div>
+  )
+}
+
+const SOUND_CACHE_PREFIX = 'pooks-bird-sound-'
+
+function readSoundCache(query, cacheKey, presetUrl) {
+  if (presetUrl) return { status: 'ready', url: presetUrl }
+  if (!query) return { status: 'none', url: '' }
+  const cached = localStorage.getItem(cacheKey)
+  if (cached === 'NONE') return { status: 'none', url: '' }
+  if (cached) return { status: 'ready', url: cached }
+  if (!getXenoCantoKey()) return { status: 'none', url: '' }
+  return { status: 'loading', url: '' }
+}
+
+function BirdSound({ scientificName, fallbackName, presetUrl }) {
+  const query = String(scientificName || fallbackName || '').trim()
+  const cacheKey = `${SOUND_CACHE_PREFIX}${query.toLowerCase()}`
+  const [status, setStatus] = useState(() => readSoundCache(query, cacheKey, presetUrl).status)
+  const [url, setUrl] = useState(() => readSoundCache(query, cacheKey, presetUrl).url)
+  const [playing, setPlaying] = useState(false)
+  const audioRef = useRef(null)
+
+  useEffect(() => {
+    if (status !== 'loading') return undefined
+
+    let cancelled = false
+    const apiKey = getXenoCantoKey()
+    fetch(
+      `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`,
+    )
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('bad'))))
+      .then((payload) => {
+        if (cancelled) return
+        const recording = (payload?.recordings || []).find((item) => item.file)
+        const raw = recording?.file || ''
+        const normalized = raw.startsWith('//') ? `https:${raw}` : raw
+        if (normalized) {
+          localStorage.setItem(cacheKey, normalized)
+          setUrl(normalized)
+          setStatus('ready')
+        } else {
+          localStorage.setItem(cacheKey, 'NONE')
+          setStatus('none')
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('none')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [status, query, cacheKey])
+
+  function toggle() {
+    const audio = audioRef.current
+    if (!audio) return
+    if (audio.paused) {
+      audio.play().catch(() => setStatus('none'))
+    } else {
+      audio.pause()
+    }
+  }
+
+  if (status === 'none') return null
+
+  return (
+    <div className="bird-sound">
+      <button
+        className="primary-btn wide big-btn sound-btn"
+        type="button"
+        onClick={toggle}
+        disabled={status === 'loading'}
+      >
+        {status === 'loading' ? 'Finding a recording…' : playing ? 'Pause 🎵' : 'Hear this bird 🎵'}
+      </button>
+      {playing && (
+        <div className="sound-wave" aria-hidden="true">
+          {Array.from({ length: 7 }, (_, index) => (
+            <span key={index} style={{ animationDelay: `${index * 90}ms` }}></span>
+          ))}
+        </div>
+      )}
+      {url && (
+        <audio
+          ref={audioRef}
+          src={url}
+          preload="none"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+        />
+      )}
     </div>
   )
 }
@@ -3284,15 +3402,14 @@ function BirdProfilePage({ data, profile, onBack }) {
       </section>
 
       <section className="soft-card sound-card">
-        <p className="eyebrow">Sound player</p>
-        <h3>{profileBird.soundDescription || aiDetails?.soundDescription || 'Sound description pending'}</h3>
-        {profileBird.soundUrl ? (
-          <audio controls src={profileBird.soundUrl}>
-            Sound preview
-          </audio>
-        ) : (
-          <div className="sound-placeholder">Sound player placeholder</div>
-        )}
+        <p className="eyebrow">Bird song</p>
+        <h3>{profileBird.soundDescription || aiDetails?.soundDescription || 'Tap to hear what this bird sounds like'}</h3>
+        <BirdSound
+          key={profileBird.scientificName || profileBird.commonName}
+          scientificName={profileBird.scientificName || aiDetails?.scientificName}
+          fallbackName={profileBird.commonName}
+          presetUrl={profileBird.soundUrl}
+        />
       </section>
 
       {aiDetails && (
@@ -3950,6 +4067,26 @@ function AdminPage({
   })
   const [codeDraft, setCodeDraft] = useState({ code: '', amount: 50 })
   const [magazineDraft, setMagazineDraft] = useState(data.magazineIssue)
+  const [xenoKey, setXenoKey] = useState(() => {
+    try {
+      return localStorage.getItem(XENO_CANTO_KEY_STORAGE) || ''
+    } catch {
+      return ''
+    }
+  })
+
+  function saveXenoKey(value) {
+    setXenoKey(value)
+    try {
+      if (value.trim()) {
+        localStorage.setItem(XENO_CANTO_KEY_STORAGE, value.trim())
+      } else {
+        localStorage.removeItem(XENO_CANTO_KEY_STORAGE)
+      }
+    } catch {
+      // ignore storage failures
+    }
+  }
   const [libraryDraft, setLibraryDraft] = useState({
     commonName: '',
     afrikaansName: '',
@@ -4246,6 +4383,22 @@ function AdminPage({
           onChange={(event) => updateSetting('marnichDailyMessage', event.target.value)}
           placeholder="A little message under today's mission"
         />
+      </section>
+
+      <section className="soft-card full-span">
+        <h3>Bird song API key (xeno-canto)</h3>
+        <label>
+          xeno-canto API key
+          <input
+            value={xenoKey}
+            onChange={(event) => saveXenoKey(event.target.value)}
+            placeholder="Paste a free key from xeno-canto.org/account"
+          />
+        </label>
+        <p className="fine-print">
+          Free key from xeno-canto.org/account. Without it, the “Hear this bird” button stays
+          hidden. (You can also set VITE_XENO_CANTO_KEY in the build env.)
+        </p>
       </section>
 
       <section className="soft-card full-span">
