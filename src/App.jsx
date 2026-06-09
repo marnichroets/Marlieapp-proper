@@ -3654,8 +3654,30 @@ function readSoundCache(query, cacheKey, presetUrl) {
   return { status: 'idle', url: '' }
 }
 
+// xeno-canto API v3 needs TAGGED queries, not a plain species name.
+// Prefer the English (common) name: en:African+Darter. Each word is URL-encoded
+// and joined with '+' (which the API reads as a space); the en: tag stays literal.
+// Falls back to genus/species: gen:Anhinga+sp:rufa.
+function buildXenoCantoQuery(commonName, scientificName) {
+  const common = String(commonName || '').trim()
+  if (common) {
+    return `en:${common.split(/\s+/).map(encodeURIComponent).join('+')}`
+  }
+  const sci = String(scientificName || '').trim()
+  if (sci) {
+    const [genus, species] = sci.split(/\s+/)
+    if (genus && species) {
+      return `gen:${encodeURIComponent(genus)}+sp:${encodeURIComponent(species)}`
+    }
+    if (genus) return `gen:${encodeURIComponent(genus)}`
+  }
+  return ''
+}
+
 function BirdSound({ scientificName, fallbackName, presetUrl }) {
-  const query = String(scientificName || fallbackName || '').trim()
+  // fallbackName is the common (English) name; prefer it for the en: tag query.
+  const query = String(fallbackName || scientificName || '').trim()
+  const searchQuery = buildXenoCantoQuery(fallbackName, scientificName)
   const cacheKey = `${SOUND_CACHE_PREFIX}${query.toLowerCase()}`
   const initial = readSoundCache(query, cacheKey, presetUrl)
   const [status, setStatus] = useState(initial.status)
@@ -3674,15 +3696,16 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
       : apiKey
         ? 'localStorage (admin-entered)'
         : 'NONE'
-    // The real request URL always uses the raw key value, nothing else.
-    const requestUrl = `https://xeno-canto.org/api/3/recordings?query=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`
+    // The real request URL uses the tagged query + the raw key value.
+    const requestUrl = `https://xeno-canto.org/api/3/recordings?query=${searchQuery}&key=${encodeURIComponent(apiKey)}`
     // For logging only, redact the key so the secret never prints and the
     // placeholder can't be mistaken for the value being sent.
     const loggedUrl = apiKey
       ? requestUrl.replace(encodeURIComponent(apiKey), 'KEY_REDACTED')
       : requestUrl
     console.log('[xeno-canto] requesting recording', {
-      query,
+      bird: query,
+      taggedQuery: searchQuery,
       keySource,
       keyLength: apiKey.length,
       url: loggedUrl,
@@ -3742,7 +3765,7 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
     return () => {
       cancelled = true
     }
-  }, [status, query, cacheKey])
+  }, [status, query, searchQuery, cacheKey])
 
   // Once a recording is ready after the user asked to play, start it.
   useEffect(() => {
