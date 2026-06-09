@@ -3659,30 +3659,26 @@ function readSoundCache(query, cacheKey, presetUrl) {
   return { status: 'idle', url: '' }
 }
 
-// xeno-canto API v3 needs TAGGED queries, not a plain species name.
-// Prefer the English (common) name: en:African+Darter. Each word is URL-encoded
-// and joined with '+' (which the API reads as a space); the en: tag stays literal.
-// Falls back to genus/species: gen:Anhinga+sp:rufa.
-function buildXenoCantoQuery(commonName, scientificName) {
-  const common = String(commonName || '').trim()
-  if (common) {
-    return `en:${common.split(/\s+/).map(encodeURIComponent).join('+')}`
-  }
+// xeno-canto API v3 needs TAGGED queries. The valid tags are gen: (genus) and
+// sp: (species) — NOT sci:, name: or en: (en: only works for a single word).
+// A scientific name "Numida meleagris" becomes gen:Numida+sp:meleagris
+// (the + is read by the API as a space separating the two tags).
+function buildXenoCantoQuery(scientificName) {
   const sci = String(scientificName || '').trim()
-  if (sci) {
-    const [genus, species] = sci.split(/\s+/)
-    if (genus && species) {
-      return `gen:${encodeURIComponent(genus)}+sp:${encodeURIComponent(species)}`
-    }
-    if (genus) return `gen:${encodeURIComponent(genus)}`
+  if (!sci) return ''
+  const [genus, species] = sci.split(/\s+/)
+  if (genus && species) {
+    return `gen:${encodeURIComponent(genus)}+sp:${encodeURIComponent(species)}`
   }
+  if (genus) return `gen:${encodeURIComponent(genus)}`
   return ''
 }
 
 function BirdSound({ scientificName, fallbackName, presetUrl }) {
-  // fallbackName is the common (English) name; prefer it for the en: tag query.
-  const query = String(fallbackName || scientificName || '').trim()
-  const searchQuery = buildXenoCantoQuery(fallbackName, scientificName)
+  // The query is built from the scientific name (gen:+sp:). fallbackName is only
+  // used for the cache key / display when no scientific name is available.
+  const query = String(scientificName || fallbackName || '').trim()
+  const searchQuery = buildXenoCantoQuery(scientificName)
   const cacheKey = `${SOUND_CACHE_PREFIX}${query.toLowerCase()}`
   const initial = readSoundCache(query, cacheKey, presetUrl)
   const [status, setStatus] = useState(initial.status)
@@ -3695,6 +3691,18 @@ function BirdSound({ scientificName, fallbackName, presetUrl }) {
     if (status !== 'loading') return undefined
 
     let cancelled = false
+
+    // No scientific name -> nothing to query. Resolve as empty asynchronously
+    // (a synchronous setState in an effect body is disallowed by lint).
+    if (!searchQuery) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setStatus('empty')
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+
     const apiKey = getXenoCantoKey()
     const keySource = XENO_CANTO_ENV_KEY
       ? 'build env (VITE_XENO_CANTO_KEY)'
