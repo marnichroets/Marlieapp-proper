@@ -3382,9 +3382,13 @@ textarea:focus {
     linear-gradient(160deg, rgba(231, 241, 223, 0.95), rgba(255, 235, 205, 0.88));
 }
 
-/* Darken the real photo into a visible (not solid black) mystery shape. */
+/* Faint stencil/watermark: a delicate grey bird shape on the cream card.
+   multiply lets the light areas melt into the cream so only the soft shape
+   shows — no dark blob, no colour. (Verified vs brightness(0)/invert, which
+   collapse to a flat shapeless wash.) */
 .silhouette-shape {
-  filter: grayscale(100%) brightness(20%) contrast(100%);
+  filter: grayscale(100%) contrast(180%) brightness(135%) opacity(0.18);
+  mix-blend-mode: multiply;
   background: transparent !important;
 }
 
