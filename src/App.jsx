@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
+import { getSeasonInfo } from './seasons'
+import { WeeklyBird, SeasonalAmbient } from './birds'
+import { getWeeklyBird, weeklyFaviconDataUrl } from './birdData'
+import { TweetyHomeCard, TweetyStatsPage } from './Tweety'
+import {
+  defaultTweety,
+  tweetyToday,
+  tweetyStreak,
+  tweetyMood,
+  tweetyLevel,
+  tweetyTodayKey,
+  playChirp,
+} from './tweetyData'
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
 const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
@@ -1064,6 +1077,7 @@ function buildDefaultState() {
     },
     dailyChallengeCompletions: {},
     fieldGuideNotes: {},
+    tweety: defaultTweety(),
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
     settings: {
@@ -1154,6 +1168,7 @@ function loadState() {
         saved.fieldGuideNotes && typeof saved.fieldGuideNotes === 'object'
           ? saved.fieldGuideNotes
           : base.fieldGuideNotes,
+      tweety: { ...base.tweety, ...(saved.tweety || {}) },
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
         ...base.magazineIssue,
@@ -1322,56 +1337,6 @@ function buildBirdRecords(sightings) {
   return [...records.values()].sort((a, b) => a.birdName.localeCompare(b.birdName))
 }
 
-// Cute, chubby pink/coral bird that gently bobs and occasionally flaps a wing.
-function CuteBird({ size = 48, className = '' }) {
-  return (
-    <span
-      className={`cute-bird ${className}`.trim()}
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-    >
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <g className="cute-bird-bob">
-          {/* tail */}
-          <ellipse cx="20" cy="54" rx="11" ry="6.5" fill="#E88A86" transform="rotate(-18 20 54)" />
-          {/* little top tuft */}
-          <ellipse cx="54" cy="24" rx="3.2" ry="7.5" fill="#E88A86" transform="rotate(-16 54 24)" />
-          {/* feet */}
-          <path
-            d="M45 84 v7 M41 91 h8 M42 88 h6"
-            stroke="#E8915E"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            fill="none"
-          />
-          <path
-            d="M59 84 v7 M55 91 h8 M56 88 h6"
-            stroke="#E8915E"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            fill="none"
-          />
-          {/* body */}
-          <ellipse cx="54" cy="56" rx="30" ry="31" fill="#F4A09A" />
-          {/* belly */}
-          <ellipse cx="52" cy="65" rx="19" ry="16" fill="#FBD9D2" />
-          {/* wing (flaps) */}
-          <g className="cute-bird-wing">
-            <ellipse cx="42" cy="55" rx="11.5" ry="16" fill="#E88A86" />
-          </g>
-          {/* cheek blush */}
-          <circle cx="67" cy="59" r="5.5" fill="#F7A8B8" opacity="0.7" />
-          {/* eye */}
-          <circle cx="63" cy="47" r="4.6" fill="#3E2F22" />
-          <circle cx="64.6" cy="45.4" r="1.5" fill="#ffffff" />
-          {/* beak */}
-          <path d="M80 50 l10 4.2 l-10 4.2 z" fill="#F2A24E" />
-        </g>
-      </svg>
-    </span>
-  )
-}
-
 function App() {
   const [activePage, setActivePage] = useState('home')
   const [data, setData] = useState(loadState)
@@ -1389,6 +1354,8 @@ function App() {
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
   const [birdProfile, setBirdProfile] = useState(null)
+  const [tweetyDancing, setTweetyDancing] = useState(false)
+  const [weeklyTip, setWeeklyTip] = useState(false)
   // Open the hidden admin login when the URL is /admin (or #admin).
   const [adminGate, setAdminGate] = useState(() => {
     try {
@@ -1417,6 +1384,88 @@ function App() {
     () => getDailyStreak(data.dailyChallengeCompletions),
     [data.dailyChallengeCompletions],
   )
+
+  const season = useMemo(() => getSeasonInfo(), [])
+  const weekly = useMemo(() => getWeeklyBird(), [])
+  const tweetyView = useMemo(() => {
+    const today = tweetyToday(data.tweety)
+    return {
+      today,
+      mood: tweetyMood(data.tweety),
+      streak: tweetyStreak(data.tweety),
+      level: tweetyLevel(data.birds.length),
+    }
+  }, [data.tweety, data.birds.length])
+
+  // Browser-tab favicon follows the weekly bird.
+  useEffect(() => {
+    let link = document.querySelector("link[rel='icon']")
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.type = 'image/svg+xml'
+    link.href = weeklyFaviconDataUrl()
+  }, [weekly.week])
+
+  // Show a "new look this week" tooltip once when the weekly bird changes.
+  useEffect(() => {
+    if (!session) return undefined
+    let stored = null
+    try {
+      stored = localStorage.getItem('pooks-weekly-bird')
+    } catch {
+      // ignore read errors
+    }
+    if (stored === String(weekly.week)) return undefined
+    try {
+      localStorage.setItem('pooks-weekly-bird', String(weekly.week))
+    } catch {
+      // ignore
+    }
+    let cancelled = false
+    const show = window.setTimeout(() => {
+      if (!cancelled) setWeeklyTip(true)
+    }, 0)
+    const hide = window.setTimeout(() => {
+      if (!cancelled) setWeeklyTip(false)
+    }, 3200)
+    return () => {
+      cancelled = true
+      window.clearTimeout(show)
+      window.clearTimeout(hide)
+    }
+  }, [weekly.week, session])
+
+  // If Marnich left a surprise treat, Tweety does a happy dance on open.
+  useEffect(() => {
+    if (!session || session.role !== 'pooks') return undefined
+    if (!data.tweety?.pendingTreat) return undefined
+    let cancelled = false
+    const start = window.setTimeout(() => {
+      if (cancelled) return
+      setTweetyDancing(true)
+      setData((current) => ({
+        ...current,
+        tweety: { ...current.tweety, pendingTreat: false },
+      }))
+      setToast({
+        title: 'A surprise treat! 🎁',
+        body: `Marnich sent ${data.tweety?.name || 'Tweety'} a little treat. Look at that happy dance!`,
+        tone: 'success',
+      })
+    }, 0)
+    const stop = window.setTimeout(() => {
+      if (!cancelled) setTweetyDancing(false)
+    }, 2600)
+    return () => {
+      cancelled = true
+      window.clearTimeout(start)
+      window.clearTimeout(stop)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   const stats = useMemo(() => {
     const uniqueCount = data.birds.length
@@ -1551,6 +1600,75 @@ function App() {
     setToast({
       title: 'Surprise note sent 💌',
       body: 'It is now waiting in her hidden notes.',
+      tone: 'success',
+    })
+  }
+
+  // Feed / water / play with Tweety. Always rewarding, never punishing.
+  function careTweety(kind) {
+    const field = kind === 'water' ? 'watered' : kind === 'play' ? 'played' : 'fed'
+    const key = tweetyTodayKey()
+    const today = data.tweety?.care?.[key] || { fed: false, watered: false, played: false }
+    if (today[field]) return
+
+    playChirp(kind)
+    const nextToday = { ...today, [field]: true }
+    const nextTweety = {
+      ...data.tweety,
+      care: { ...(data.tweety?.care || {}), [key]: nextToday },
+    }
+
+    let coins = 10
+    let bonusNote = ''
+    const becameFull = nextToday.fed && nextToday.watered && nextToday.played
+    if (becameFull) {
+      const newStreak = tweetyStreak(nextTweety)
+      let lastBonus = data.tweety?.lastBonusStreak || 0
+      while (newStreak >= lastBonus + 7) {
+        lastBonus += 7
+        coins += 100
+        bonusNote = ` ${lastBonus}-day care streak! ${nextTweety.name || 'Tweety'} does a special celebration dance! +100 bonus 🎉`
+      }
+      nextTweety.lastBonusStreak = lastBonus
+    }
+
+    const celebrate = kind === 'play' || Boolean(bonusNote)
+    if (celebrate) {
+      setTweetyDancing(true)
+      if (bonusNote) setConfetti(Date.now())
+      window.setTimeout(() => setTweetyDancing(false), bonusNote ? 2800 : 1800)
+    }
+
+    commit(
+      { ...data, tweety: nextTweety, featherCoins: data.featherCoins + coins },
+      {
+        title:
+          field === 'fed'
+            ? 'Yum! 🐛'
+            : field === 'watered'
+              ? 'Refreshing! 💧'
+              : 'So much fun! 💗',
+        body: `${nextTweety.name || 'Tweety'} loved that. +${coins} Feather Coins.${bonusNote}`,
+      },
+    )
+  }
+
+  function renameTweety(name) {
+    setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
+  }
+
+  function sendTweetyTreat() {
+    setData((current) => ({
+      ...current,
+      tweety: {
+        ...current.tweety,
+        pendingTreat: true,
+        treatsReceived: (current.tweety?.treatsReceived || 0) + 1,
+      },
+    }))
+    setToast({
+      title: 'Treat sent 🎁',
+      body: `${data.tweety?.name || 'Tweety'} will do a happy dance next time Pooks opens the app.`,
       tone: 'success',
     })
   }
@@ -2188,14 +2306,9 @@ function App() {
   }
 
   return (
-    <div className="app-shell has-bottom-nav">
-      <div className="ambient-sky" aria-hidden="true">
-        <span className="floating-feather feather-one">🪶</span>
-        <span className="floating-feather feather-two">🪶</span>
-        <span className="floating-feather feather-three">🪶</span>
-        <span className="tiny-bird bird-one">🐦</span>
-        <span className="tiny-bird bird-two">🐤</span>
-      </div>
+    <div className={`app-shell has-bottom-nav season-${season.key}`}>
+      <div className="season-wash" aria-hidden="true" />
+      <SeasonalAmbient />
       <Toast toast={toast} />
       <InstallPrompt />
       {adminGate && session.role !== 'admin' && (
@@ -2211,10 +2324,23 @@ function App() {
       <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
 
       <header className="app-header">
-        <button className="brand-pill" type="button" onClick={handleBrandTap}>
-          <CuteBird size={30} className="brand-bird" />
-          Pooks
-        </button>
+        <div className="brand-wrap">
+          <button
+            className="brand-pill"
+            type="button"
+            onClick={handleBrandTap}
+            title={`This week: ${weekly.name}`}
+          >
+            <WeeklyBird size={32} className="brand-bird" />
+            Pooks
+          </button>
+          {weeklyTip && (
+            <div className="weekly-tip" role="status">
+              New look this week! 🐦
+              <strong>{weekly.name}</strong>
+            </div>
+          )}
+        </div>
         <button
           className="gear-btn"
           type="button"
@@ -2248,6 +2374,18 @@ function App() {
             dailyStreak={dailyStreak}
             completeDailyChallenge={completeDailyChallenge}
             goTo={setActivePage}
+            season={season}
+            tweetyView={tweetyView}
+            tweetyDancing={tweetyDancing}
+            careTweety={careTweety}
+          />
+        )}
+        {activePage === 'tweety' && (
+          <TweetyStatsPage
+            tweety={data.tweety}
+            birdCount={data.birds.length}
+            onBack={() => setActivePage('home')}
+            onRename={renameTweety}
           />
         )}
         {activePage === 'add' && <AddBirdPage addBird={addBird} />}
@@ -2323,6 +2461,7 @@ function App() {
             addAdminCode={addAdminCode}
             markRewardPaid={markRewardPaid}
             sendSurpriseNote={sendSurpriseNote}
+            sendTweetyTreat={sendTweetyTreat}
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
             previewMagazineIssue={() => setActivePage('magazine')}
@@ -2397,6 +2536,7 @@ function LoginScreen({ data, onLogin }) {
   const [name, setName] = useState('')
   const [secret, setSecret] = useState('')
   const [error, setError] = useState('')
+  const season = getSeasonInfo()
 
   function submit(event) {
     event.preventDefault()
@@ -2406,19 +2546,14 @@ function LoginScreen({ data, onLogin }) {
   }
 
   return (
-    <main className="login-screen">
-      <div className="ambient-sky" aria-hidden="true">
-        <span className="floating-feather feather-one">🪶</span>
-        <span className="floating-feather feather-two">🪶</span>
-        <span className="floating-feather feather-three">🪶</span>
-        <span className="tiny-bird bird-one">🐦</span>
-        <span className="tiny-bird bird-two">🐤</span>
-      </div>
+    <main className={`login-screen season-${season.key}`}>
+      <div className="season-wash" aria-hidden="true" />
+      <SeasonalAmbient />
       <section className="login-card" aria-labelledby="login-title">
         <div className="login-logo">
-          <CuteBird size={84} />
+          <WeeklyBird size={88} />
         </div>
-        <p className="login-tag" id="login-title">Your adventure awaits 🐦</p>
+        <p className="login-tag" id="login-title">{season.greeting}</p>
         <p className="login-sub">Whisper your name and secret word to come inside.</p>
         <form className="login-form" onSubmit={submit}>
           <label>
@@ -2825,6 +2960,10 @@ function HomePage({
   dailyStreak,
   completeDailyChallenge,
   goTo,
+  season,
+  tweetyView,
+  tweetyDancing,
+  careTweety,
 }) {
   const seenLibraryCount = data.birdLibrary.filter((bird) => bird.seen).length
   const collectionProgress = data.birdLibrary.length
@@ -2833,15 +2972,31 @@ function HomePage({
   const done = dailyChallenge.mainComplete
 
   return (
-    <div className="home-stack">
+    <div className={`home-stack home-mood-${tweetyView.mood}`}>
       <div className="home-topline">
         <span className="streak-chip">Day {dailyStreak} streak 🔥</span>
         <span className="coin-chip">{data.featherCoins} 🪙</span>
       </div>
 
-      <div className="home-hero-bird">
-        <CuteBird size={104} />
-      </div>
+      <section className="season-greeting">
+        <div className="home-hero-bird">
+          <WeeklyBird size={104} />
+        </div>
+        <h2>{season.greeting}</h2>
+        <p>{season.blurb}</p>
+      </section>
+
+      <TweetyHomeCard
+        tweety={data.tweety}
+        level={tweetyView.level}
+        mood={tweetyView.mood}
+        streak={tweetyView.streak}
+        dancing={tweetyDancing}
+        onFeed={() => careTweety('feed')}
+        onWater={() => careTweety('water')}
+        onPlay={() => careTweety('play')}
+        onOpenStats={() => goTo('tweety')}
+      />
 
       <section className={`mission-card${done ? ' done' : ''}`}>
         <p className="mission-eyebrow">Today&apos;s Mission 🐦</p>
@@ -4890,6 +5045,7 @@ function getWeeklyRecap(data) {
 
 function WeeklyMagazinePage({ data, openBirdProfile }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
+  const season = getSeasonInfo()
   const weekIndex = getAbsoluteWeekIndex()
   const quote = getWeeklyQuote(weekIndex)
   const coverBird = issue.birdOfWeek
@@ -4914,6 +5070,7 @@ function WeeklyMagazinePage({ data, openBirdProfile }) {
   pages.push(
     <div className="magazine-cover-page" key="cover">
       <p className="magazine-issue-no">The Weekly Feather · Issue {issue.week}</p>
+      <p className="magazine-season">{season.name} edition · {season.greeting}</p>
       {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
       <p className="magazine-quote">“{quote}”</p>
       {coverBird && (
@@ -5034,7 +5191,7 @@ function WeeklyMagazinePage({ data, openBirdProfile }) {
   const safePage = Math.min(page, total - 1)
 
   return (
-    <div className="magazine-page magazine-book">
+    <div className={`magazine-page magazine-book season-${season.key}`}>
       <div className="magazine-spread" key={safePage}>
         {pages[safePage]}
       </div>
@@ -5133,6 +5290,7 @@ function AdminPage({
   addAdminCode,
   markRewardPaid,
   sendSurpriseNote,
+  sendTweetyTreat,
   resetData,
   previewMarlieView,
   previewMagazineIssue,
@@ -5494,6 +5652,29 @@ function AdminPage({
             Send surprise note
           </button>
         </form>
+      </section>
+
+      <section className="soft-card full-span">
+        <p className="eyebrow">{data.tweety?.name || 'Tweety'} — her pet bird 🐤</p>
+        <div className="admin-dashboard-grid">
+          <StatCard
+            label="Happiness"
+            value={
+              tweetyMood(data.tweety) === 'happy'
+                ? 'Happy 💛'
+                : tweetyMood(data.tweety) === 'sad'
+                  ? 'Missing her 🫧'
+                  : 'Content'
+            }
+            detail="today's mood"
+          />
+          <StatCard label="Care streak" value={tweetyStreak(data.tweety)} detail="days in a row" />
+          <StatCard label="Level" value={tweetyLevel(data.birds.length).label} detail="grows with sightings" />
+          <StatCard label="Treats sent" value={data.tweety?.treatsReceived || 0} detail="from you 💛" />
+        </div>
+        <button className="primary-btn" type="button" onClick={sendTweetyTreat}>
+          Send {data.tweety?.name || 'Tweety'} a surprise treat 🎁
+        </button>
       </section>
 
       <section className="soft-card full-span">

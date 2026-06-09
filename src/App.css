@@ -3479,6 +3479,329 @@ textarea:focus {
   margin: 2px 0 -4px;
 }
 
+/* ===================== Weekly bird extras ===================== */
+.brand-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.weekly-tip {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  z-index: 40;
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #fffdf7, #f7ecd0);
+  box-shadow: 0 12px 30px rgba(70, 55, 30, 0.25);
+  border: 1px solid rgba(120, 90, 50, 0.18);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+  white-space: nowrap;
+  animation: install-rise 320ms ease;
+}
+
+.weekly-tip strong {
+  color: var(--leaf-dark);
+}
+
+/* eye blink + tail wag (in addition to bob + wing flap) */
+.cute-bird-eye {
+  transform-box: fill-box;
+  animation: bird-blink 4.2s ease-in-out infinite;
+}
+
+@keyframes bird-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+.cute-bird-tail {
+  transform-box: fill-box;
+  transform-origin: 90% 50%;
+  animation: bird-wag 2.8s ease-in-out infinite;
+}
+
+@keyframes bird-wag {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(7deg); }
+}
+
+/* accessory micro-animations */
+.bird-leaf-a, .bird-leaf-b, .bird-leaf-c { transform-box: fill-box; animation: leaf-sway 3.2s ease-in-out infinite; }
+.bird-leaf-b { animation-delay: -1.1s; }
+.bird-leaf-c { animation-delay: -2.2s; }
+@keyframes leaf-sway { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(3px) rotate(10deg); } }
+
+.bird-light, .bird-sparkle { animation: twinkle 1.8s ease-in-out infinite; }
+.bird-light-b { animation-delay: -0.6s; }
+.bird-light-c { animation-delay: -1.2s; }
+@keyframes twinkle { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.bird-steam { animation: steam-rise 2.4s ease-in-out infinite; opacity: 0.8; }
+@keyframes steam-rise { 0% { opacity: 0; transform: translateY(2px); } 50% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-3px); } }
+
+.bird-rain { animation: rain-fall 1.3s linear infinite; }
+@keyframes rain-fall { 0% { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(10px); opacity: 0; } }
+
+.bird-flutter { transform-box: fill-box; transform-origin: center; animation: flutter 0.5s ease-in-out infinite; }
+@keyframes flutter { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(0.7); } }
+
+.bird-float-a { transform-box: fill-box; animation: float-a 2.6s ease-in-out infinite; }
+@keyframes float-a { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* ===================== Seasonal theming ===================== */
+.season-wash {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.app-shell > .app-header,
+.app-shell > .page-wrap,
+.app-shell > .bottom-nav,
+.login-card {
+  position: relative;
+  z-index: 2;
+}
+
+.season-summer .season-wash {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 213, 120, 0.4), transparent 42%),
+    radial-gradient(circle at 90% 8%, rgba(150, 200, 110, 0.3), transparent 40%);
+}
+.season-autumn .season-wash {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(232, 140, 70, 0.34), transparent 44%),
+    radial-gradient(circle at 88% 6%, rgba(200, 90, 58, 0.26), transparent 42%);
+}
+.season-winter .season-wash {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(156, 196, 228, 0.4), transparent 46%),
+    radial-gradient(circle at 88% 8%, rgba(196, 167, 231, 0.28), transparent 42%),
+    linear-gradient(180deg, rgba(220, 230, 240, 0.22), transparent 30%);
+}
+.season-spring .season-wash {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(242, 166, 192, 0.34), transparent 44%),
+    radial-gradient(circle at 88% 8%, rgba(168, 213, 186, 0.32), transparent 42%);
+}
+
+/* winter frost edge on cards */
+.season-winter .soft-card {
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(190, 214, 235, 0.45);
+}
+
+.seasonal-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.season-particle {
+  position: absolute;
+  top: -8%;
+  font-size: 1.4rem;
+  opacity: 0.8;
+  animation: season-drift linear infinite;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.08));
+}
+
+@keyframes season-drift {
+  0% { transform: translateY(-10vh) translateX(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.85; }
+  90% { opacity: 0.85; }
+  100% { transform: translateY(112vh) translateX(40px) rotate(220deg); opacity: 0; }
+}
+
+.sp-0 { left: 6%; font-size: 1.2rem; animation-duration: 15s; animation-delay: -2s; }
+.sp-1 { left: 18%; font-size: 1.6rem; animation-duration: 19s; animation-delay: -8s; }
+.sp-2 { left: 30%; font-size: 1.1rem; animation-duration: 13s; animation-delay: -5s; }
+.sp-3 { left: 43%; font-size: 1.5rem; animation-duration: 21s; animation-delay: -12s; }
+.sp-4 { left: 55%; font-size: 1.2rem; animation-duration: 16s; animation-delay: -3s; }
+.sp-5 { left: 67%; font-size: 1.7rem; animation-duration: 23s; animation-delay: -9s; }
+.sp-6 { left: 78%; font-size: 1.1rem; animation-duration: 14s; animation-delay: -6s; }
+.sp-7 { left: 88%; font-size: 1.5rem; animation-duration: 20s; animation-delay: -14s; }
+.sp-8 { left: 96%; font-size: 1.2rem; animation-duration: 17s; animation-delay: -1s; }
+
+.season-greeting {
+  text-align: center;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 6px 0 2px;
+}
+
+.season-greeting h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: var(--ink-strong);
+}
+
+.season-greeting p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.magazine-season {
+  margin: 0;
+  font-weight: 800;
+  color: var(--honey);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season-particle,
+  .cute-bird-eye,
+  .cute-bird-tail,
+  .bird-leaf-a, .bird-leaf-b, .bird-leaf-c,
+  .bird-light, .bird-sparkle, .bird-steam, .bird-rain, .bird-flutter, .bird-float-a {
+    animation: none;
+  }
+}
+
+/* ===================== Tweety ===================== */
+.tweety-card {
+  background:
+    linear-gradient(160deg, rgba(255, 252, 244, 0.96), rgba(255, 244, 220, 0.92));
+}
+.tweety-mood-sad {
+  background:
+    linear-gradient(160deg, rgba(244, 246, 248, 0.96), rgba(226, 232, 238, 0.92));
+}
+
+.tweety-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 6px 0 2px;
+}
+
+.tweety-nest {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+
+.tweety-nest-base {
+  width: 150px;
+  height: 46px;
+  margin-top: -34px;
+  border-radius: 50% 50% 46% 46% / 70% 70% 38% 38%;
+  background:
+    repeating-linear-gradient(92deg, #b07a44 0 6px, #9c6a38 6px 12px),
+    radial-gradient(circle at 50% 30%, #c98a52, #8c5e30);
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.18);
+}
+
+.tweety-bird {
+  display: inline-block;
+  line-height: 0;
+  position: relative;
+  z-index: 1;
+}
+.tweety-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.tweety-bob { transform-box: fill-box; transform-origin: 50% 90%; animation: bird-bob 2.6s ease-in-out infinite; }
+.tweety-wing { transform-box: fill-box; transform-origin: 50% 30%; animation: bird-flap 3.4s ease-in-out infinite; }
+.tweety-eyes { transform-box: fill-box; animation: bird-blink 4.6s ease-in-out infinite; }
+
+.tweety-sad .tweety-bob { animation: tweety-droop 4s ease-in-out infinite; }
+@keyframes tweety-droop { 0%,100% { transform: translateY(2px); } 50% { transform: translateY(4px); } }
+
+.tweety-dance { animation: tweety-dance 0.6s ease-in-out infinite; }
+@keyframes tweety-dance {
+  0%, 100% { transform: rotate(-6deg) translateY(0); }
+  25% { transform: rotate(6deg) translateY(-6px); }
+  50% { transform: rotate(-6deg) translateY(0); }
+  75% { transform: rotate(6deg) translateY(-6px); }
+}
+
+.tweety-raincloud {
+  position: absolute;
+  top: -6px;
+  font-size: 1.8rem;
+  animation: float-a 3s ease-in-out infinite;
+}
+
+.tweety-level-pill,
+.tweety-streak-pill {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.tweety-level-pill { background: rgba(231, 241, 223, 0.8); color: var(--leaf-dark); }
+.tweety-streak-pill { background: rgba(255, 224, 178, 0.85); color: #9a5a2a; }
+
+.tweety-care-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.tweety-care-btn {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  font-weight: 800;
+  color: var(--ink-strong);
+  transition: transform 140ms ease, background 140ms ease;
+}
+.tweety-care-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.tweety-care-btn .tweety-care-icon { font-size: 1.5rem; }
+.tweety-care-btn.done {
+  background: rgba(231, 241, 223, 0.7);
+  color: var(--leaf-dark);
+  cursor: default;
+}
+
+.tweety-hint {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tweety-stats-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Tweety mood tints the home screen */
+.home-stack { position: relative; }
+.home-mood-happy::before,
+.home-mood-sad::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.home-mood-happy::before {
+  background: radial-gradient(circle at 50% -10%, rgba(255, 214, 130, 0.28), transparent 45%);
+}
+.home-mood-sad::before {
+  background: linear-gradient(180deg, rgba(150, 160, 170, 0.18), transparent 40%);
+}
+
 .reveal-photo {
   width: 100%;
   max-height: 240px;
