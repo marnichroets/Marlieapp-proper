@@ -14,6 +14,8 @@ import {
   tweetyTodayKey,
   playChirp,
 } from './tweetyData'
+import { BirdStore } from './BirdStore'
+import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
 const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || '').replace(/\/+$/, '')
@@ -46,21 +48,39 @@ const OFFLINE_BIRD_COUNCIL_MESSAGE =
 
 const SESSION_STORAGE_KEY = 'marlie-bird-session-v1'
 
-// Coin earning rules.
+// Coin earning rules (rebalanced so coins feel valuable).
 const COINS = {
-  spot: 50,
-  firstSpecies: 20,
-  withMarnich: 40,
-  dailyChallenge: 30,
-  streakBonus: 25,
+  spot: 30,
+  firstSpecies: 10,
+  withMarnich: 25,
+  dailyChallenge: 20,
+  streakBonus: 15,
+  tweetyCare: 5,
+  tweetyStreak: 50,
 }
 
-// Coin shop costs.
+// Bonus coins when crossing a unique-species milestone.
+const MILESTONE_COINS = {
+  5: 50,
+  10: 100,
+  25: 200,
+  50: 500,
+  100: 1000,
+}
+
+function milestoneCoinsBetween(prevCount, nextCount) {
+  return Object.entries(MILESTONE_COINS).reduce((sum, [threshold, coins]) => {
+    const t = Number(threshold)
+    return prevCount < t && nextCount >= t ? sum + coins : sum
+  }, 0)
+}
+
+// Coin shop costs (rebalanced).
 const SHOP = {
-  mysteryBox: 100,
-  hiddenNote: 50,
-  birdProfile: 75,
-  dateIdea: 150,
+  mysteryBox: 300,
+  hiddenNote: 200,
+  birdProfile: 250,
+  dateIdea: 500,
 }
 
 // Bottom tab bar (5) + everything else tucked behind the settings menu.
@@ -1078,6 +1098,7 @@ function buildDefaultState() {
     dailyChallengeCompletions: {},
     fieldGuideNotes: {},
     tweety: defaultTweety(),
+    store: defaultStore(),
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
     settings: {
@@ -1094,6 +1115,7 @@ function buildDefaultState() {
         "I can't wait to see what tiny bird you find today. Have the best adventure. 💛",
       unlockedProfiles: [],
       unlockedDateIdeas: [],
+      tweetyLetter: 'Dear Tweety, please look after my Pooks for me. 💛 — Marnich',
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -1169,6 +1191,7 @@ function loadState() {
           ? saved.fieldGuideNotes
           : base.fieldGuideNotes,
       tweety: { ...base.tweety, ...(saved.tweety || {}) },
+      store: { ...base.store, ...(saved.store || {}) },
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
         ...base.magazineIssue,
@@ -1391,11 +1414,14 @@ function App() {
     const today = tweetyToday(data.tweety)
     return {
       today,
-      mood: tweetyMood(data.tweety),
+      mood: tweetyMood(data.tweety, { neverSad: tweetyNeverSad(data.store) }),
       streak: tweetyStreak(data.tweety),
       level: tweetyLevel(data.birds.length),
+      nestTier: data.store?.nest || 'basic',
+      rainbow: rainbowActive(data.store),
+      loveLetter: data.store?.loveLetter || '',
     }
-  }, [data.tweety, data.birds.length])
+  }, [data.tweety, data.birds.length, data.store])
 
   // Browser-tab favicon follows the weekly bird.
   useEffect(() => {
@@ -1618,7 +1644,7 @@ function App() {
       care: { ...(data.tweety?.care || {}), [key]: nextToday },
     }
 
-    let coins = 10
+    let coins = COINS.tweetyCare
     let bonusNote = ''
     const becameFull = nextToday.fed && nextToday.watered && nextToday.played
     if (becameFull) {
@@ -1626,8 +1652,8 @@ function App() {
       let lastBonus = data.tweety?.lastBonusStreak || 0
       while (newStreak >= lastBonus + 7) {
         lastBonus += 7
-        coins += 100
-        bonusNote = ` ${lastBonus}-day care streak! ${nextTweety.name || 'Tweety'} does a special celebration dance! +100 bonus 🎉`
+        coins += COINS.tweetyStreak
+        bonusNote = ` ${lastBonus}-day care streak! ${nextTweety.name || 'Tweety'} does a special celebration dance! +${COINS.tweetyStreak} bonus 🎉`
       }
       nextTweety.lastBonusStreak = lastBonus
     }
@@ -1657,6 +1683,75 @@ function App() {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
   }
 
+  // Buy (or, when free, gift) a Bird Store item. Purchases apply immediately.
+  function buyStoreItem(section, item, options = {}) {
+    const free = Boolean(options.free)
+    const store = data.store || defaultStore()
+    if (section.kind !== 'consumable' && isOwned(store, section, item.id)) return
+    const cost = free ? 0 : item.cost
+    if (!free && data.featherCoins < cost) {
+      setToast({
+        title: 'Not enough coins yet',
+        body: `That costs ${cost} 🪙. Keep spotting birds and caring for Tweety! 💛`,
+        tone: 'warning',
+      })
+      return
+    }
+
+    const nextStore = { ...store }
+    let dancing = false
+    let party = false
+    let body = `${item.name} ${item.emoji} is yours.`
+
+    if (section.kind === 'tier') {
+      nextStore[section.field] = item.id
+      const where =
+        section.field === 'aviaryTier'
+          ? 'the aviary'
+          : section.field === 'nest'
+            ? "Tweety's nest"
+            : 'Tweety'
+      body = `${item.name} ${item.emoji} unlocked — it now shows on ${where}.`
+    } else if (section.kind === 'collection') {
+      const owned = store[section.field] || []
+      nextStore[section.field] =
+        item.id === 'playground' ? ['playground'] : Array.from(new Set([...owned, item.id]))
+    } else if (item.id === 'rainbow') {
+      nextStore.rainbowUntil = Date.now() + 24 * 3600 * 1000
+      body = 'Tweety is glowing rainbow colours for 24 hours! 🌈'
+      dancing = true
+    } else if (item.id === 'cake') {
+      nextStore.birthdayCount = (store.birthdayCount || 0) + 1
+      body = 'Happy birthday Tweety! 🎂 Confetti everywhere!'
+      dancing = true
+      party = true
+    } else if (item.id === 'goldenseed') {
+      nextStore.goldenSeedUntil = Date.now() + 3 * 24 * 3600 * 1000
+      body = 'A golden seed planted! Tweety will lay an egg within 3 days. 🌟'
+    } else if (item.id === 'loveletter') {
+      nextStore.loveLetter =
+        data.settings.tweetyLetter ||
+        'Dear Tweety, please look after my Pooks for me. 💛 — Marnich'
+      body = "A love letter is tied to Tweety's leg. 💌 She does a special happy dance!"
+      dancing = true
+    }
+
+    if (dancing) {
+      setTweetyDancing(true)
+      window.setTimeout(() => setTweetyDancing(false), 2600)
+    }
+    if (party) setConfetti(Date.now())
+
+    commit(
+      { ...data, store: nextStore, featherCoins: data.featherCoins - cost },
+      {
+        title: free ? 'A gift from Marnich 🎁' : 'Bird Store purchase 🛒',
+        body: free ? `${item.name} ${item.emoji} — sent free by Marnich! 💛` : body,
+        tone: free ? 'success' : 'calm',
+      },
+    )
+  }
+
   function sendTweetyTreat() {
     setData((current) => ({
       ...current,
@@ -1674,16 +1769,24 @@ function App() {
   }
 
   function commit(nextState, message) {
-    const recalculated = recalculateState(nextState)
+    let recalculated = recalculateState(nextState)
+    // Award milestone coin bonuses when the unique-species count crosses a threshold.
+    const milestoneBonus = milestoneCoinsBetween(data.birds.length, recalculated.birds.length)
+    let milestoneNote = ''
+    if (milestoneBonus > 0) {
+      recalculated = { ...recalculated, featherCoins: recalculated.featherCoins + milestoneBonus }
+      milestoneNote = ` Milestone bonus! +${milestoneBonus} Feather Coins 🏅`
+    }
     const unlockSummary = getUnlockSummary(data, recalculated)
     const unlockedRewards = getNewlyUnlockedRewards(data, recalculated)
     setData(recalculated)
     if (unlockedRewards.length) {
       setRewardUnlockQueue((current) => [...current, ...unlockedRewards])
     }
+    if (milestoneBonus > 0) setConfetti(Date.now())
     setToast({
       title: message.title,
-      body: [message.body, unlockSummary].filter(Boolean).join(' '),
+      body: [message.body, milestoneNote, unlockSummary].filter(Boolean).join(' '),
       tone: message.tone || 'success',
     })
   }
@@ -2418,6 +2521,7 @@ function App() {
             buyHiddenNote={buyHiddenNote}
             buyDateIdea={buyDateIdea}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
+            buyStoreItem={buyStoreItem}
           />
         )}
         {activePage === 'challenges' && (
@@ -2462,6 +2566,7 @@ function App() {
             markRewardPaid={markRewardPaid}
             sendSurpriseNote={sendSurpriseNote}
             sendTweetyTreat={sendTweetyTreat}
+            buyStoreItem={buyStoreItem}
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
             previewMagazineIssue={() => setActivePage('magazine')}
@@ -2992,6 +3097,9 @@ function HomePage({
         mood={tweetyView.mood}
         streak={tweetyView.streak}
         dancing={tweetyDancing}
+        nestTier={tweetyView.nestTier}
+        rainbow={tweetyView.rainbow}
+        loveLetter={tweetyView.loveLetter}
         onFeed={() => careTweety('feed')}
         onWater={() => careTweety('water')}
         onPlay={() => careTweety('play')}
@@ -4614,7 +4722,9 @@ function RewardsPage({
   buyHiddenNote,
   buyDateIdea,
   buyFeaturedBirdProfile,
+  buyStoreItem,
 }) {
+  const [tab, setTab] = useState('surprises')
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
   const claimedRewards = revealedRewards.filter((reward) =>
     ['Claimed', 'Paid'].includes(reward.status),
@@ -4645,6 +4755,27 @@ function RewardsPage({
         </p>
       </section>
 
+      <div className="store-tabs" role="tablist">
+        <button
+          className={tab === 'surprises' ? 'filter-chip active' : 'filter-chip'}
+          type="button"
+          onClick={() => setTab('surprises')}
+        >
+          Marnich Surprises 🎁
+        </button>
+        <button
+          className={tab === 'store' ? 'filter-chip active' : 'filter-chip'}
+          type="button"
+          onClick={() => setTab('store')}
+        >
+          Bird Store 🛒
+        </button>
+      </div>
+
+      {tab === 'store' ? (
+        <BirdStore store={data.store} coins={coins} onBuy={buyStoreItem} />
+      ) : (
+      <>
       <section className="soft-card full-span">
         <div className="section-heading">
           <div>
@@ -4785,6 +4916,8 @@ function RewardsPage({
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
   )
 }
@@ -5291,6 +5424,7 @@ function AdminPage({
   markRewardPaid,
   sendSurpriseNote,
   sendTweetyTreat,
+  buyStoreItem,
   resetData,
   previewMarlieView,
   previewMagazineIssue,
@@ -5676,6 +5810,17 @@ function AdminPage({
           Send {data.tweety?.name || 'Tweety'} a surprise treat 🎁
         </button>
       </section>
+
+      <details className="soft-card full-span">
+        <summary>Gift a Bird Store item to Pooks (free) 🎁</summary>
+        <p className="fine-print">Tap any item to send it to her instantly, no coins needed.</p>
+        <BirdStore
+          store={data.store}
+          coins={Infinity}
+          giftMode
+          onBuy={(section, item) => buyStoreItem(section, item, { free: true })}
+        />
+      </details>
 
       <section className="soft-card full-span">
         <div className="section-heading">

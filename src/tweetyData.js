@@ -69,13 +69,14 @@ export function tweetyLongestStreak(tweety) {
 }
 
 // Gentle mood: only truly "sad" after a whole forgotten day.
-export function tweetyMood(tweety) {
+// neverSad (from store perks like the Infinite Feeder / Playground) floors it at content.
+export function tweetyMood(tweety, { neverSad = false } = {}) {
   const today = tweetyToday(tweety)
   const doneCount = [today.fed, today.watered, today.played].filter(Boolean).length
   if (doneCount === 3) return 'happy'
   if (doneCount > 0) return 'content'
   if (caredFully(tweety?.care?.[dayKey(1)])) return 'content'
-  return 'sad'
+  return neverSad ? 'content' : 'sad'
 }
 
 const LEVELS = [

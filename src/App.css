@@ -3802,6 +3802,113 @@ textarea:focus {
   background: linear-gradient(180deg, rgba(150, 160, 170, 0.18), transparent 40%);
 }
 
+/* ===================== Bird Store ===================== */
+.store-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bird-store {
+  display: grid;
+  gap: 14px;
+}
+
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.store-item {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.store-item.owned {
+  background: rgba(231, 241, 223, 0.7);
+  border-color: rgba(71, 112, 77, 0.32);
+}
+
+.store-item h4 { margin: 0; font-size: 0.95rem; color: var(--ink-strong); }
+.store-item p { margin: 0; font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+.store-emoji { font-size: 2rem; }
+.store-buy { margin-top: 4px; }
+
+.store-owned {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(120, 180, 120, 0.22);
+  color: #2f6b34;
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+/* ===================== Tweety store effects ===================== */
+.tweety-rainbow {
+  animation: tweety-rainbow 5s linear infinite;
+  border-radius: 50%;
+}
+@keyframes tweety-rainbow {
+  0% { filter: hue-rotate(0deg) saturate(1.3) drop-shadow(0 0 6px rgba(255, 120, 180, 0.5)); }
+  100% { filter: hue-rotate(360deg) saturate(1.3) drop-shadow(0 0 6px rgba(120, 180, 255, 0.5)); }
+}
+
+.tweety-letter {
+  position: absolute;
+  bottom: 34px;
+  right: 38%;
+  font-size: 1.1rem;
+  animation: float-a 2.4s ease-in-out infinite;
+}
+.tweety-letter-text {
+  margin: 8px 0 0;
+  text-align: center;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--rose);
+}
+
+/* nest illustration tiers */
+.nest-base-cosy {
+  background:
+    radial-gradient(circle at 30% 30%, #f7b6c2 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 35%, #f6ce73 0 4px, transparent 5px),
+    repeating-linear-gradient(92deg, #b07a44 0 6px, #9c6a38 6px 12px),
+    radial-gradient(circle at 50% 30%, #c98a52, #8c5e30);
+}
+.nest-base-luxury {
+  background:
+    repeating-linear-gradient(92deg, #c98a52 0 6px, #b07a44 6px 12px),
+    radial-gradient(circle at 50% 30%, #d8a05a, #9c6a38);
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(246, 206, 115, 0.5);
+}
+.nest-base-treehouse {
+  background:
+    repeating-linear-gradient(92deg, #9c6a38 0 7px, #7a5230 7px 14px),
+    radial-gradient(circle at 50% 30%, #b07a44, #6e4a28);
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.22), 0 8px 0 -2px #6e4a28;
+}
+
+.nest-decor {
+  position: absolute;
+  top: -6px;
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+.nest-tree { left: 4%; font-size: 2.4rem; top: 10px; }
+.nest-lights { left: 50%; transform: translateX(-50%); }
+.tweety-stage.nest-treehouse,
+.tweety-stage.nest-luxury { position: relative; }
+
 .reveal-photo {
   width: 100%;
   max-height: 240px;

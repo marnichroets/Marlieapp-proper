@@ -91,6 +91,9 @@ export function TweetyHomeCard({
   mood,
   streak,
   dancing,
+  nestTier = 'basic',
+  rainbow = false,
+  loveLetter = '',
   onFeed,
   onWater,
   onPlay,
@@ -118,15 +121,19 @@ export function TweetyHomeCard({
         </button>
       </div>
 
-      <div className="tweety-stage">
+      <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
-        <div className="tweety-nest">
+        {nestTier === 'luxury' && <div className="nest-decor nest-lights" aria-hidden="true">✨🏮✨</div>}
+        {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
+        <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
           <TweetyBird level={level.key} mood={mood} dancing={dancing} size={132} />
-          <div className="tweety-nest-base" aria-hidden="true" />
+          {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
+          <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
         </div>
         <span className="tweety-level-pill">{level.label}</span>
         {streak > 0 && <span className="tweety-streak-pill">{streak}-day care streak 🔥</span>}
       </div>
+      {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
       <div className="tweety-care-row">
         <button
@@ -157,7 +164,7 @@ export function TweetyHomeCard({
           <span>{today.played ? 'Played ✓' : 'Play'}</span>
         </button>
       </div>
-      <p className="tweety-hint">Each little kindness gives +10 Feather Coins 🪙</p>
+      <p className="tweety-hint">Each little kindness gives +5 Feather Coins 🪙</p>
     </section>
   )
 }
