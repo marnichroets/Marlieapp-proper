@@ -3978,6 +3978,86 @@ textarea:focus {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
+/* ===================== Competitive games ===================== */
+.trash-talk {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(216, 131, 115, 0.16);
+  color: #9a4a36;
+  font-weight: 800;
+}
+
+.quiz-q { margin: 6px 0 12px; color: var(--ink-strong); }
+.quiz-options { display: grid; gap: 10px; }
+.quiz-option {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.75);
+  font-weight: 800;
+  color: var(--ink-strong);
+  text-align: left;
+  transition: transform 120ms ease;
+}
+.quiz-option:hover { transform: translateY(-1px); }
+.quiz-option.correct { background: rgba(120, 180, 120, 0.25); border-color: #6fae6f; }
+.quiz-option.wrong { background: rgba(220, 120, 90, 0.22); border-color: #d07a52; }
+
+.wordle-grid { display: grid; gap: 6px; justify-content: center; margin: 10px 0; }
+.wordle-row { display: flex; gap: 6px; justify-content: center; }
+.wordle-cell {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-weight: 900;
+  font-size: 1.2rem;
+  color: #fff;
+  background: #b9b3a6;
+  text-transform: uppercase;
+}
+.wordle-cell.correct { background: #6fae6f; }
+.wordle-cell.present { background: #e0a64f; }
+.wordle-cell.absent { background: #b0a99c; }
+.wordle-form { display: flex; gap: 8px; justify-content: center; }
+.wordle-form input {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-weight: 900;
+  max-width: 200px;
+}
+.wordle-result { text-align: center; font-weight: 800; color: var(--ink-strong); }
+
+.twentyq-count { font-weight: 800; color: var(--leaf-dark); }
+.twentyq-log { display: grid; gap: 4px; margin: 8px 0; }
+.twentyq-log p { margin: 0; font-size: 0.86rem; }
+.twentyq-cards { display: grid; gap: 8px; margin-bottom: 10px; }
+.twentyq-guess { display: grid; gap: 8px; }
+
+.leaderboard-card { text-align: center; }
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 6px 0;
+}
+.lb-side { display: grid; }
+.lb-side strong { font-size: 2.4rem; color: var(--ink-strong); }
+.lb-side.pooks strong { color: var(--leaf-dark); }
+.lb-side.marnich strong { color: var(--rose); }
+.lb-vs { font-weight: 800; color: var(--muted); }
+.leaderboard-last {
+  margin: 8px 0 0;
+  font-weight: 800;
+  color: var(--ink-strong);
+}
+
+.admin-games .games-page { padding: 0; }
+
 .reveal-photo {
   width: 100%;
   max-height: 240px;

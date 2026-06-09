@@ -16,6 +16,16 @@ import {
 } from './tweetyData'
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
+import { GamesHub } from './games'
+import { defaultGames, todayKey } from './gamesData'
+
+function bumpLeaderboard(lb, winner) {
+  return {
+    pooksWins: lb.pooksWins + (winner === 'pooks' ? 1 : 0),
+    marnichWins: lb.marnichWins + (winner === 'marnich' ? 1 : 0),
+    draws: lb.draws + (winner === 'draw' ? 1 : 0),
+  }
+}
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
 // Fall back to the known Railway backend if the build env var is missing, so
@@ -100,6 +110,7 @@ const bottomTabs = [
 
 const menuItems = [
   ['date', 'Date', '💕'],
+  ['games', 'Date Games', '🎮'],
   ['profile', 'Pooks', '🪶'],
   ['birds', 'My memories', '🐦'],
 ]
@@ -1105,6 +1116,7 @@ function buildDefaultState() {
     fieldGuideNotes: {},
     tweety: defaultTweety(),
     store: defaultStore(),
+    games: defaultGames(),
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
     settings: {
@@ -1199,6 +1211,7 @@ function loadState() {
           : base.fieldGuideNotes,
       tweety: { ...base.tweety, ...(saved.tweety || {}) },
       store: { ...base.store, ...(saved.store || {}) },
+      games: { ...base.games, ...(saved.games || {}) },
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
         ...base.magazineIssue,
@@ -1771,6 +1784,133 @@ function App() {
     setToast({
       title: 'Treat sent 🎁',
       body: `${data.tweety?.name || 'Tweety'} will do a happy dance next time Pooks opens the app.`,
+      tone: 'success',
+    })
+  }
+
+  // ----- Competitive games (shared local state) -----
+  function onQuizDone(who, score) {
+    const today = todayKey()
+    const g = data.games
+    const base = g.quiz.date === today ? g.quiz : { date: today, pooks: null, marnich: null }
+    const quiz = { ...base, [who]: score }
+    if (quiz.pooks === null || quiz.marnich === null) {
+      setData((c) => ({ ...c, games: { ...c.games, quiz } }))
+      setToast({
+        title: 'Quiz submitted 🎮',
+        body: `${who === 'pooks' ? 'You' : 'Marnich'} scored ${score}/10. ${who === 'pooks' ? 'Now let Marnich play from the Admin panel.' : 'Pooks plays from her phone.'}`,
+        tone: 'calm',
+      })
+      return
+    }
+    const winner = quiz.pooks > quiz.marnich ? 'pooks' : quiz.marnich > quiz.pooks ? 'marnich' : 'draw'
+    let coinDelta = 0
+    let body
+    if (winner === 'pooks') {
+      coinDelta = 150
+      body = `Pooks wins ${quiz.pooks}–${quiz.marnich}! Marnich Bank has been fined 50 coins 🏆 (+150 for you)`
+      setConfetti(Date.now())
+    } else if (winner === 'marnich') {
+      coinDelta = -50
+      body = `Marnich wins this round ${quiz.marnich}–${quiz.pooks}... but Pooks will get her revenge 🐦 (-50)`
+    } else {
+      body = `A ${quiz.pooks}–${quiz.marnich} draw! The Bird Council calls it even. 🤝`
+    }
+    commit(
+      {
+        ...data,
+        games: {
+          ...g,
+          quiz: { date: today, pooks: null, marnich: null },
+          leaderboard: bumpLeaderboard(g.leaderboard, winner),
+          lastResult: body,
+        },
+        featherCoins: Math.max(0, data.featherCoins + coinDelta),
+      },
+      { title: winner === 'pooks' ? 'Pooks wins! 🏆' : winner === 'marnich' ? 'Marnich wins 😏' : 'Draw 🤝', body },
+    )
+  }
+
+  function onWordleDone(who, result) {
+    const today = todayKey()
+    const g = data.games
+    const base = g.wordle.date === today ? g.wordle : { date: today, pooks: null, marnich: null }
+    const wordle = { ...base, [who]: result }
+    let coinDelta = 0
+    let body
+    if (who === 'pooks' && result.solved) {
+      coinDelta += Math.max(10, (7 - result.guesses) * 15)
+      body = `You solved it in ${result.guesses}! +${coinDelta} 🪙. Can Marnich beat that? 🎯`
+    } else if (who === 'pooks') {
+      body = 'So close! A fresh bird word lands tomorrow. 🐦'
+    } else {
+      body = "Marnich's Wordle is in."
+    }
+    let nextGames = { ...g, wordle, lastResult: body }
+    if (wordle.pooks && wordle.marnich) {
+      const pScore = wordle.pooks.solved ? wordle.pooks.guesses : 99
+      const mScore = wordle.marnich.solved ? wordle.marnich.guesses : 99
+      const winner = pScore < mScore ? 'pooks' : mScore < pScore ? 'marnich' : 'draw'
+      const lastResult =
+        winner === 'pooks'
+          ? 'Pooks beat Marnich at Wordle! +100 bonus and bragging rights 🏆'
+          : winner === 'marnich'
+            ? 'Marnich won this Wordle... revenge tomorrow 🐦'
+            : 'A Wordle draw! 🤝'
+      nextGames = {
+        ...g,
+        wordle: { date: today, pooks: null, marnich: null },
+        leaderboard: bumpLeaderboard(g.leaderboard, winner),
+        lastResult,
+      }
+      if (winner === 'pooks') {
+        coinDelta += 100
+        body += ' You beat Marnich — +100 bonus!'
+        setConfetti(Date.now())
+      }
+    }
+    commit(
+      { ...data, games: nextGames, featherCoins: Math.max(0, data.featherCoins + coinDelta) },
+      { title: 'Bird Wordle 🎯', body },
+    )
+  }
+
+  function on20QDone(who, result) {
+    const g = data.games
+    const best = g.twentyqBest || { pooks: null, marnich: null }
+    let nextBest = best
+    let coinDelta = 0
+    let body
+    if (result.won) {
+      const used = result.questions
+      if (best[who] === null || used < best[who]) nextBest = { ...best, [who]: used }
+      if (who === 'pooks') {
+        coinDelta = Math.max(20, (10 - used) * 15)
+        body = `You guessed the ${result.target.commonName} in ${used} question${used === 1 ? '' : 's'}! +${coinDelta} 🪙`
+      } else {
+        body = `Marnich guessed the ${result.target.commonName} in ${used} questions.`
+      }
+    } else {
+      body =
+        who === 'pooks'
+          ? `The Bird Council is not impressed 😂 It was the ${result.target.commonName}.`
+          : `Too slow Marnich! 🐦 It was the ${result.target.commonName}.`
+    }
+    commit(
+      {
+        ...data,
+        games: { ...g, twentyqBest: nextBest, lastResult: body },
+        featherCoins: Math.max(0, data.featherCoins + coinDelta),
+      },
+      { title: '20 Questions 🐦', body },
+    )
+  }
+
+  function setTrashTalk(message) {
+    setData((c) => ({ ...c, games: { ...c.games, trashTalk: String(message || '').trim() } }))
+    setToast({
+      title: 'Trash talk sent 😏',
+      body: "It will show on Pooks' games screen.",
       tone: 'success',
     })
   }
@@ -2530,6 +2670,15 @@ function App() {
             onRename={renameTweety}
           />
         )}
+        {activePage === 'games' && (
+          <GamesHub
+            data={data}
+            who="pooks"
+            onQuizDone={onQuizDone}
+            onWordleDone={onWordleDone}
+            on20QDone={on20QDone}
+          />
+        )}
         {activePage === 'add' && <AddBirdPage addBird={addBird} />}
         {activePage === 'birds' && (
           <BirdsPage data={data} openBirdProfile={openBirdProfile} />
@@ -2607,6 +2756,10 @@ function App() {
             sendSurpriseNote={sendSurpriseNote}
             sendTweetyTreat={sendTweetyTreat}
             buyStoreItem={buyStoreItem}
+            onQuizDone={onQuizDone}
+            onWordleDone={onWordleDone}
+            on20QDone={on20QDone}
+            setTrashTalk={setTrashTalk}
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
             previewMagazineIssue={() => setActivePage('magazine')}
@@ -5561,12 +5714,17 @@ function AdminPage({
   sendSurpriseNote,
   sendTweetyTreat,
   buyStoreItem,
+  onQuizDone,
+  onWordleDone,
+  on20QDone,
+  setTrashTalk,
   resetData,
   previewMarlieView,
   previewMagazineIssue,
   setData,
 }) {
   const [surpriseNote, setSurpriseNote] = useState('')
+  const [trashDraft, setTrashDraft] = useState('')
   const [rewardDraft, setRewardDraft] = useState({
     name: '',
     milestone: '',
@@ -5905,6 +6063,36 @@ function AdminPage({
           />
           <StatCard label="Pending gifts" value={pendingRewards.length} detail="to send" />
         </div>
+      </section>
+
+      <section className="soft-card full-span admin-games">
+        <p className="eyebrow">Play Date Game 🎮</p>
+        <h3>Battle Pooks — play the same games, scores saved here</h3>
+        <div className="form-grid">
+          <label>
+            Trash talk to flash on Pooks&apos; games screen
+            <input
+              value={trashDraft}
+              onChange={(event) => setTrashDraft(event.target.value)}
+              placeholder="good luck, you'll need it 😏"
+            />
+          </label>
+          <button
+            className="secondary-btn"
+            type="button"
+            disabled={!trashDraft.trim()}
+            onClick={() => setTrashTalk(trashDraft)}
+          >
+            Send trash talk 😏
+          </button>
+        </div>
+        <GamesHub
+          data={data}
+          who="marnich"
+          onQuizDone={onQuizDone}
+          onWordleDone={onWordleDone}
+          on20QDone={on20QDone}
+        />
       </section>
 
       <section className="soft-card full-span">
