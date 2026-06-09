@@ -695,52 +695,6 @@ function getBirdLibraryMatchIndex(library, { commonName, scientificName }) {
   )
 }
 
-function hashString(value) {
-  let hash = 0
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0
-  }
-  return hash
-}
-
-// Deterministic order so the guess options don't reshuffle on every render.
-function shuffleByKey(items, key) {
-  return [...items]
-    .map((value) => [value, hashString(`${value}-${key}`)])
-    .sort((a, b) => a[1] - b[1])
-    .map(([value]) => value)
-}
-
-// Build a 3-option guess: the correct bird + 2 similar decoys.
-function buildGuessOptions(bird, library) {
-  const correctKey = normalizeBirdName(bird.commonName)
-  const others = library.filter((item) => normalizeBirdName(item.commonName) !== correctKey)
-  const similarKeys = new Set((bird.similarSpecies || []).map((name) => normalizeBirdName(name)))
-
-  let decoys = others.filter((item) => similarKeys.has(normalizeBirdName(item.commonName)))
-  if (decoys.length < 2) {
-    const sameCategory = others.filter(
-      (item) => item.category === bird.category && !decoys.some((d) => d.id === item.id),
-    )
-    decoys = decoys.concat(sameCategory)
-  }
-  if (decoys.length < 2) {
-    decoys = decoys.concat(others.filter((item) => !decoys.some((d) => d.id === item.id)))
-  }
-
-  const seen = new Set()
-  decoys = decoys
-    .filter((item) => {
-      const key = normalizeBirdName(item.commonName)
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    .slice(0, 2)
-
-  return shuffleByKey([bird.commonName, ...decoys.map((item) => item.commonName)], bird.id)
-}
-
 function buildSightingPhotoRecord(sighting, aiMatch) {
   return {
     id: sighting.id,
@@ -860,6 +814,7 @@ function normalizeLibraryBird(bird) {
     soundUrl: '',
     rarity: 'Common',
     featuredInMagazine: true,
+    mysteryClue: '',
     nest: null,
     regionTags: [],
     nearMe: false,
@@ -1125,7 +1080,6 @@ function buildDefaultState() {
         "I can't wait to see what tiny bird you find today. Have the best adventure. 💛",
       unlockedProfiles: [],
       unlockedDateIdeas: [],
-      partialUnlocks: [],
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -1549,47 +1503,6 @@ function App() {
       body: 'It is now waiting in her hidden notes.',
       tone: 'success',
     })
-  }
-
-  // A guess never awards coins and never penalises — a correct guess only
-  // partially reveals the card and nudges her to find it for the full unlock.
-  function guessBird(bird, guessedName) {
-    const correct = normalizeBirdName(guessedName) === normalizeBirdName(bird.commonName)
-    if (!correct) {
-      setToast({
-        title: 'Not quite 🐦',
-        body: "Lovely try! The Bird Council is keeping this one a secret — keep looking. No penalty, promise. 💛",
-        tone: 'calm',
-      })
-      return false
-    }
-
-    const already = data.settings.partialUnlocks || []
-    if (bird.seen || already.includes(bird.id)) {
-      setToast({
-        title: 'You already know this one',
-        body: `Yes — it's the ${bird.commonName}. Find it in real life for the full unlock.`,
-        tone: 'calm',
-      })
-      return true
-    }
-
-    setConfetti(Date.now())
-    commit(
-      {
-        ...data,
-        settings: {
-          ...data.settings,
-          partialUnlocks: [...already, bird.id],
-        },
-      },
-      {
-        title: 'Great guess! 🐦',
-        body: `It really is the ${bird.commonName}! Now go find it for the full unlock. No coins yet — the real photo earns those. 💛`,
-        tone: 'success',
-      },
-    )
-    return true
   }
 
   function commit(nextState, message) {
@@ -2294,8 +2207,7 @@ function App() {
           <SaBirdLibraryPage
             data={data}
             openBirdProfile={openBirdProfile}
-            unlockBirdProfile={unlockBirdProfile}
-            guessBird={guessBird}
+            goToSpot={() => setActivePage('add')}
           />
         )}
         {activePage === 'birdProfile' && (
@@ -3569,20 +3481,19 @@ function libraryBirdMatchesFilter(bird, filter) {
     .some((value) => value.toLowerCase() === filterKey)
 }
 
-function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile, guessBird }) {
+// Aspirational Pokédex-style goal: collect all common SA birds.
+const TOTAL_SA_BIRDS = 150
+
+function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
-  const unlockedProfiles = data.settings.unlockedProfiles || []
-  const partialUnlocks = data.settings.partialUnlocks || []
   const seenCount = data.birdLibrary.filter((bird) => bird.seen).length
   const searchKey = searchTerm.trim().toLowerCase()
   const filteredBirds = data.birdLibrary
     .filter((bird) => libraryBirdMatchesFilter(bird, activeFilter))
     .filter((bird) => !searchKey || getBirdSearchText(bird).includes(searchKey))
     .sort((a, b) => a.commonName.localeCompare(b.commonName))
-  const progressValue = data.birdLibrary.length
-    ? Math.round((seenCount / data.birdLibrary.length) * 100)
-    : 0
+  const progressValue = Math.min(100, Math.round((seenCount / TOTAL_SA_BIRDS) * 100))
 
   const marnichSpecies = useMemo(() => {
     const set = new Set()
@@ -3598,9 +3509,9 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile, guessBird
   return (
     <div className="page-grid library-page">
       <section className="soft-card full-span checklist-hero scrapbook-hero">
-        <p className="eyebrow">Creature collection</p>
-        <h2 className="discovered-count">{seenCount} bird{seenCount === 1 ? '' : 's'} discovered 🐦</h2>
-        <p className="discovered-sub">{seenCount} of {data.birdLibrary.length} in Pooks&apos; scrapbook</p>
+        <p className="eyebrow">Your bird collection</p>
+        <h2 className="discovered-count">{seenCount} / {TOTAL_SA_BIRDS} birds found 🐦</h2>
+        <p className="discovered-sub">Catch them all — snap a real photo to unlock each one</p>
         <div className="progress-track">
           <span style={{ width: `${progressValue}%` }}></span>
         </div>
@@ -3637,13 +3548,9 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile, guessBird
           <LibraryCard
             key={bird.id}
             bird={bird}
-            library={data.birdLibrary}
-            unlockedProfiles={unlockedProfiles}
-            partialUnlocks={partialUnlocks}
             marnichSpecies={marnichSpecies}
             openBirdProfile={openBirdProfile}
-            unlockBirdProfile={unlockBirdProfile}
-            guessBird={guessBird}
+            goToSpot={goToSpot}
           />
         ))}
       </section>
@@ -3651,185 +3558,38 @@ function SaBirdLibraryPage({ data, openBirdProfile, unlockBirdProfile, guessBird
   )
 }
 
-function LibraryCard({
-  bird,
-  library,
-  unlockedProfiles,
-  partialUnlocks,
-  marnichSpecies,
-  openBirdProfile,
-  unlockBirdProfile,
-  guessBird,
-}) {
-  const [cluesOpen, setCluesOpen] = useState(false)
-  const [guessOpen, setGuessOpen] = useState(false)
-  const [guessResult, setGuessResult] = useState(null)
-
-  const profileUnlocked = unlockedProfiles.includes(bird.id)
-  const partiallyUnlocked = partialUnlocks.includes(bird.id)
-  const locked = bird.special && !bird.seen && !profileUnlocked
-  const isMystery = !bird.seen && !locked
+function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
   const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
   const spottedPhoto = herPhoto || bird.imageUrl
   const withMarnich =
     bird.seen &&
     (marnichSpecies.has(normalizeBirdName(bird.commonName)) ||
       marnichSpecies.has(normalizeBirdName(bird.scientificName)))
-  const nameKnown = bird.seen || profileUnlocked || partiallyUnlocked
 
-  const guessOptions = useMemo(
-    () => (isMystery ? buildGuessOptions(bird, library) : []),
-    [isMystery, bird, library],
-  )
-
-  function handleGuess(option) {
-    const correct = guessBird(bird, option)
-    setGuessResult({ option, correct })
-    if (correct) setGuessOpen(false)
-  }
-
-  // Mystery cards reveal clues on tap; discovered cards open the profile.
-  const handleCardClick = locked
-    ? undefined
-    : isMystery
-      ? () => setCluesOpen((open) => !open)
-      : () => openBirdProfile({ source: 'library', id: bird.id })
-
-  return (
-    <article
-      className={`library-bird-card ${bird.seen ? 'seen' : ''}${locked ? ' locked-bird' : ' tappable'}${partiallyUnlocked ? ' partial-bird' : ''}`}
-      onClick={handleCardClick}
-    >
-      {bird.seen && spottedPhoto ? (
+  // Discovered (caught) card: the real photo, the name, opens the profile.
+  if (bird.seen) {
+    return (
+      <article
+        className="library-bird-card seen tappable"
+        onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
+      >
         <div className="bird-card-photo-frame">
-          <img className="bird-card-photo" src={spottedPhoto} alt={bird.commonName} />
+          {spottedPhoto ? (
+            <img className="bird-card-photo" src={spottedPhoto} alt={bird.commonName} />
+          ) : (
+            <div className="bird-card-photo placeholder-photo">
+              <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
+            </div>
+          )}
           {withMarnich && <span className="marnich-heart" aria-hidden="true">❤️</span>}
         </div>
-      ) : locked ? (
-        <div className="bird-card-photo silhouette-photo locked-silhouette">
-          <span aria-hidden="true">🔒</span>
-        </div>
-      ) : (
-        <div className={`bird-card-photo silhouette-photo${partiallyUnlocked ? ' partial-silhouette' : ''}`}>
-          <span aria-hidden="true">{partiallyUnlocked ? '🐦' : '?'}</span>
-        </div>
-      )}
-      <div
-        className="bird-card-body"
-        onClick={isMystery ? (event) => event.stopPropagation() : undefined}
-      >
-        <span
-          className={
-            bird.seen
-              ? 'status-pill paid'
-              : partiallyUnlocked
-                ? 'status-pill rare'
-                : bird.special
-                  ? 'status-pill rare'
-                  : 'status-pill locked'
-          }
-        >
-          {bird.seen
-            ? 'Discovered ✅'
-            : partiallyUnlocked
-              ? 'Guessed 🐦 · find it!'
-              : bird.special
-                ? 'Rare 🔒'
-                : 'Mystery ?'}
-        </span>
-        <h3>{nameKnown ? bird.commonName : '? ? ?'}</h3>
-        <p className="nickname">
-          {nameKnown
-            ? bird.afrikaansName || bird.category
-            : locked
-              ? 'A rare hidden bird'
-              : 'A mystery waiting to be found'}
-        </p>
-
-        {bird.seen && (
+        <div className="bird-card-body">
+          <span className="status-pill paid">Caught ✅</span>
+          <h3>{bird.commonName}</h3>
+          <p className="nickname">{bird.afrikaansName || bird.category}</p>
           <p className="memory-caption">
             {`${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}${withMarnich ? ' · with Marnich ❤️' : ''}`}
           </p>
-        )}
-
-        {/* Mystery interactions: clues + a 3-option guess. */}
-        {isMystery && (
-          <>
-            <button
-              className="text-btn clue-toggle"
-              type="button"
-              onClick={() => setCluesOpen((open) => !open)}
-            >
-              {cluesOpen ? 'Hide clues' : 'Tap for clues 🔍'}
-            </button>
-            {cluesOpen && (
-              <dl className="clue-list">
-                <div>
-                  <dt>Size</dt>
-                  <dd>{bird.size || 'A little secret'}</dd>
-                </div>
-                <div>
-                  <dt>Habitat</dt>
-                  <dd>{bird.habitat || bird.region || 'Somewhere out there'}</dd>
-                </div>
-                <div>
-                  <dt>Region</dt>
-                  <dd>
-                    {(bird.regionTags && bird.regionTags[0]) ||
-                      bird.whereFoundInSouthAfrica ||
-                      'Across South Africa'}
-                  </dd>
-                </div>
-              </dl>
-            )}
-
-            {partiallyUnlocked ? (
-              <p className="memory-caption">
-                Great guess — now find the real {bird.commonName} to fully unlock it! 🐦
-              </p>
-            ) : nameKnown ? null : guessOpen ? (
-              <div className="guess-options">
-                <p className="eyebrow">Which bird is it?</p>
-                {guessOptions.map((option) => (
-                  <button
-                    className="secondary-btn wide guess-option"
-                    type="button"
-                    key={option}
-                    onClick={() => handleGuess(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-                {guessResult && !guessResult.correct && (
-                  <p className="guess-feedback">
-                    Not the {guessResult.option} — keep looking! No penalty. 💛
-                  </p>
-                )}
-              </div>
-            ) : (
-              <button
-                className="primary-btn wide guess-btn"
-                type="button"
-                onClick={() => {
-                  setGuessOpen(true)
-                  setGuessResult(null)
-                }}
-              >
-                Make a guess 🤔
-              </button>
-            )}
-          </>
-        )}
-
-        {locked ? (
-          <button
-            className="secondary-btn wide big-btn"
-            type="button"
-            onClick={() => unlockBirdProfile(bird.id)}
-          >
-            Unlock profile · {SHOP.birdProfile} 🪙
-          </button>
-        ) : (
           <button
             className="secondary-btn wide big-btn"
             type="button"
@@ -3837,7 +3597,42 @@ function LibraryCard({
           >
             Open profile
           </button>
-        )}
+        </div>
+      </article>
+    )
+  }
+
+  // Mystery card: black silhouette + ??? + one cryptic clue + go-spot button.
+  // The only way to unlock is to upload a real photo the AI confirms.
+  const hasRealPhoto = bird.imageUrl && !bird.imageUrl.includes('placehold')
+
+  return (
+    <article className="library-bird-card mystery-card">
+      {hasRealPhoto ? (
+        <div className="bird-card-photo-frame mystery-frame">
+          <img
+            className="bird-card-photo silhouette-shape"
+            src={bird.imageUrl}
+            alt="Mystery bird silhouette"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div className="bird-card-photo silhouette-photo">
+          <span aria-hidden="true">?</span>
+        </div>
+      )}
+      <div className="bird-card-body">
+        <span className={bird.special ? 'status-pill rare' : 'status-pill locked'}>
+          {bird.special ? 'Rare mystery ✨' : 'Mystery ?'}
+        </span>
+        <h3>???</h3>
+        <p className="mystery-clue">
+          {bird.mysteryClue || 'A little mystery waiting to be found.'}
+        </p>
+        <button className="primary-btn wide big-btn" type="button" onClick={goToSpot}>
+          I think I found it! → go spot it
+        </button>
       </div>
     </article>
   )

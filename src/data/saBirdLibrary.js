@@ -99,6 +99,7 @@ function makeBird(entry) {
     special: Boolean(entry.special),
     featuredInMagazine: true,
     // Field-guide + nest + region details.
+    mysteryClue: entry.mysteryClue || '',
     nest: entry.nest || null,
     regionTags: entry.regionTags || [],
     nearMe: Boolean(entry.nearMe),
@@ -1389,6 +1390,34 @@ const POTCH_BIRDS = new Set([
   'Common Myna', 'Cape Glossy Starling', 'Cape White-eye', 'Cape Robin-Chat',
 ])
 
+// One cryptic, fun clue per common bird — hints without naming it.
+const MYSTERY_CLUES = {
+  'Cape Robin-Chat': 'Sings a sweet song from a hidden perch before hopping into the open. Watch for a warm orange chest.',
+  'Hadeda Ibis': "You'll hear it screaming HAA-HAA-HAA across the suburb at dawn long before you ever see it.",
+  'Cape White-eye': 'Tiny and green, travels in chatty little gangs, and wears a pair of white spectacles.',
+  'Southern Masked Weaver': 'A bright tailor that ties hundreds of grass knots into a hanging home over water.',
+  'African Hoopoe': 'Struts the lawn with a fan on its head and softly calls out its own name.',
+  'Laughing Dove': 'A gentle pinkish dove whose soft call sounds like a quiet little chuckle.',
+  'Speckled Pigeon': 'Rooftop royalty wearing red goggles and speckled shoulders.',
+  'Egyptian Goose': 'Honks loudly and struts across lawns near the dam like it owns the place.',
+  'Red-eyed Dove': 'A big garden dove with a neat neck-ring and a deep, repeated six-note call.',
+  'Fiscal Flycatcher': "Black-and-white and often mistaken for the 'butcher bird', but far gentler.",
+  'Karoo Thrush': 'A plain brown lawn-prober with a bright orange bill and a deep love of earthworms.',
+  'African Fish Eagle': 'The voice of African waters — throws its white head back to cry over the dam.',
+  'Pied Crow': 'Clever and glossy, dressed in a smart black-and-white waistcoat.',
+  'Helmeted Guineafowl': 'A polka-dotted ground bird wearing a bony helmet that would rather run than fly.',
+  'Fork-tailed Drongo': 'A glossy black trickster with a forked tail that mimics other birds to steal their food.',
+  'Cape Sparrow': 'A neat little seed-eater in a black-and-grey hood, never far from people.',
+  'Cape Wagtail': 'Bobs its tail endlessly as it trots along paths near the water.',
+  'Common Myna': 'A bold brown city slicker wearing a yellow mask, almost always in pairs.',
+  'Blacksmith Lapwing': "Rings out a metallic 'tink-tink', like a hammer on an anvil, near the water's edge.",
+  'Spotted Eagle-Owl': 'Big eyes in the dark, ear tufts raised, asking a soft hooting question at night.',
+  'Common Fiscal': "The 'butcher bird' — sits bolt upright on a fence and hangs its snacks on thorns.",
+  'Arrow-marked Babbler': 'Never travels alone — a noisy brown gang with orange eyes that all babble at once.',
+  'African Green Pigeon': 'A parrot-green ghost that clambers and hangs upside-down in fig trees.',
+  'Black-headed Oriole': 'A drop of gold wearing a black hood, with a liquid, flute-like whistle.',
+}
+
 function firstNonEmpty(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== '') || ''
 }
@@ -1406,6 +1435,12 @@ function enrichBird(bird) {
     ...bird,
     nearMe,
     regionTags,
+    mysteryClue: firstNonEmpty(
+      bird.mysteryClue,
+      MYSTERY_CLUES[bird.commonName],
+      bird.funFacts?.[0],
+      bird.description,
+    ),
     nest: bird.nest || NEST_DATA[bird.commonName] || null,
     idTips: firstNonEmpty(
       bird.idTips,

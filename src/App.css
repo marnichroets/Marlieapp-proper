@@ -3375,69 +3375,30 @@ textarea:focus {
   gap: 8px;
 }
 
-/* --- Mystery card: clues + guess --- */
-.clue-toggle {
-  align-self: flex-start;
-  font-weight: 800;
-  color: var(--leaf-dark);
+/* --- Mystery (Pokémon-style) card: black silhouette + cryptic clue --- */
+.mystery-frame {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.75), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.95), rgba(255, 235, 205, 0.88));
 }
 
-.clue-list {
-  display: grid;
-  gap: 6px;
-  margin: 4px 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(231, 241, 223, 0.55);
+/* Turn the real photo into a solid black mystery silhouette. */
+.silhouette-shape {
+  filter: brightness(0) saturate(0);
+  background: transparent !important;
+  opacity: 0.9;
 }
 
-.clue-list div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+.mystery-card h3 {
+  letter-spacing: 0.12em;
+  color: var(--muted);
 }
 
-.clue-list dt {
-  font-weight: 800;
-  color: var(--leaf-dark);
-}
-
-.clue-list dd {
+.mystery-clue {
   margin: 0;
-  text-align: right;
-  color: var(--ink-strong);
-}
-
-.guess-options {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px dashed rgba(120, 90, 50, 0.3);
-}
-
-.guess-option {
-  font-weight: 800;
-}
-
-.guess-feedback {
-  margin: 2px 0 0;
   font-weight: 700;
-  color: #9a5a2a;
-}
-
-.partial-bird {
-  border-color: rgba(224, 160, 74, 0.55);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.95), rgba(255, 240, 214, 0.9));
-}
-
-.partial-silhouette {
-  background:
-    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.6), transparent 60%),
-    linear-gradient(160deg, rgba(255, 235, 205, 0.95), rgba(231, 241, 223, 0.85));
-  color: var(--honey, #e0a04a);
+  font-style: italic;
+  color: var(--ink-strong);
 }
 
 .reveal-photo {
