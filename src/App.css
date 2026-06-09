@@ -2319,6 +2319,9 @@ textarea:focus {
 }
 
 .brand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   background: transparent;
   color: var(--ink-strong);
@@ -2466,9 +2469,9 @@ textarea:focus {
 }
 
 .login-logo {
-  font-size: 3.4rem;
+  display: grid;
+  place-items: center;
   line-height: 1;
-  animation: floaty 4.8s ease-in-out infinite;
 }
 
 .login-tag {
@@ -3402,6 +3405,78 @@ textarea:focus {
   font-weight: 700;
   font-style: italic;
   color: var(--ink-strong);
+}
+
+/* --- Cute animated bird (bob + occasional wing flap) --- */
+.cute-bird {
+  display: inline-block;
+  line-height: 0;
+  flex: 0 0 auto;
+}
+
+.cute-bird svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.cute-bird-bob {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+  animation: bird-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes bird-bob {
+  0%,
+  100% {
+    transform: translateY(3%) scaleY(0.99);
+  }
+  50% {
+    transform: translateY(-6%) scaleY(1.01);
+  }
+}
+
+.cute-bird-wing {
+  transform-box: fill-box;
+  transform-origin: 80% 18%;
+  animation: bird-flap 3.8s ease-in-out infinite;
+}
+
+/* Mostly still, with a quick little flurry of flaps now and then. */
+@keyframes bird-flap {
+  0%,
+  68%,
+  100% {
+    transform: rotate(0deg);
+  }
+  76% {
+    transform: rotate(-28deg);
+  }
+  84% {
+    transform: rotate(8deg);
+  }
+  92% {
+    transform: rotate(-16deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cute-bird-bob,
+  .cute-bird-wing {
+    animation: none;
+  }
+}
+
+.brand-pill .brand-bird {
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+.home-hero-bird {
+  display: grid;
+  place-items: center;
+  margin: 2px 0 -4px;
 }
 
 .reveal-photo {

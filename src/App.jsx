@@ -1322,6 +1322,56 @@ function buildBirdRecords(sightings) {
   return [...records.values()].sort((a, b) => a.birdName.localeCompare(b.birdName))
 }
 
+// Cute, chubby pink/coral bird that gently bobs and occasionally flaps a wing.
+function CuteBird({ size = 48, className = '' }) {
+  return (
+    <span
+      className={`cute-bird ${className}`.trim()}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <g className="cute-bird-bob">
+          {/* tail */}
+          <ellipse cx="20" cy="54" rx="11" ry="6.5" fill="#E88A86" transform="rotate(-18 20 54)" />
+          {/* little top tuft */}
+          <ellipse cx="54" cy="24" rx="3.2" ry="7.5" fill="#E88A86" transform="rotate(-16 54 24)" />
+          {/* feet */}
+          <path
+            d="M45 84 v7 M41 91 h8 M42 88 h6"
+            stroke="#E8915E"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M59 84 v7 M55 91 h8 M56 88 h6"
+            stroke="#E8915E"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            fill="none"
+          />
+          {/* body */}
+          <ellipse cx="54" cy="56" rx="30" ry="31" fill="#F4A09A" />
+          {/* belly */}
+          <ellipse cx="52" cy="65" rx="19" ry="16" fill="#FBD9D2" />
+          {/* wing (flaps) */}
+          <g className="cute-bird-wing">
+            <ellipse cx="42" cy="55" rx="11.5" ry="16" fill="#E88A86" />
+          </g>
+          {/* cheek blush */}
+          <circle cx="67" cy="59" r="5.5" fill="#F7A8B8" opacity="0.7" />
+          {/* eye */}
+          <circle cx="63" cy="47" r="4.6" fill="#3E2F22" />
+          <circle cx="64.6" cy="45.4" r="1.5" fill="#ffffff" />
+          {/* beak */}
+          <path d="M80 50 l10 4.2 l-10 4.2 z" fill="#F2A24E" />
+        </g>
+      </svg>
+    </span>
+  )
+}
+
 function App() {
   const [activePage, setActivePage] = useState('home')
   const [data, setData] = useState(loadState)
@@ -2162,7 +2212,8 @@ function App() {
 
       <header className="app-header">
         <button className="brand-pill" type="button" onClick={handleBrandTap}>
-          🐦 Pooks
+          <CuteBird size={30} className="brand-bird" />
+          Pooks
         </button>
         <button
           className="gear-btn"
@@ -2364,7 +2415,9 @@ function LoginScreen({ data, onLogin }) {
         <span className="tiny-bird bird-two">🐤</span>
       </div>
       <section className="login-card" aria-labelledby="login-title">
-        <div className="login-logo" aria-hidden="true">🐦</div>
+        <div className="login-logo">
+          <CuteBird size={84} />
+        </div>
         <p className="login-tag" id="login-title">Your adventure awaits 🐦</p>
         <p className="login-sub">Whisper your name and secret word to come inside.</p>
         <form className="login-form" onSubmit={submit}>
@@ -2784,6 +2837,10 @@ function HomePage({
       <div className="home-topline">
         <span className="streak-chip">Day {dailyStreak} streak 🔥</span>
         <span className="coin-chip">{data.featherCoins} 🪙</span>
+      </div>
+
+      <div className="home-hero-bird">
+        <CuteBird size={104} />
       </div>
 
       <section className={`mission-card${done ? ' done' : ''}`}>
