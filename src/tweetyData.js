@@ -26,12 +26,19 @@ export function defaultTweety() {
     pendingTreat: false,
     lastBonusStreak: 0,
     // Family + aviary
-    egg: null, // { laidAt, careDays, lastCareDay, kind: 'normal'|'mystery', species }
+    egg: null, // legacy single egg (kept for back-compat; basket is primary now)
     baby: null, // { hatchedAt, species, careLog }
     aviary: [], // [{ id, species, addedAt, idle }]
     lastAviaryPayout: '',
     guardian: false,
     flockTreat: false,
+    // Tweety World
+    eggs: [], // egg basket: [{ id, species, kind }]
+    incubating: null, // { species, kind, progress, lastWarmDay, extraDays }
+    sanctuary: [], // [{ id, name, date, how, note }]
+    room: { furniture: ['perch'], visits: 0 },
+    worldEvent: null, // active story event
+    escape: null, // active escape event
   }
 }
 
@@ -171,6 +178,11 @@ function getCtx() {
     }
   }
   return audioCtx
+}
+
+// Gentle interaction sound for Bird Room furniture.
+export function roomSound(kind) {
+  playChirp(kind === 'bath' ? 'water' : kind === 'musicbox' ? 'play' : 'feed')
 }
 
 export function playChirp(kind = 'feed') {

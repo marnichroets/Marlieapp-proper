@@ -23,9 +23,21 @@ import {
   releaseCoins,
   AVIARY_MAX,
   RARE_EGG_BIRDS,
+  roomSound,
 } from './tweetyData'
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
+import { TweetyWorldCard, EscapeAlert, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
+import {
+  MAX_EGGS,
+  HATCH_TAPS,
+  readyToHatch,
+  dayKeyW,
+  WORLD_EVENTS,
+  eventById,
+  ownsFurniture,
+  ROOM_FURNITURE,
+} from './tweetyWorld'
 import { GamesHub } from './games'
 import { defaultGames } from './gamesData'
 
@@ -121,6 +133,8 @@ const bottomTabs = [
 const menuItems = [
   ['date', 'Date', '💕'],
   ['games', 'Date Games', '🎮'],
+  ['birdroom', 'Bird Room', '🏡'],
+  ['sanctuary', 'Sanctuary', '🌿'],
   ['profile', 'Pooks', '🪶'],
   ['birds', 'My memories', '🐦'],
 ]
@@ -1567,6 +1581,66 @@ function App() {
     }
   }, [data.tweety?.flockTreat])
 
+  // Escape: when the 2-hour timer runs out, the bird flies free to the Sanctuary.
+  useEffect(() => {
+    const esc = data.tweety?.escape
+    if (!esc) return undefined
+    let cancelled = false
+    const check = () => {
+      if (cancelled || Date.now() <= esc.deadline) return
+      cancelled = true
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          escape: null,
+          sanctuary: [
+            { id: createId('sanctuary'), name: esc.birdName, how: 'Escaped', date: formatDate(todayValue()), note: '' },
+            ...(c.tweety.sanctuary || []),
+          ],
+        },
+        featherCoins: c.featherCoins + 50,
+      }))
+      setReveal({
+        tone: 'bird',
+        title: 'Sometimes love means letting go 🐦',
+        body: `${esc.birdName} flew into the sunset sky, free and happy. +50 coins for your brave heart. 💛`,
+      })
+    }
+    Promise.resolve().then(check)
+    const id = window.setInterval(check, 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [data.tweety?.escape])
+
+  // On opening the app: a chance of a story event, or (rarely) an escape.
+  useEffect(() => {
+    if (!session || session.role !== 'pooks') return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      const tw = data.tweety
+      if (tw?.worldEvent || tw?.escape) return
+      if (tw?.baby && babyStage(tw.baby) === 'fledgling' && tw.lastEscapeCheck !== dayKeyW(0)) {
+        setData((c) => ({ ...c, tweety: { ...c.tweety, lastEscapeCheck: dayKeyW(0) } }))
+        if (Math.random() < 0.03) {
+          triggerEscape(tw.baby.species)
+          return
+        }
+      }
+      if ((tw?.incubating || tw?.baby) && Math.random() < 0.4) {
+        triggerWorldEvent()
+      }
+    }, 1400)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
+
   const stats = useMemo(() => {
     const uniqueCount = data.birds.length
     const currentLevel = getCurrentLevel(uniqueCount)
@@ -1813,6 +1887,242 @@ function App() {
     })
   }
 
+  // ----- Tweety World: incubation -----
+  function startIncubate(eggId) {
+    if (data.tweety?.incubating) {
+      setToast({ title: 'Already warming an egg', body: 'Finish this one first 🥚', tone: 'calm' })
+      return
+    }
+    const egg = (data.tweety?.eggs || []).find((e) => e.id === eggId)
+    if (!egg) return
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        eggs: c.tweety.eggs.filter((e) => e.id !== eggId),
+        incubating: { species: egg.species, kind: egg.kind, progress: 0, lastWarmDay: '', extraDays: 0, rapidTaps: 0, cold: false },
+      },
+    }))
+    setToast({
+      title: 'Warming started 🥚',
+      body: `Warm this egg once a day for 3 cosy days. ${egg.species} is on the way! 💛`,
+      tone: 'success',
+    })
+  }
+
+  function warmEgg() {
+    const inc = data.tweety?.incubating
+    if (!inc) return
+    const today = dayKeyW(0)
+    if (inc.lastWarmDay === today || readyToHatch(inc)) return
+    playChirp('feed')
+    let extraDays = inc.extraDays || 0
+    let cold = false
+    if (inc.lastWarmDay) {
+      const gap = Math.round((new Date(today) - new Date(inc.lastWarmDay)) / 86400000)
+      if (gap > 1) {
+        extraDays += 1
+        cold = true
+      }
+    }
+    const progress = (inc.progress || 0) + 1
+    setConfetti(Date.now())
+    setData((c) => ({
+      ...c,
+      tweety: { ...c.tweety, incubating: { ...inc, progress, lastWarmDay: today, extraDays, cold } },
+    }))
+    setToast({
+      title: cold ? 'Brr — it got a little cold 🥶' : 'Warm and cosy 🔥',
+      body: cold
+        ? 'No worries — one extra warm day will set it right. The shivering stopped. 💛'
+        : 'Lovely and warm. Come back tomorrow to keep it going.',
+      tone: 'success',
+    })
+  }
+
+  function rapidTapEgg() {
+    const inc = data.tweety?.incubating
+    if (!inc || !readyToHatch(inc)) return
+    playChirp('play')
+    const taps = (inc.rapidTaps || 0) + 1
+    if (taps >= HATCH_TAPS) {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'It hatched! 🐣🎉',
+        body: `A baby ${inc.species} burst out in a shower of confetti with a triumphant chirp! Look after it while it grows. 💛`,
+      })
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          incubating: null,
+          baby: { hatchedAt: new Date().toISOString(), species: inc.species, careLog: {} },
+        },
+      }))
+    } else {
+      setData((c) => ({ ...c, tweety: { ...c.tweety, incubating: { ...inc, rapidTaps: taps } } }))
+    }
+  }
+
+  // ----- Tweety World: story events -----
+  function triggerWorldEvent(eventId) {
+    if (data.tweety?.worldEvent) return
+    let def = eventId ? eventById(eventId) : null
+    if (!def) {
+      const scope = data.tweety?.incubating ? 'incubation' : data.tweety?.baby ? 'baby' : null
+      const pool = scope ? WORLD_EVENTS.filter((e) => e.scope === scope) : WORLD_EVENTS
+      def = pool[Math.floor(Math.random() * pool.length)]
+    }
+    if (!def) return
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        worldEvent: {
+          id: def.id,
+          emoji: def.emoji,
+          title: def.title,
+          body: def.body,
+          kind: def.kind,
+          taps: def.taps || 0,
+          tapsDone: 0,
+          windowMin: def.windowMin || 0,
+          deadline: def.windowMin ? Date.now() + def.windowMin * 60000 : 0,
+        },
+      },
+    }))
+  }
+
+  function tapWorldEvent() {
+    const ev = data.tweety?.worldEvent
+    if (!ev || ev.kind !== 'tap') return
+    playChirp('feed')
+    const done = (ev.tapsDone || 0) + 1
+    if (done >= ev.taps) {
+      resolveWorldEvent(true)
+    } else {
+      setData((c) => ({ ...c, tweety: { ...c.tweety, worldEvent: { ...ev, tapsDone: done } } }))
+    }
+  }
+
+  function resolveWorldEvent(success) {
+    const ev = data.tweety?.worldEvent
+    if (!ev) return
+    const def = eventById(ev.id) || {}
+    let coins = 0
+    let body = def.body || ''
+    let tweetyPatch = { worldEvent: null }
+    if (ev.kind === 'good') {
+      if (ev.id === 'spring') coins = 25
+      else if (ev.id === 'tumble') coins = 10
+      else if (ev.id === 'lonely') coins = 5
+      if (ev.id === 'star' && data.tweety?.incubating) {
+        // Hatch a day early: bump progress.
+        tweetyPatch.incubating = { ...data.tweety.incubating, progress: (data.tweety.incubating.progress || 0) + 1 }
+      }
+    } else {
+      body = success ? 'You did it — all safe! 💛' : def.failNote || 'It passed on its own. No harm done.'
+      if (success) coins = 10
+      if (!success && def.lossDay && data.tweety?.incubating) {
+        tweetyPatch.incubating = {
+          ...data.tweety.incubating,
+          extraDays: (data.tweety.incubating.extraDays || 0) + 1,
+          cold: true,
+        }
+      }
+    }
+    setConfetti(Date.now())
+    commit(
+      { ...data, tweety: { ...data.tweety, ...tweetyPatch }, featherCoins: Math.max(0, data.featherCoins + coins) },
+      { title: ev.title, body: coins ? `${body} +${coins} coins.` : body },
+    )
+  }
+
+  // ----- Tweety World: escape -----
+  function triggerEscape(birdName) {
+    if (data.tweety?.escape) return
+    const name = birdName || data.tweety?.baby?.species || 'your little bird'
+    const start = Date.now()
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        baby: null,
+        escape: {
+          birdName: name,
+          startedAt: start,
+          deadline: start + 2 * 3600 * 1000,
+          clues: [
+            { at: start + 30 * 60000, text: 'It was seen near the garden 🌿' },
+            { at: start + 60 * 60000, text: 'Listen for its call… 🎵' },
+            { at: start + 90 * 60000, text: 'Something moved near the tree outside 🌳' },
+          ],
+        },
+      },
+    }))
+    setToast({
+      title: `OH NO! ${name} escaped! 🐦💨`,
+      body: 'Go outside and photograph ANY real bird within 2 hours to call them home. 💛',
+      tone: 'warning',
+    })
+  }
+
+  function addToSanctuary(name, how) {
+    return {
+      id: createId('sanctuary'),
+      name,
+      how,
+      date: formatDate(todayValue()),
+      note: '',
+    }
+  }
+
+  function leaveSanctuaryNote(id, note) {
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        sanctuary: (c.tweety.sanctuary || []).map((b) => (b.id === id ? { ...b, note } : b)),
+      },
+    }))
+  }
+
+  // ----- Tweety World: Bird Room -----
+  function buyRoomFurniture(item, options = {}) {
+    const free = Boolean(options.free)
+    const room = data.tweety?.room || { furniture: ['perch'], visits: 0 }
+    if (ownsFurniture(room, item.id)) return
+    const cost = free ? 0 : item.cost
+    if (!free && data.featherCoins < cost) {
+      setToast({ title: 'Not enough coins yet', body: `That costs ${cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    const furniture =
+      item.id === 'full'
+        ? ROOM_FURNITURE.map((f) => f.id)
+        : Array.from(new Set([...(room.furniture || ['perch']), item.id]))
+    commit(
+      { ...data, tweety: { ...data.tweety, room: { ...room, furniture } }, featherCoins: data.featherCoins - cost },
+      {
+        title: free ? 'A gift from Marnich 🎁' : 'Added to the Bird Room 🏡',
+        body: `${item.name} ${item.emoji}${free ? ' — sent free by Marnich! 💛' : ''}`,
+        tone: free ? 'success' : 'calm',
+      },
+    )
+  }
+
+  function roomInteract(kind) {
+    roomSound(kind)
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        room: { ...(c.tweety.room || { furniture: ['perch'], visits: 0 }), visits: (c.tweety.room?.visits || 0) + 1 },
+      },
+    }))
+  }
+
   // Feed / water the baby bird while it grows.
   function careBaby(kind) {
     const baby = data.tweety?.baby
@@ -1845,12 +2155,17 @@ function App() {
     commit(
       {
         ...data,
-        tweety: { ...data.tweety, baby: null, guardian: data.tweety.guardian || becameGuardian },
+        tweety: {
+          ...data.tweety,
+          baby: null,
+          guardian: data.tweety.guardian || becameGuardian,
+          sanctuary: [addToSanctuary(baby.species, 'Released'), ...(data.tweety.sanctuary || [])],
+        },
         featherCoins: data.featherCoins + coins,
       },
       {
         title: 'Released into the wild 🌿',
-        body: `Your ${stage} ${baby.species} flew away free! +${coins} Feather Coins.${becameGuardian ? ' Bird Guardian badge earned 🛡️' : ''}`,
+        body: `Your ${stage} ${baby.species} flew away free and joined the Sanctuary! +${coins} Feather Coins.${becameGuardian ? ' Bird Guardian badge earned 🛡️' : ''}`,
       },
     )
   }
@@ -1891,10 +2206,14 @@ function App() {
     commit(
       {
         ...data,
-        tweety: { ...data.tweety, aviary: aviary.filter((b) => b.id !== id) },
+        tweety: {
+          ...data.tweety,
+          aviary: aviary.filter((b) => b.id !== id),
+          sanctuary: [addToSanctuary(bird.species, 'Donated'), ...(data.tweety.sanctuary || [])],
+        },
         featherCoins: data.featherCoins + 100,
       },
-      { title: 'Released 🌿', body: `${bird.species} flew free. +100 Feather Coins.` },
+      { title: 'Donated to the Sanctuary 🌿', body: `${bird.species} now has a forever home. +100 Feather Coins.` },
     )
   }
 
@@ -2370,23 +2689,47 @@ function App() {
           ]
         : data.discoveries
 
-    // Spotting a RARE bird in real life earns a guaranteed mystery egg
-    // (if Tweety has no egg or baby right now).
     const spottedRare =
       libraryMatchIndex >= 0 && data.birdLibrary[libraryMatchIndex].special
-    const rareEggTweety =
-      spottedRare && !data.tweety?.egg && !data.tweety?.baby
-        ? {
-            ...data.tweety,
-            egg: {
-              laidAt: new Date().toISOString(),
-              careDays: 0,
-              lastCareDay: '',
-              kind: 'mystery',
-              species: data.birdLibrary[libraryMatchIndex].commonName,
-            },
-          }
-        : data.tweety
+
+    // Egg basket: a brand-new species drops a (mystery) egg into the basket.
+    const currentEggs = data.tweety?.eggs || []
+    let basketEggs = currentEggs
+    let worldNote = ''
+    if (isNewSpecies) {
+      if (currentEggs.length < MAX_EGGS) {
+        basketEggs = [
+          ...currentEggs,
+          { id: createId('egg'), species: birdName, kind: spottedRare ? 'mystery' : 'normal' },
+        ]
+        worldNote = ' A new egg appeared in your basket! 🥚'
+      } else {
+        worldNote = ' Your egg basket is full — hatch one first! 🥚'
+      }
+    }
+
+    // Photographing ANY real bird rescues a bird that escaped.
+    let nextTweety = { ...data.tweety, eggs: basketEggs }
+    let rescueCoins = 0
+    if (data.tweety?.escape) {
+      const escapedName = data.tweety.escape.birdName
+      rescueCoins = 100
+      worldNote += ` You found ${escapedName}! It recognised you and flew back 💛 +100 coins.`
+      nextTweety = {
+        ...nextTweety,
+        escape: null,
+        aviary: [
+          ...(nextTweety.aviary || []),
+          {
+            id: createId('aviary'),
+            species: escapedName,
+            addedAt: new Date().toISOString(),
+            idle: 'hop',
+            rescued: true,
+          },
+        ],
+      }
+    }
 
     const sightings = [...data.sightings, sighting]
     const nextState = {
@@ -2394,8 +2737,8 @@ function App() {
       sightings,
       birds: buildBirdRecords(sightings),
       birdLibrary: upsertBirdLibraryFromSighting(data.birdLibrary, sighting),
-      featherCoins: data.featherCoins + coinsEarned + discoveryBonus,
-      tweety: rareEggTweety,
+      featherCoins: data.featherCoins + coinsEarned + discoveryBonus + rescueCoins,
+      tweety: nextTweety,
       discoveries: nextDiscoveries,
       settings: {
         ...data.settings,
@@ -2412,8 +2755,9 @@ function App() {
             ? 'New species logged!'
             : 'Repeat sighting logged!',
       body: [
-        `${getCouncilMessage(data.sightings.length)} +${coinsEarned + discoveryBonus} Feather Coins.`,
+        `${getCouncilMessage(data.sightings.length)} +${coinsEarned + discoveryBonus + rescueCoins} Feather Coins.`,
         isDiscovery ? '+50 discovery bonus \ud83c\udf1f' : '',
+        worldNote,
         options.checkedOff ? "Checked off Marlie's South African Bird List \u2705" : '',
       ]
         .filter(Boolean)
@@ -3042,6 +3386,30 @@ function App() {
             releaseBaby={releaseBaby}
             keepBaby={keepBaby}
             releaseAviaryBird={releaseAviaryBird}
+            startIncubate={startIncubate}
+            warmEgg={warmEgg}
+            rapidTapEgg={rapidTapEgg}
+            tapWorldEvent={tapWorldEvent}
+            resolveWorldEvent={resolveWorldEvent}
+          />
+        )}
+        {activePage === 'sanctuary' && (
+          <SanctuaryPage
+            tweety={data.tweety}
+            isAdmin={session.role === 'admin'}
+            onBack={() => setActivePage('home')}
+            onLeaveNote={leaveSanctuaryNote}
+          />
+        )}
+        {activePage === 'birdroom' && (
+          <BirdRoomPage
+            tweety={data.tweety}
+            season={season}
+            coins={data.featherCoins}
+            isAdmin={session.role === 'admin'}
+            onBack={() => setActivePage('home')}
+            onBuy={(item) => buyRoomFurniture(item)}
+            onInteract={roomInteract}
           />
         )}
         {activePage === 'tweety' && (
@@ -3142,6 +3510,9 @@ function App() {
             sendMysteryEgg={sendMysteryEgg}
             sendFlockTreat={sendFlockTreat}
             addDiscoveryToLibrary={addDiscoveryToLibrary}
+            triggerWorldEvent={triggerWorldEvent}
+            triggerEscape={triggerEscape}
+            giftRoomFurniture={(item) => buyRoomFurniture(item, { free: true })}
             buyStoreItem={buyStoreItem}
             onQuizDone={onQuizDone}
             onWordleDone={onWordleDone}
@@ -3653,6 +4024,11 @@ function HomePage({
   releaseBaby,
   keepBaby,
   releaseAviaryBird,
+  startIncubate,
+  warmEgg,
+  rapidTapEgg,
+  tapWorldEvent,
+  resolveWorldEvent,
 }) {
   const seenLibraryCount = data.birdLibrary.filter((bird) => bird.seen).length
   const collectionProgress = data.birdLibrary.length
@@ -3674,6 +4050,25 @@ function HomePage({
         <h2>{season.greeting}</h2>
         <p>{season.blurb}</p>
       </section>
+
+      {data.tweety?.escape && (
+        <EscapeAlert escape={data.tweety.escape} onRescue={() => goTo('add')} />
+      )}
+
+      <TweetyWorldCard
+        tweety={data.tweety}
+        level={tweetyView.level}
+        mood={tweetyView.mood}
+        dancing={tweetyDancing}
+        event={data.tweety?.worldEvent}
+        onStartIncubate={startIncubate}
+        onWarm={warmEgg}
+        onRapidTap={rapidTapEgg}
+        onEventTap={tapWorldEvent}
+        onEventResolve={() => resolveWorldEvent(true)}
+        onOpenRoom={() => goTo('birdroom')}
+        onOpenSanctuary={() => goTo('sanctuary')}
+      />
 
       <TweetyHomeCard
         tweety={data.tweety}
@@ -6201,6 +6596,9 @@ function AdminPage({
   sendMysteryEgg,
   sendFlockTreat,
   addDiscoveryToLibrary,
+  triggerWorldEvent,
+  triggerEscape,
+  giftRoomFurniture,
   buyStoreItem,
   onQuizDone,
   onWordleDone,
@@ -6630,6 +7028,42 @@ function AdminPage({
           </button>
         </div>
       </section>
+
+      <details className="soft-card full-span">
+        <summary>Tweety World — trigger a surprise 🌍</summary>
+        <p className="fine-print">Drop a story event, send a bird on an adventure, or gift a room decoration.</p>
+        <div className="admin-actions">
+          <button className="danger-btn" type="button" onClick={() => triggerEscape()}>
+            Trigger an escape 🐦💨
+          </button>
+        </div>
+        <p className="eyebrow">Story events</p>
+        <div className="admin-actions">
+          {WORLD_EVENTS.map((ev) => (
+            <button
+              className="secondary-btn"
+              type="button"
+              key={ev.id}
+              onClick={() => triggerWorldEvent(ev.id)}
+            >
+              {ev.emoji} {ev.title}
+            </button>
+          ))}
+        </div>
+        <p className="eyebrow">Gift a room decoration</p>
+        <div className="admin-actions">
+          {ROOM_FURNITURE.filter((f) => f.cost > 0).map((item) => (
+            <button
+              className="secondary-btn"
+              type="button"
+              key={item.id}
+              onClick={() => giftRoomFurniture(item)}
+            >
+              {item.emoji} {item.name}
+            </button>
+          ))}
+        </div>
+      </details>
 
       <section className="soft-card full-span">
         <div className="section-heading">
