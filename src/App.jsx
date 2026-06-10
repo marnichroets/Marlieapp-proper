@@ -2996,7 +2996,9 @@ function App() {
             on20QDone={on20QDone}
           />
         )}
-        {activePage === 'add' && <AddBirdPage addBird={addBird} />}
+        {activePage === 'add' && (
+          <AddBirdPage addBird={addBird} birdLibrary={data.birdLibrary} />
+        )}
         {activePage === 'birds' && (
           <BirdsPage data={data} openBirdProfile={openBirdProfile} />
         )}
@@ -3687,7 +3689,7 @@ function StatCard({ label, value, detail }) {
   )
 }
 
-function AddBirdPage({ addBird }) {
+function AddBirdPage({ addBird, birdLibrary = [] }) {
   const [form, setForm] = useState(() => createEmptyForm())
   const [photoFile, setPhotoFile] = useState(null)
   const [photoInputKey, setPhotoInputKey] = useState(0)
@@ -4027,6 +4029,8 @@ function AddBirdPage({ addBird }) {
                   key={`${match.commonName}-${index}`}
                   index={index}
                   match={match}
+                  userPhoto={form.photo}
+                  birdLibrary={birdLibrary}
                   onConfirm={handleConfirmMatch}
                 />
               ))}
@@ -4136,14 +4140,37 @@ function AddBirdPage({ addBird }) {
   )
 }
 
-function AiMatchCard({ match, index, onConfirm }) {
+// The best photo for a suggested match: the library photo if the bird is in
+// the Bird Book, otherwise a live Wikipedia photo by scientific name.
+function MatchPhoto({ libraryImageUrl, scientificName, commonName }) {
+  const hasLib = Boolean(libraryImageUrl) && !libraryImageUrl.includes('placehold')
+  const { photos } = useWikipediaPhotos(
+    hasLib ? '' : scientificName,
+    hasLib ? '' : commonName,
+  )
+  const src = hasLib ? libraryImageUrl : photos[0]?.src
+  if (src) {
+    return <img className="compare-img" src={src} alt={commonName} loading="lazy" />
+  }
+  return (
+    <div className="compare-img placeholder-photo">
+      <span>{getBirdPhotoPlaceholderLabel(commonName)}</span>
+    </div>
+  )
+}
+
+function AiMatchCard({ match, index, onConfirm, userPhoto, birdLibrary = [] }) {
   const confidence = match.confidence || 0
   const unsure = confidence < 70
   const isBest = index === 0
+  const libIndex = getBirdLibraryMatchIndex(birdLibrary, {
+    commonName: match.commonName,
+    scientificName: match.scientificName,
+  })
+  const libraryImageUrl = libIndex >= 0 ? birdLibrary[libIndex].imageUrl : ''
   const secretRows = [
     ['Afrikaans', match.afrikaansName],
     ['Scientific', match.scientificName],
-    ['Why this bird', match.whyThisBird],
     ['Habitat', match.habitat],
     ['Diet', match.diet],
     ['Sound', match.soundDescription],
@@ -4153,16 +4180,39 @@ function AiMatchCard({ match, index, onConfirm }) {
     <article
       className={`ai-match-card${isBest ? ' best-match' : ''}${unsure ? ' unsure' : ''}`}
     >
-      <div className="match-creature" aria-hidden="true">
-        {getBirdPhotoPlaceholderLabel(match.commonName)}
+      {/* Side-by-side: her photo on the left, the suggested bird on the right. */}
+      <div className="match-compare">
+        <figure className="compare-side">
+          {userPhoto ? (
+            <img className="compare-img" src={userPhoto} alt="Your photo" />
+          ) : (
+            <div className="compare-img placeholder-photo"><span>📷</span></div>
+          )}
+          <figcaption>Your photo</figcaption>
+        </figure>
+        <span className="compare-vs" aria-hidden="true">vs</span>
+        <figure className="compare-side">
+          <MatchPhoto
+            libraryImageUrl={libraryImageUrl}
+            scientificName={match.scientificName}
+            commonName={match.commonName}
+          />
+          <figcaption>{match.commonName}</figcaption>
+        </figure>
       </div>
+
       <div className="ai-match-title">
         <span className={unsure ? 'status-pill locked' : 'status-pill'}>
           {isBest ? 'Best guess' : `Maybe #${index + 1}`}
         </span>
         <h3>{match.commonName}</h3>
-        <p>{match.cutePersonalityLine || match.whyThisBird || 'A possible feather friend.'}</p>
       </div>
+
+      {match.whyThisBird && (
+        <p className="why-this-bird">
+          <strong>Why this bird:</strong> {match.whyThisBird}
+        </p>
+      )}
 
       <div className="ai-confidence">
         <div className="ai-confidence-head">

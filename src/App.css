@@ -4154,6 +4154,60 @@ textarea:focus {
 }
 .discovery-card h4 { margin: 4px 0 0; color: var(--ink-strong); }
 
+/* ===================== AI result: side-by-side compare + why ===================== */
+.match-compare {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+}
+.compare-side {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 6px 6px 8px;
+  background: #fffdf7;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(60, 50, 30, 0.16);
+}
+.compare-side:first-of-type { transform: rotate(-1.4deg); }
+.compare-side:last-of-type { transform: rotate(1.4deg); }
+.compare-img {
+  width: 116px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
+}
+.compare-img.placeholder-photo span { font-size: 1.4rem; }
+.compare-side figcaption {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: center;
+  max-width: 116px;
+}
+.compare-vs {
+  align-self: center;
+  font-weight: 900;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.why-this-bird {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border-left: 4px solid var(--honey);
+  background: rgba(255, 240, 214, 0.6);
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.why-this-bird strong { color: var(--leaf-dark); }
+
 .reveal-photo {
   width: 100%;
   max-height: 240px;
