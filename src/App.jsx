@@ -9,7 +9,8 @@ import {
   TweetyStatsPage,
   TweetyFamilyCard,
   AviaryCard,
-  CompanionSelect,
+  FirstEggSelect,
+  FirstEggCard,
 } from './Tweety'
 import {
   defaultTweety,
@@ -24,10 +25,15 @@ import {
   AVIARY_MAX,
   RARE_EGG_BIRDS,
   roomSound,
+  FIRST_EGGS,
+  FIRST_EGG_WARMS,
+  firstEggCompanionFor,
+  tweetyCareState,
+  getCompanion,
 } from './tweetyData'
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
-import { TweetyWorldCard, EscapeAlert, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
+import { TweetyWorldCard, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
 import { MarketTab, WardrobePage } from './MarketUI'
 import { defaultWardrobe, ownsWearable, wearableById, rotationIndex } from './market'
 import {
@@ -137,6 +143,7 @@ const menuItems = [
   ['games', 'Date Games', '🎮'],
   ['birdroom', 'Bird Room', '🏡'],
   ['sanctuary', 'Sanctuary', '🌿'],
+  ['wardrobe', 'Dress Tweety', '👗'],
   ['profile', 'Pooks', '🪶'],
   ['birds', 'My memories', '🐦'],
 ]
@@ -1268,6 +1275,19 @@ function mergeBirdLibrary(defaultItems, savedItems) {
   return [...merged, ...saved.filter((item) => !defaultKeys.has(item.id))]
 }
 
+// Backfill bornAt for existing Tweety pets (real-day growth) so they don't
+// reset to "tiny chick" after the simplified-Tweety update.
+function normalizeTweety(tweety) {
+  const next = { ...tweety }
+  if (next.companion && !next.bornAt) {
+    const careKeys = Object.keys(next.care || {}).sort()
+    next.bornAt = careKeys[0]
+      ? new Date(`${careKeys[0]}T00:00:00`).toISOString()
+      : new Date().toISOString()
+  }
+  return next
+}
+
 function loadState() {
   const base = buildDefaultState()
   try {
@@ -1304,7 +1324,7 @@ function loadState() {
         saved.fieldGuideNotes && typeof saved.fieldGuideNotes === 'object'
           ? saved.fieldGuideNotes
           : base.fieldGuideNotes,
-      tweety: {
+      tweety: normalizeTweety({
         ...base.tweety,
         ...(saved.tweety || {}),
         wardrobe: {
@@ -1312,7 +1332,8 @@ function loadState() {
           ...(saved.tweety?.wardrobe || {}),
           worn: { ...base.tweety.wardrobe.worn, ...(saved.tweety?.wardrobe?.worn || {}) },
         },
-      },
+        careAt: { ...base.tweety.careAt, ...(saved.tweety?.careAt || {}) },
+      }),
       store: { ...base.store, ...(saved.store || {}) },
       games: { ...base.games, ...(saved.games || {}) },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
@@ -1951,18 +1972,21 @@ function App() {
     })
   }
 
-  // Feed / water / play with Tweety. Always rewarding, never punishing.
+  // Feed / water / play with Tweety. Each action refreshes every 8 hours.
   function careTweety(kind) {
     const field = kind === 'water' ? 'watered' : kind === 'play' ? 'played' : 'fed'
-    const key = tweetyTodayKey()
-    const today = data.tweety?.care?.[key] || { fed: false, watered: false, played: false }
-    if (today[field]) return
+    // 8-hour window: block only if this action was done within the last 8h.
+    const careNow = tweetyCareState(data.tweety)
+    if (careNow[field]) return
 
     playChirp(kind)
+    const key = tweetyTodayKey()
+    const today = data.tweety?.care?.[key] || { fed: false, watered: false, played: false }
     const nextToday = { ...today, [field]: true }
     const nextTweety = {
       ...data.tweety,
       care: { ...(data.tweety?.care || {}), [key]: nextToday },
+      careAt: { ...(data.tweety?.careAt || {}), [field]: new Date().toISOString() },
     }
 
     let coins = COINS.tweetyCare
@@ -2048,16 +2072,77 @@ function App() {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
   }
 
-  function chooseTweetyCompanion(companionId) {
+  // First-time experience: pick a coloured egg. The bird inside is a secret
+  // until it hatches after 3 days of warming.
+  function chooseFirstEgg(index) {
+    const egg = FIRST_EGGS[index]
+    if (!egg) return
     setData((current) => ({
       ...current,
-      tweety: { ...current.tweety, companion: companionId },
+      tweety: {
+        ...current.tweety,
+        companion: null,
+        firstEgg: {
+          companion: firstEggCompanionFor(index),
+          color: egg.color,
+          name: egg.name,
+          warms: 0,
+          lastWarmDay: '',
+          startedAt: new Date().toISOString(),
+        },
+      },
     }))
     setToast({
-      title: 'Tweety is ready! 🐣',
-      body: 'Your pet chick is so excited to start the adventure with you. 💛',
+      title: 'Your egg is yours! 🥚',
+      body: `Warm your ${egg.name} egg each day — it hatches after ${FIRST_EGG_WARMS} days. 💛`,
       tone: 'success',
     })
+  }
+
+  // Warm the first egg once a day; on the 3rd warm it hatches into Tweety.
+  function warmFirstEgg() {
+    const egg = data.tweety?.firstEgg
+    if (!egg) return
+    const todayKey = tweetyTodayKey()
+    if (egg.lastWarmDay === todayKey) {
+      setToast({
+        title: 'Already warm today 💛',
+        body: 'Come back tomorrow to warm your egg again.',
+        tone: 'calm',
+      })
+      return
+    }
+    playChirp('feed')
+    const warms = (egg.warms || 0) + 1
+    if (warms >= FIRST_EGG_WARMS) {
+      const companion = egg.companion
+      setData((current) => ({
+        ...current,
+        tweety: {
+          ...current.tweety,
+          companion,
+          firstEgg: null,
+          bornAt: new Date().toISOString(),
+          careAt: { fed: null, watered: null, played: null },
+        },
+      }))
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'Your egg hatched! 🐣',
+        body: `Meet ${getCompanion(companion).name}! Your very own Tweety has arrived. 💛`,
+      })
+    } else {
+      setData((current) => ({
+        ...current,
+        tweety: { ...current.tweety, firstEgg: { ...egg, warms, lastWarmDay: todayKey } },
+      }))
+      setToast({
+        title: 'Warmed! 🔥',
+        body: `So cosy. ${warms}/${FIRST_EGG_WARMS} days warmed — come back tomorrow!`,
+        tone: 'success',
+      })
+    }
   }
 
   // ----- Tweety World: incubation -----
@@ -3571,9 +3656,9 @@ function App() {
     return <LoginScreen data={data} onLogin={login} />
   }
 
-  // First-login: Pooks chooses the bird her Tweety chick takes after.
-  if (session.role === 'pooks' && !data.tweety?.companion) {
-    return <CompanionSelect onPick={chooseTweetyCompanion} />
+  // First-login: Pooks chooses her first mystery egg. It hatches into her Tweety.
+  if (session.role === 'pooks' && !data.tweety?.companion && !data.tweety?.firstEgg) {
+    return <FirstEggSelect onPick={chooseFirstEgg} />
   }
 
   return (
@@ -3655,6 +3740,7 @@ function App() {
             keepBaby={keepBaby}
             releaseAviaryBird={releaseAviaryBird}
             startIncubate={startIncubate}
+            warmFirstEgg={warmFirstEgg}
             warmEgg={warmEgg}
             rapidTapEgg={rapidTapEgg}
             tapWorldEvent={tapWorldEvent}
@@ -4310,6 +4396,7 @@ function HomePage({
   keepBaby,
   releaseAviaryBird,
   startIncubate,
+  warmFirstEgg,
   warmEgg,
   rapidTapEgg,
   tapWorldEvent,
@@ -4333,61 +4420,60 @@ function HomePage({
         <p>{season.blurb}</p>
       </section>
 
-      {missedYou && (
-        <button className="tweety-nudge" type="button" onClick={() => goTo('wardrobe')}>
+      {missedYou && data.tweety?.companion && (
+        <button className="tweety-nudge" type="button" onClick={() => goTo('tweety')}>
           <span className="tweety-nudge-bird" aria-hidden="true">🐤💛</span>
           <span>
             <strong>{data.tweety?.name || 'Tweety'} missed you!</strong>
-            <small>It&apos;s been a while — pop in to say hello and dress her up.</small>
+            <small>It&apos;s been a while — pop in to feed, water and play.</small>
           </span>
         </button>
       )}
 
-      {data.tweety?.escape && (
-        <EscapeAlert escape={data.tweety.escape} onRescue={() => goTo('add')} />
+      {!data.tweety?.companion ? (
+        <FirstEggCard tweety={data.tweety} onWarm={warmFirstEgg} />
+      ) : (
+        <>
+          <TweetyHomeCard
+            tweety={data.tweety}
+            dancing={tweetyDancing}
+            nestTier={tweetyView.nestTier}
+            rainbow={tweetyView.rainbow}
+            loveLetter={tweetyView.loveLetter}
+            onFeed={() => careTweety('feed')}
+            onWater={() => careTweety('water')}
+            onPlay={() => careTweety('play')}
+            onOpenStats={() => goTo('tweety')}
+          />
+
+          <TweetyWorldCard
+            tweety={data.tweety}
+            event={data.tweety?.worldEvent}
+            onStartIncubate={startIncubate}
+            onWarm={warmEgg}
+            onRapidTap={rapidTapEgg}
+            onEventTap={tapWorldEvent}
+            onEventResolve={() => resolveWorldEvent(true)}
+            onOpenRoom={() => goTo('birdroom')}
+            onOpenSanctuary={() => goTo('sanctuary')}
+            hideLinks
+          />
+
+          <TweetyFamilyCard
+            tweety={data.tweety}
+            onCareBaby={careBaby}
+            onRelease={releaseBaby}
+            onKeep={keepBaby}
+          />
+
+          <AviaryCard
+            tweety={data.tweety}
+            aviaryTier={data.store?.aviaryTier || 'basic'}
+            flockDance={Boolean(data.tweety?.flockTreat)}
+            onReleaseAviary={releaseAviaryBird}
+          />
+        </>
       )}
-
-      <TweetyWorldCard
-        tweety={data.tweety}
-        event={data.tweety?.worldEvent}
-        onStartIncubate={startIncubate}
-        onWarm={warmEgg}
-        onRapidTap={rapidTapEgg}
-        onEventTap={tapWorldEvent}
-        onEventResolve={() => resolveWorldEvent(true)}
-        onOpenRoom={() => goTo('birdroom')}
-        onOpenSanctuary={() => goTo('sanctuary')}
-      />
-
-      <TweetyHomeCard
-        tweety={data.tweety}
-        level={tweetyView.level}
-        mood={tweetyView.mood}
-        streak={tweetyView.streak}
-        dancing={tweetyDancing}
-        nestTier={tweetyView.nestTier}
-        rainbow={tweetyView.rainbow}
-        loveLetter={tweetyView.loveLetter}
-        onFeed={() => careTweety('feed')}
-        onWater={() => careTweety('water')}
-        onPlay={() => careTweety('play')}
-        onOpenStats={() => goTo('tweety')}
-        onDressUp={() => goTo('wardrobe')}
-      />
-
-      <TweetyFamilyCard
-        tweety={data.tweety}
-        onCareBaby={careBaby}
-        onRelease={releaseBaby}
-        onKeep={keepBaby}
-      />
-
-      <AviaryCard
-        tweety={data.tweety}
-        aviaryTier={data.store?.aviaryTier || 'basic'}
-        flockDance={Boolean(data.tweety?.flockTreat)}
-        onReleaseAviary={releaseAviaryBird}
-      />
 
       <section className={`mission-card${done ? ' done' : ''}`}>
         <p className="mission-eyebrow">Today&apos;s Mission 🐦</p>

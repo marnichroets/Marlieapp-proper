@@ -4705,6 +4705,26 @@ textarea:focus {
 .wardrobe-empty { text-align: center; display: grid; gap: 8px; justify-items: center; padding: 14px; }
 .wardrobe-empty .market-emoji { font-size: 2.6rem; }
 
+/* --- First egg selection + warming --- */
+.color-egg { display: inline-flex; align-items: center; justify-content: center; }
+.color-egg svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 8px rgba(120,90,50,0.18)); }
+.color-egg.glow svg { animation: egg-glow 2.6s ease-in-out infinite; }
+@keyframes egg-glow {
+  0%, 100% { filter: drop-shadow(0 4px 8px rgba(120,90,50,0.18)); }
+  50% { filter: drop-shadow(0 4px 14px rgba(246,206,115,0.6)); }
+}
+.egg-choice-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px;
+}
+.egg-choice {
+  display: grid; gap: 6px; justify-items: center; padding: 14px 8px; border-radius: 16px;
+  background: rgba(255,255,255,0.7); border: 1px solid var(--line); cursor: pointer;
+}
+.egg-choice:active { transform: translateY(1px); }
+.egg-choice strong { color: var(--ink-strong); font-size: 0.84rem; }
+.first-egg-card { text-align: center; }
+.first-egg-stage { display: flex; justify-content: center; margin: 8px 0 12px; }
+
 /* rotation notification dot on the Market sub-tab */
 .tab-new-dot { color: #e8526a; font-size: 0.7rem; margin-left: 4px; vertical-align: top; animation: pulse-soft 1.4s ease-in-out infinite; }
 

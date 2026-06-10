@@ -17,11 +17,99 @@ export function getCompanion(id) {
   return TWEETY_COMPANIONS.find((c) => c.id === id) || TWEETY_COMPANIONS[0]
 }
 
+// ---- First egg (first-time experience) -------------------------------------
+// Six coloured eggs. Each secretly holds one companion, revealed only after the
+// egg hatches (3 days of warming). She picks a colour, not a bird — more magical.
+export const FIRST_EGGS = [
+  { id: 0, color: '#F6A5C0', name: 'Blush' },
+  { id: 1, color: '#9AD0F0', name: 'Sky' },
+  { id: 2, color: '#C9E8A8', name: 'Meadow' },
+  { id: 3, color: '#FBE6A8', name: 'Sunlight' },
+  { id: 4, color: '#C9A8E8', name: 'Lilac' },
+  { id: 5, color: '#F4C79F', name: 'Peach' },
+]
+
+export const FIRST_EGG_WARMS = 3
+
+export function firstEggCompanionFor(id) {
+  return TWEETY_COMPANIONS[id % TWEETY_COMPANIONS.length]?.id || TWEETY_COMPANIONS[0].id
+}
+
+// ---- Simple 8-hour care windows + 5 moods ----------------------------------
+export const CARE_RESET_MS = 8 * 60 * 60 * 1000
+const SAD_AFTER_MS = 12 * 60 * 60 * 1000
+
+function withinMs(iso, ms) {
+  if (!iso) return false
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return false
+  return Date.now() - then <= ms
+}
+
+// Which of feed/water/play are currently "done" (within the last 8 hours).
+export function tweetyCareState(tweety) {
+  const at = tweety?.careAt || {}
+  return {
+    fed: withinMs(at.fed, CARE_RESET_MS),
+    watered: withinMs(at.watered, CARE_RESET_MS),
+    played: withinMs(at.played, CARE_RESET_MS),
+  }
+}
+
+// Five clear moods based on the 8h/12h care windows.
+export function tweetySimpleMood(tweety) {
+  const at = tweety?.careAt || {}
+  const fed = withinMs(at.fed, CARE_RESET_MS)
+  const watered = withinMs(at.watered, CARE_RESET_MS)
+  const played = withinMs(at.played, CARE_RESET_MS)
+  const anyRecent =
+    withinMs(at.fed, SAD_AFTER_MS) ||
+    withinMs(at.watered, SAD_AFTER_MS) ||
+    withinMs(at.played, SAD_AFTER_MS)
+
+  if (!anyRecent) return 'sad'
+  if (fed && watered && played) return 'happy'
+  if (!fed) return 'hungry'
+  if (!watered) return 'thirsty'
+  return 'content'
+}
+
+export const MOOD_FACE = {
+  happy: { emoji: '😊', label: 'Happy', line: 'is happy and chirpy!' },
+  content: { emoji: '🙂', label: 'Content', line: 'is feeling content.' },
+  hungry: { emoji: '😐', label: 'Hungry', line: 'is getting hungry — time for seeds.' },
+  thirsty: { emoji: '😟', label: 'Thirsty', line: 'is thirsty — fresh water please.' },
+  sad: { emoji: '😢', label: 'Sad', line: 'missed you — a little care will cheer them up.' },
+}
+
+// ---- Growth over REAL days --------------------------------------------------
+const GROWTH_STAGES = [
+  { key: 'chick', label: 'Tiny chick 🐣', maxDay: 2 },
+  { key: 'small', label: 'Small bird 🐤', maxDay: 6 },
+  { key: 'growing', label: 'Growing bird 🐦', maxDay: 13 },
+  { key: 'full', label: 'Full grown 👑', maxDay: Infinity },
+]
+
+// Days since Tweety hatched (0-based). Falls back gracefully if bornAt missing.
+export function tweetyAgeDays(tweety) {
+  const born = tweety?.bornAt
+  if (!born) return 0
+  return daysSince(born)
+}
+
+export function tweetyGrowth(tweety) {
+  const d = tweetyAgeDays(tweety)
+  return GROWTH_STAGES.find((s) => d <= s.maxDay) || GROWTH_STAGES[GROWTH_STAGES.length - 1]
+}
+
 export function defaultTweety() {
   return {
     name: 'Tweety',
-    companion: null, // set on first login from TWEETY_COMPANIONS
-    care: {}, // { 'YYYY-MM-DD': { fed, watered, played } }
+    companion: null, // revealed when the first egg hatches
+    firstEgg: null, // { companion, color, name, warms, lastWarmDay, startedAt }
+    bornAt: null, // ISO timestamp the first egg hatched — drives real-day growth
+    care: {}, // legacy daily care (kept for back-compat)
+    careAt: { fed: null, watered: null, played: null }, // ISO of last each action (8h reset)
     treatsReceived: 0,
     pendingTreat: false,
     lastBonusStreak: 0,

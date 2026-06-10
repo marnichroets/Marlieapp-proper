@@ -1,8 +1,5 @@
 // Tweety the pet bird — components only (helpers live in ./tweetyData).
 import {
-  tweetyToday,
-  tweetyMood,
-  tweetyLevel,
   tweetyDaysCared,
   tweetyLongestStreak,
   babyStage,
@@ -12,8 +9,14 @@ import {
   AVIARY_MAX,
   TWEETY_COMPANIONS,
   getCompanion,
+  FIRST_EGGS,
+  FIRST_EGG_WARMS,
+  tweetyTodayKey,
+  tweetyCareState,
+  tweetySimpleMood,
+  tweetyGrowth,
+  MOOD_FACE,
 } from './tweetyData'
-import { wornSummary } from './market'
 
 // ---- wearable layers (hats, accessories, outfits) --------------------------
 // Drawn inside Tweety's 100×100 viewBox. Head sits around y30–46, eyes at y50,
@@ -381,11 +384,20 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           {/* cheeks */}
           <circle cx="38" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
           <circle cx="62" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
-          {/* eyes */}
+          {/* eyes — change with each mood */}
           {sad ? (
             <g stroke="#3E2F22" strokeWidth="2.6" fill="none" strokeLinecap="round">
-              <path d="M40 50 q3 3 6 0" />
-              <path d="M54 50 q3 3 6 0" />
+              <path d="M40 51 q3 3 6 0" />
+              <path d="M54 51 q3 3 6 0" />
+            </g>
+          ) : mood === 'hungry' || mood === 'thirsty' ? (
+            <g className="tweety-eyes" fill="#3E2F22">
+              {/* gently lowered brows */}
+              <path d="M39 46 l7 2 M61 46 l-7 2" stroke="#3E2F22" strokeWidth="1.6" strokeLinecap="round" />
+              <circle cx="43" cy="51" r="3" />
+              <circle cx="57" cy="51" r="3" />
+              <circle cx="44" cy="50" r="1" fill="#fff" />
+              <circle cx="58" cy="50" r="1" fill="#fff" />
             </g>
           ) : (
             <g className="tweety-eyes" fill="#3E2F22">
@@ -399,10 +411,15 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           {sad && <path d="M40 54 q-2 4 0 6 q2 -2 0 -6" fill="#9AD0F0" />}
           {/* beak */}
           <path d="M47 57 l6 0 l-3 5 z" fill="#F2A24E" />
-          {/* smile when happy */}
+          {/* mouth varies by mood */}
           {mood === 'happy' && (
             <path d="M46 65 q4 3 8 0" stroke="#C8742E" strokeWidth="1.6" fill="none" strokeLinecap="round" />
           )}
+          {mood === 'content' && (
+            <path d="M47 65 q3 2 6 0" stroke="#C8742E" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+          )}
+          {mood === 'hungry' && <ellipse cx="50" cy="66" rx="2.6" ry="2" fill="#9a4b2e" />}
+          {mood === 'thirsty' && <circle cx="50" cy="66" r="1.8" fill="#9a4b2e" />}
           {/* crown at top level (hidden when wearing a hat so they don't clash) */}
           {level === 'crown' && !worn?.hat && (
             <path d="M40 30 L42 18 L50 26 L54 15 L58 26 L66 18 L68 30 Z" fill="#F2C24E" stroke="#D9A036" strokeWidth="1" transform="translate(0 -2)" />
@@ -415,13 +432,33 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
   )
 }
 
-// ---- Home card -------------------------------------------------------------
+// ---- a simple coloured egg (first-egg selection + warming) -----------------
+function ColorEgg({ color = '#F6A5C0', size = 84, glow = false }) {
+  return (
+    <span className={`color-egg${glow ? ' glow' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <ellipse cx="50" cy="56" rx="30" ry="36" fill={color} />
+        <ellipse cx="42" cy="44" rx="7" ry="10" fill="#fff" opacity="0.45" />
+        {/* faint bird-silhouette hint inside */}
+        <g fill="#000" opacity="0.16">
+          <ellipse cx="52" cy="60" rx="12" ry="13" />
+          <circle cx="44" cy="51" r="5" />
+          <path d="M62 58 l8 3 l-8 3 z" />
+        </g>
+        {/* speckles */}
+        <circle cx="40" cy="68" r="2.4" fill="#fff" opacity="0.4" />
+        <circle cx="60" cy="50" r="2" fill="#fff" opacity="0.4" />
+      </svg>
+    </span>
+  )
+}
+
+// ---- Home card (simplified: feed/water/play, 5 moods, real-day growth) -----
+const GROWTH_TO_LEVEL = { chick: 'chick', small: 'fledgling', growing: 'grown', full: 'crown' }
+
 export function TweetyHomeCard({
   tweety,
-  level,
-  mood,
-  streak,
-  dancing,
+  dancing = false,
   nestTier = 'basic',
   rainbow = false,
   loveLetter = '',
@@ -429,26 +466,21 @@ export function TweetyHomeCard({
   onWater,
   onPlay,
   onOpenStats,
-  onDressUp,
 }) {
-  const today = tweetyToday(tweety)
   const name = tweety?.name || 'Tweety'
+  const care = tweetyCareState(tweety)
+  const mood = tweetySimpleMood(tweety)
+  const face = MOOD_FACE[mood] || MOOD_FACE.content
+  const growth = tweetyGrowth(tweety)
+  const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
   const worn = tweety?.wardrobe?.worn || null
-  const wearingNames = wornSummary(tweety?.wardrobe)
-
-  const moodLine =
-    mood === 'happy'
-      ? `${name} is happy and chirpy! 💛`
-      : mood === 'sad'
-        ? `${name} missed you — one little visit will cheer them right up. 🫧`
-        : `${name} is waiting for some love.`
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
       <div className="section-heading">
         <div>
           <p className="eyebrow">{name}&apos;s Home 🪺</p>
-          <h3>{moodLine}</h3>
+          <h3>{face.emoji} {name} {face.line}</h3>
         </div>
         <button className="text-btn" type="button" onClick={onOpenStats}>
           Stats →
@@ -460,60 +492,109 @@ export function TweetyHomeCard({
         {nestTier === 'luxury' && <div className="nest-decor nest-lights" aria-hidden="true">✨🏮✨</div>}
         {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          <TweetyBird level={level.key} mood={mood} dancing={dancing} size={132} companion={tweety?.companion} worn={worn} />
+          <TweetyBird level={birdLevel} mood={mood} dancing={dancing} size={132} companion={tweety?.companion} worn={worn} />
           {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
           <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
         </div>
-        <span className="tweety-level-pill">{level.label}</span>
-        {streak > 0 && <span className="tweety-streak-pill">{streak}-day care streak 🔥</span>}
+        <span className="tweety-level-pill">{growth.label}</span>
+        <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
       </div>
-      {wearingNames.length > 0 && (
-        <p className="tweety-wearing">👗 Wearing: {wearingNames.join(' + ')}</p>
-      )}
-      {onDressUp && (
-        <button className="secondary-btn wide tweety-dress-btn" type="button" onClick={onDressUp}>
-          Dress {name} ✨
-        </button>
-      )}
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
       <div className="tweety-care-row">
         <button
-          className={`tweety-care-btn${today.fed ? ' done' : ''}`}
+          className={`tweety-care-btn${care.fed ? ' done' : ''}`}
           type="button"
           onClick={onFeed}
-          disabled={today.fed}
+          disabled={care.fed}
         >
-          <span className="tweety-care-icon" aria-hidden="true">{today.fed ? '🍽️' : '🥣'}</span>
-          <span>{today.fed ? 'Fed ✓' : 'Feed'}</span>
+          <span className="tweety-care-icon" aria-hidden="true">🌾</span>
+          <span>{care.fed ? 'Fed ✓' : 'Feed'}</span>
         </button>
         <button
-          className={`tweety-care-btn${today.watered ? ' done' : ''}`}
+          className={`tweety-care-btn${care.watered ? ' done' : ''}`}
           type="button"
           onClick={onWater}
-          disabled={today.watered}
+          disabled={care.watered}
         >
-          <span className="tweety-care-icon" aria-hidden="true">{today.watered ? '💧' : '🫗'}</span>
-          <span>{today.watered ? 'Watered ✓' : 'Water'}</span>
+          <span className="tweety-care-icon" aria-hidden="true">💧</span>
+          <span>{care.watered ? 'Watered ✓' : 'Water'}</span>
         </button>
         <button
-          className={`tweety-care-btn${today.played ? ' done' : ''}`}
+          className={`tweety-care-btn${care.played ? ' done' : ''}`}
           type="button"
           onClick={onPlay}
-          disabled={today.played}
+          disabled={care.played}
         >
-          <span className="tweety-care-icon" aria-hidden="true">{today.played ? '💗' : '🤍'}</span>
-          <span>{today.played ? 'Played ✓' : 'Play'}</span>
+          <span className="tweety-care-icon" aria-hidden="true">💕</span>
+          <span>{care.played ? 'Played ✓' : 'Play'}</span>
         </button>
       </div>
-      <p className="tweety-hint">Each little kindness gives +5 Feather Coins 🪙</p>
+      <p className="tweety-hint">Feed, water &amp; play — each refreshes every 8 hours 💛</p>
+    </section>
+  )
+}
+
+// ---- First-egg selection (very first login) --------------------------------
+export function FirstEggSelect({ onPick }) {
+  return (
+    <main className="login-screen companion-screen">
+      <section className="login-card companion-card" aria-labelledby="first-egg-title">
+        <p className="login-tag" id="first-egg-title">Choose your first egg 🥚</p>
+        <p className="login-sub">
+          Pick the egg that calls to you. What&apos;s curled up inside is a secret —
+          it only hatches after 3 days of warming. ✨
+        </p>
+        <div className="egg-choice-grid">
+          {FIRST_EGGS.map((egg) => (
+            <button className="egg-choice" type="button" key={egg.id} onClick={() => onPick(egg.id)}>
+              <ColorEgg color={egg.color} size={92} glow />
+              <strong>{egg.name}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
+    </main>
+  )
+}
+
+// ---- First-egg warming card (home, until it hatches into Tweety) -----------
+export function FirstEggCard({ tweety, onWarm }) {
+  const egg = tweety?.firstEgg
+  if (!egg) return null
+  const warms = egg.warms || 0
+  const warmedToday = egg.lastWarmDay === tweetyTodayKey()
+  return (
+    <section className="soft-card full-span tweety-card first-egg-card">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Your first egg 🥚</p>
+          <h3>Warm your {egg.name} egg every day — it hatches after {FIRST_EGG_WARMS} days</h3>
+        </div>
+      </div>
+      <div className="first-egg-stage">
+        <ColorEgg color={egg.color} size={140} glow />
+      </div>
+      <div className="hatch-progress">
+        <span style={{ width: `${(warms / FIRST_EGG_WARMS) * 100}%` }}></span>
+      </div>
+      {warmedToday ? (
+        <p className="fine-print">
+          So warm and cosy 💛 Come back tomorrow to warm it again. ({warms}/{FIRST_EGG_WARMS} days)
+        </p>
+      ) : (
+        <button className="primary-btn wide big-btn" type="button" onClick={onWarm}>
+          Warm the egg 🔥 ({warms}/{FIRST_EGG_WARMS})
+        </button>
+      )}
     </section>
   )
 }
 
 // ---- Stats page ------------------------------------------------------------
-export function TweetyStatsPage({ tweety, birdCount, onBack, onRename }) {
-  const level = tweetyLevel(birdCount)
+export function TweetyStatsPage({ tweety, onBack, onRename }) {
+  const growth = tweetyGrowth(tweety)
+  const mood = tweetySimpleMood(tweety)
   const name = tweety?.name || 'Tweety'
   return (
     <div className="page-grid">
@@ -522,7 +603,7 @@ export function TweetyStatsPage({ tweety, birdCount, onBack, onRename }) {
           Back
         </button>
         <div className="tweety-stats-hero">
-          <TweetyBird level={level.key} mood={tweetyMood(tweety)} size={120} companion={tweety?.companion} />
+          <TweetyBird level={GROWTH_TO_LEVEL[growth.key] || 'chick'} mood={mood} size={120} companion={tweety?.companion} />
           <div>
             <p className="eyebrow">Your pet bird</p>
             <h2>{name}</h2>
@@ -553,9 +634,9 @@ export function TweetyStatsPage({ tweety, birdCount, onBack, onRename }) {
             <p>days in a row</p>
           </div>
           <div className="stat-card">
-            <span>Current level</span>
-            <strong>{level.label}</strong>
-            <p>grows as you spot birds</p>
+            <span>Growth stage</span>
+            <strong>{growth.label}</strong>
+            <p>grows a little every real day</p>
           </div>
           <div className="stat-card">
             <span>Treats from Marnich</span>

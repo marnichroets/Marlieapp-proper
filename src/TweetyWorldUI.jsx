@@ -45,6 +45,7 @@ export function TweetyWorldCard({
   onEventResolve,
   onOpenRoom,
   onOpenSanctuary,
+  hideLinks = false,
 }) {
   const eggs = tweety?.eggs || []
   const inc = tweety?.incubating
@@ -125,14 +126,16 @@ export function TweetyWorldCard({
         </div>
       )}
 
-      <div className="world-links">
-        <button className="secondary-btn" type="button" onClick={onOpenRoom}>
-          Bird Room 🏡
-        </button>
-        <button className="secondary-btn" type="button" onClick={onOpenSanctuary}>
-          Sanctuary 🌿 ({sanctuaryCount})
-        </button>
-      </div>
+      {!hideLinks && (
+        <div className="world-links">
+          <button className="secondary-btn" type="button" onClick={onOpenRoom}>
+            Bird Room 🏡
+          </button>
+          <button className="secondary-btn" type="button" onClick={onOpenSanctuary}>
+            Sanctuary 🌿 ({sanctuaryCount})
+          </button>
+        </div>
+      )}
     </section>
   )
 }
