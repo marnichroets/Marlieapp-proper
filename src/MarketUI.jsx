@@ -77,7 +77,8 @@ export function MarketTab({ wardrobe, coins, isAdmin, marketPick, onBuy, onGift,
   const refreshMs = msUntilRefresh(now)
   const pickId = marnichPickId(now, marketPick)
   // "Missed" items — everything in the catalogue that isn't on sale right now.
-  const missed = WEARABLES.filter((w) => !w.adminOnly && !isInMarket(w.id, now))
+  // Admins also see admin-only treasures (e.g. the gift box) so they can gift any item.
+  const missed = WEARABLES.filter((w) => (isAdmin || !w.adminOnly) && !isInMarket(w.id, now))
 
   return (
     <>
@@ -119,7 +120,7 @@ export function MarketTab({ wardrobe, coins, isAdmin, marketPick, onBuy, onGift,
           <div className="section-heading">
             <div>
               <p className="eyebrow">Not in the market right now</p>
-              <h3>Out of stock — they&apos;ll rotate back</h3>
+              <h3>{isAdmin ? 'Gift any item from the full collection' : "Out of stock — they'll rotate back"}</h3>
             </div>
           </div>
           <div className="store-grid market-grid">
@@ -139,7 +140,13 @@ export function MarketTab({ wardrobe, coins, isAdmin, marketPick, onBuy, onGift,
                   <span className="market-emoji" aria-hidden="true">{item.emoji}</span>
                   <h4>{item.name}</h4>
                   <small className="market-slot">{slotName(item.slot)}</small>
-                  {owned ? <span className="store-owned">Owned ✅</span> : <span className="market-soldout">Come back soon</span>}
+                  {owned ? (
+                    <span className="store-owned">Owned ✅</span>
+                  ) : isAdmin ? (
+                    <button className="primary-btn store-buy" type="button" onClick={() => onGift(item)}>Gift 🎁</button>
+                  ) : (
+                    <span className="market-soldout">Come back soon</span>
+                  )}
                 </article>
               )
             })}
