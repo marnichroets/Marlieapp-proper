@@ -1121,6 +1121,7 @@ function buildDefaultState() {
     tweety: defaultTweety(),
     store: defaultStore(),
     games: defaultGames(),
+    discoveries: [],
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
     settings: {
@@ -1216,6 +1217,7 @@ function loadState() {
       tweety: { ...base.tweety, ...(saved.tweety || {}) },
       store: { ...base.store, ...(saved.store || {}) },
       games: { ...base.games, ...(saved.games || {}) },
+      discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
         ...base.magazineIssue,
@@ -1921,6 +1923,46 @@ function App() {
     )
   }
 
+  // Admin one-tap: add a discovered bird into the Bird Book library.
+  function addDiscoveryToLibrary(discoveryId) {
+    const discovery = data.discoveries.find((d) => d.id === discoveryId)
+    if (!discovery || discovery.addedToLibrary) return
+    const ai = discovery.aiMatch || {}
+    const newBird = normalizeLibraryBird({
+      id: `discovery-${discovery.speciesKey}-${Date.now()}`,
+      commonName: discovery.birdName,
+      afrikaansName: discovery.afrikaansName || ai.afrikaansName || '',
+      scientificName: discovery.scientificName || ai.scientificName || '',
+      category: 'Garden birds',
+      tags: ['Garden birds'],
+      region: ai.whereFoundInSouthAfrica || '',
+      habitat: ai.habitat || '',
+      diet: ai.diet || '',
+      colours: ai.colours || '',
+      size: ai.size || '',
+      whereFoundInSouthAfrica: ai.whereFoundInSouthAfrica || '',
+      description: ai.cutePersonalityLine || ai.whyThisBird || 'Discovered by Pooks.',
+      funFacts: ai.funFacts || [],
+      soundDescription: ai.soundDescription || '',
+      mysteryClue: 'A bird Pooks discovered all on her own. 🌟',
+      imageUrl: discovery.photo || '',
+      seen: true,
+      firstSeenDate: discovery.date,
+      lastSeenDate: discovery.date,
+      timesSeen: 1,
+    })
+    commit(
+      {
+        ...data,
+        birdLibrary: [...data.birdLibrary, newBird],
+        discoveries: data.discoveries.map((d) =>
+          d.id === discoveryId ? { ...d, addedToLibrary: true } : d,
+        ),
+      },
+      { title: 'Added to the Bird Book 📖', body: `${discovery.birdName} is now in the library.` },
+    )
+  }
+
   // Buy (or, when free, gift) a Bird Store item. Purchases apply immediately.
   function buyStoreItem(section, item, options = {}) {
     const free = Boolean(options.free)
@@ -2246,6 +2288,28 @@ function App() {
         ? data.birdLibrary[libraryMatchIndex]
         : null
 
+    // A bird the Bird Book has never recorded — a brand-new discovery!
+    const isDiscovery = isNewSpecies && libraryMatchIndex < 0 && Boolean(aiMatch)
+    const discoveryBonus = isDiscovery ? 50 : 0
+    if (isDiscovery) sighting.discovery = true
+    const nextDiscoveries =
+      isDiscovery && !data.discoveries.some((d) => d.speciesKey === speciesKey)
+        ? [
+            {
+              id: createId('discovery'),
+              speciesKey,
+              birdName,
+              scientificName: aiMatch?.scientificName || '',
+              afrikaansName: aiMatch?.afrikaansName || '',
+              aiMatch,
+              date: todayValue(),
+              photo: form.photo || '',
+              addedToLibrary: false,
+            },
+            ...data.discoveries,
+          ]
+        : data.discoveries
+
     // Spotting a RARE bird in real life earns a guaranteed mystery egg
     // (if Tweety has no egg or baby right now).
     const spottedRare =
@@ -2270,8 +2334,9 @@ function App() {
       sightings,
       birds: buildBirdRecords(sightings),
       birdLibrary: upsertBirdLibraryFromSighting(data.birdLibrary, sighting),
-      featherCoins: data.featherCoins + coinsEarned,
+      featherCoins: data.featherCoins + coinsEarned + discoveryBonus,
       tweety: rareEggTweety,
+      discoveries: nextDiscoveries,
       settings: {
         ...data.settings,
         birdCrush: form.makeBirdCrush ? birdName : data.settings.birdCrush,
@@ -2279,20 +2344,31 @@ function App() {
     }
 
     commit(nextState, {
-      title: unlockedMysteryBird
-        ? 'Mystery card unlocked! \ud83c\udf89'
-        : isNewSpecies
-          ? 'New species logged!'
-          : 'Repeat sighting logged!',
+      title: isDiscovery
+        ? 'New Discovery! \ud83c\udf1f'
+        : unlockedMysteryBird
+          ? 'Mystery card unlocked! \ud83c\udf89'
+          : isNewSpecies
+            ? 'New species logged!'
+            : 'Repeat sighting logged!',
       body: [
-        `${getCouncilMessage(data.sightings.length)} +${coinsEarned} Feather Coins.`,
+        `${getCouncilMessage(data.sightings.length)} +${coinsEarned + discoveryBonus} Feather Coins.`,
+        isDiscovery ? '+50 discovery bonus \ud83c\udf1f' : '',
         options.checkedOff ? "Checked off Marlie's South African Bird List \u2705" : '',
       ]
         .filter(Boolean)
         .join(' '),
     })
 
-    if (unlockedMysteryBird) {
+    if (isDiscovery) {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'New Discovery! \ud83c\udf1f',
+        body: `The Bird Council has never recorded the ${birdName} before! You earned a "Discovered by Pooks \ud83c\udf1f" badge and +50 bonus coins.`,
+        photo: form.photo || '',
+      })
+    } else if (unlockedMysteryBird) {
       // Full unlock celebration: confetti + reveal the card with her own photo.
       setConfetti(Date.now())
       setReveal({
@@ -2998,6 +3074,7 @@ function App() {
             sendTweetyTreat={sendTweetyTreat}
             sendMysteryEgg={sendMysteryEgg}
             sendFlockTreat={sendFlockTreat}
+            addDiscoveryToLibrary={addDiscoveryToLibrary}
             buyStoreItem={buyStoreItem}
             onQuizDone={onQuizDone}
             onWordleDone={onWordleDone}
@@ -4316,6 +4393,37 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
           ))}
         </div>
       </section>
+
+      {data.discoveries.length > 0 && (
+        <section className="soft-card full-span discoveries-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">My Discoveries 🌟</p>
+              <h3>Birds you found that weren&apos;t in the Bird Book</h3>
+            </div>
+            <span className="status-pill">{data.discoveries.length}</span>
+          </div>
+          <div className="discovery-grid">
+            {data.discoveries.map((discovery) => (
+              <article className="discovery-card" key={discovery.id}>
+                {discovery.photo ? (
+                  <img src={discovery.photo} alt={discovery.birdName} />
+                ) : (
+                  <div className="discovery-photo-placeholder" aria-hidden="true">🌟</div>
+                )}
+                <div>
+                  <span className="status-pill rare">Discovered by Pooks 🌟</span>
+                  <h4>{discovery.birdName}</h4>
+                  <p className="fine-print">{discovery.scientificName || formatDate(discovery.date)}</p>
+                  {discovery.addedToLibrary && (
+                    <p className="fine-print">In the Bird Book 📖</p>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="full-span library-grid" aria-live="polite">
         {filteredBirds.length === 0 && (
@@ -5976,6 +6084,7 @@ function AdminPage({
   sendTweetyTreat,
   sendMysteryEgg,
   sendFlockTreat,
+  addDiscoveryToLibrary,
   buyStoreItem,
   onQuizDone,
   onWordleDone,
@@ -6404,6 +6513,45 @@ function AdminPage({
             Treat for the flock 🎉
           </button>
         </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">New Discoveries 🌟</p>
+            <h3>Birds Pooks found outside the Bird Book</h3>
+          </div>
+          <span className="status-pill">
+            {data.discoveries.filter((d) => !d.addedToLibrary).length} new
+          </span>
+        </div>
+        {data.discoveries.length === 0 ? (
+          <EmptyState text="No discoveries yet — she hasn't found anything off-book." />
+        ) : (
+          <div className="admin-list-scroll">
+            {data.discoveries.map((discovery) => (
+              <article className="admin-edit-row" key={discovery.id}>
+                <div>
+                  <strong>{discovery.birdName}</strong>
+                  <p className="fine-print">
+                    {discovery.scientificName || 'unknown'} · {formatDate(discovery.date)}
+                  </p>
+                </div>
+                {discovery.addedToLibrary ? (
+                  <span className="status-pill paid">In library 📖</span>
+                ) : (
+                  <button
+                    className="primary-btn"
+                    type="button"
+                    onClick={() => addDiscoveryToLibrary(discovery.id)}
+                  >
+                    Add to library 📖
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <details className="soft-card full-span">
