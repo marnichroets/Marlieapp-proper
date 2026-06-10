@@ -9,7 +9,58 @@ export function defaultTweety() {
     treatsReceived: 0,
     pendingTreat: false,
     lastBonusStreak: 0,
+    // Family + aviary
+    egg: null, // { laidAt, careDays, lastCareDay, kind: 'normal'|'mystery', species }
+    baby: null, // { hatchedAt, species, careLog }
+    aviary: [], // [{ id, species, addedAt, idle }]
+    lastAviaryPayout: '',
+    guardian: false,
+    flockTreat: false,
   }
+}
+
+export const AVIARY_MAX = 8
+
+// Rare birds that only ever arrive via a mystery egg from Marnich.
+export const RARE_EGG_BIRDS = [
+  'Lilac-breasted Roller',
+  'Narina Trogon',
+  'African Pygmy Kingfisher',
+  'Knysna Turaco',
+  'Purple-crested Turaco',
+  'Malachite Kingfisher',
+]
+
+export function daysSince(iso) {
+  if (!iso) return 0
+  const then = new Date(iso)
+  then.setHours(0, 0, 0, 0)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.floor((now - then) / 86400000))
+}
+
+// Baby grows over ~7 days: hatchling (0-2), fledgling (3-5), adult (6+).
+export function babyStage(baby) {
+  if (!baby) return null
+  const d = daysSince(baby.hatchedAt)
+  if (d >= 6) return 'adult'
+  if (d >= 3) return 'fledgling'
+  return 'hatchling'
+}
+
+export function babyStageLabel(stage) {
+  return { hatchling: 'Hatchling 🐣', fledgling: 'Fledgling 🐥', adult: 'All grown up 🐤' }[stage] || ''
+}
+
+export function babyCareToday(baby) {
+  const key = new Date().toISOString().slice(0, 10)
+  return baby?.careLog?.[key] || { fed: false, watered: false }
+}
+
+// Coins for releasing a baby at each stage.
+export function releaseCoins(stage) {
+  return { hatchling: 30, fledgling: 60, adult: 200 }[stage] || 30
 }
 
 function dayKey(offset = 0) {

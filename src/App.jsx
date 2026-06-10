@@ -4,7 +4,7 @@ import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird, weeklyFaviconDataUrl } from './birdData'
-import { TweetyHomeCard, TweetyStatsPage } from './Tweety'
+import { TweetyHomeCard, TweetyStatsPage, TweetyFamilyCard, AviaryCard } from './Tweety'
 import {
   defaultTweety,
   tweetyToday,
@@ -13,6 +13,10 @@ import {
   tweetyLevel,
   tweetyTodayKey,
   playChirp,
+  babyStage,
+  releaseCoins,
+  AVIARY_MAX,
+  RARE_EGG_BIRDS,
 } from './tweetyData'
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
@@ -1513,6 +1517,48 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
+  // Daily aviary income: pay out once per day when birds live in the aviary.
+  useEffect(() => {
+    if (!session || session.role !== 'pooks') return undefined
+    const aviary = data.tweety?.aviary || []
+    const key = tweetyTodayKey()
+    if (!aviary.length || data.tweety?.lastAviaryPayout === key) return undefined
+    let cancelled = false
+    window.setTimeout(() => {
+      if (cancelled) return
+      const coins = aviary.length * 3 + (aviary.length >= AVIARY_MAX ? 20 : 0)
+      setData((current) => ({
+        ...current,
+        tweety: { ...current.tweety, lastAviaryPayout: key },
+        featherCoins: current.featherCoins + coins,
+      }))
+      setToast({
+        title: 'Aviary income 🏠',
+        body: `Your ${aviary.length} aviary bird${aviary.length === 1 ? '' : 's'} earned +${coins} coins today!`,
+        tone: 'success',
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
+
+  // Clear the flock-treat flag after the happy dance has played once.
+  useEffect(() => {
+    if (!data.tweety?.flockTreat) return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (!cancelled) {
+        setData((current) => ({ ...current, tweety: { ...current.tweety, flockTreat: false } }))
+      }
+    }, 2600)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [data.tweety?.flockTreat])
+
   const stats = useMemo(() => {
     const uniqueCount = data.birds.length
     const currentLevel = getCurrentLevel(uniqueCount)
@@ -1667,8 +1713,9 @@ function App() {
     let coins = COINS.tweetyCare
     let bonusNote = ''
     const becameFull = nextToday.fed && nextToday.watered && nextToday.played
+    let newStreak = 0
     if (becameFull) {
-      const newStreak = tweetyStreak(nextTweety)
+      newStreak = tweetyStreak(nextTweety)
       let lastBonus = data.tweety?.lastBonusStreak || 0
       while (newStreak >= lastBonus + 7) {
         lastBonus += 7
@@ -1676,6 +1723,49 @@ function App() {
         bonusNote = ` ${lastBonus}-day care streak! ${nextTweety.name || 'Tweety'} does a special celebration dance! +${COINS.tweetyStreak} bonus 🎉`
       }
       nextTweety.lastBonusStreak = lastBonus
+    }
+
+    // ----- Family lifecycle (egg laying + hatching) -----
+    let familyNote = ''
+    if (becameFull) {
+      const todayKeyStr = tweetyTodayKey()
+      if (nextTweety.egg) {
+        // Progress the egg one step per distinct full-care day.
+        if (nextTweety.egg.lastCareDay !== todayKeyStr) {
+          const careDays = (nextTweety.egg.careDays || 0) + 1
+          if (careDays >= 3) {
+            // Hatch!
+            const species = nextTweety.egg.species || 'little bird'
+            nextTweety.baby = {
+              hatchedAt: new Date().toISOString(),
+              species,
+              careLog: {},
+            }
+            nextTweety.egg = null
+            setConfetti(Date.now())
+            setReveal({
+              tone: 'bird',
+              title: 'The egg hatched! 🐣',
+              body: `A baby ${species} popped out! Look after it while it grows up. 🎉`,
+            })
+          } else {
+            nextTweety.egg = { ...nextTweety.egg, careDays, lastCareDay: todayKeyStr }
+            familyNote = ` The egg wobbled… ${careDays}/3 days to hatch. 🥚`
+          }
+        }
+      } else if (!nextTweety.baby && newStreak >= 7 && newStreak % 7 === 0) {
+        // Lay an egg matching her most recent real sighting.
+        const recent = [...data.sightings].reverse()[0]
+        const species = recent?.birdName || data.birds[0]?.birdName || 'garden bird'
+        nextTweety.egg = {
+          laidAt: new Date().toISOString(),
+          careDays: 0,
+          lastCareDay: '',
+          kind: 'normal',
+          species,
+        }
+        familyNote = ' Tweety laid an egg! Keep caring for her while it hatches 🥚✨'
+      }
     }
 
     const celebrate = kind === 'play' || Boolean(bonusNote)
@@ -1694,13 +1784,141 @@ function App() {
             : field === 'watered'
               ? 'Refreshing! 💧'
               : 'So much fun! 💗',
-        body: `${nextTweety.name || 'Tweety'} loved that. +${coins} Feather Coins.${bonusNote}`,
+        body: `${nextTweety.name || 'Tweety'} loved that. +${coins} Feather Coins.${bonusNote}${familyNote}`,
       },
     )
   }
 
   function renameTweety(name) {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
+  }
+
+  // Feed / water the baby bird while it grows.
+  function careBaby(kind) {
+    const baby = data.tweety?.baby
+    if (!baby) return
+    const key = tweetyTodayKey()
+    const todayCare = baby.careLog?.[key] || { fed: false, watered: false }
+    const field = kind === 'water' ? 'watered' : 'fed'
+    if (todayCare[field]) return
+    playChirp(kind)
+    commit(
+      {
+        ...data,
+        tweety: {
+          ...data.tweety,
+          baby: { ...baby, careLog: { ...(baby.careLog || {}), [key]: { ...todayCare, [field]: true } } },
+        },
+        featherCoins: data.featherCoins + COINS.tweetyCare,
+      },
+      { title: 'Baby fed 🐣', body: `Your baby loved that. +${COINS.tweetyCare} Feather Coins.` },
+    )
+  }
+
+  function releaseBaby() {
+    const baby = data.tweety?.baby
+    if (!baby) return
+    const stage = babyStage(baby)
+    const coins = releaseCoins(stage)
+    const becameGuardian = stage === 'adult'
+    setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        tweety: { ...data.tweety, baby: null, guardian: data.tweety.guardian || becameGuardian },
+        featherCoins: data.featherCoins + coins,
+      },
+      {
+        title: 'Released into the wild 🌿',
+        body: `Your ${stage} ${baby.species} flew away free! +${coins} Feather Coins.${becameGuardian ? ' Bird Guardian badge earned 🛡️' : ''}`,
+      },
+    )
+  }
+
+  function keepBaby() {
+    const baby = data.tweety?.baby
+    if (!baby || babyStage(baby) !== 'adult') return
+    const aviary = data.tweety?.aviary || []
+    if (aviary.length >= AVIARY_MAX) {
+      setToast({
+        title: 'Aviary full 🏠',
+        body: 'Release one bird first to make room for another.',
+        tone: 'warning',
+      })
+      return
+    }
+    const idles = ['hop', 'preen', 'sleep']
+    const next = [
+      ...aviary,
+      {
+        id: createId('aviary'),
+        species: baby.species,
+        addedAt: new Date().toISOString(),
+        idle: idles[aviary.length % idles.length],
+      },
+    ]
+    setConfetti(Date.now())
+    commit(
+      { ...data, tweety: { ...data.tweety, baby: null, aviary: next } },
+      { title: 'Welcome to the aviary 🏠', body: `${baby.species} joined your flock!` },
+    )
+  }
+
+  function releaseAviaryBird(id) {
+    const aviary = data.tweety?.aviary || []
+    const bird = aviary.find((b) => b.id === id)
+    if (!bird) return
+    commit(
+      {
+        ...data,
+        tweety: { ...data.tweety, aviary: aviary.filter((b) => b.id !== id) },
+        featherCoins: data.featherCoins + 100,
+      },
+      { title: 'Released 🌿', body: `${bird.species} flew free. +100 Feather Coins.` },
+    )
+  }
+
+  function sendMysteryEgg() {
+    if (data.tweety?.egg || data.tweety?.baby) {
+      setToast({
+        title: 'Tweety is busy 🥚',
+        body: 'She already has an egg or baby — try again once it grows up.',
+        tone: 'warning',
+      })
+      return
+    }
+    const species = RARE_EGG_BIRDS[Math.floor(Math.random() * RARE_EGG_BIRDS.length)]
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        egg: { laidAt: new Date().toISOString(), careDays: 0, lastCareDay: '', kind: 'mystery', species },
+      },
+    }))
+    setToast({
+      title: 'Mystery egg sent 💛',
+      body: `A gold mystery egg is on its way to ${data.tweety?.name || 'Tweety'}! What could be inside?`,
+      tone: 'success',
+    })
+  }
+
+  function sendFlockTreat() {
+    const flock = data.tweety?.aviary || []
+    if (flock.length === 0) {
+      setToast({ title: 'No flock yet', body: 'The aviary is empty.', tone: 'calm' })
+      return
+    }
+    const bonus = flock.length * 5
+    setTweetyDancing(true)
+    window.setTimeout(() => setTweetyDancing(false), 2400)
+    commit(
+      {
+        ...data,
+        tweety: { ...data.tweety, flockTreat: true },
+        featherCoins: data.featherCoins + bonus,
+      },
+      { title: 'Treat for the flock 🎉', body: `The whole aviary does a happy dance! +${bonus} Feather Coins.` },
+    )
   }
 
   // Buy (or, when free, gift) a Bird Store item. Purchases apply immediately.
@@ -2028,6 +2246,24 @@ function App() {
         ? data.birdLibrary[libraryMatchIndex]
         : null
 
+    // Spotting a RARE bird in real life earns a guaranteed mystery egg
+    // (if Tweety has no egg or baby right now).
+    const spottedRare =
+      libraryMatchIndex >= 0 && data.birdLibrary[libraryMatchIndex].special
+    const rareEggTweety =
+      spottedRare && !data.tweety?.egg && !data.tweety?.baby
+        ? {
+            ...data.tweety,
+            egg: {
+              laidAt: new Date().toISOString(),
+              careDays: 0,
+              lastCareDay: '',
+              kind: 'mystery',
+              species: data.birdLibrary[libraryMatchIndex].commonName,
+            },
+          }
+        : data.tweety
+
     const sightings = [...data.sightings, sighting]
     const nextState = {
       ...data,
@@ -2035,6 +2271,7 @@ function App() {
       birds: buildBirdRecords(sightings),
       birdLibrary: upsertBirdLibraryFromSighting(data.birdLibrary, sighting),
       featherCoins: data.featherCoins + coinsEarned,
+      tweety: rareEggTweety,
       settings: {
         ...data.settings,
         birdCrush: form.makeBirdCrush ? birdName : data.settings.birdCrush,
@@ -2660,6 +2897,10 @@ function App() {
             tweetyView={tweetyView}
             tweetyDancing={tweetyDancing}
             careTweety={careTweety}
+            careBaby={careBaby}
+            releaseBaby={releaseBaby}
+            keepBaby={keepBaby}
+            releaseAviaryBird={releaseAviaryBird}
           />
         )}
         {activePage === 'tweety' && (
@@ -2755,6 +2996,8 @@ function App() {
             markRewardPaid={markRewardPaid}
             sendSurpriseNote={sendSurpriseNote}
             sendTweetyTreat={sendTweetyTreat}
+            sendMysteryEgg={sendMysteryEgg}
+            sendFlockTreat={sendFlockTreat}
             buyStoreItem={buyStoreItem}
             onQuizDone={onQuizDone}
             onWordleDone={onWordleDone}
@@ -3262,6 +3505,10 @@ function HomePage({
   tweetyView,
   tweetyDancing,
   careTweety,
+  careBaby,
+  releaseBaby,
+  keepBaby,
+  releaseAviaryBird,
 }) {
   const seenLibraryCount = data.birdLibrary.filter((bird) => bird.seen).length
   const collectionProgress = data.birdLibrary.length
@@ -3297,6 +3544,20 @@ function HomePage({
         onWater={() => careTweety('water')}
         onPlay={() => careTweety('play')}
         onOpenStats={() => goTo('tweety')}
+      />
+
+      <TweetyFamilyCard
+        tweety={data.tweety}
+        onCareBaby={careBaby}
+        onRelease={releaseBaby}
+        onKeep={keepBaby}
+      />
+
+      <AviaryCard
+        tweety={data.tweety}
+        aviaryTier={data.store?.aviaryTier || 'basic'}
+        flockDance={Boolean(data.tweety?.flockTreat)}
+        onReleaseAviary={releaseAviaryBird}
       />
 
       <section className={`mission-card${done ? ' done' : ''}`}>
@@ -5713,6 +5974,8 @@ function AdminPage({
   markRewardPaid,
   sendSurpriseNote,
   sendTweetyTreat,
+  sendMysteryEgg,
+  sendFlockTreat,
   buyStoreItem,
   onQuizDone,
   onWordleDone,
@@ -6130,9 +6393,17 @@ function AdminPage({
           <StatCard label="Level" value={tweetyLevel(data.birds.length).label} detail="grows with sightings" />
           <StatCard label="Treats sent" value={data.tweety?.treatsReceived || 0} detail="from you 💛" />
         </div>
-        <button className="primary-btn" type="button" onClick={sendTweetyTreat}>
-          Send {data.tweety?.name || 'Tweety'} a surprise treat 🎁
-        </button>
+        <div className="admin-actions">
+          <button className="primary-btn" type="button" onClick={sendTweetyTreat}>
+            Surprise treat 🎁
+          </button>
+          <button className="secondary-btn" type="button" onClick={sendMysteryEgg}>
+            Send a mystery egg 🥚
+          </button>
+          <button className="secondary-btn" type="button" onClick={sendFlockTreat}>
+            Treat for the flock 🎉
+          </button>
+        </div>
       </section>
 
       <details className="soft-card full-span">

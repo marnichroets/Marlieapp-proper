@@ -5,6 +5,11 @@ import {
   tweetyLevel,
   tweetyDaysCared,
   tweetyLongestStreak,
+  babyStage,
+  babyStageLabel,
+  babyCareToday,
+  daysSince,
+  AVIARY_MAX,
 } from './tweetyData'
 
 // ---- Tweety SVG ------------------------------------------------------------
@@ -223,5 +228,183 @@ export function TweetyStatsPage({ tweety, birdCount, onBack, onRename }) {
         </div>
       </section>
     </div>
+  )
+}
+
+// ---- Egg / baby / aviary SVGs ----------------------------------------------
+function EggSVG({ mystery = false }) {
+  const shell = mystery ? '#F2D06A' : '#FBEFD6'
+  const speck = mystery ? '#E0A64F' : '#E8CFA6'
+  return (
+    <span className={`egg-svg${mystery ? ' mystery' : ''}`} aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <g className="egg-shake">
+          <ellipse cx="50" cy="56" rx="28" ry="34" fill={shell} />
+          <ellipse cx="42" cy="46" rx="8" ry="11" fill="#fff" opacity="0.5" />
+          <circle cx="40" cy="64" r="3" fill={speck} />
+          <circle cx="58" cy="54" r="3.5" fill={speck} />
+          <circle cx="54" cy="72" r="2.6" fill={speck} />
+        </g>
+      </svg>
+    </span>
+  )
+}
+
+function BabySVG({ stage }) {
+  const rx = stage === 'adult' ? 26 : stage === 'fledgling' ? 22 : 18
+  const ry = rx + 1
+  return (
+    <span className="baby-svg" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <g className="tweety-bob">
+          {stage !== 'hatchling' && (
+            <>
+              <ellipse cx={50 - rx + 2} cy="58" rx="7" ry={stage === 'adult' ? 12 : 9} fill="#EBB94E" />
+              <ellipse cx={50 + rx - 2} cy="58" rx="7" ry={stage === 'adult' ? 12 : 9} fill="#EBB94E" />
+            </>
+          )}
+          <ellipse cx="50" cy="58" rx={rx} ry={ry} fill="#F6CE73" />
+          <ellipse cx="50" cy="64" rx={rx * 0.6} ry={ry * 0.55} fill="#FBE6A8" />
+          {stage === 'hatchling' && (
+            <path d="M38 40 q12 -10 24 0 q-4 -3 -12 -3 q-8 0 -12 3 Z" fill="#FBEFD6" />
+          )}
+          <circle cx="44" cy="52" r="3" fill="#3E2F22" />
+          <circle cx="56" cy="52" r="3" fill="#3E2F22" />
+          <path d="M47 58 l6 0 l-3 5 z" fill="#F2A24E" />
+          <path d="M46 66 q4 3 8 0" stroke="#C8742E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        </g>
+      </svg>
+    </span>
+  )
+}
+
+function AviaryBird({ idle = 'hop' }) {
+  return (
+    <span className={`aviary-bird idle-${idle}`} aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <g>
+          <ellipse cx="50" cy="58" rx="22" ry="23" fill="#F4A09A" />
+          <ellipse cx="48" cy="64" rx="13" ry="11" fill="#FBD9D2" />
+          <ellipse cx="38" cy="56" rx="8" ry="11" fill="#DA8680" />
+          <circle cx="58" cy="50" r="3" fill="#3E2F22" />
+          <path d="M70 52 l8 3 l-8 3 z" fill="#F2A24E" />
+        </g>
+      </svg>
+    </span>
+  )
+}
+
+// ---- Family card (egg or baby) ---------------------------------------------
+export function TweetyFamilyCard({ tweety, onCareBaby, onRelease, onKeep }) {
+  const egg = tweety?.egg
+  const baby = tweety?.baby
+  if (!egg && !baby) return null
+
+  if (egg) {
+    const progress = Math.min(3, egg.careDays || 0)
+    return (
+      <section className={`soft-card full-span family-card egg-card${egg.kind === 'mystery' ? ' mystery' : ''}`}>
+        <p className="eyebrow">{egg.kind === 'mystery' ? 'A mystery egg from Marnich 💛' : "Tweety's egg 🥚"}</p>
+        <div className="egg-stage">
+          <EggSVG mystery={egg.kind === 'mystery'} />
+        </div>
+        <h3>
+          {egg.kind === 'mystery'
+            ? 'What could be inside? Keep caring for Tweety while it hatches ✨'
+            : 'Tweety laid an egg! Keep caring for her while it hatches 🥚✨'}
+        </h3>
+        <p className="fine-print">Hatches after 3 days of full care — {progress}/3 so far.</p>
+        <div className="progress-track">
+          <span style={{ width: `${(progress / 3) * 100}%` }}></span>
+        </div>
+      </section>
+    )
+  }
+
+  const stage = babyStage(baby)
+  const care = babyCareToday(baby)
+  return (
+    <section className="soft-card full-span family-card baby-card">
+      <p className="eyebrow">Baby {baby.species} · {babyStageLabel(stage)}</p>
+      <div className="egg-stage">
+        <BabySVG stage={stage} />
+      </div>
+      {stage === 'adult' ? (
+        <>
+          <h3>Your little one is all grown up! Time to decide… 🐦</h3>
+          <div className="button-row">
+            <button className="primary-btn" type="button" onClick={onRelease}>
+              Release into the wild 🌿
+            </button>
+            <button className="secondary-btn" type="button" onClick={onKeep}>
+              Keep in my aviary 🏠
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <h3>Look after your baby bird every day 💛</h3>
+          <p className="fine-print">Day {daysSince(baby.hatchedAt)} of growing up.</p>
+          <div className="tweety-care-row">
+            <button
+              className={`tweety-care-btn${care.fed ? ' done' : ''}`}
+              type="button"
+              onClick={() => onCareBaby('feed')}
+              disabled={care.fed}
+            >
+              <span className="tweety-care-icon">{care.fed ? '🍽️' : '🥣'}</span>
+              <span>{care.fed ? 'Fed ✓' : 'Feed'}</span>
+            </button>
+            <button
+              className={`tweety-care-btn${care.watered ? ' done' : ''}`}
+              type="button"
+              onClick={() => onCareBaby('water')}
+              disabled={care.watered}
+            >
+              <span className="tweety-care-icon">{care.watered ? '💧' : '🫗'}</span>
+              <span>{care.watered ? 'Watered ✓' : 'Water'}</span>
+            </button>
+          </div>
+          <button className="text-btn" type="button" onClick={onRelease}>
+            Release early 🌿
+          </button>
+        </>
+      )}
+    </section>
+  )
+}
+
+// ---- Aviary card -----------------------------------------------------------
+export function AviaryCard({ tweety, aviaryTier = 'basic', flockDance = false, onReleaseAviary }) {
+  const aviary = tweety?.aviary || []
+  if (aviary.length === 0) return null
+  const full = aviary.length >= AVIARY_MAX
+  const dailyCoins = aviary.length * 3 + (full ? 20 : 0)
+  return (
+    <section className={`soft-card full-span aviary-card aviary-${aviaryTier}${flockDance ? ' flock-dance' : ''}`}>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Your Aviary 🏠</p>
+          <h3>{aviary.length} / {AVIARY_MAX} birds · +{dailyCoins} coins a day</h3>
+        </div>
+        {full && <span className="status-pill paid">Full flock bonus! ✨</span>}
+      </div>
+      <div className="aviary-stage">
+        {aviary.map((bird) => (
+          <div className="aviary-slot" key={bird.id}>
+            <AviaryBird idle={bird.idle} />
+            <small>{bird.species}</small>
+            <button
+              className="text-btn"
+              type="button"
+              onClick={() => onReleaseAviary(bird.id)}
+            >
+              Release 🌿
+            </button>
+          </div>
+        ))}
+      </div>
+      {full && <p className="fine-print">Aviary full — release a bird to make room for a new one.</p>}
+    </section>
   )
 }
