@@ -1492,6 +1492,68 @@ function buildBirdRecords(sightings) {
   return [...records.values()].sort((a, b) => a.birdName.localeCompare(b.birdName))
 }
 
+// Identify a bird photo via the backend; returns the top match or null. Used by
+// the daily-challenge flow to add a photographed bird to the collection.
+async function identifyTopMatch(photoFile) {
+  if (!photoFile || !BIRD_API_URL) return null
+  try {
+    const body = new FormData()
+    body.append('file', photoFile)
+    const response = await fetch(`${BIRD_API_URL}/api/identify-bird`, { method: 'POST', body })
+    if (!response.ok) return null
+    const payload = await response.json()
+    const result = normalizeAiIdentificationResponse(payload)
+    const top = result?.topMatches?.[0]
+    if (!top || result.uncertain || !String(top.commonName || '').trim()) return null
+    return top
+  } catch (error) {
+    console.warn('Challenge bird identification skipped', error)
+    return null
+  }
+}
+
+// Pure: append a bird (from an AI match) to a state, rebuilding derived data.
+// Kept separate from addBird so the challenge flow can combine it with the
+// challenge-completion update in a single commit (no clobbering).
+function addBirdToState(state, match, photo) {
+  const birdName = String(match.commonName || '').trim()
+  const speciesKey = normalizeBirdName(birdName)
+  if (!speciesKey) return state
+  const isNewSpecies = !state.birds.some((bird) => bird.id === speciesKey)
+  const aiMatch = normalizeAiMatch(match)
+  const sighting = {
+    id: createId('sighting'),
+    speciesKey,
+    birdName,
+    nickname: nicknameIdeas[speciesKey] || 'Officially Cute Bird',
+    dateSpotted: todayValue(),
+    timeSpotted: '',
+    location: '',
+    notes: 'Spotted for a daily challenge 🐦',
+    mood: 'Curious',
+    seenWithMarnich: false,
+    favorite: false,
+    photo: photo || '',
+    coinsEarned: COINS.spot + (isNewSpecies ? COINS.firstSpecies : 0),
+    createdAt: new Date().toISOString(),
+    source: 'ai',
+    aiMatch,
+  }
+  const sightings = [...state.sightings, sighting]
+  let eggs = state.tweety?.eggs || []
+  if (isNewSpecies && eggs.length < MAX_EGGS) {
+    eggs = [...eggs, { id: createId('egg'), species: birdName, kind: 'normal' }]
+  }
+  return {
+    ...state,
+    sightings,
+    birds: buildBirdRecords(sightings),
+    birdLibrary: upsertBirdLibraryFromSighting(state.birdLibrary, sighting),
+    featherCoins: state.featherCoins + sighting.coinsEarned,
+    tweety: { ...state.tweety, eggs },
+  }
+}
+
 function App() {
   const [activePage, setActivePage] = useState('home')
   const [data, setData] = useState(loadState)
@@ -3018,7 +3080,7 @@ function App() {
     )
   }
 
-  function completeDailyChallenge(kind = 'daily') {
+  async function completeDailyChallenge(kind = 'daily', photoFile = null) {
     const challenge = kind === 'bonus' ? dailyChallenge.bonus : dailyChallenge.main
     if (!challenge) return
 
@@ -3052,21 +3114,39 @@ function App() {
       }
     }
 
-    setConfetti(Date.now())
-    commit(
-      {
-        ...data,
-        featherCoins: data.featherCoins + coins,
-        dailyChallengeCompletions: nextCompletions,
-      },
-      {
+    // Base state with the challenge stamped + coins awarded.
+    const baseState = {
+      ...data,
+      featherCoins: data.featherCoins + coins,
+      dailyChallengeCompletions: nextCompletions,
+    }
+
+    // If she proved it with a photo, identify the bird and add it to her
+    // collection in the SAME commit so nothing is lost.
+    const match = photoFile ? await identifyTopMatch(photoFile) : null
+    const finishWith = (photo) => {
+      let nextState = baseState
+      let birdNote = ''
+      if (match) {
+        nextState = addBirdToState(baseState, match, photo)
+        birdNote = ` ${match.commonName} was added to your collection! 🐦`
+      }
+      setConfetti(Date.now())
+      commit(nextState, {
         title: bonus ? 'Bonus mission complete' : 'Mission complete! 🐦',
         body: bonus
           ? 'The optional Bird Council side quest has been quietly stamped. +20 Feather Coins.'
-          : `You found one! +${COINS.dailyChallenge} Feather Coins.${streakNote}`,
-      },
-    )
-    notifyMarnich('challenge')
+          : `You found one! +${coins} Feather Coins.${streakNote}${birdNote}`,
+      })
+      notifyMarnich('challenge')
+      if (match) notifyMarnich('spotted', { birdName: match.commonName })
+    }
+
+    if (match && photoFile) {
+      readStorablePhoto(photoFile, (photo) => finishWith(photo))
+    } else {
+      finishWith('')
+    }
   }
 
   function toggleBingo(index) {
@@ -4087,7 +4167,8 @@ function ChallengeProof({ challenge, complete, onValidated, label = 'I completed
     setVerdict(result)
     if (result.verdict === 'yes') {
       setStatus('yes')
-      onValidated()
+      // Pass the photo up so a photographed bird can be added to the collection.
+      onValidated(photoFile)
     } else {
       setStatus('no')
     }
@@ -4317,7 +4398,7 @@ function HomePage({
         <ChallengeProof
           challenge={dailyChallenge.main}
           complete={done}
-          onValidated={() => completeDailyChallenge('daily')}
+          onValidated={(photoFile) => completeDailyChallenge('daily', photoFile)}
         />
       </section>
 
@@ -6293,7 +6374,7 @@ function ChallengesPage({ dailyChallenge, completeDailyChallenge }) {
         <ChallengeProof
           challenge={dailyChallenge.main}
           complete={dailyChallenge.mainComplete}
-          onValidated={() => completeDailyChallenge('daily')}
+          onValidated={(photoFile) => completeDailyChallenge('daily', photoFile)}
           label="I completed this"
         />
       </section>
@@ -6305,7 +6386,7 @@ function ChallengesPage({ dailyChallenge, completeDailyChallenge }) {
         <ChallengeProof
           challenge={dailyChallenge.bonus}
           complete={dailyChallenge.bonusComplete}
-          onValidated={() => completeDailyChallenge('bonus')}
+          onValidated={(photoFile) => completeDailyChallenge('bonus', photoFile)}
           label="I did the bonus"
         />
       </section>
