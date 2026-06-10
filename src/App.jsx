@@ -4348,20 +4348,34 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
               </button>
             </div>
           ) : (
-            <label className="camera-button">
-              <input
-                key={photoInputKey}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhoto}
-              />
-              <span className="camera-ring" aria-hidden="true">
-                <span className="camera-icon">🐦</span>
-                <span className="camera-lens">📷</span>
-              </span>
-              <span className="camera-hint">Tap to open camera</span>
-            </label>
+            <>
+            <div className="spot-actions">
+              <label className="spot-action-btn">
+                <input
+                  key={`cam-${photoInputKey}`}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhoto}
+                  hidden
+                />
+                <span className="spot-action-emoji" aria-hidden="true">📷</span>
+                <span>Take a photo</span>
+              </label>
+              <label className="spot-action-btn">
+                <input
+                  key={`gal-${photoInputKey}`}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhoto}
+                  hidden
+                />
+                <span className="spot-action-emoji" aria-hidden="true">🖼️</span>
+                <span>Choose from gallery</span>
+              </label>
+            </div>
+            <p className="spot-sub">Take a fresh photo or pick one of your best bird photos from your gallery 💛</p>
+            </>
           )}
 
           <details className="hidden-paperwork">
@@ -4953,10 +4967,59 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
   )
 }
 
-function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
-  // Declared before the early return so hook order stays stable when a bird
-  // flips from mystery to caught.
+// A soft illustrated bird shape — the final fallback so a mystery card never
+// shows a blank "?".
+function BirdSilhouetteSVG() {
+  return (
+    <div className="bird-card-photo-frame mystery-frame">
+      <svg className="silhouette-svg" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="#7a6f60">
+          {/* tail */}
+          <path d="M14 60 q-8 -2 -10 4 q8 1 14 4 z" />
+          {/* body */}
+          <ellipse cx="50" cy="60" rx="26" ry="22" />
+          {/* head */}
+          <circle cx="70" cy="42" r="13" />
+          {/* beak */}
+          <path d="M82 40 l11 3 l-11 4 z" />
+          {/* wing */}
+          <ellipse cx="46" cy="60" rx="13" ry="16" fill="#6c6254" />
+          {/* legs */}
+          <path d="M46 82 v8 M40 90 h12 M58 82 v8 M52 90 h12" stroke="#7a6f60" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+// Mystery silhouette: library photo → live Wikipedia photo → soft bird SVG.
+function MysterySilhouette({ bird }) {
   const [imgError, setImgError] = useState(false)
+  const hasLibPhoto = bird.imageUrl && !bird.imageUrl.includes('placehold')
+  // Only hit Wikipedia when there's no usable library photo.
+  const { photos } = useWikipediaPhotos(
+    hasLibPhoto ? '' : bird.scientificName,
+    hasLibPhoto ? '' : bird.commonName,
+  )
+  const src = imgError ? '' : hasLibPhoto ? bird.imageUrl : photos[0]?.src || ''
+
+  if (!src) {
+    return <BirdSilhouetteSVG />
+  }
+  return (
+    <div className="bird-card-photo-frame mystery-frame">
+      <img
+        className="bird-card-photo silhouette-shape"
+        src={src}
+        alt="Mystery bird silhouette"
+        loading="lazy"
+        onError={() => setImgError(true)}
+      />
+    </div>
+  )
+}
+
+function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
   const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
   const spottedPhoto = herPhoto || bird.imageUrl
   const withMarnich =
@@ -5000,28 +5063,12 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
     )
   }
 
-  // Mystery card: darkened silhouette + ??? + one cryptic clue + go-spot button.
-  // The only way to unlock is to upload a real photo the AI confirms.
-  // If there's no real photo, or it fails to load, show a big ? — never a black box.
-  const showSilhouette = bird.imageUrl && !bird.imageUrl.includes('placehold') && !imgError
-
+  // Mystery card: a darkened silhouette + ??? + one cryptic clue + go-spot button.
+  // Every bird shows a silhouette — library photo, else a live Wikipedia photo,
+  // else a soft illustrated bird shape. Never a plain "?".
   return (
     <article className="library-bird-card mystery-card">
-      {showSilhouette ? (
-        <div className="bird-card-photo-frame mystery-frame">
-          <img
-            className="bird-card-photo silhouette-shape"
-            src={bird.imageUrl}
-            alt="Mystery bird silhouette"
-            loading="lazy"
-            onError={() => setImgError(true)}
-          />
-        </div>
-      ) : (
-        <div className="bird-card-photo silhouette-photo">
-          <span aria-hidden="true">?</span>
-        </div>
-      )}
+      <MysterySilhouette bird={bird} />
       <div className="bird-card-body">
         <span className={bird.special ? 'status-pill rare' : 'status-pill locked'}>
           {bird.special ? 'Rare mystery ✨' : 'Mystery ?'}
