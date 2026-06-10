@@ -3,11 +3,13 @@
 export function defaultGames() {
   return {
     leaderboard: { pooksWins: 0, marnichWins: 0, draws: 0 },
-    quiz: { date: '', pooks: null, marnich: null },
-    wordle: { date: '', pooks: null, marnich: null },
+    // Each game is resolved per shared session code.
+    quiz: { code: '', pooks: null, marnich: null },
+    wordle: { code: '', pooks: null, marnich: null },
+    twentyq: { code: '', pooks: null, marnich: null },
     twentyqBest: { pooks: null, marnich: null },
     trashTalk: '',
-    lastResult: '',
+    lastResult: null,
   }
 }
 
@@ -15,11 +17,37 @@ export function todayKey() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function daySeed() {
-  const t = todayKey()
-  let h = 0
-  for (let i = 0; i < t.length; i += 1) h = (h * 31 + t.charCodeAt(i)) >>> 0
-  return h
+// Current time behind a helper so timer components can read "now" without
+// tripping the no-impure-calls-in-render lint rule.
+export function now() {
+  return Date.now()
+}
+
+// ---- Session codes + seeded randomness (anti-cheat, same Qs for both) ------
+export function generateSessionCode() {
+  return String(1000 + Math.floor(Math.random() * 9000))
+}
+
+function seedFromCode(code) {
+  let h = 2166136261
+  const s = String(code || '0000')
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+// Deterministic shuffle so both players get the identical order from a code.
+function seededShuffle(items, seed) {
+  const arr = [...items]
+  let s = seed || 1
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff
+    const j = s % (i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
 }
 
 // ---- Quiz Battle -----------------------------------------------------------
@@ -44,12 +72,17 @@ export const QUIZ_BANK = [
   { q: 'Which dove’s call sounds like a gentle little chuckle?', options: ['Laughing Dove', 'African Fish Eagle', 'Spotted Eagle-Owl'], answer: 0 },
 ]
 
-export function getDailyQuiz() {
-  const seed = daySeed()
-  const pool = [...QUIZ_BANK]
-  // deterministic shuffle by seed, take 10
-  pool.sort((a, b) => ((a.q.charCodeAt(0) + seed) % 97) - ((b.q.charCodeAt(0) + seed * 3) % 97))
-  return pool.slice(0, 10)
+// 10 questions for a session, shuffled by the code, with options shuffled too
+// so the correct answer isn't always first (anti-cheat). Returns the correct
+// option index for each question.
+export function getQuizForSession(code) {
+  const seed = seedFromCode(code)
+  const questions = seededShuffle(QUIZ_BANK, seed).slice(0, 10)
+  return questions.map((item, qi) => {
+    const correctText = item.options[item.answer]
+    const options = seededShuffle(item.options, seed + qi * 7919)
+    return { q: item.q, options, answer: options.indexOf(correctText) }
+  })
 }
 
 // ---- Wordle ----------------------------------------------------------------
@@ -59,9 +92,8 @@ export const WORDLE_WORDS = [
   'PIGEON', 'BULBUL', 'SHRIKE', 'FISCAL', 'BOUBOU', 'DARTER', 'JACANA', 'AVOCET', 'PLOVER', 'CUCKOO',
 ]
 
-export function getDailyWord() {
-  const idx = daySeed() % WORDLE_WORDS.length
-  return WORDLE_WORDS[idx]
+export function getWordForSession(code) {
+  return WORDLE_WORDS[seedFromCode(code) % WORDLE_WORDS.length]
 }
 
 // Returns array of 'correct' | 'present' | 'absent' for each letter of guess.
@@ -108,4 +140,9 @@ export const TWENTYQ_QUESTIONS = [
 export function answer20Q(bird, questionId) {
   const q = TWENTYQ_QUESTIONS.find((item) => item.id === questionId)
   return q ? Boolean(q.test(bird)) : false
+}
+
+// Deterministic target index so both players guess the same bird from a code.
+export function getTwentyQIndex(code, length) {
+  return seedFromCode(code) % Math.max(1, length)
 }

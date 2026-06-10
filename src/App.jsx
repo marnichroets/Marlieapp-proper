@@ -21,7 +21,7 @@ import {
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
 import { GamesHub } from './games'
-import { defaultGames, todayKey } from './gamesData'
+import { defaultGames } from './gamesData'
 
 function bumpLeaderboard(lb, winner) {
   return {
@@ -2049,121 +2049,163 @@ function App() {
   }
 
   // ----- Competitive games (shared local state) -----
-  function onQuizDone(who, score) {
-    const today = todayKey()
+  // Shared resolution for a head-to-head game once both players have played.
+  function finishMatch(gameKey, winner, detail, extraPooksCoins = 0) {
     const g = data.games
-    const base = g.quiz.date === today ? g.quiz : { date: today, pooks: null, marnich: null }
-    const quiz = { ...base, [who]: score }
-    if (quiz.pooks === null || quiz.marnich === null) {
-      setData((c) => ({ ...c, games: { ...c.games, quiz } }))
-      setToast({
-        title: 'Quiz submitted 🎮',
-        body: `${who === 'pooks' ? 'You' : 'Marnich'} scored ${score}/10. ${who === 'pooks' ? 'Now let Marnich play from the Admin panel.' : 'Pooks plays from her phone.'}`,
-        tone: 'calm',
-      })
-      return
-    }
-    const winner = quiz.pooks > quiz.marnich ? 'pooks' : quiz.marnich > quiz.pooks ? 'marnich' : 'draw'
-    let coinDelta = 0
-    let body
-    if (winner === 'pooks') {
-      coinDelta = 150
-      body = `Pooks wins ${quiz.pooks}–${quiz.marnich}! Marnich Bank has been fined 50 coins 🏆 (+150 for you)`
-      setConfetti(Date.now())
-    } else if (winner === 'marnich') {
-      coinDelta = -50
-      body = `Marnich wins this round ${quiz.marnich}–${quiz.pooks}... but Pooks will get her revenge 🐦 (-50)`
-    } else {
-      body = `A ${quiz.pooks}–${quiz.marnich} draw! The Bird Council calls it even. 🤝`
-    }
+    const coinDelta =
+      (winner === 'pooks' ? 150 : winner === 'marnich' ? -50 : 0) *
+        (gameKey === 'quiz' ? 1 : 0) +
+      (gameKey !== 'quiz' ? (winner === 'pooks' ? 100 : winner === 'marnich' ? -50 : 0) : 0) +
+      extraPooksCoins
+    const text =
+      winner === 'pooks'
+        ? 'Pooks wins! The Bird Council is disappointed in Marnich 😂 −50 coins from Marnich Bank'
+        : winner === 'marnich'
+          ? 'Marnich wins this time... The Bird Council suspects he Googled it 🤨 −50 coins from Pooks'
+          : 'A tie?! The Bird Council demands a rematch 🐦'
+    if (winner === 'pooks') setConfetti(Date.now())
+    const lastResult = { game: gameKey, winner, text, status: 'done', ...detail }
     commit(
       {
         ...data,
         games: {
           ...g,
-          quiz: { date: today, pooks: null, marnich: null },
+          [gameKey]: { code: '', pooks: null, marnich: null },
           leaderboard: bumpLeaderboard(g.leaderboard, winner),
-          lastResult: body,
+          lastResult,
         },
         featherCoins: Math.max(0, data.featherCoins + coinDelta),
       },
-      { title: winner === 'pooks' ? 'Pooks wins! 🏆' : winner === 'marnich' ? 'Marnich wins 😏' : 'Draw 🤝', body },
+      {
+        title: winner === 'pooks' ? 'Pooks wins! 🏆' : winner === 'marnich' ? 'Marnich wins 😏' : "It's a tie 🤝",
+        body: text,
+      },
     )
   }
 
-  function onWordleDone(who, result) {
-    const today = todayKey()
+  function storeWaiting(gameKey, next, who) {
+    setData((c) => ({
+      ...c,
+      games: {
+        ...c.games,
+        [gameKey]: next,
+        lastResult: { game: gameKey, status: 'waiting', who, code: next.code },
+      },
+    }))
+    setToast({
+      title: 'Score locked in 🔒',
+      body:
+        who === 'pooks'
+          ? 'Now share the code so Marnich can play from the Admin panel.'
+          : 'Marnich is done — waiting on Pooks.',
+      tone: 'calm',
+    })
+  }
+
+  function onQuizDone(who, result) {
     const g = data.games
-    const base = g.wordle.date === today ? g.wordle : { date: today, pooks: null, marnich: null }
-    const wordle = { ...base, [who]: result }
-    let coinDelta = 0
-    let body
+    const base = g.quiz.code === result.code ? g.quiz : { code: result.code, pooks: null, marnich: null }
+    const quiz = { ...base, [who]: { score: result.score, timeMs: result.timeMs } }
+    if (!quiz.pooks || !quiz.marnich) return storeWaiting('quiz', quiz, who)
+    const winner =
+      quiz.pooks.score > quiz.marnich.score
+        ? 'pooks'
+        : quiz.marnich.score > quiz.pooks.score
+          ? 'marnich'
+          : quiz.pooks.timeMs < quiz.marnich.timeMs
+            ? 'pooks'
+            : quiz.marnich.timeMs < quiz.pooks.timeMs
+              ? 'marnich'
+              : 'draw'
+    finishMatch('quiz', winner, {
+      pooks: quiz.pooks,
+      marnich: quiz.marnich,
+      maxScore: 10,
+    })
+    return undefined
+  }
+
+  function onWordleDone(who, result) {
+    const g = data.games
+    const base = g.wordle.code === result.code ? g.wordle : { code: result.code, pooks: null, marnich: null }
+    const entry = { guesses: result.guesses, solved: result.solved, timeMs: result.timeMs }
+    const wordle = { ...base, [who]: entry }
+    // Immediate solve reward for Pooks (fewer guesses + faster = more coins).
+    let solveCoins = 0
     if (who === 'pooks' && result.solved) {
-      coinDelta += Math.max(10, (7 - result.guesses) * 15)
-      body = `You solved it in ${result.guesses}! +${coinDelta} 🪙. Can Marnich beat that? 🎯`
-    } else if (who === 'pooks') {
-      body = 'So close! A fresh bird word lands tomorrow. 🐦'
-    } else {
-      body = "Marnich's Wordle is in."
+      solveCoins = Math.max(20, (7 - result.guesses) * 15) + (result.timeMs < 90000 ? 20 : 0)
     }
-    let nextGames = { ...g, wordle, lastResult: body }
-    if (wordle.pooks && wordle.marnich) {
-      const pScore = wordle.pooks.solved ? wordle.pooks.guesses : 99
-      const mScore = wordle.marnich.solved ? wordle.marnich.guesses : 99
-      const winner = pScore < mScore ? 'pooks' : mScore < pScore ? 'marnich' : 'draw'
-      const lastResult =
-        winner === 'pooks'
-          ? 'Pooks beat Marnich at Wordle! +100 bonus and bragging rights 🏆'
-          : winner === 'marnich'
-            ? 'Marnich won this Wordle... revenge tomorrow 🐦'
-            : 'A Wordle draw! 🤝'
-      nextGames = {
-        ...g,
-        wordle: { date: today, pooks: null, marnich: null },
-        leaderboard: bumpLeaderboard(g.leaderboard, winner),
-        lastResult,
-      }
-      if (winner === 'pooks') {
-        coinDelta += 100
-        body += ' You beat Marnich — +100 bonus!'
-        setConfetti(Date.now())
-      }
+    if (!wordle.pooks || !wordle.marnich) {
+      commit(
+        { ...data, games: { ...g, wordle, lastResult: { game: 'wordle', status: 'waiting', who, code: result.code } }, featherCoins: data.featherCoins + solveCoins },
+        {
+          title: 'Bird Wordle 🎯',
+          body:
+            who === 'pooks'
+              ? result.solved
+                ? `Solved in ${result.guesses}! +${solveCoins} 🪙. Share the code so Marnich can try.`
+                : 'Out of time! Share the code for Marnich to try.'
+              : "Marnich's Wordle is in — waiting on Pooks.",
+        },
+      )
+      return
     }
-    commit(
-      { ...data, games: nextGames, featherCoins: Math.max(0, data.featherCoins + coinDelta) },
-      { title: 'Bird Wordle 🎯', body },
-    )
+    const pScore = wordle.pooks.solved ? wordle.pooks.guesses : 99
+    const mScore = wordle.marnich.solved ? wordle.marnich.guesses : 99
+    const winner =
+      pScore < mScore
+        ? 'pooks'
+        : mScore < pScore
+          ? 'marnich'
+          : wordle.pooks.timeMs < wordle.marnich.timeMs
+            ? 'pooks'
+            : wordle.marnich.timeMs < wordle.pooks.timeMs
+              ? 'marnich'
+              : 'draw'
+    finishMatch('wordle', winner, { pooks: wordle.pooks, marnich: wordle.marnich, wordle: true }, solveCoins)
   }
 
   function on20QDone(who, result) {
     const g = data.games
+    const base = g.twentyq.code === result.code ? g.twentyq : { code: result.code, pooks: null, marnich: null }
+    const entry = { questions: result.questions, won: result.won, timeMs: result.timeMs }
+    const twentyq = { ...base, [who]: entry }
     const best = g.twentyqBest || { pooks: null, marnich: null }
-    let nextBest = best
-    let coinDelta = 0
-    let body
-    if (result.won) {
-      const used = result.questions
-      if (best[who] === null || used < best[who]) nextBest = { ...best, [who]: used }
-      if (who === 'pooks') {
-        coinDelta = Math.max(20, (10 - used) * 15)
-        body = `You guessed the ${result.target.commonName} in ${used} question${used === 1 ? '' : 's'}! +${coinDelta} 🪙`
-      } else {
-        body = `Marnich guessed the ${result.target.commonName} in ${used} questions.`
-      }
-    } else {
-      body =
-        who === 'pooks'
-          ? `The Bird Council is not impressed 😂 It was the ${result.target.commonName}.`
-          : `Too slow Marnich! 🐦 It was the ${result.target.commonName}.`
+    const nextBest =
+      result.won && (best[who] === null || result.questions < best[who])
+        ? { ...best, [who]: result.questions }
+        : best
+    let solveCoins = 0
+    if (who === 'pooks' && result.won) solveCoins = Math.max(20, (10 - result.questions) * 15)
+    if (!twentyq.pooks || !twentyq.marnich) {
+      commit(
+        { ...data, games: { ...g, twentyq, twentyqBest: nextBest, lastResult: { game: 'twentyq', status: 'waiting', who, code: result.code } }, featherCoins: data.featherCoins + solveCoins },
+        {
+          title: '20 Questions 🐦',
+          body:
+            who === 'pooks'
+              ? result.won
+                ? `Guessed it in ${result.questions}! +${solveCoins} 🪙. Share the code for Marnich.`
+                : 'Not this time 😂 Share the code for Marnich to try.'
+              : 'Marnich played — waiting on Pooks.',
+        },
+      )
+      return
     }
-    commit(
-      {
-        ...data,
-        games: { ...g, twentyqBest: nextBest, lastResult: body },
-        featherCoins: Math.max(0, data.featherCoins + coinDelta),
-      },
-      { title: '20 Questions 🐦', body },
-    )
+    const pScore = twentyq.pooks.won ? twentyq.pooks.questions : 99
+    const mScore = twentyq.marnich.won ? twentyq.marnich.questions : 99
+    const winner =
+      pScore < mScore
+        ? 'pooks'
+        : mScore < pScore
+          ? 'marnich'
+          : twentyq.pooks.timeMs < twentyq.marnich.timeMs
+            ? 'pooks'
+            : twentyq.marnich.timeMs < twentyq.pooks.timeMs
+              ? 'marnich'
+              : 'draw'
+    finishMatch('twentyq', winner, { pooks: twentyq.pooks, marnich: twentyq.marnich, twentyq: true }, solveCoins)
+    setData((c) => ({ ...c, games: { ...c.games, twentyqBest: nextBest } }))
   }
 
   function setTrashTalk(message) {

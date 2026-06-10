@@ -4058,6 +4058,115 @@ textarea:focus {
 
 .admin-games .games-page { padding: 0; }
 
+/* ===================== Game-show: lobby, timers, results ===================== */
+.game-menu { display: grid; gap: 10px; margin-top: 12px; }
+
+.lobby-card { text-align: center; }
+.session-code {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: var(--leaf-dark);
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(231, 241, 223, 0.7);
+}
+.code-entry {
+  font-size: 2rem;
+  text-align: center;
+  letter-spacing: 0.4em;
+  font-weight: 900;
+  max-width: 200px;
+  margin: 8px auto;
+  display: block;
+}
+
+.countdown-card { text-align: center; display: grid; place-items: center; gap: 8px; padding: 36px 16px; }
+.countdown-number {
+  font-size: 5rem;
+  font-weight: 900;
+  color: var(--honey);
+  animation: count-pop 0.8s ease;
+}
+.countdown-number.go { color: var(--leaf); font-size: 4rem; }
+@keyframes count-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  40% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.game-card { display: grid; gap: 10px; }
+.game-topbar { display: flex; justify-content: space-between; align-items: center; }
+.game-score { font-weight: 800; color: var(--leaf-dark); }
+.game-clock { font-weight: 900; color: var(--leaf-dark); }
+.game-clock.danger { color: #c0392b; animation: pulse-red 0.8s ease-in-out infinite; }
+@keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.timer-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+.timer-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--leaf), var(--honey));
+  transition: width 0.12s linear;
+}
+.timer-bar.danger span { background: #d0432b; }
+.timeout-note { text-align: center; font-weight: 800; color: #9a5a2a; margin: 0; }
+
+.results-card { text-align: center; }
+.reveal-pop { animation: results-pop 0.5s cubic-bezier(0.22, 0.61, 0.36, 1); }
+@keyframes results-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.results-emoji { font-size: 2.6rem; }
+.results-scores {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 14px;
+  margin: 12px 0;
+}
+.results-player {
+  position: relative;
+  flex: 1;
+  max-width: 150px;
+  display: grid;
+  gap: 2px;
+  padding: 16px 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--line);
+}
+.results-player.winner {
+  background: rgba(246, 206, 115, 0.28);
+  border-color: var(--honey);
+  box-shadow: 0 10px 26px rgba(224, 160, 79, 0.3);
+}
+.results-player strong { font-size: 1.5rem; color: var(--ink-strong); }
+.results-player small { color: var(--muted); font-weight: 700; }
+.results-vs { align-self: center; font-weight: 900; color: var(--muted); }
+.crown {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.8rem;
+  animation: crown-drop 0.6s ease;
+}
+@keyframes crown-drop {
+  0% { transform: translate(-50%, -16px) scale(0.4); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+.results-text { font-size: 1.15rem; margin: 6px 0; color: var(--ink-strong); }
+
 /* ===================== Tweety family + aviary ===================== */
 .family-card { text-align: center; }
 .egg-stage { display: grid; place-items: center; margin: 6px 0; }
