@@ -1435,6 +1435,11 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
+  // True if Tweety hasn't been visited in over 24h (captured once on load).
+  const [missedYou] = useState(() => {
+    const lv = data.tweety?.lastVisit
+    return lv ? Date.now() - new Date(lv).getTime() >= 86400000 : false
+  })
   // Open the hidden admin login when the URL is /admin (or #admin).
   const [adminGate, setAdminGate] = useState(() => {
     try {
@@ -1709,6 +1714,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   }, [data])
+
+  // Stamp this visit so the "Tweety missed you" nudge only shows after a real gap.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setData((c) => ({ ...c, tweety: { ...c.tweety, lastVisit: new Date().toISOString() } }))
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -2182,6 +2195,12 @@ function App() {
         : [...(wardrobe.wishlist || []), id]
       return { ...c, tweety: { ...c.tweety, wardrobe: { ...wardrobe, wishlist } } }
     })
+  }
+
+  function markMarketSeen() {
+    const rotation = rotationIndex(Date.now())
+    if (data.settings?.marketSeenRotation === rotation) return
+    setData((c) => ({ ...c, settings: { ...c.settings, marketSeenRotation: rotation } }))
   }
 
   function setMarnichPick(itemId) {
@@ -3450,6 +3469,7 @@ function App() {
             season={season}
             tweetyView={tweetyView}
             tweetyDancing={tweetyDancing}
+            missedYou={missedYou}
             careTweety={careTweety}
             careBaby={careBaby}
             releaseBaby={releaseBaby}
@@ -3545,6 +3565,7 @@ function App() {
             giftWearable={giftWearable}
             toggleWishlistItem={toggleWishlistItem}
             setMarnichPick={setMarnichPick}
+            markMarketSeen={markMarketSeen}
           />
         )}
         {activePage === 'challenges' && (
@@ -4102,6 +4123,7 @@ function HomePage({
   season,
   tweetyView,
   tweetyDancing,
+  missedYou,
   careTweety,
   careBaby,
   releaseBaby,
@@ -4130,6 +4152,16 @@ function HomePage({
         <h2>{season.greeting}</h2>
         <p>{season.blurb}</p>
       </section>
+
+      {missedYou && (
+        <button className="tweety-nudge" type="button" onClick={() => goTo('wardrobe')}>
+          <span className="tweety-nudge-bird" aria-hidden="true">🐤💛</span>
+          <span>
+            <strong>{data.tweety?.name || 'Tweety'} missed you!</strong>
+            <small>It&apos;s been a while — pop in to say hello and dress her up.</small>
+          </span>
+        </button>
+      )}
 
       {data.tweety?.escape && (
         <EscapeAlert escape={data.tweety.escape} onRescue={() => goTo('add')} />
@@ -5927,8 +5959,15 @@ function RewardsPage({
   giftWearable,
   toggleWishlistItem,
   setMarnichPick,
+  markMarketSeen,
 }) {
   const [tab, setTab] = useState('surprises')
+  const [marketRotation] = useState(() => rotationIndex(Date.now()))
+  const marketHasNew = marketRotation !== data.settings?.marketSeenRotation
+  function openMarket() {
+    setTab('market')
+    markMarketSeen()
+  }
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
   const claimedRewards = revealedRewards.filter((reward) =>
     ['Claimed', 'Paid'].includes(reward.status),
@@ -5977,9 +6016,9 @@ function RewardsPage({
         <button
           className={tab === 'market' ? 'filter-chip active' : 'filter-chip'}
           type="button"
-          onClick={() => setTab('market')}
+          onClick={openMarket}
         >
-          Market 🛍️
+          Market 🛍️{marketHasNew && <span className="tab-new-dot" aria-label="New items">●</span>}
         </button>
       </div>
 
