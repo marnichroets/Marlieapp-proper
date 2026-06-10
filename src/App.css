@@ -3747,7 +3747,7 @@ textarea:focus {
 
 .tweety-care-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 8px;
 }
@@ -4173,7 +4173,7 @@ textarea:focus {
 .companion-card { max-width: 520px; }
 .companion-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
@@ -4191,7 +4191,7 @@ textarea:focus {
 .companion-option strong { color: var(--ink-strong); font-size: 0.92rem; }
 .companion-option small { color: var(--muted); font-weight: 700; font-size: 0.74rem; text-align: center; }
 @media (min-width: 560px) {
-  .companion-grid { grid-template-columns: repeat(3, 1fr); }
+  .companion-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* ===================== Tweety family + aviary ===================== */
@@ -4353,4 +4353,89 @@ textarea:focus {
   background:
     radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.7), transparent 60%),
     linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
+}
+
+/* ===================== Mobile responsiveness hardening ===================== */
+/* Flex/grid children default to min-width:auto and won't shrink below their
+   content, which pushes layouts past the screen on narrow phones. Allow them
+   to shrink, and let tight text wrap. */
+.results-player,
+.tweety-care-btn,
+.store-item,
+.compare-side,
+.lb-side,
+.companion-option,
+.stat-card,
+.admin-edit-row > div,
+.game-topbar > * {
+  min-width: 0;
+}
+.results-scores,
+.match-compare,
+.button-row,
+.admin-actions,
+.store-tabs,
+.game-menu {
+  flex-wrap: wrap;
+}
+.tweety-care-btn span,
+.companion-option strong,
+.companion-option small,
+.compare-side figcaption,
+.results-text {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 430px) {
+  .session-code {
+    font-size: 2rem;
+    letter-spacing: 0.16em;
+    padding: 10px;
+  }
+  .code-entry {
+    font-size: 1.5rem;
+    letter-spacing: 0.2em;
+  }
+  .results-scores {
+    gap: 8px;
+  }
+  .results-player {
+    max-width: none;
+    padding: 14px 6px;
+  }
+  .results-player strong {
+    font-size: 1.25rem;
+  }
+  .compare-img {
+    width: 100px;
+    height: 82px;
+  }
+  .compare-side figcaption {
+    max-width: 100px;
+  }
+  .discovered-count {
+    font-size: 1.5rem;
+  }
+  .countdown-number {
+    font-size: 4rem;
+  }
+  .wordle-cell {
+    width: 38px;
+    height: 38px;
+    font-size: 1.05rem;
+  }
+  .tweety-care-row {
+    gap: 6px;
+  }
+  .tweety-care-btn {
+    padding: 10px 3px;
+  }
+  .weekly-tip {
+    max-width: 70vw;
+    white-space: normal;
+  }
+  .season-greeting h2,
+  .magazine-quote {
+    font-size: 1.2rem;
+  }
 }
