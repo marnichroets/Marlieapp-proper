@@ -4,7 +4,13 @@ import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird, weeklyFaviconDataUrl } from './birdData'
-import { TweetyHomeCard, TweetyStatsPage, TweetyFamilyCard, AviaryCard } from './Tweety'
+import {
+  TweetyHomeCard,
+  TweetyStatsPage,
+  TweetyFamilyCard,
+  AviaryCard,
+  CompanionSelect,
+} from './Tweety'
 import {
   defaultTweety,
   tweetyToday,
@@ -1795,6 +1801,18 @@ function App() {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
   }
 
+  function chooseTweetyCompanion(companionId) {
+    setData((current) => ({
+      ...current,
+      tweety: { ...current.tweety, companion: companionId },
+    }))
+    setToast({
+      title: 'Tweety is ready! 🐣',
+      body: 'Your pet chick is so excited to start the adventure with you. 💛',
+      tone: 'success',
+    })
+  }
+
   // Feed / water the baby bird while it grows.
   function careBaby(kind) {
     const baby = data.tweety?.baby
@@ -2940,6 +2958,11 @@ function App() {
       return <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} />
     }
     return <LoginScreen data={data} onLogin={login} />
+  }
+
+  // First-login: Pooks chooses the bird her Tweety chick takes after.
+  if (session.role === 'pooks' && !data.tweety?.companion) {
+    return <CompanionSelect onPick={chooseTweetyCompanion} />
   }
 
   return (

@@ -10,18 +10,22 @@ import {
   babyCareToday,
   daysSince,
   AVIARY_MAX,
+  TWEETY_COMPANIONS,
+  getCompanion,
 } from './tweetyData'
 
 // ---- Tweety SVG ------------------------------------------------------------
-export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120 }) {
+export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null }) {
   const big = level === 'grown' || level === 'crown'
   const mid = level === 'fledgling' || big
   const rx = level === 'chick' ? 23 : level === 'fledgling' ? 26 : 29
   const ry = rx + 1
   const sad = mood === 'sad'
+  // Permanently a golden chick; the companion only adds a signature accent.
   const body = '#F6CE73'
   const belly = '#FBE6A8'
   const wing = '#EBB94E'
+  const comp = companion ? getCompanion(companion) : null
 
   return (
     <span
@@ -44,6 +48,11 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           {/* body */}
           <ellipse cx="50" cy={58} rx={rx} ry={ry} fill={body} />
           <ellipse cx="50" cy={64} rx={rx * 0.62} ry={ry * 0.55} fill={belly} />
+          {/* companion signature: chest patch and/or head cap */}
+          {comp?.chest && (
+            <ellipse cx="50" cy="62" rx={rx * 0.5} ry={ry * 0.42} fill={comp.chest} opacity="0.92" />
+          )}
+          {comp?.cap && <path d="M34 46 Q50 30 66 46 Z" fill={comp.cap} opacity="0.92" />}
           {/* wings (appear as it grows; flap) */}
           {mid && (
             <g className="tweety-wing">
@@ -131,7 +140,7 @@ export function TweetyHomeCard({
         {nestTier === 'luxury' && <div className="nest-decor nest-lights" aria-hidden="true">✨🏮✨</div>}
         {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          <TweetyBird level={level.key} mood={mood} dancing={dancing} size={132} />
+          <TweetyBird level={level.key} mood={mood} dancing={dancing} size={132} companion={tweety?.companion} />
           {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
           <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
         </div>
@@ -185,7 +194,7 @@ export function TweetyStatsPage({ tweety, birdCount, onBack, onRename }) {
           Back
         </button>
         <div className="tweety-stats-hero">
-          <TweetyBird level={level.key} mood={tweetyMood(tweety)} size={120} />
+          <TweetyBird level={level.key} mood={tweetyMood(tweety)} size={120} companion={tweety?.companion} />
           <div>
             <p className="eyebrow">Your pet bird</p>
             <h2>{name}</h2>
@@ -228,6 +237,27 @@ export function TweetyStatsPage({ tweety, birdCount, onBack, onRename }) {
         </div>
       </section>
     </div>
+  )
+}
+
+// ---- First-login companion chooser -----------------------------------------
+export function CompanionSelect({ onPick }) {
+  return (
+    <main className="login-screen companion-screen">
+      <section className="login-card companion-card" aria-labelledby="companion-title">
+        <p className="login-tag" id="companion-title">Meet your Tweety 🐣</p>
+        <p className="login-sub">Choose the bird your golden pet chick will take after.</p>
+        <div className="companion-grid">
+          {TWEETY_COMPANIONS.map((c) => (
+            <button className="companion-option" type="button" key={c.id} onClick={() => onPick(c.id)}>
+              <TweetyBird companion={c.id} size={92} />
+              <strong>{c.name}</strong>
+              <small>{c.blurb}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+    </main>
   )
 }
 

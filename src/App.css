@@ -3710,9 +3710,11 @@ textarea:focus {
 }
 .tweety-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
-.tweety-bob { transform-box: fill-box; transform-origin: 50% 90%; animation: bird-bob 2.6s ease-in-out infinite; }
-.tweety-wing { transform-box: fill-box; transform-origin: 50% 30%; animation: bird-flap 3.4s ease-in-out infinite; }
-.tweety-eyes { transform-box: fill-box; animation: bird-blink 4.6s ease-in-out infinite; }
+/* Distinct, quicker chick timing so Tweety reads differently from the
+   slower coral nav bird (which bobs at 2.4s). */
+.tweety-bob { transform-box: fill-box; transform-origin: 50% 90%; animation: bird-bob 1.8s ease-in-out infinite; }
+.tweety-wing { transform-box: fill-box; transform-origin: 50% 30%; animation: bird-flap 5s ease-in-out infinite; }
+.tweety-eyes { transform-box: fill-box; animation: bird-blink 5.4s ease-in-out infinite; }
 
 .tweety-sad .tweety-bob { animation: tweety-droop 4s ease-in-out infinite; }
 @keyframes tweety-droop { 0%,100% { transform: translateY(2px); } 50% { transform: translateY(4px); } }
@@ -4166,6 +4168,31 @@ textarea:focus {
   100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
 }
 .results-text { font-size: 1.15rem; margin: 6px 0; color: var(--ink-strong); }
+
+/* ===================== Tweety companion chooser ===================== */
+.companion-card { max-width: 520px; }
+.companion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.companion-option {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.companion-option:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.companion-option strong { color: var(--ink-strong); font-size: 0.92rem; }
+.companion-option small { color: var(--muted); font-weight: 700; font-size: 0.74rem; text-align: center; }
+@media (min-width: 560px) {
+  .companion-grid { grid-template-columns: repeat(3, 1fr); }
+}
 
 /* ===================== Tweety family + aviary ===================== */
 .family-card { text-align: center; }
