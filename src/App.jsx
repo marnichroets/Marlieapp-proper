@@ -4044,9 +4044,6 @@ function HomePage({
       </div>
 
       <section className="season-greeting">
-        <div className="home-hero-bird">
-          <WeeklyBird size={104} />
-        </div>
         <h2>{season.greeting}</h2>
         <p>{season.blurb}</p>
       </section>
@@ -4057,9 +4054,6 @@ function HomePage({
 
       <TweetyWorldCard
         tweety={data.tweety}
-        level={tweetyView.level}
-        mood={tweetyView.mood}
-        dancing={tweetyDancing}
         event={data.tweety?.worldEvent}
         onStartIncubate={startIncubate}
         onWarm={warmEgg}
