@@ -39,6 +39,9 @@ export function defaultTweety() {
     room: { furniture: ['perch'], visits: 0 },
     worldEvent: null, // active story event
     escape: null, // active escape event
+    // Wardrobe: owned wearables, what Tweety is wearing, and the wishlist.
+    wardrobe: { owned: [], worn: { hat: null, accessory: null, outfit: null }, wishlist: [] },
+    lastVisit: null, // ISO of last home visit (for the 24h "miss you" nudge)
   }
 }
 

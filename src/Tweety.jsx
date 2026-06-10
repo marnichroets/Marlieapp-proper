@@ -13,9 +13,324 @@ import {
   TWEETY_COMPANIONS,
   getCompanion,
 } from './tweetyData'
+import { wornSummary } from './market'
+
+// ---- wearable layers (hats, accessories, outfits) --------------------------
+// Drawn inside Tweety's 100×100 viewBox. Head sits around y30–46, eyes at y50,
+// body ellipse around cy58. Outfits cover the lower body, accessories the neck,
+// hats the crown of the head.
+function HatLayer({ id }) {
+  switch (id) {
+    case 'flower-crown':
+      return (
+        <g>
+          {[[34, 34, '#f6a5c0'], [42, 31, '#fff0b3'], [50, 30, '#f8b4d0'], [58, 31, '#c9a8e8'], [66, 34, '#a8d8f0']].map(([x, y, c], i) => (
+            <g key={i}><circle cx={x} cy={y} r="4" fill={c} /><circle cx={x} cy={y} r="1.6" fill="#ffd45e" /></g>
+          ))}
+        </g>
+      )
+    case 'winter-beanie':
+      return (
+        <g>
+          <path d="M32 38 q18 -22 36 0 z" fill="#5b86c4" />
+          <rect x="31" y="36" width="38" height="6" rx="3" fill="#cfe0f4" />
+          <circle cx="50" cy="18" r="4" fill="#cfe0f4" />
+        </g>
+      )
+    case 'party-hat':
+      return (
+        <g>
+          <path d="M50 10 L40 38 L60 38 Z" fill="#f48fb1" />
+          <path d="M50 10 L45 24 L55 24 Z" fill="#ffd45e" />
+          <circle cx="50" cy="10" r="3" fill="#7ec8e3" />
+        </g>
+      )
+    case 'graduation-cap':
+      return (
+        <g>
+          <path d="M30 30 L50 22 L70 30 L50 38 Z" fill="#2f2a3a" />
+          <rect x="46" y="30" width="8" height="6" fill="#2f2a3a" />
+          <path d="M68 30 v10" stroke="#ffd45e" strokeWidth="1.5" /><circle cx="68" cy="41" r="2.4" fill="#ffd45e" />
+        </g>
+      )
+    case 'cowboy-hat':
+      return (
+        <g>
+          <ellipse cx="50" cy="36" rx="24" ry="6" fill="#9c6843" />
+          <path d="M38 36 q2 -16 12 -16 q10 0 12 16 z" fill="#b5895a" />
+          <rect x="38" y="33" width="24" height="3.5" fill="#6f4a2c" />
+        </g>
+      )
+    case 'crown':
+      return <path d="M36 36 L38 20 L46 28 L50 16 L54 28 L62 20 L64 36 Z" fill="#F2C24E" stroke="#D9A036" strokeWidth="1" />
+    case 'diamond-crown':
+      return (
+        <g>
+          <path d="M36 36 L38 20 L46 28 L50 16 L54 28 L62 20 L64 36 Z" fill="#bfe6f7" stroke="#7ec8e3" strokeWidth="1" />
+          {[42, 50, 58].map((x) => <circle key={x} cx={x} cy={32} r="2" fill="#ffffff" />)}
+        </g>
+      )
+    case 'santa-hat':
+      return (
+        <g>
+          <path d="M32 38 q6 -24 30 -20 q-6 8 -10 20 z" fill="#d8453a" />
+          <rect x="31" y="35" width="34" height="6" rx="3" fill="#fff" />
+          <circle cx="62" cy="18" r="4" fill="#fff" />
+        </g>
+      )
+    case 'detective-hat':
+      return (
+        <g>
+          <ellipse cx="50" cy="36" rx="24" ry="5" fill="#8a7a5a" />
+          <path d="M36 36 q4 -14 14 -14 q10 0 14 14 z" fill="#a3936e" />
+          <rect x="40" y="30" width="20" height="3" fill="#7a6c4f" />
+        </g>
+      )
+    case 'witch-hat':
+      return (
+        <g>
+          <ellipse cx="50" cy="38" rx="22" ry="5" fill="#3a2f50" />
+          <path d="M50 8 q8 20 12 30 q-12 -4 -24 0 q4 -10 12 -30 z" fill="#4a3a66" />
+          <rect x="40" y="33" width="20" height="4" fill="#ffd45e" />
+        </g>
+      )
+    case 'sunhat':
+      return (
+        <g>
+          <ellipse cx="50" cy="36" rx="26" ry="7" fill="#f3dca0" />
+          <path d="M40 36 q2 -14 10 -14 q8 0 10 14 z" fill="#e9cf86" />
+          <rect x="40" y="32" width="20" height="3.5" fill="#f6a5c0" />
+        </g>
+      )
+    case 'pirate-hat':
+      return (
+        <g>
+          <path d="M30 34 q20 -10 40 0 q-6 6 -20 6 q-14 0 -20 -6 z" fill="#2c2c33" />
+          <path d="M30 34 q20 8 40 0" fill="none" stroke="#e0c089" strokeWidth="1.5" />
+          <g fill="#e8e8e8"><circle cx="50" cy="30" r="3" /><circle cx="48" cy="29.5" r="0.8" fill="#2c2c33" /><circle cx="52" cy="29.5" r="0.8" fill="#2c2c33" /></g>
+        </g>
+      )
+    case 'chef-hat':
+      return (
+        <g>
+          <rect x="40" y="32" width="20" height="8" rx="2" fill="#fff" stroke="#e2e2e2" />
+          <path d="M40 32 q-4 -16 10 -14 q14 -2 10 14 z" fill="#fff" stroke="#e2e2e2" />
+          <circle cx="44" cy="22" r="5" fill="#fff" /><circle cx="56" cy="22" r="5" fill="#fff" />
+        </g>
+      )
+    default:
+      return null
+  }
+}
+
+function OutfitLayer({ id }) {
+  switch (id) {
+    case 'tuxedo':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-4 22 q-12 5 -24 0 z" fill="#2c2c33" />
+          <path d="M50 60 l-8 8 l8 4 l8 -4 z" fill="#fff" />
+          <path d="M47 64 l3 3 l3 -3 l-1 4 h-4 z" fill="#d8453a" />
+        </g>
+      )
+    case 'princess-dress':
+      return (
+        <g>
+          <path d="M40 64 q10 5 20 0 l10 20 q-20 8 -40 0 z" fill="#f6a5c0" />
+          <path d="M40 64 q10 5 20 0 l2 5 q-12 4 -24 0 z" fill="#f8c6dd" />
+          <circle cx="50" cy="68" r="2" fill="#ffd45e" />
+        </g>
+      )
+    case 'explorer-vest':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-3 20 q-13 5 -26 0 z" fill="#9c8a5a" />
+          <rect x="38" y="70" width="8" height="7" rx="1" fill="#7a6c44" />
+          <rect x="54" y="70" width="8" height="7" rx="1" fill="#7a6c44" />
+        </g>
+      )
+    case 'pyjamas':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-3 22 q-13 5 -26 0 z" fill="#8fb3e0" />
+          {[[42, 70], [54, 70], [46, 78], [58, 76]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2" fill="#fff" opacity="0.8" />)}
+        </g>
+      )
+    case 'rain-jacket':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-3 22 q-13 5 -26 0 z" fill="#f5c542" />
+          <path d="M50 60 v22" stroke="#d9a82e" strokeWidth="1.5" />
+          <path d="M34 60 q6 4 6 12" fill="none" stroke="#d9a82e" strokeWidth="1.5" />
+        </g>
+      )
+    case 'winter-coat':
+      return (
+        <g>
+          <path d="M33 60 q17 7 34 0 l-3 23 q-14 5 -28 0 z" fill="#7a5b8c" />
+          <path d="M50 60 v23" stroke="#5e4670" strokeWidth="2" />
+          {[66, 74, 80].map((y) => <circle key={y} cx="50" cy={y} r="1.6" fill="#ffd45e" />)}
+          <rect x="42" y="58" width="16" height="5" rx="2" fill="#d8c6e0" />
+        </g>
+      )
+    case 'superhero-suit':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-3 22 q-13 5 -26 0 z" fill="#3a6fd8" />
+          <path d="M50 66 l4 6 l-4 8 l-4 -8 z" fill="#ffd45e" />
+        </g>
+      )
+    case 'ballerina-tutu':
+      return (
+        <g>
+          <path d="M36 70 q14 6 28 0 q-2 8 -14 9 q-12 -1 -14 -9 z" fill="#f8c6dd" />
+          <path d="M36 70 q14 6 28 0" fill="none" stroke="#f6a5c0" strokeWidth="2" />
+        </g>
+      )
+    case 'dino-costume':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-3 22 q-13 5 -26 0 z" fill="#5cbd79" />
+          <path d="M40 58 l3 -5 l3 5 l3 -5 l3 5 l3 -5 l3 5 z" fill="#3f9a5e" />
+        </g>
+      )
+    case 'love-letter-outfit':
+      return (
+        <g>
+          <path d="M34 60 q16 6 32 0 l-3 22 q-13 5 -26 0 z" fill="#f7d6e0" />
+          {[[42, 70], [56, 72], [48, 79]].map(([x, y], i) => <text key={i} x={x} y={y} fontSize="6" fill="#d8453a">♥</text>)}
+          <path d="M44 62 h12 v7 h-12 z M44 62 l6 4 l6 -4" fill="#fff" stroke="#d8453a" strokeWidth="0.8" />
+        </g>
+      )
+    default:
+      return null
+  }
+}
+
+function AccessoryLayer({ id }) {
+  switch (id) {
+    case 'scarf':
+      return (
+        <g>
+          <path d="M38 64 q12 7 24 0 l-1 5 q-11 5 -22 0 z" fill="#d8453a" />
+          <path d="M58 68 l3 12 l-6 0 z" fill="#c33a30" />
+        </g>
+      )
+    case 'bow-tie':
+      return (
+        <g>
+          <path d="M50 66 l-9 -4 v8 z" fill="#d8453a" /><path d="M50 66 l9 -4 v8 z" fill="#d8453a" />
+          <circle cx="50" cy="66" r="2.4" fill="#a02a22" />
+        </g>
+      )
+    case 'heart-necklace':
+      return (
+        <g>
+          <path d="M40 62 q10 8 20 0" fill="none" stroke="#ffd45e" strokeWidth="1.4" />
+          <path d="M50 70 l-3 -3 a2 2 0 0 1 3 -2 a2 2 0 0 1 3 2 z" fill="#e8526a" />
+        </g>
+      )
+    case 'pearl-necklace':
+      return (
+        <g fill="#fff" stroke="#e0e0e0" strokeWidth="0.5">
+          {[[41, 63], [45, 66], [50, 67], [55, 66], [59, 63]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.8" />)}
+        </g>
+      )
+    case 'sunglasses':
+      return (
+        <g fill="#2c2c33">
+          <rect x="38" y="47" width="9" height="6" rx="3" /><rect x="53" y="47" width="9" height="6" rx="3" />
+          <rect x="47" y="49" width="6" height="1.6" />
+        </g>
+      )
+    case 'monocle':
+      return (
+        <g>
+          <circle cx="57" cy="50" r="5" fill="none" stroke="#ffd45e" strokeWidth="1.4" />
+          <path d="M57 55 l-2 9" stroke="#ffd45e" strokeWidth="1" />
+        </g>
+      )
+    case 'cape':
+      return <path d="M30 56 q20 10 40 0 l6 26 q-26 8 -52 0 z" fill="#7a2ad8" opacity="0.9" />
+    case 'backpack':
+      return (
+        <g>
+          <path d="M36 56 q4 8 0 18" fill="none" stroke="#c97b3a" strokeWidth="2" />
+          <path d="M64 56 q-4 8 0 18" fill="none" stroke="#c97b3a" strokeWidth="2" />
+          <rect x="64" y="60" width="12" height="16" rx="3" fill="#e07a3c" />
+        </g>
+      )
+    case 'fairy-wings':
+      return (
+        <g fill="#bfe6f7" opacity="0.75" stroke="#9ad4f0" strokeWidth="0.8">
+          <path d="M30 50 q-16 -6 -10 12 q6 8 16 -2 z" />
+          <path d="M70 50 q16 -6 10 12 q-6 8 -16 -2 z" />
+        </g>
+      )
+    case 'bandana':
+      return (
+        <g>
+          <path d="M40 62 q10 6 20 0 l-10 14 z" fill="#d8453a" />
+          {[[46, 66], [52, 66], [49, 70]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1" fill="#fff" />)}
+        </g>
+      )
+    case 'rainbow-bow':
+      return (
+        <g>
+          <path d="M64 38 l-7 -3 v8 z" fill="#f48fb1" /><path d="M64 38 l7 -3 v8 z" fill="#7ec8e3" />
+          <circle cx="64" cy="38" r="2.2" fill="#ffd45e" />
+        </g>
+      )
+    case 'angel-halo':
+      return <ellipse cx="50" cy="20" rx="13" ry="4" fill="none" stroke="#ffe07a" strokeWidth="2.6" />
+    case 'golden-feather':
+      return (
+        <g>
+          <path d="M66 44 q10 -8 12 -20 q-12 6 -16 16 z" fill="#ffd45e" stroke="#e0a64f" strokeWidth="0.6" />
+          <path d="M67 42 q4 -6 9 -13" stroke="#e0a64f" strokeWidth="0.7" fill="none" />
+        </g>
+      )
+    case 'magic-wand':
+      return (
+        <g>
+          <line x1="70" y1="74" x2="78" y2="56" stroke="#7a5b8c" strokeWidth="2" strokeLinecap="round" />
+          <path d="M78 50 l1.5 4 l4 0.5 l-3 3 l1 4 l-3.5 -2 l-3.5 2 l1 -4 l-3 -3 l4 -0.5 z" fill="#ffd45e" />
+        </g>
+      )
+    case 'tiny-guitar':
+      return (
+        <g>
+          <line x1="64" y1="60" x2="76" y2="48" stroke="#8a5e3b" strokeWidth="2" />
+          <ellipse cx="62" cy="64" rx="6" ry="7" fill="#c97b3a" transform="rotate(-30 62 64)" />
+          <circle cx="62" cy="64" r="2" fill="#5e3a1e" />
+        </g>
+      )
+    case 'marnich-gift-box':
+      return (
+        <g>
+          <rect x="45" y="64" width="10" height="9" rx="1" fill="#e8526a" />
+          <rect x="45" y="64" width="10" height="3" fill="#c33a52" />
+          <path d="M50 64 v9 M45 67 h10" stroke="#ffd45e" strokeWidth="1" />
+        </g>
+      )
+    default:
+      return null
+  }
+}
+
+function WornLayers({ worn }) {
+  if (!worn) return null
+  return (
+    <g className="tweety-worn">
+      {worn.outfit && <OutfitLayer id={worn.outfit} />}
+      {worn.accessory && <AccessoryLayer id={worn.accessory} />}
+      {worn.hat && <HatLayer id={worn.hat} />}
+    </g>
+  )
+}
 
 // ---- Tweety SVG ------------------------------------------------------------
-export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null }) {
+export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null, worn = null }) {
   const big = level === 'grown' || level === 'crown'
   const mid = level === 'fledgling' || big
   const rx = level === 'chick' ? 23 : level === 'fledgling' ? 26 : 29
@@ -88,10 +403,12 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           {mood === 'happy' && (
             <path d="M46 65 q4 3 8 0" stroke="#C8742E" strokeWidth="1.6" fill="none" strokeLinecap="round" />
           )}
-          {/* crown at top level */}
-          {level === 'crown' && (
+          {/* crown at top level (hidden when wearing a hat so they don't clash) */}
+          {level === 'crown' && !worn?.hat && (
             <path d="M40 30 L42 18 L50 26 L54 15 L58 26 L66 18 L68 30 Z" fill="#F2C24E" stroke="#D9A036" strokeWidth="1" transform="translate(0 -2)" />
           )}
+          {/* wearables from the wardrobe */}
+          <WornLayers worn={worn} />
         </g>
       </svg>
     </span>
@@ -112,9 +429,12 @@ export function TweetyHomeCard({
   onWater,
   onPlay,
   onOpenStats,
+  onDressUp,
 }) {
   const today = tweetyToday(tweety)
   const name = tweety?.name || 'Tweety'
+  const worn = tweety?.wardrobe?.worn || null
+  const wearingNames = wornSummary(tweety?.wardrobe)
 
   const moodLine =
     mood === 'happy'
@@ -140,13 +460,21 @@ export function TweetyHomeCard({
         {nestTier === 'luxury' && <div className="nest-decor nest-lights" aria-hidden="true">✨🏮✨</div>}
         {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          <TweetyBird level={level.key} mood={mood} dancing={dancing} size={132} companion={tweety?.companion} />
+          <TweetyBird level={level.key} mood={mood} dancing={dancing} size={132} companion={tweety?.companion} worn={worn} />
           {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
           <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
         </div>
         <span className="tweety-level-pill">{level.label}</span>
         {streak > 0 && <span className="tweety-streak-pill">{streak}-day care streak 🔥</span>}
       </div>
+      {wearingNames.length > 0 && (
+        <p className="tweety-wearing">👗 Wearing: {wearingNames.join(' + ')}</p>
+      )}
+      {onDressUp && (
+        <button className="secondary-btn wide tweety-dress-btn" type="button" onClick={onDressUp}>
+          Dress {name} ✨
+        </button>
+      )}
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
       <div className="tweety-care-row">

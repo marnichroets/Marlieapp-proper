@@ -28,6 +28,8 @@ import {
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
 import { TweetyWorldCard, EscapeAlert, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
+import { MarketTab, WardrobePage } from './MarketUI'
+import { defaultWardrobe, ownsWearable, wearableById, rotationIndex } from './market'
 import {
   MAX_EGGS,
   HATCH_TAPS,
@@ -1234,7 +1236,15 @@ function loadState() {
         saved.fieldGuideNotes && typeof saved.fieldGuideNotes === 'object'
           ? saved.fieldGuideNotes
           : base.fieldGuideNotes,
-      tweety: { ...base.tweety, ...(saved.tweety || {}) },
+      tweety: {
+        ...base.tweety,
+        ...(saved.tweety || {}),
+        wardrobe: {
+          ...base.tweety.wardrobe,
+          ...(saved.tweety?.wardrobe || {}),
+          worn: { ...base.tweety.wardrobe.worn, ...(saved.tweety?.wardrobe?.worn || {}) },
+        },
+      },
       store: { ...base.store, ...(saved.store || {}) },
       games: { ...base.games, ...(saved.games || {}) },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
@@ -2121,6 +2131,65 @@ function App() {
         room: { ...(c.tweety.room || { furniture: ['perch'], visits: 0 }), visits: (c.tweety.room?.visits || 0) + 1 },
       },
     }))
+  }
+
+  // ----- Marnich's Secret Market: wearables + wardrobe -----
+  function buyWearable(item, options = {}) {
+    const free = Boolean(options.free)
+    const wardrobe = data.tweety?.wardrobe || defaultWardrobe()
+    if (ownsWearable(wardrobe, item.id)) return
+    const cost = free ? 0 : item.cost
+    if (!free && data.featherCoins < cost) {
+      setToast({ title: 'Not enough coins yet', body: `${item.name} costs ${cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    const owned = Array.from(new Set([...(wardrobe.owned || []), item.id]))
+    const wishlist = (wardrobe.wishlist || []).filter((id) => id !== item.id)
+    if (free) setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        tweety: { ...data.tweety, wardrobe: { ...wardrobe, owned, wishlist } },
+        featherCoins: data.featherCoins - cost,
+      },
+      {
+        title: free ? 'A gift from Marnich 🎁' : 'Added to the wardrobe ✨',
+        body: `${item.emoji} ${item.name}${free ? ' — sent with love by Marnich! 💛' : ' is ready to wear.'}`,
+        tone: free ? 'success' : 'calm',
+      },
+    )
+  }
+
+  function giftWearable(item) {
+    buyWearable(item, { free: true })
+  }
+
+  function wearWearable(slot, id) {
+    setData((c) => {
+      const wardrobe = c.tweety?.wardrobe || defaultWardrobe()
+      const current = wardrobe.worn?.[slot]
+      const nextWorn = { ...wardrobe.worn, [slot]: current === id ? null : id }
+      return { ...c, tweety: { ...c.tweety, wardrobe: { ...wardrobe, worn: nextWorn } } }
+    })
+  }
+
+  function toggleWishlistItem(id) {
+    setData((c) => {
+      const wardrobe = c.tweety?.wardrobe || defaultWardrobe()
+      const has = (wardrobe.wishlist || []).includes(id)
+      const wishlist = has
+        ? wardrobe.wishlist.filter((w) => w !== id)
+        : [...(wardrobe.wishlist || []), id]
+      return { ...c, tweety: { ...c.tweety, wardrobe: { ...wardrobe, wishlist } } }
+    })
+  }
+
+  function setMarnichPick(itemId) {
+    const rotation = rotationIndex(Date.now())
+    commit(
+      { ...data, settings: { ...data.settings, marketPick: { rotation, itemId } } },
+      { title: "Marnich's pick set 💛", body: `${wearableById(itemId)?.name || 'That item'} is now the featured pick.` },
+    )
   }
 
   // Feed / water the baby bird while it grows.
@@ -3420,6 +3489,16 @@ function App() {
             onRename={renameTweety}
           />
         )}
+        {activePage === 'wardrobe' && (
+          <WardrobePage
+            tweety={data.tweety}
+            isAdmin={session.role === 'admin'}
+            onBack={() => setActivePage('home')}
+            onWear={wearWearable}
+            onToggleWishlist={toggleWishlistItem}
+            goToMarket={() => setActivePage('rewards')}
+          />
+        )}
         {activePage === 'games' && (
           <GamesHub
             data={data}
@@ -3462,6 +3541,10 @@ function App() {
             buyDateIdea={buyDateIdea}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
             buyStoreItem={buyStoreItem}
+            buyWearable={buyWearable}
+            giftWearable={giftWearable}
+            toggleWishlistItem={toggleWishlistItem}
+            setMarnichPick={setMarnichPick}
           />
         )}
         {activePage === 'challenges' && (
@@ -4077,6 +4160,7 @@ function HomePage({
         onWater={() => careTweety('water')}
         onPlay={() => careTweety('play')}
         onOpenStats={() => goTo('tweety')}
+        onDressUp={() => goTo('wardrobe')}
       />
 
       <TweetyFamilyCard
@@ -5839,6 +5923,10 @@ function RewardsPage({
   buyDateIdea,
   buyFeaturedBirdProfile,
   buyStoreItem,
+  buyWearable,
+  giftWearable,
+  toggleWishlistItem,
+  setMarnichPick,
 }) {
   const [tab, setTab] = useState('surprises')
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
@@ -5886,9 +5974,27 @@ function RewardsPage({
         >
           Bird Store 🛒
         </button>
+        <button
+          className={tab === 'market' ? 'filter-chip active' : 'filter-chip'}
+          type="button"
+          onClick={() => setTab('market')}
+        >
+          Market 🛍️
+        </button>
       </div>
 
-      {tab === 'store' ? (
+      {tab === 'market' ? (
+        <MarketTab
+          wardrobe={data.tweety?.wardrobe}
+          coins={coins}
+          isAdmin={isAdmin}
+          marketPick={data.settings?.marketPick}
+          onBuy={buyWearable}
+          onGift={giftWearable}
+          onToggleWishlist={toggleWishlistItem}
+          onSetPick={setMarnichPick}
+        />
+      ) : tab === 'store' ? (
         <BirdStore store={data.store} coins={coins} onBuy={buyStoreItem} />
       ) : (
       <>
