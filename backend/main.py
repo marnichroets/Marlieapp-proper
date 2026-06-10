@@ -2,10 +2,13 @@ import asyncio
 import base64
 import json
 import os
+import urllib.error
+import urllib.request
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from openai import OpenAI, OpenAIError
 
 
@@ -71,6 +74,101 @@ app.add_middleware(
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# ---- Email notifications to Marnich -----------------------------------------
+class NotifyPayload(BaseModel):
+    event: str = ""
+    birdName: str = ""
+    giftName: str = ""
+    challenge: str = ""
+    count: int = 0
+    subject: str = ""
+    body: str = ""
+
+
+def build_notification(payload: NotifyPayload) -> tuple[str, str]:
+    """Turn an event into a warm, simple subject + body."""
+    if payload.subject and payload.body:
+        return payload.subject, payload.body
+
+    event = (payload.event or "").strip().lower()
+    bird = (payload.birdName or "a bird").strip()
+    gift = (payload.giftName or "a surprise").strip()
+
+    if event == "spotted":
+        return (
+            f"Pooks spotted a {bird}! 🐦",
+            f"Your Pooks just spotted and logged a {bird} in her Bird Journey. 💛",
+        )
+    if event == "challenge":
+        return (
+            "Pooks completed today's challenge! ✅",
+            "Your Pooks completed today's daily bird challenge. So proud of her. 💛",
+        )
+    if event == "gift":
+        return (
+            f"Pooks unlocked: {gift} 🎁",
+            f"Your Pooks just unlocked a gift: {gift}. Time for a little surprise! 💛",
+        )
+    if event == "milestone":
+        n = payload.count or 5
+        return (
+            f"Pooks found her {n}th bird! 🎉",
+            f"Big moment — your Pooks has now spotted {n} birds on her journey. 💛",
+        )
+
+    return (
+        "A little update from Pooks' Bird Journey 🐦",
+        "Something sweet just happened in Pooks' bird app. 💛",
+    )
+
+
+def send_email(subject: str, body: str) -> dict[str, Any]:
+    token = os.getenv("POSTMARK_SERVER_TOKEN", "").strip()
+    to_email = os.getenv("NOTIFY_TO_EMAIL", "marnichr@gmail.com").strip()
+    from_email = os.getenv("NOTIFY_FROM_EMAIL", "").strip()
+
+    # Never error the app if email isn't configured — just report it.
+    if not token or not from_email:
+        return {"sent": False, "reason": "email not configured"}
+
+    data = json.dumps(
+        {
+            "From": from_email,
+            "To": to_email,
+            "Subject": subject,
+            "TextBody": body,
+            "MessageStream": os.getenv("POSTMARK_MESSAGE_STREAM", "outbound"),
+        }
+    ).encode("utf-8")
+
+    request = urllib.request.Request(
+        "https://api.postmarkapp.com/email",
+        data=data,
+        method="POST",
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Postmark-Server-Token": token,
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            response.read()
+        return {"sent": True}
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "ignore")[:300]
+        return {"sent": False, "reason": f"postmark {exc.code}: {detail}"}
+    except Exception as exc:  # noqa: BLE001 - best effort, never crash the app
+        return {"sent": False, "reason": str(exc)}
+
+
+@app.post("/api/notify")
+async def notify(payload: NotifyPayload) -> dict[str, Any]:
+    subject, body = build_notification(payload)
+    return await asyncio.to_thread(send_email, subject, body)
 
 
 @app.post("/api/identify-bird")

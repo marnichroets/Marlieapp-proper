@@ -41,6 +41,21 @@ Optional:
 OPENAI_VISION_MODEL=gpt-4o-mini
 ```
 
+### Email notifications (Postmark)
+
+The `POST /api/notify` endpoint emails Marnich warm updates via Postmark. Set:
+
+```text
+POSTMARK_SERVER_TOKEN=your_postmark_server_token
+NOTIFY_FROM_EMAIL=a_verified_postmark_sender@yourdomain.com
+NOTIFY_TO_EMAIL=marnichr@gmail.com        # optional, this is the default
+POSTMARK_MESSAGE_STREAM=outbound          # optional, default "outbound"
+```
+
+If the token or from-address is missing, the endpoint returns
+`{"sent": false, "reason": "email not configured"}` and never errors, so the
+app keeps working without email configured.
+
 ## Local development
 
 From this folder:
@@ -72,6 +87,20 @@ Returns:
 ```json
 {"status":"ok"}
 ```
+
+### `POST /api/notify`
+
+Accepts JSON. Either send a prebuilt `subject` + `body`, or an `event` the
+server turns into a warm message:
+
+```json
+{ "event": "spotted", "birdName": "Cape Robin-Chat" }
+{ "event": "challenge" }
+{ "event": "gift", "giftName": "Hidden note" }
+{ "event": "milestone", "count": 5 }
+```
+
+Returns `{"sent": true}` on success, or `{"sent": false, "reason": "..."}`.
 
 ### `POST /api/identify-bird`
 

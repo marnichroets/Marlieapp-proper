@@ -654,6 +654,22 @@ function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+// Fire-and-forget warm email to Marnich via the Railway backend. Never blocks
+// or breaks the UI — failures are swallowed (e.g. offline or email unconfigured).
+function notifyMarnich(event, details = {}) {
+  if (!BIRD_API_URL) return
+  try {
+    fetch(`${BIRD_API_URL}/api/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, ...details }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    // ignore — notifications are best-effort
+  }
+}
+
 // Phone photos are multi-megabyte. Stored raw as base64 they blow the ~5MB
 // localStorage quota, setItem throws, and the sighting silently fails to
 // persist. Downscale to a small JPEG (a few hundred KB at most) before storing
@@ -2728,6 +2744,8 @@ function App() {
     setData(recalculated)
     if (unlockedRewards.length) {
       setRewardUnlockQueue((current) => [...current, ...unlockedRewards])
+      // Email Marnich about each freshly unlocked gift.
+      unlockedRewards.forEach((reward) => notifyMarnich('gift', { giftName: reward.name }))
     }
     if (milestoneBonus > 0) setConfetti(Date.now())
     setToast({
@@ -2947,6 +2965,14 @@ function App() {
       setActivePage('birds')
     }
 
+    // Warm emails to Marnich: every confirmed spot, plus the 5-bird milestone.
+    notifyMarnich('spotted', { birdName })
+    const prevUnique = data.birds.length
+    const newUnique = nextState.birds.length
+    if (prevUnique < 5 && newUnique >= 5) {
+      notifyMarnich('milestone', { count: 5 })
+    }
+
     return { birdName, coinsEarned, isNewSpecies, unlockedMystery: Boolean(unlockedMysteryBird) }
   }
 
@@ -3040,6 +3066,7 @@ function App() {
           : `You found one! +${COINS.dailyChallenge} Feather Coins.${streakNote}`,
       },
     )
+    notifyMarnich('challenge')
   }
 
   function toggleBingo(index) {
