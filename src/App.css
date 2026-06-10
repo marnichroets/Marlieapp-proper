@@ -181,8 +181,15 @@
 
 .page-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr) (not bare 1fr) so wide content can't stretch a card past
+     the viewport and get clipped — text wraps inside the card instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+}
+
+/* Grid/card children must be allowed to shrink so their text wraps. */
+.page-grid > * {
+  min-width: 0;
 }
 
 .home-grid {
@@ -524,9 +531,12 @@
   font: inherit;
   font-size: 0.9rem;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.15;
   min-height: 46px;
-  padding: 0 18px;
+  padding: 10px 18px;
+  /* Button labels must never be clipped — wrap if truly needed. */
+  white-space: normal;
+  overflow-wrap: break-word;
   touch-action: manipulation;
   transition:
     transform 160ms ease,
@@ -958,10 +968,15 @@ textarea:focus {
   transform: none;
 }
 
-/* Personal sighting photos are her own framed memories — keep them filled. */
+/* Personal sighting photos are her own memories — show the WHOLE photo
+   (never crop the bird out) on a soft cushion so "contain" looks clean. */
 .profile-sighting-card img {
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
   transform: none;
 }
 
@@ -1054,10 +1069,9 @@ textarea:focus {
 }
 
 .notes-preview {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  /* Show the full note — never clip it. */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .nickname {
@@ -1389,7 +1403,12 @@ textarea:focus {
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 18px;
-  object-fit: cover;
+  /* Show the whole photo so the bird is never cropped out. */
+  object-fit: contain;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
 }
 
 .profile-main-photo.placeholder-photo {
@@ -1421,6 +1440,21 @@ textarea:focus {
   width: 100%;
 }
 
+/* "Hear this bird 🎵" stays on one line; shrink the text rather than clip it. */
+.sound-btn {
+  white-space: nowrap;
+  overflow: visible;
+  padding-left: 12px;
+  padding-right: 12px;
+  font-size: clamp(0.82rem, 3.4vw, 1rem);
+}
+
+/* The bird-song description must wrap fully, never get cut off. */
+.sound-card h3 {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .sound-placeholder {
   display: grid;
   min-height: 72px;
@@ -1438,7 +1472,7 @@ textarea:focus {
 .profile-sighting-card .placeholder-photo {
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .profile-sighting-card > div:not(.placeholder-photo) {
@@ -2956,8 +2990,13 @@ textarea:focus {
   display: block;
   width: 100%;
   height: 260px;
-  object-fit: cover;
+  /* Show the whole shot so she can see the bird isn't cropped out. */
+  object-fit: contain;
   object-position: center;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
   border-radius: 18px;
 }
 
@@ -3123,7 +3162,12 @@ textarea:focus {
 .my-photo img {
   width: 100%;
   height: 120px;
-  object-fit: cover;
+  /* Whole photo visible on a soft cushion — never crop the bird out. */
+  object-fit: contain;
+  padding: 6px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.7), transparent 62%),
+    linear-gradient(160deg, rgba(231, 241, 223, 0.92), rgba(255, 235, 205, 0.85));
   border-radius: 10px;
 }
 
