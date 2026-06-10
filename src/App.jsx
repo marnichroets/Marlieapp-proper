@@ -654,6 +654,58 @@ function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+// Phone photos are multi-megabyte. Stored raw as base64 they blow the ~5MB
+// localStorage quota, setItem throws, and the sighting silently fails to
+// persist. Downscale to a small JPEG (a few hundred KB at most) before storing
+// so every sighting saves reliably. Falls back to the raw file on any failure.
+function fileToStorablePhoto(file, maxDim = 1100, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error('no file'))
+      return
+    }
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      try {
+        let { width, height } = img
+        const longest = Math.max(width, height)
+        if (longest > maxDim) {
+          const scale = maxDim / longest
+          width = Math.round(width * scale)
+          height = Math.round(height * scale)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('image decode failed'))
+    }
+    img.src = url
+  })
+}
+
+// Read a file into a small storable photo, gracefully falling back to the raw
+// data URL if canvas downscaling is unavailable.
+function readStorablePhoto(file, onReady, opts = {}) {
+  fileToStorablePhoto(file, opts.maxDim, opts.quality)
+    .then(onReady)
+    .catch(() => {
+      const reader = new FileReader()
+      reader.onload = () => onReady(reader.result)
+      reader.readAsDataURL(file)
+    })
+}
+
 function todayValue() {
   const date = new Date()
   const year = date.getFullYear()
@@ -1272,6 +1324,14 @@ function loadState() {
     })
   } catch (error) {
     console.warn('Could not load Marlie Bird App data', error)
+    // Never silently destroy a save we couldn't parse — keep a backup copy so
+    // it can be recovered instead of being overwritten by the empty default.
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) localStorage.setItem(`${STORAGE_KEY}-backup`, raw)
+    } catch {
+      // ignore
+    }
     return base
   }
 }
@@ -1712,7 +1772,19 @@ function App() {
   }, [data.challenges, data.dailyChallengeCompletions])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    } catch (error) {
+      // Storage is full — warn rather than silently losing the save.
+      console.warn('Could not save app data (storage may be full)', error)
+      window.setTimeout(() => {
+        setToast({
+          title: 'Storage almost full 📦',
+          body: 'Some photos may not have saved. Removing a few old photos will help.',
+          tone: 'warning',
+        })
+      }, 0)
+    }
   }, [data])
 
   // Stamp this visit so the "Tweety missed you" nudge only shows after a real gap.
@@ -4339,9 +4411,8 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setGuidance('')
     clearAiState()
 
-    const reader = new FileReader()
-    reader.onload = () => updateField('photo', reader.result)
-    reader.readAsDataURL(file)
+    // Store a downscaled copy so the sighting always fits in localStorage.
+    readStorablePhoto(file, (photo) => updateField('photo', photo))
   }
 
   function removePhoto() {
@@ -5630,13 +5701,15 @@ function FieldNotesSection({ profileKey, saved, saveFieldGuideNotes }) {
   function handleMyPhoto(event) {
     const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      saveFieldGuideNotes(profileKey, {
-        myPhotos: [...myPhotos, { id: createId('myphoto'), photo: reader.result }],
-      })
-    }
-    reader.readAsDataURL(file)
+    readStorablePhoto(
+      file,
+      (photo) => {
+        saveFieldGuideNotes(profileKey, {
+          myPhotos: [...myPhotos, { id: createId('myphoto'), photo }],
+        })
+      },
+      { maxDim: 900 },
+    )
     event.target.value = ''
   }
 
@@ -6321,9 +6394,7 @@ function BirdDatePage({ data, rotateDateMission, completeBirdDate, toggleDateFav
   function handlePhoto(event) {
     const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setPhoto(reader.result)
-    reader.readAsDataURL(file)
+    readStorablePhoto(file, (photo) => setPhoto(photo), { maxDim: 900 })
   }
 
   function confirmCode() {
