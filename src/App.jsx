@@ -5975,8 +5975,9 @@ function WeeklyMagazinePage({ data, openBirdProfile }) {
   // Page 1 — the cover.
   pages.push(
     <div className="magazine-cover-page" key="cover">
-      <p className="magazine-issue-no">The Weekly Feather · Issue {issue.week}</p>
-      <p className="magazine-season">{season.name} edition · {season.greeting}</p>
+      <p className="magazine-issue-no">The Weekly Feather</p>
+      <p className="magazine-season">Week {issue.week} — {season.name} Edition</p>
+      <p className="fine-print">Fresh every Monday · {season.greeting}</p>
       {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
       <p className="magazine-quote">“{quote}”</p>
       {coverBird && (
