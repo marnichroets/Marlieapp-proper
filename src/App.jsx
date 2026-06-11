@@ -1961,6 +1961,19 @@ function App() {
     setActivePage('home')
   }
 
+  // Replay the one-time intro on demand (gear menu / profile). The "seen" flag
+  // is cleared while she watches and restored when she taps Accept again, so
+  // she can rewatch her Bird Council dossier as many times as she likes.
+  function replayIntro() {
+    setMenuOpen(false)
+    try {
+      localStorage.removeItem(INTRO_SEEN_KEY)
+    } catch {
+      /* ignore */
+    }
+    setIntroSeen(false)
+  }
+
   function sendSurpriseNote(message) {
     const text = String(message || '').trim()
     if (!text) return
@@ -3750,6 +3763,7 @@ function App() {
           }}
           onLogout={logout}
           onClose={() => setMenuOpen(false)}
+          onReplayIntro={session.role === 'pooks' ? replayIntro : null}
         />
       )}
 
@@ -3895,7 +3909,14 @@ function App() {
         {activePage === 'magazine' && (
           <WeeklyMagazinePage data={data} openBirdProfile={openBirdProfile} />
         )}
-        {activePage === 'profile' && <ProfilePage data={data} stats={stats} goTo={setActivePage} />}
+        {activePage === 'profile' && (
+          <ProfilePage
+            data={data}
+            stats={stats}
+            goTo={setActivePage}
+            onReplayIntro={session.role === 'pooks' ? replayIntro : null}
+          />
+        )}
         {activePage === 'admin' && session.role === 'admin' && (
           <AdminPage
             data={data}
@@ -4051,7 +4072,7 @@ function LoginScreen({ data, onLogin }) {
   )
 }
 
-function SettingsMenu({ items, session, onPick, onLogout, onClose }) {
+function SettingsMenu({ items, session, onPick, onLogout, onClose, onReplayIntro }) {
   return (
     <div className="menu-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -4070,6 +4091,15 @@ function SettingsMenu({ items, session, onPick, onLogout, onClose }) {
             </button>
           ))}
         </div>
+        {onReplayIntro && (
+          <div className="menu-story">
+            <p className="eyebrow">My Story</p>
+            <button className="story-replay-btn" type="button" onClick={onReplayIntro}>
+              <span aria-hidden="true">🪶</span>
+              Replay my Bird Council dossier
+            </button>
+          </div>
+        )}
         <button className="ghost-btn wide big-btn" type="button" onClick={onLogout}>
           Log out
         </button>
@@ -7014,7 +7044,7 @@ function WeeklyMagazinePage({ data, openBirdProfile }) {
   )
 }
 
-function ProfilePage({ data, stats, goTo }) {
+function ProfilePage({ data, stats, goTo, onReplayIntro }) {
   const levelTarget = stats.nextLevel?.birds || stats.uniqueCount || 1
   const levelProgressValue = Math.min(100, Math.round((stats.uniqueCount / levelTarget) * 100))
 
@@ -7061,6 +7091,18 @@ function ProfilePage({ data, stats, goTo }) {
           </button>
         </div>
       </section>
+
+      {onReplayIntro && (
+        <section className="soft-card full-span story-card">
+          <p className="eyebrow">My Story</p>
+          <h2>Your Bird Council dossier</h2>
+          <p>The day the Council made it official. Watch it again whenever you like. 🪶</p>
+          <button className="story-replay-btn" type="button" onClick={onReplayIntro}>
+            <span aria-hidden="true">🎬</span>
+            Replay my Bird Council dossier
+          </button>
+        </section>
+      )}
     </div>
   )
 }

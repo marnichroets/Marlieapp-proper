@@ -1,8 +1,7 @@
 // One-time cinematic "evidence dossier" intro that plays the very first time
-// Pooks opens the app after login. It never shows again once dismissed — the
-// "seen" flag lives in localStorage (key handled by App.jsx). Tone: warm,
-// mysterious, funny and personal.
-import { useEffect, useRef, useState } from 'react'
+// Pooks opens the app after login — and can be replayed forever from the gear
+// menu / profile. Tone: warm, mysterious, funny and personal.
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './IntroSequence.css'
 import { playChirp } from './tweetyData'
 
@@ -54,7 +53,33 @@ const EVIDENCE = [
 
 const VERDICT_LINES = ['After heated debate…', 'The Council has decided.']
 
-// Soft, non-blocking sound. Wrapped so a missing/blocked AudioContext is silent.
+const BRIEF_PARAGRAPH =
+  'Every bird you find will be recorded in your official Bird Council field kit — ' +
+  'a secret app built specifically for you by Agent Marnich, who, despite his ' +
+  'catastrophic performance at Skukuza, does occasionally do something right.'
+
+const FIELD_KIT = [
+  ['🐦', 'A personal bird collection to fill — 110 South African species waiting to be found'],
+  ['🥚', 'A baby bird waiting to hatch — care for it every day and watch it grow'],
+  ['🎁', 'Surprises hidden behind every milestone — rewards from Marnich Bank'],
+  ['💌', 'Secret notes that only unlock when you have truly earned them'],
+  ['🏆', 'Challenges set by the Council — and by Agent Marnich, who fully expects to lose'],
+]
+
+// ---- Sound. All wrapped so a missing/blocked AudioContext is simply silent. ----
+let sharedCtx
+function getCtx() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return null
+    if (!sharedCtx) sharedCtx = new Ctx()
+    if (sharedCtx.state === 'suspended') sharedCtx.resume().catch(() => {})
+    return sharedCtx
+  } catch {
+    return null
+  }
+}
+
 function chirp(kind) {
   try {
     playChirp(kind)
@@ -63,12 +88,39 @@ function chirp(kind) {
   }
 }
 
+// Soft low "thud" for a polaroid landing on the table.
+function thud() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(160, now)
+    osc.frequency.exponentialRampToValueAtTime(58, now + 0.13)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.22)
+  } catch {
+    /* ignore */
+  }
+}
+
+// Slight "thrown polaroid" tilts between -3 and +3 degrees, one per card.
+const EVI_TILTS = [-3, 2.4, -1.4, 3, -2.2]
+
 function EvidencePhoto({ item, index }) {
   const [failed, setFailed] = useState(false)
+  const tilt = EVI_TILTS[index % EVI_TILTS.length]
   return (
     <figure
       className="intro-evi"
-      style={{ '--evi-delay': `${index * 1.1 + 0.2}s`, '--evi-tilt': `${(index % 2 ? 1 : -1) * (2 + index)}deg` }}
+      style={{ '--evi-delay': `${index * 1.1 + 0.2}s`, '--evi-tilt': `${tilt}deg` }}
     >
       <div className="intro-evi-photo">
         {failed ? (
@@ -92,8 +144,12 @@ export default function IntroSequence({ onComplete }) {
   const [screen, setScreen] = useState(1)
   const [verdictStep, setVerdictStep] = useState(0)
   const [crowned, setCrowned] = useState(false)
+  const [kitCount, setKitCount] = useState(0)
   const [bursting, setBursting] = useState(false)
+  const [flash, setFlash] = useState(false)
   const done = useRef(false)
+
+  const briefWords = useMemo(() => BRIEF_PARAGRAPH.split(' '), [])
 
   // Opening bird call as the dossier appears.
   useEffect(() => {
@@ -107,10 +163,8 @@ export default function IntroSequence({ onComplete }) {
       return () => clearTimeout(t)
     }
     if (screen === 2) {
-      // A soft chirp as each evidence card lands on the table.
-      const taps = EVIDENCE.map((_, i) =>
-        setTimeout(() => chirp(i % 2 ? 'feed' : 'water'), i * 1100 + 500),
-      )
+      // A soft thud as each evidence card lands on the table.
+      const taps = EVIDENCE.map((_, i) => setTimeout(() => thud(), i * 1100 + 600))
       const next = setTimeout(() => setScreen(3), EVIDENCE.length * 1100 + 2600)
       return () => {
         taps.forEach(clearTimeout)
@@ -128,29 +182,42 @@ export default function IntroSequence({ onComplete }) {
           setCrowned(true)
           chirp('feed')
         }, 3900),
-        setTimeout(() => setScreen(4), 6200),
+        setTimeout(() => setScreen(4), 6400),
       ]
       return () => timers.forEach(clearTimeout)
     }
     if (screen === 4) {
-      const t = setTimeout(() => setScreen(5), 5400)
+      // Paragraph reveals word by word, then the 5 field-kit items bounce in.
+      const paragraphMs = briefWords.length * 70 + 400
+      const items = FIELD_KIT.map((_, i) =>
+        setTimeout(() => {
+          setKitCount(i + 1)
+          chirp(i % 2 ? 'feed' : 'water')
+        }, paragraphMs + i * 700),
+      )
+      const next = setTimeout(() => setScreen(5), paragraphMs + FIELD_KIT.length * 700 + 2400)
+      return () => {
+        items.forEach(clearTimeout)
+        clearTimeout(next)
+      }
+    }
+    if (screen === 5) {
+      const t = setTimeout(() => setScreen(6), 5400)
       return () => clearTimeout(t)
     }
     return undefined
-  }, [screen])
+  }, [screen, briefWords])
 
   function accept() {
     if (done.current) return
     done.current = true
     setBursting(true)
     chirp('play')
-    const a = setTimeout(() => chirp('feed'), 150)
-    const b = setTimeout(() => chirp('water'), 320)
-    const finish = setTimeout(() => onComplete(), 1400)
-    // No cleanup return here — accept() runs once, and onComplete unmounts us.
-    void a
-    void b
-    void finish
+    setTimeout(() => chirp('feed'), 150)
+    setTimeout(() => chirp('water'), 320)
+    // Two-second golden flash, then fade to home.
+    setTimeout(() => setFlash(true), 500)
+    setTimeout(() => onComplete(), 2700)
   }
 
   return (
@@ -190,18 +257,60 @@ export default function IntroSequence({ onComplete }) {
                 {line}
               </p>
             ))}
-            <h2 className={`intro-welcome ${crowned ? 'show' : ''}`}>
-              WELCOME, FIELD AGENT POOKS 🐦
-            </h2>
+            <div className={`intro-welcome-wrap ${crowned ? 'show' : ''}`}>
+              {crowned && (
+                <div className="intro-welcome-feathers" aria-hidden="true">
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <span
+                      key={i}
+                      className="intro-float-feather"
+                      style={{
+                        left: `${8 + i * 9}%`,
+                        '--ff-delay': `${(i % 5) * 0.3}s`,
+                        '--ff-dur': `${2.6 + (i % 3) * 0.6}s`,
+                      }}
+                    >
+                      🪶
+                    </span>
+                  ))}
+                </div>
+              )}
+              <h2 className="intro-welcome">WELCOME, FIELD AGENT POOKS 🐦</h2>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Screen 4 — mission brief */}
+      {/* Screen 4 — mission briefing: what's in the field kit */}
       {screen === 4 && (
         <div className="intro-stage intro-stage-4">
-          <p className="intro-eyebrow">MISSION BRIEF</p>
-          <h2 className="intro-mission">Your mission: document the birds of South Africa</h2>
+          <div className="intro-watcher" aria-hidden="true">
+            <span className="intro-watcher-bird">🐤</span>
+          </div>
+          <p className="intro-eyebrow">MISSION BRIEFING</p>
+          <p className="intro-brief-para">
+            {briefWords.map((word, i) => (
+              <span key={i} className="intro-brief-word" style={{ animationDelay: `${i * 0.07}s` }}>
+                {word}{' '}
+              </span>
+            ))}
+          </p>
+          <ul className="intro-kit-list">
+            {FIELD_KIT.map(([icon, text], i) => (
+              <li key={i} className={`intro-kit-item ${kitCount > i ? 'show' : ''}`}>
+                <span className="intro-kit-icon" aria-hidden="true">{icon}</span>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Screen 5 — mission & map */}
+      {screen === 5 && (
+        <div className="intro-stage intro-stage-5">
+          <p className="intro-eyebrow">YOUR MISSION</p>
+          <h2 className="intro-mission">Document the birds of South Africa</h2>
           <div className="intro-map" aria-hidden="true">
             <svg viewBox="0 0 200 160" role="presentation">
               <path
@@ -232,9 +341,9 @@ export default function IntroSequence({ onComplete }) {
         </div>
       )}
 
-      {/* Screen 5 — accept the mission */}
-      {screen === 5 && (
-        <div className="intro-stage intro-stage-5">
+      {/* Screen 6 — accept the mission */}
+      {screen === 6 && (
+        <div className="intro-stage intro-stage-6">
           <span className="intro-big-feather" aria-hidden="true">🪶</span>
           <p className="intro-eyebrow">CLEARANCE GRANTED</p>
           <button type="button" className="intro-accept" onClick={accept} disabled={bursting}>
@@ -261,8 +370,16 @@ export default function IntroSequence({ onComplete }) {
         </div>
       )}
 
-      {screen < 5 && (
-        <button type="button" className="intro-skip" onClick={() => setScreen(5)}>
+      {/* Final golden flash before fading to home */}
+      {flash && (
+        <div className="intro-flash" role="presentation">
+          <span className="intro-flash-bird" aria-hidden="true">🐦</span>
+          <p className="intro-flash-text">Your adventure begins now</p>
+        </div>
+      )}
+
+      {screen < 6 && !flash && (
+        <button type="button" className="intro-skip" onClick={() => setScreen(6)}>
           Skip ▸
         </button>
       )}

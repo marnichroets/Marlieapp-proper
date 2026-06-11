@@ -23,15 +23,29 @@
   to { opacity: 1; }
 }
 
-/* Faint paper / film grain overlay for the "old file" feel. */
+/* Soft warm film-grain overlay for the "old file" feel, throughout. */
 .intro-grain {
   position: absolute;
   inset: -50%;
   pointer-events: none;
-  opacity: 0.06;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.5px, transparent 0.5px);
-  background-size: 3px 3px;
+  opacity: 0.08;
+  background-image:
+    radial-gradient(rgba(255, 226, 170, 0.6) 0.5px, transparent 0.5px),
+    radial-gradient(rgba(120, 80, 40, 0.5) 0.5px, transparent 0.5px);
+  background-size: 3px 3px, 4px 4px;
+  background-position: 0 0, 1px 2px;
+  mix-blend-mode: overlay;
   animation: introGrain 6s steps(6) infinite;
+}
+
+/* A gentle warm vignette so the whole frame feels like candlelit film. */
+.intro-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(60, 30, 8, 0.45) 100%);
+  z-index: 2;
 }
 
 @keyframes introGrain {
@@ -254,21 +268,54 @@
   transform: translateY(0);
 }
 
+.intro-welcome-wrap {
+  position: relative;
+  margin: 26px 0 0;
+}
+
 .intro-welcome {
-  margin: 22px 0 0;
+  position: relative;
+  z-index: 1;
+  margin: 0;
   font-size: clamp(1.5rem, 7vw, 2.6rem);
   font-weight: 900;
   letter-spacing: 0.02em;
-  color: #f3c969;
-  text-shadow: 0 4px 26px rgba(243, 201, 105, 0.4);
+  background: linear-gradient(180deg, #ffe9a8 0%, #f3c969 45%, #d99a3c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 30px rgba(243, 201, 105, 0.45);
   opacity: 0;
   transform: scale(0.8);
   transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
-.intro-welcome.show {
+.intro-welcome-wrap.show .intro-welcome {
   opacity: 1;
   transform: scale(1);
+}
+
+/* Tiny feathers drifting up around the golden welcome. */
+.intro-welcome-feathers {
+  position: absolute;
+  inset: -40px -10px -10px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.intro-float-feather {
+  position: absolute;
+  bottom: 0;
+  font-size: 0.95rem;
+  opacity: 0;
+  animation: floatFeather var(--ff-dur, 3s) ease-in-out var(--ff-delay, 0s) infinite;
+}
+
+@keyframes floatFeather {
+  0% { transform: translateY(10px) rotate(-10deg); opacity: 0; }
+  20% { opacity: 0.9; }
+  80% { opacity: 0.7; }
+  100% { transform: translateY(-90px) rotate(20deg); opacity: 0; }
 }
 
 /* ---------- Screen 4: mission brief ---------- */
@@ -338,8 +385,8 @@
   animation: introRise 0.8s ease 2.2s both;
 }
 
-/* ---------- Screen 5: accept ---------- */
-.intro-stage-5 .intro-big-feather {
+/* ---------- Screen 6: accept ---------- */
+.intro-stage-6 .intro-big-feather {
   display: block;
   margin: 0 auto 18px;
   font-size: 3.2rem;
@@ -415,6 +462,190 @@
 
 .intro-skip:hover { color: rgba(243, 234, 210, 0.85); }
 
+/* ---------- Screen 4: field-kit briefing ---------- */
+.intro-stage-4 {
+  width: min(600px, 100%);
+}
+
+.intro-brief-para {
+  margin: 0 auto 22px;
+  max-width: 520px;
+  font-size: clamp(0.96rem, 3.6vw, 1.12rem);
+  line-height: 1.55;
+  color: #ece1c4;
+}
+
+.intro-brief-word {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(4px);
+  animation: briefWord 0.5s ease forwards;
+}
+
+@keyframes briefWord {
+  to { opacity: 1; filter: blur(0); }
+}
+
+.intro-kit-list {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 480px;
+  text-align: left;
+  display: grid;
+  gap: 12px;
+}
+
+.intro-kit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: rgba(255, 240, 205, 0.06);
+  border: 1px solid rgba(243, 201, 105, 0.18);
+  font-size: clamp(0.84rem, 3.2vw, 0.98rem);
+  line-height: 1.35;
+  color: #f1e7cd;
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+}
+
+.intro-kit-item.show {
+  animation: kitBounce 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) forwards;
+}
+
+@keyframes kitBounce {
+  0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.intro-kit-icon {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+/* The cute companion bird watching the briefing and nodding along. */
+.intro-watcher {
+  position: absolute;
+  top: -6px;
+  right: 4px;
+  z-index: 3;
+  text-align: center;
+}
+
+.intro-watcher-bird {
+  display: inline-block;
+  font-size: 2.4rem;
+  transform-origin: bottom center;
+  animation: watcherNod 1.4s ease-in-out infinite;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.4));
+}
+
+@keyframes watcherNod {
+  0%, 100% { transform: rotate(-6deg) translateY(0); }
+  50% { transform: rotate(6deg) translateY(-3px); }
+}
+
+/* ---------- Final golden flash ---------- */
+.intro-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(120% 90% at 50% 45%, #2a1c06 0%, #140d03 100%);
+  animation: flashIn 2.2s ease forwards;
+}
+
+.intro-flash-bird {
+  font-size: clamp(4rem, 22vw, 7rem);
+  animation: flashBird 2.2s cubic-bezier(0.2, 1.3, 0.4, 1) forwards;
+  filter: drop-shadow(0 8px 30px rgba(243, 201, 105, 0.6));
+}
+
+.intro-flash-text {
+  margin: 0;
+  font-size: clamp(1.2rem, 6vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #ffe9a8, #f3c969 55%, #d99a3c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 26px rgba(243, 201, 105, 0.4);
+  animation: introRise 0.9s ease 0.5s both;
+}
+
+@keyframes flashIn {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes flashBird {
+  0% { transform: scale(0.3) rotate(-14deg); opacity: 0; }
+  40% { transform: scale(1.15) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* ---------- Replay buttons (gear menu + profile) ---------- */
+.menu-story {
+  margin: 14px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, rgba(58, 77, 54, 0.14));
+}
+
+.story-replay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #3a1e08;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #1f2a1c 0%, #2f3a26 100%);
+  color: #f3c969;
+  border: 1px solid rgba(243, 201, 105, 0.5);
+  box-shadow: 0 10px 26px rgba(20, 30, 16, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.story-replay-btn span {
+  font-size: 1.25rem;
+}
+
+.story-replay-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(243, 201, 105, 0.3);
+}
+
+.story-replay-btn:active { transform: translateY(0); }
+
+.story-card {
+  text-align: center;
+  background: linear-gradient(160deg, #20281d 0%, #2c3724 100%);
+  color: #f1e7cd;
+  border: 1px solid rgba(243, 201, 105, 0.4);
+}
+
+.story-card .eyebrow { color: #c8a24e; }
+.story-card h2 { color: #f3c969; }
+.story-card p { color: #d9cdae; }
+.story-card .story-replay-btn { max-width: 360px; margin: 8px auto 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .intro-root,
   .intro-seal,
@@ -427,7 +658,11 @@
   .intro-big-feather,
   .intro-accept,
   .intro-kit,
-  .intro-mission {
+  .intro-mission,
+  .intro-brief-word,
+  .intro-kit-item.show,
+  .intro-watcher-bird,
+  .intro-flash-bird {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
