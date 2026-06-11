@@ -1,0 +1,251 @@
+/* Styles for the newer features: Tweety growth tracker, no-photo memories,
+   magazine countdown, Inbox/Messages, Admin sandbox, and the Bird Map. */
+
+/* ---- Tweety real-day growth tracker ---- */
+.tweety-growth {
+  margin: 10px 4px 2px;
+}
+.tweety-growth-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.tweety-growth-caption {
+  font-weight: 800;
+  font-size: 0.86rem;
+  color: var(--leaf-dark);
+}
+.tweety-growth-stage {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.tweety-growth-bar {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(58, 77, 54, 0.12);
+  overflow: hidden;
+}
+.tweety-growth-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f4c049, #e89a3c);
+  transition: width 600ms ease;
+}
+
+/* ---- "No photo yet" memory placeholder + encouraging banner ---- */
+.placeholder-photo.no-photo-yet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: repeating-linear-gradient(135deg, #f3ecdd, #f3ecdd 12px, #efe6d2 12px, #efe6d2 24px);
+  color: var(--muted);
+}
+.no-photo-icon { font-size: 2rem; line-height: 1; opacity: 0.7; }
+.no-photo-label { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.02em; }
+.add-photo-banner {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: #fff3d6;
+  color: #8b5d00;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ---- Magazine 3-day countdown ---- */
+.magazine-countdown {
+  margin: 6px 0 0;
+  font-weight: 800;
+  color: var(--leaf-dark);
+}
+
+/* ---- Inbox / Messages ---- */
+.nav-unread-dot {
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2483a;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.bottom-tab-icon { position: relative; }
+
+.message-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.message-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  padding: 12px 14px;
+  position: relative;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.message-row:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.message-row.unread {
+  background: linear-gradient(180deg, #fffdf3, #fff7e4);
+  border-color: rgba(223, 166, 79, 0.5);
+  box-shadow: 0 0 0 2px rgba(244, 192, 73, 0.18);
+}
+.message-row.message-marnich { border-left: 4px solid var(--rose); }
+.message-row.message-council { border-left: 4px solid var(--leaf); }
+.message-row.message-system { border-left: 4px solid var(--honey); }
+.message-avatar {
+  font-size: 1.5rem;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--mint);
+  flex: 0 0 auto;
+}
+.message-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.message-row-top { display: flex; justify-content: space-between; gap: 8px; }
+.message-sender { font-weight: 800; font-size: 0.84rem; color: var(--ink-strong); }
+.message-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+.message-row-title { font-weight: 700; font-size: 0.86rem; }
+.message-row-preview { font-size: 0.8rem; color: var(--muted); }
+.message-row-reaction { font-size: 0.76rem; color: var(--rose); font-weight: 700; }
+.unread-dot {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #e2483a;
+}
+.inbox-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.inbox-empty-icon { font-size: 2.6rem; }
+
+.message-detail .message-letter {
+  border-radius: 20px;
+  padding: 18px;
+  background: linear-gradient(180deg, #fffdf6, #fff6e6);
+  border: 1px solid var(--line);
+  animation: letter-slide-in 320ms ease both;
+}
+@keyframes letter-slide-in {
+  from { opacity: 0; transform: translateX(36px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.message-letter.message-marnich { background: linear-gradient(180deg, #fff4f0, #ffe9e2); }
+.message-letter-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.message-letter-head > div { flex: 1; }
+.star-btn {
+  border: 0;
+  background: transparent;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.star-btn.on { filter: drop-shadow(0 0 4px rgba(244, 192, 73, 0.8)); }
+.message-title { margin: 0 0 8px; }
+.message-body { font-size: 0.98rem; line-height: 1.6; white-space: pre-wrap; }
+.message-reactions { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.reaction-row { display: flex; gap: 10px; margin-top: 6px; }
+.reaction-btn {
+  font-size: 1.5rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 6px 12px;
+  transition: transform 120ms ease;
+}
+.reaction-btn:hover { transform: scale(1.12); }
+.reaction-btn.chosen { background: var(--mint); border-color: var(--leaf); transform: scale(1.1); }
+.reaction-confirm { margin-top: 8px; font-weight: 700; color: var(--rose); }
+
+/* ---- Admin sandbox + message sender ---- */
+.sandbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.sandbox-grid button { width: 100%; }
+.admin-inbox-sender form { display: flex; flex-direction: column; gap: 10px; }
+.admin-reactions { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.admin-reaction-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.admin-reaction-list li { display: flex; align-items: center; gap: 10px; }
+.admin-reaction-emoji { font-size: 1.4rem; }
+.admin-reaction-text { font-size: 0.84rem; color: var(--muted); }
+
+/* ---- My Bird Map ---- */
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 6px 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.map-legend i { width: 12px; height: 12px; border-radius: 999px; display: inline-block; }
+.sa-map-wrap {
+  border-radius: 20px;
+  background: linear-gradient(180deg, #eaf3fb, #f3efe2);
+  padding: 10px;
+  border: 1px solid var(--line);
+}
+.sa-map { width: 100%; height: auto; display: block; }
+.sa-land {
+  fill: #dcecd2;
+  stroke: #7fa56a;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.sa-lesotho { fill: #cfe0c2; stroke: #7fa56a; stroke-width: 2; }
+.map-pin { cursor: pointer; }
+.map-pin-drop { transition: transform 150ms ease; transform-origin: center bottom; }
+.map-pin.active .map-pin-drop { transform: scale(1.25); }
+.map-pin-halo { opacity: 0.25; transition: r 150ms ease; }
+.map-pin-count { font-size: 9px; font-weight: 800; fill: #3a3a3a; }
+.map-hint { text-align: center; margin-top: 12px; }
+.map-detail { margin-top: 14px; }
+.map-sighting-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.map-sighting {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px;
+  background: var(--paper);
+}
+.map-sighting-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.map-sighting-thumb.no-photo-yet {
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  background: #f0e9da;
+  color: var(--muted);
+}
+.map-sighting h4 { margin: 0 0 2px; }
+.map-sighting-note { font-size: 0.82rem; color: var(--muted); margin: 4px 0 0; }

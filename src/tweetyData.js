@@ -83,11 +83,16 @@ export const MOOD_FACE = {
 }
 
 // ---- Growth over REAL days --------------------------------------------------
+// Five clearly different life stages that unfold over real calendar days.
+// maxDay is the last 0-based day index that still belongs to the stage
+// (day index 0 = the day she hatched). The human-friendly "Day N" shown to
+// Pooks is always maxDay/firstDay + 1.
 const GROWTH_STAGES = [
-  { key: 'chick', label: 'Tiny chick 🐣', maxDay: 2 },
-  { key: 'small', label: 'Small bird 🐤', maxDay: 6 },
-  { key: 'growing', label: 'Growing bird 🐦', maxDay: 13 },
-  { key: 'full', label: 'Full grown 👑', maxDay: Infinity },
+  { key: 'chick', label: 'Tiny chick 🐣', short: 'Chick', maxDay: 2, scale: 0.6 },
+  { key: 'fledgling', label: 'Small fledgling 🐤', short: 'Fledgling', maxDay: 6, scale: 0.74 },
+  { key: 'young', label: 'Young bird 🐦', short: 'Young bird', maxDay: 13, scale: 0.87 },
+  { key: 'adult', label: 'Adult bird 🦜', short: 'Adult', maxDay: 20, scale: 1 },
+  { key: 'crowned', label: 'Crowned adult 👑', short: 'Crowned adult', maxDay: Infinity, scale: 1 },
 ]
 
 // Days since Tweety hatched (0-based). Falls back gracefully if bornAt missing.
@@ -97,9 +102,47 @@ export function tweetyAgeDays(tweety) {
   return daysSince(born)
 }
 
-export function tweetyGrowth(tweety) {
+export function tweetyGrowthIndex(tweety) {
   const d = tweetyAgeDays(tweety)
-  return GROWTH_STAGES.find((s) => d <= s.maxDay) || GROWTH_STAGES[GROWTH_STAGES.length - 1]
+  const idx = GROWTH_STAGES.findIndex((s) => d <= s.maxDay)
+  return idx === -1 ? GROWTH_STAGES.length - 1 : idx
+}
+
+export function tweetyGrowth(tweety) {
+  return GROWTH_STAGES[tweetyGrowthIndex(tweety)]
+}
+
+// Rich progress info for the home growth bar / day counter / celebrations.
+// Returns the current stage, the 1-based day number, the next stage (if any),
+// how many real days until she reaches it, and an overall progress percent.
+export function tweetyGrowthProgress(tweety) {
+  const d = tweetyAgeDays(tweety) // 0-based
+  const idx = tweetyGrowthIndex(tweety)
+  const stage = GROWTH_STAGES[idx]
+  const next = GROWTH_STAGES[idx + 1] || null
+  const dayNumber = d + 1 // human friendly "Day 3"
+  const firstDay = idx === 0 ? 0 : GROWTH_STAGES[idx - 1].maxDay + 1
+  let daysToNext = null
+  let percent = 100
+  if (next) {
+    const nextStarts = stage.maxDay + 1 // 0-based first day of next stage
+    daysToNext = Math.max(1, nextStarts - d)
+    const span = stage.maxDay - firstDay + 1
+    percent = Math.min(100, Math.round(((d - firstDay + 1) / span) * 100))
+  }
+  return {
+    stage,
+    stageKey: stage.key,
+    index: idx,
+    dayNumber,
+    next,
+    daysToNext,
+    percent,
+    // e.g. "Day 3 — Fledgling in 1 day" / "Day 25 — Fully grown 👑"
+    caption: next
+      ? `Day ${dayNumber} — ${next.short} in ${daysToNext} day${daysToNext === 1 ? '' : 's'}`
+      : `Day ${dayNumber} — Fully grown 👑`,
+  }
 }
 
 export function defaultTweety() {

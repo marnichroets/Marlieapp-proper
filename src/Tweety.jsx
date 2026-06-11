@@ -15,6 +15,7 @@ import {
   tweetyCareState,
   tweetySimpleMood,
   tweetyGrowth,
+  tweetyGrowthProgress,
   MOOD_FACE,
 } from './tweetyData'
 
@@ -333,11 +334,30 @@ function WornLayers({ worn }) {
 }
 
 // ---- Tweety SVG ------------------------------------------------------------
-export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null, worn = null }) {
-  const big = level === 'grown' || level === 'crown'
-  const mid = level === 'fledgling' || big
-  const rx = level === 'chick' ? 23 : level === 'fledgling' ? 26 : 29
+// Per-stage geometry so each life stage looks NOTICEABLY different in size
+// and shape. `scale` shrinks/grows the whole silhouette inside the 100×100
+// viewBox; rx/wings change the body proportions and feather development.
+const STAGE_SHAPE = {
+  chick: { rx: 19, wings: 0, scale: 0.62, crown: false }, // tiny, fluffy, barely any wings
+  fledgling: { rx: 23, wings: 1, scale: 0.76, crown: false }, // stubby wings appearing
+  young: { rx: 26, wings: 2, scale: 0.88, crown: false }, // proper wings, more defined
+  adult: { rx: 29, wings: 3, scale: 1, crown: false }, // full size, confident
+  crowned: { rx: 29, wings: 3, scale: 1, crown: true }, // full size + golden crown
+  // legacy aliases still used around the app
+  grown: { rx: 29, wings: 3, scale: 1, crown: false },
+  crown: { rx: 29, wings: 3, scale: 1, crown: true },
+}
+
+export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null, worn = null, scale = null }) {
+  const shape = STAGE_SHAPE[level] || STAGE_SHAPE.chick
+  const showCrown = shape.crown || level === 'crown' || level === 'crowned'
+  const mid = shape.wings >= 1 // any wings at all
+  const big = shape.wings >= 3 // full-size wings
+  const wingRy = shape.wings >= 3 ? 13 : shape.wings === 2 ? 10 : 7 // stubby → full
+  const rx = shape.rx
   const ry = rx + 1
+  // Overall silhouette scale: explicit prop wins, else the stage's own scale.
+  const gScale = scale != null ? scale : shape.scale
   const sad = mood === 'sad'
   // Permanently a golden chick; the companion only adds a signature accent.
   const body = '#F6CE73'
@@ -352,7 +372,7 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
       aria-hidden="true"
     >
       <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <g className="tweety-bob">
+        <g className="tweety-bob" transform={`translate(50 58) scale(${gScale}) translate(-50 -58)`}>
           {/* ruffled feathers when sad */}
           {sad && (
             <g fill={wing}>
@@ -371,13 +391,13 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
             <ellipse cx="50" cy="62" rx={rx * 0.5} ry={ry * 0.42} fill={comp.chest} opacity="0.92" />
           )}
           {comp?.cap && <path d="M34 46 Q50 30 66 46 Z" fill={comp.cap} opacity="0.92" />}
-          {/* wings (appear as it grows; flap) */}
+          {/* wings (appear and grow with each stage; flap) */}
           {mid && (
             <g className="tweety-wing">
-              <ellipse cx={50 - rx + 2} cy="58" rx="8" ry={big ? 13 : 10} fill={wing} />
+              <ellipse cx={50 - rx + 2} cy="58" rx={big ? 8 : 6} ry={wingRy} fill={wing} />
             </g>
           )}
-          {mid && <ellipse cx={50 + rx - 2} cy="58" rx="8" ry={big ? 13 : 10} fill={wing} />}
+          {mid && <ellipse cx={50 + rx - 2} cy="58" rx={big ? 8 : 6} ry={wingRy} fill={wing} />}
           {/* feet */}
           <path d="M44 82 v6 M41 88 h6 M42 85 h4" stroke="#E8915E" strokeWidth="2.2" strokeLinecap="round" fill="none" />
           <path d="M56 82 v6 M53 88 h6 M54 85 h4" stroke="#E8915E" strokeWidth="2.2" strokeLinecap="round" fill="none" />
@@ -421,7 +441,7 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           {mood === 'hungry' && <ellipse cx="50" cy="66" rx="2.6" ry="2" fill="#9a4b2e" />}
           {mood === 'thirsty' && <circle cx="50" cy="66" r="1.8" fill="#9a4b2e" />}
           {/* crown at top level (hidden when wearing a hat so they don't clash) */}
-          {level === 'crown' && !worn?.hat && (
+          {showCrown && !worn?.hat && (
             <path d="M40 30 L42 18 L50 26 L54 15 L58 26 L66 18 L68 30 Z" fill="#F2C24E" stroke="#D9A036" strokeWidth="1" transform="translate(0 -2)" />
           )}
           {/* wearables from the wardrobe */}
@@ -454,7 +474,14 @@ function ColorEgg({ color = '#F6A5C0', size = 84, glow = false }) {
 }
 
 // ---- Home card (simplified: feed/water/play, 5 moods, real-day growth) -----
-const GROWTH_TO_LEVEL = { chick: 'chick', small: 'fledgling', growing: 'grown', full: 'crown' }
+// The 5 growth stage keys map straight onto TweetyBird's stage shapes.
+const GROWTH_TO_LEVEL = {
+  chick: 'chick',
+  fledgling: 'fledgling',
+  young: 'young',
+  adult: 'adult',
+  crowned: 'crowned',
+}
 
 export function TweetyHomeCard({
   tweety,
@@ -472,6 +499,7 @@ export function TweetyHomeCard({
   const mood = tweetySimpleMood(tweety)
   const face = MOOD_FACE[mood] || MOOD_FACE.content
   const growth = tweetyGrowth(tweety)
+  const progress = tweetyGrowthProgress(tweety)
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
   const worn = tweety?.wardrobe?.worn || null
 
@@ -499,6 +527,18 @@ export function TweetyHomeCard({
         <span className="tweety-level-pill">{growth.label}</span>
         <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
       </div>
+
+      {/* Real-day growth tracker */}
+      <div className="tweety-growth">
+        <div className="tweety-growth-top">
+          <span className="tweety-growth-caption">{progress.caption}</span>
+          <span className="tweety-growth-stage">{growth.short}</span>
+        </div>
+        <div className="tweety-growth-bar" aria-hidden="true">
+          <span style={{ width: `${progress.percent}%` }} />
+        </div>
+      </div>
+
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
       <div className="tweety-care-row">

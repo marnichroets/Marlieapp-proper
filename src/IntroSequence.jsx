@@ -3,6 +3,7 @@
 // menu / profile. Tone: warm, mysterious, funny and personal.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './IntroSequence.css'
+import './IntroExtras.css'
 import { playChirp } from './tweetyData'
 
 // The five evidence photos. Drop the real image files in public/intro/ using
@@ -136,6 +137,70 @@ function chirp(kind) {
   }
 }
 
+// Narration that introduces the evidence, building the story beat by beat.
+// One line is revealed above the table as each of the first five polaroids land.
+const NARRATION = [
+  'The Council received its first field report…',
+  'Agent Hadeda filed a second observation…',
+  'Then came the Skukuza incident…',
+  'But the most compelling evidence was yet to come…',
+  'The Council was unanimous.',
+]
+
+// ---- Gentle background ambience (soft pad + occasional birdsong). All Web
+// Audio, no files. Returns a stop() handle; safe if audio is blocked. ----
+let ambienceHandle = null
+function startAmbience() {
+  if (ambienceHandle) return
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const master = ctx.createGain()
+    master.gain.value = 0.0
+    master.gain.setTargetAtTime(0.06, ctx.currentTime, 1.2) // fade in softly
+    master.connect(ctx.destination)
+    // Two detuned sine "pads" for a warm, calm drone.
+    const oscs = [196, 261.6].map((freq) => {
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      g.gain.value = 0.5
+      osc.connect(g)
+      g.connect(master)
+      osc.start()
+      return osc
+    })
+    // Occasional soft chirp so it feels like a garden at dawn.
+    const chirpTimer = window.setInterval(() => {
+      if (Math.random() < 0.7) chirp(Math.random() < 0.5 ? 'play' : 'water')
+    }, 3600)
+    ambienceHandle = {
+      stop() {
+        try {
+          master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4)
+          window.clearInterval(chirpTimer)
+          oscs.forEach((o) => {
+            try {
+              o.stop(ctx.currentTime + 0.6)
+            } catch {
+              /* ignore */
+            }
+          })
+        } catch {
+          /* ignore */
+        }
+        ambienceHandle = null
+      },
+    }
+  } catch {
+    /* ambience is a nicety; never let it break the intro */
+  }
+}
+function stopAmbience() {
+  if (ambienceHandle) ambienceHandle.stop()
+}
+
 // Soft low "thud" for a polaroid landing on the table.
 function thud() {
   const ctx = getCtx()
@@ -219,8 +284,11 @@ export default function IntroSequence({ onComplete, onAccept }) {
   const [showAccept, setShowAccept] = useState(false)
   const [bursting, setBursting] = useState(false)
   const [flash, setFlash] = useState(false)
+  const [narrationStep, setNarrationStep] = useState(0)
+  const [musicOn, setMusicOn] = useState(true)
   const done = useRef(false)
   const skipped = useRef(false)
+  const TOTAL_SCREENS = 6
 
   const briefWords = useMemo(() => BRIEF_PARAGRAPH.split(' '), [])
 
@@ -229,19 +297,51 @@ export default function IntroSequence({ onComplete, onAccept }) {
     chirp('play')
   }, [])
 
+  // Gentle background ambience, toggleable. Always stops on unmount.
+  useEffect(() => {
+    if (musicOn) startAmbience()
+    else stopAmbience()
+    return () => stopAmbience()
+  }, [musicOn])
+
+  // Manual navigation — she can tap to advance or go back at any time.
+  function goTo(target) {
+    const next = Math.max(1, Math.min(TOTAL_SCREENS, target))
+    if (next === screen) return
+    chirp('feed')
+    // When jumping onto a screen, reveal its content right away so she never
+    // sits looking at a half-built screen she navigated to on purpose.
+    if (next >= 3) setVerdictStep(2)
+    if (next >= 3) setCrowned(true)
+    if (next >= 4) setKitCount(FIELD_KIT.length)
+    if (next === 2) setNarrationStep(NARRATION.length)
+    if (next === 6) {
+      setNoteStep(NOTE_LINES.length)
+      setShowAccept(true)
+    }
+    setScreen(next)
+  }
+  const goNext = () => (screen >= TOTAL_SCREENS ? null : goTo(screen + 1))
+  const goPrev = () => goTo(screen - 1)
+
   // Per-screen timing. Each branch returns its own cleanup so timers never leak.
   useEffect(() => {
     if (screen === 1) {
-      const t = setTimeout(() => setScreen(2), 3200)
+      const t = setTimeout(() => setScreen(2), 5200)
       return () => clearTimeout(t)
     }
     if (screen === 2) {
-      // A soft thud as each evidence card lands on the table.
+      // A soft thud as each evidence card lands on the table, with a narration
+      // line revealed above the table for the first five photos.
       const step = EVI_STAGGER * 1000
       const taps = EVIDENCE.map((_, i) => setTimeout(() => thud(), i * step + 600))
-      const next = setTimeout(() => setScreen(3), EVIDENCE.length * step + 2400)
+      const narrate = NARRATION.map((_, i) =>
+        setTimeout(() => setNarrationStep(i + 1), i * step + 400),
+      )
+      const next = setTimeout(() => setScreen(3), EVIDENCE.length * step + 3200)
       return () => {
         taps.forEach(clearTimeout)
+        narrate.forEach(clearTimeout)
         clearTimeout(next)
       }
     }
@@ -332,6 +432,9 @@ export default function IntroSequence({ onComplete, onAccept }) {
       {screen === 2 && (
         <div className="intro-stage intro-stage-2">
           <p className="intro-eyebrow">CASE FILE · SUBJECT: MARLIE</p>
+          <p className="intro-narration" key={narrationStep}>
+            {NARRATION[Math.min(Math.max(narrationStep - 1, 0), NARRATION.length - 1)]}
+          </p>
           <div className="intro-evidence-table">
             {EVIDENCE.map((item, i) => (
               <EvidencePhoto key={item.id} item={item} index={i} />
@@ -491,6 +594,19 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
+      {/* Background-music toggle */}
+      {!flash && !bursting && (
+        <button
+          type="button"
+          className="intro-music-toggle"
+          onClick={() => setMusicOn((on) => !on)}
+          aria-pressed={musicOn}
+          aria-label={musicOn ? 'Turn background music off' : 'Turn background music on'}
+        >
+          {musicOn ? '🔊' : '🔇'}
+        </button>
+      )}
+
       {screen < 6 && !flash && (
         <button
           type="button"
@@ -504,6 +620,42 @@ export default function IntroSequence({ onComplete, onAccept }) {
         >
           Skip ▸
         </button>
+      )}
+
+      {/* Manual navigation: tap to advance or go back, with progress dots */}
+      {!flash && !bursting && (
+        <div className="intro-nav" aria-label="Intro navigation">
+          <button
+            type="button"
+            className="intro-nav-arrow"
+            onClick={goPrev}
+            disabled={screen <= 1}
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <div className="intro-dots" role="tablist">
+            {Array.from({ length: TOTAL_SCREENS }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`intro-dot${screen === i + 1 ? ' active' : ''}`}
+                onClick={() => goTo(i + 1)}
+                aria-label={`Go to screen ${i + 1}`}
+                aria-selected={screen === i + 1}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            className="intro-nav-arrow"
+            onClick={goNext}
+            disabled={screen >= TOTAL_SCREENS}
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
       )}
     </div>
   )

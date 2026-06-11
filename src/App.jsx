@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
@@ -49,6 +50,17 @@ import {
 } from './tweetyWorld'
 import { GamesHub } from './games'
 import { defaultGames } from './gamesData'
+import { InboxPage } from './Inbox'
+import { BirdMapPage } from './BirdMap'
+import {
+  nextCouncilMessage,
+  councilDailyMessage,
+  marnichMessage,
+  milestoneSystemMessage,
+  tweetyGrowthSystemMessage,
+  hatchSystemMessage,
+} from './messages'
+import { tweetyGrowthIndex, tweetyGrowth } from './tweetyData'
 
 function bumpLeaderboard(lb, winner) {
   return {
@@ -183,10 +195,13 @@ const bottomTabs = [
   ['add', 'Spot', '📷'],
   ['magazine', 'Magazine', '📖'],
   ['library', 'Collection', '🦜'],
+  ['messages', 'Inbox', '📬'],
   ['rewards', 'Gifts', '🎁'],
 ]
 
 const menuItems = [
+  ['messages', 'Messages', '📬'],
+  ['birdmap', 'My Bird Map', '🗺️'],
   ['date', 'Date', '💕'],
   ['games', 'Date Games', '🎮'],
   ['birdroom', 'Bird Room', '🏡'],
@@ -1110,23 +1125,36 @@ function sameMonth(value, date = new Date()) {
   )
 }
 
-function getIsoWeekInfo(date = new Date()) {
-  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNumber = target.getUTCDay() || 7
-  target.setUTCDate(target.getUTCDate() + 4 - dayNumber)
-  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1))
-  const week = Math.ceil(((target - yearStart) / 86400000 + 1) / 7)
-
-  return {
-    year: target.getUTCFullYear(),
-    week,
-  }
-}
-
 function getAbsoluteWeekIndex(date = new Date()) {
   const start = Date.UTC(2024, 0, 1)
   const current = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   return Math.floor((current - start) / 604800000)
+}
+
+// The magazine now rotates every 3 days instead of weekly. Each issue stays
+// live for 3 calendar days, then the next set of birds takes over.
+const MAGAZINE_PERIOD_DAYS = 3
+
+function getAbsoluteIssueIndex(date = new Date()) {
+  const start = Date.UTC(2024, 0, 1)
+  const current = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.floor((current - start) / 86400000 / MAGAZINE_PERIOD_DAYS)
+}
+
+// Time until the current 3-day issue rotates to the next one.
+function getNextIssueCountdown(date = new Date()) {
+  const start = Date.UTC(2024, 0, 1)
+  const idx = getAbsoluteIssueIndex(date)
+  const nextStartMs = start + (idx + 1) * MAGAZINE_PERIOD_DAYS * 86400000
+  const diff = Math.max(0, nextStartMs - date.getTime())
+  const days = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  return {
+    days,
+    hours,
+    ms: diff,
+    text: `${days} day${days === 1 ? '' : 's'} ${hours} hour${hours === 1 ? '' : 's'}`,
+  }
 }
 
 function selectRotatingBirds(birds, count, startIndex, excludedId = '') {
@@ -1143,16 +1171,20 @@ function selectRotatingBirds(birds, count, startIndex, excludedId = '') {
 
 function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
   const library = [...birdLibrary].sort((a, b) => a.commonName.localeCompare(b.commonName))
-  const weekInfo = getIsoWeekInfo(date)
-  const weekIndex = getAbsoluteWeekIndex(date)
-  const startIndex = library.length ? (weekIndex * 5) % library.length : 0
+  const issueIndex = getAbsoluteIssueIndex(date)
+  const startIndex = library.length ? (issueIndex * 5) % library.length : 0
   const pinnedBird =
     library.find((bird) => bird.id === settings.pinnedBirdOfWeekId) || null
   const rotatingBirds = selectRotatingBirds(library, pinnedBird ? 4 : 5, startIndex, pinnedBird?.id)
   const featuredBirds = pinnedBird ? [pinnedBird, ...rotatingBirds] : rotatingBirds
 
   return {
-    ...weekInfo,
+    year: date.getFullYear(),
+    issueIndex,
+    // The quiz + its claim status key off `week`, so pointing it at the 3-day
+    // issue index makes both reset with every new issue.
+    week: issueIndex,
+    countdown: getNextIssueCountdown(date),
     featuredBirds,
     birdOfWeek: pinnedBird || featuredBirds[0] || null,
   }
@@ -1346,6 +1378,11 @@ function buildDefaultState() {
     dateIdeas: defaultDateIdeas,
     dateMemories: [],
     rewardCertificates: [],
+    // Inbox: messages from the Council, Marnich and the system.
+    messages: [],
+    messagesMeta: { lastCouncilDay: '', shownCouncil: [] },
+    // Last Tweety growth stage we have already celebrated (index into stages).
+    tweetyGrowthSeen: 0,
   }
 }
 
@@ -1423,6 +1460,12 @@ function loadState() {
       rewardCertificates: Array.isArray(saved.rewardCertificates)
         ? saved.rewardCertificates
         : base.rewardCertificates,
+      messages: Array.isArray(saved.messages) ? saved.messages : base.messages,
+      messagesMeta: { ...base.messagesMeta, ...(saved.messagesMeta || {}) },
+      tweetyGrowthSeen:
+        typeof saved.tweetyGrowthSeen === 'number'
+          ? saved.tweetyGrowthSeen
+          : base.tweetyGrowthSeen,
       dailyChallengeCompletions:
         saved.dailyChallengeCompletions &&
         typeof saved.dailyChallengeCompletions === 'object'
@@ -1758,6 +1801,82 @@ function App() {
       loveLetter: data.store?.loveLetter || '',
     }
   }, [data.tweety, data.birds.length, data.store])
+
+  // Always open every page scrolled to the very top — Collection especially
+  // used to land at the bottom of the long bird grid after navigation.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.scrollTo(0, 0)
+    const wrap = document.querySelector('.page-wrap')
+    if (wrap) wrap.scrollTop = 0
+    document.documentElement.scrollTop = 0
+    if (document.body) document.body.scrollTop = 0
+  }, [activePage])
+
+  // First app-open of the day: a warm new dispatch from the Bird Council lands
+  // in the inbox, with a real SA bird fact she has not seen before.
+  useEffect(() => {
+    if (!session || session.role !== 'pooks') return undefined
+    const todayKey = tweetyTodayKey()
+    if (data.messagesMeta?.lastCouncilDay === todayKey) return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      const { index, text } = nextCouncilMessage(data.messagesMeta?.shownCouncil || [])
+      setData((current) => {
+        if (current.messagesMeta?.lastCouncilDay === todayKey) return current
+        const shown = [...(current.messagesMeta?.shownCouncil || []), index]
+        // Keep the "shown" log from growing forever once we've cycled the pool.
+        const trimmed = shown.length > 80 ? shown.slice(shown.length - 80) : shown
+        return {
+          ...current,
+          messages: [councilDailyMessage(text), ...(current.messages || [])],
+          messagesMeta: { lastCouncilDay: todayKey, shownCouncil: trimmed },
+        }
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
+
+  // Celebrate whenever Tweety grows into a new life stage (real calendar days).
+  useEffect(() => {
+    if (!session || session.role !== 'pooks') return undefined
+    if (!data.tweety?.companion && !data.tweety?.bornAt) return undefined
+    const idx = tweetyGrowthIndex(data.tweety)
+    if (idx <= (data.tweetyGrowthSeen || 0)) return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      const stage = tweetyGrowth(data.tweety)
+      const name = data.tweety?.name || 'Tweety'
+      let celebrated = false
+      setData((current) => {
+        if ((current.tweetyGrowthSeen || 0) >= idx) return current
+        celebrated = true
+        return {
+          ...current,
+          tweetyGrowthSeen: idx,
+          messages: [tweetyGrowthSystemMessage(name, stage.short), ...(current.messages || [])],
+        }
+      })
+      if (!celebrated) return
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: `${name} is growing! 🎉`,
+        body: `${name} just became a ${stage.label}. Each day of love helps them grow a little bigger. 💛`,
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, data.tweety?.bornAt])
 
   // The browser-tab favicon stays the app icon (set statically in index.html),
   // so it matches the installed app icon everywhere.
@@ -2333,6 +2452,7 @@ function App() {
           incubating: null,
           baby: { hatchedAt: new Date().toISOString(), species: inc.species, careLog: {} },
         },
+        messages: [hatchSystemMessage(inc.species), ...(c.messages || [])],
       }))
     } else {
       setData((c) => ({ ...c, tweety: { ...c.tweety, incubating: { ...inc, rapidTaps: taps } } }))
@@ -2941,11 +3061,126 @@ function App() {
       unlockedRewards.forEach((reward) => notifyMarnich('gift', { giftName: reward.name }))
     }
     if (milestoneBonus > 0) setConfetti(Date.now())
+    // Each freshly unlocked milestone reward also lands as an official Council
+    // letter in the inbox.
+    if (unlockedRewards.length) {
+      const letters = unlockedRewards.map((reward) =>
+        milestoneSystemMessage(reward.name, reward.milestone),
+      )
+      setData((current) => ({ ...current, messages: [...letters, ...(current.messages || [])] }))
+    }
     setToast({
       title: message.title,
       body: [message.body, milestoneNote, unlockSummary].filter(Boolean).join(' '),
       tone: message.tone || 'success',
     })
+  }
+
+  // ---- Inbox / Messages -----------------------------------------------------
+  function pushMessage(message) {
+    setData((current) => ({ ...current, messages: [message, ...(current.messages || [])] }))
+  }
+
+  function markMessageRead(id) {
+    setData((current) => ({
+      ...current,
+      messages: (current.messages || []).map((m) => (m.id === id ? { ...m, read: true } : m)),
+    }))
+  }
+
+  function toggleMessageFavourite(id) {
+    setData((current) => ({
+      ...current,
+      messages: (current.messages || []).map((m) =>
+        m.id === id ? { ...m, favourite: !m.favourite } : m,
+      ),
+    }))
+  }
+
+  function reactToMessage(id, reaction) {
+    setData((current) => ({
+      ...current,
+      messages: (current.messages || []).map((m) =>
+        m.id === id ? { ...m, reaction: m.reaction === reaction ? null : reaction } : m,
+      ),
+    }))
+  }
+
+  // Admin → Pooks personal note, arrives instantly in her inbox.
+  function sendMarnichInboxMessage(body, title) {
+    const text = String(body || '').trim()
+    if (!text) return
+    pushMessage(marnichMessage(text, title?.trim() || 'A note just for you'))
+    notifyMarnich('inbox-message', { message: text })
+    setToast({ title: 'Message sent 💛', body: 'Your note is waiting in her inbox.', tone: 'success' })
+  }
+
+  // ---- Admin sandbox: play any animation/celebration on demand using FAKE
+  // demo data. Nothing here ever touches Pooks' real saved progress.
+  const sandbox = {
+    previewAsPooks: () => setActivePage('home'),
+    eggHatch: () => {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'It hatched! 🐣🎉',
+        body: '(Demo) A baby bird burst out in a shower of confetti with a triumphant chirp! This is only a preview — no real egg was used. 💛',
+      })
+    },
+    discovery: () => {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'New bird discovered! ✅',
+        body: '(Demo) A brand-new species fluttered into the album. Preview only — nothing was added to the real collection.',
+      })
+    },
+    milestone: () => {
+      setRewardUnlockQueue((current) => [
+        ...current,
+        {
+          id: 'demo-reward',
+          name: 'Demo milestone gift 🎁',
+          status: 'Unlocked',
+          unlockReason: 'A preview of the milestone reward popup.',
+          reference: 'DEMO-0000',
+          paidAt: null,
+        },
+      ])
+    },
+    tweetyGrowth: () => {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'Tweety is growing! 🎉',
+        body: '(Demo) Tweety just grew into her next life stage. Preview only — her real age is untouched.',
+      })
+    },
+    hiddenNote: () => {
+      setReveal({
+        tone: 'note',
+        title: 'A hidden note unlocked 💌',
+        body: '(Demo) "You make ordinary days magical." This is a preview of the note reveal.',
+      })
+    },
+    dateIdea: () => {
+      setReveal({
+        tone: 'date',
+        title: 'Date idea unlocked 💕',
+        body: '(Demo) Slow sunrise bird walk with takeaway coffee. This is a preview of the date-idea reveal.',
+      })
+    },
+    birdSnap: () => setActivePage('games'),
+    reset: () => {
+      setReveal(null)
+      setConfetti(0)
+      setRewardUnlockQueue([])
+      setToast({
+        title: 'Sandbox cleared',
+        body: "Preview animations reset. Pooks' real progress was never touched.",
+        tone: 'calm',
+      })
+    },
   }
 
   function resetData() {
@@ -3697,6 +3932,7 @@ function App() {
   // they're only hidden from her menu for now. Admin still sees everything.
   const fullMenu =
     session?.role === 'admin' ? [...menuItems, ['admin', 'Admin', '🔒']] : []
+  const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
     if (adminGate) {
@@ -3885,7 +4121,6 @@ function App() {
             buyHiddenNote={buyHiddenNote}
             buyDateIdea={buyDateIdea}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
-            buyStoreItem={buyStoreItem}
             buyWearable={buyWearable}
             giftWearable={giftWearable}
             toggleWishlistItem={toggleWishlistItem}
@@ -3927,6 +4162,17 @@ function App() {
             claimWeeklyQuiz={claimWeeklyQuiz}
           />
         )}
+        {activePage === 'messages' && (
+          <InboxPage
+            messages={data.messages}
+            onRead={markMessageRead}
+            onToggleFavourite={toggleMessageFavourite}
+            onReact={reactToMessage}
+          />
+        )}
+        {activePage === 'birdmap' && (
+          <BirdMapPage data={data} onBack={() => setActivePage('home')} />
+        )}
         {activePage === 'profile' && (
           <ProfilePage
             data={data}
@@ -3959,6 +4205,8 @@ function App() {
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
             previewMagazineIssue={() => setActivePage('magazine')}
+            sandbox={sandbox}
+            onSendMessage={sendMarnichInboxMessage}
             setData={setData}
           />
         )}
@@ -3972,7 +4220,12 @@ function App() {
             type="button"
             onClick={() => setActivePage(id)}
           >
-            <span className="bottom-tab-icon" aria-hidden="true">{icon}</span>
+            <span className="bottom-tab-icon" aria-hidden="true">
+              {icon}
+              {id === 'messages' && unreadMessages > 0 && (
+                <span className="nav-unread-dot" aria-label={`${unreadMessages} unread`} />
+              )}
+            </span>
             <span className="bottom-tab-label">{label}</span>
           </button>
         ))}
@@ -4849,7 +5102,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
               <input
                 value={form.location}
                 onChange={(event) => updateField('location', event.target.value)}
-                placeholder="Garden, park, coffee date"
+                placeholder="e.g. Potchefstroom garden, Kruger near Skukuza"
               />
             </label>
             <label>
@@ -5008,7 +5261,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 <input
                   value={form.location}
                   onChange={(event) => updateField('location', event.target.value)}
-                  placeholder="Garden, park, coffee date"
+                  placeholder="e.g. Potchefstroom garden, Kruger near Skukuza"
                 />
               </label>
               <label>
@@ -5227,13 +5480,17 @@ function BirdsPage({ data, openBirdProfile }) {
               {bird.photo ? (
                 <img className="bird-card-photo" src={bird.photo} alt={bird.birdName} />
               ) : (
-                <div className="bird-card-photo placeholder-photo">
-                  <span>{getBirdPhotoPlaceholderLabel(bird.birdName)}</span>
+                <div className="bird-card-photo placeholder-photo no-photo-yet">
+                  <span className="no-photo-icon" aria-hidden="true">📷</span>
+                  <span className="no-photo-label">No photo yet</span>
                 </div>
               )}
               <div className="bird-card-body">
                 <p className="eyebrow">Polaroid memory</p>
                 <h3>{bird.birdName}</h3>
+                {!bird.photo && (
+                  <p className="add-photo-banner">Add a photo next time you spot this bird 📸</p>
+                )}
                 <div className="tag-row">
                   {bird.favorite && <span className="tag warm">Favourite</span>}
                   <span className="tag">{bird.count} time{bird.count === 1 ? '' : 's'} seen</span>
@@ -6301,7 +6558,6 @@ function RewardsPage({
   buyHiddenNote,
   buyDateIdea,
   buyFeaturedBirdProfile,
-  buyStoreItem,
   buyWearable,
   giftWearable,
   toggleWishlistItem,
@@ -6325,10 +6581,10 @@ function RewardsPage({
     : 0
   const coins = data.featherCoins
   const shopItems = [
-    { id: 'mysteryBox', name: 'Mystery gift box', emoji: '🎁', cost: SHOP.mysteryBox, action: buyMysteryBox, hint: 'A surprise message or reward' },
-    { id: 'hiddenNote', name: 'Hidden note from Marnich', emoji: '💌', cost: SHOP.hiddenNote, action: buyHiddenNote, hint: 'Unlock a folded love note' },
-    { id: 'birdProfile', name: 'Special bird profile', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird' },
-    { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'Unlock a real date plan' },
+    { id: 'mysteryBox', name: 'Mystery gift box', emoji: '🎁', cost: SHOP.mysteryBox, action: buyMysteryBox, hint: 'A surprise from Marnich' },
+    { id: 'hiddenNote', name: 'Hidden note', emoji: '💌', cost: SHOP.hiddenNote, action: buyHiddenNote, hint: 'A folded love note' },
+    { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
+    { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
 
   return (
@@ -6354,13 +6610,6 @@ function RewardsPage({
           Marnich Surprises 🎁
         </button>
         <button
-          className={tab === 'store' ? 'filter-chip active' : 'filter-chip'}
-          type="button"
-          onClick={() => setTab('store')}
-        >
-          Bird Store 🛒
-        </button>
-        <button
           className={tab === 'market' ? 'filter-chip active' : 'filter-chip'}
           type="button"
           onClick={openMarket}
@@ -6380,8 +6629,6 @@ function RewardsPage({
           onToggleWishlist={toggleWishlistItem}
           onSetPick={setMarnichPick}
         />
-      ) : tab === 'store' ? (
-        <BirdStore store={data.store} coins={coins} onBuy={buyStoreItem} />
       ) : (
       <>
       <section className="soft-card full-span">
@@ -7012,9 +7259,10 @@ function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz }) {
   // Page 1 — the cover.
   pages.push(
     <div className="magazine-cover-page" key="cover">
-      <p className="magazine-issue-no">The Weekly Feather</p>
-      <p className="magazine-season">Week {issue.week} — {season.name} Edition</p>
-      <p className="fine-print">Fresh every Monday · {season.greeting}</p>
+      <p className="magazine-issue-no">The Feather</p>
+      <p className="magazine-season">Issue #{issue.issueIndex} — {season.name} Edition</p>
+      <p className="fine-print">A fresh flock every 3 days · {season.greeting}</p>
+      <p className="magazine-countdown">🗞️ Next issue in {issue.countdown.text}</p>
       {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
       <p className="magazine-quote">“{quote}”</p>
       {coverBird && (
@@ -7229,6 +7477,12 @@ function ProfilePage({ data, stats, goTo, onReplayIntro }) {
           <button className="secondary-btn" type="button" onClick={() => goTo('magazine')}>
             Read magazine
           </button>
+          <button className="secondary-btn" type="button" onClick={() => goTo('messages')}>
+            Open inbox 📬
+          </button>
+          <button className="secondary-btn" type="button" onClick={() => goTo('birdmap')}>
+            My Bird Map 🗺️
+          </button>
         </div>
       </section>
 
@@ -7270,9 +7524,12 @@ function AdminPage({
   resetData,
   previewMarlieView,
   previewMagazineIssue,
+  sandbox,
+  onSendMessage,
   setData,
 }) {
   const [surpriseNote, setSurpriseNote] = useState('')
+  const [inboxDraft, setInboxDraft] = useState({ title: '', body: '' })
   const [trashDraft, setTrashDraft] = useState('')
   const [rewardDraft, setRewardDraft] = useState({
     name: '',
@@ -7596,6 +7853,102 @@ function AdminPage({
           />
           <StatCard label="Library" value={data.birdLibrary.length} detail="SA bird entries" />
         </div>
+      </section>
+
+      <section className="soft-card full-span admin-sandbox">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Test &amp; Preview 🧪</p>
+            <h2>Sandbox — try everything safely</h2>
+          </div>
+        </div>
+        <p className="fine-print">
+          Every button here plays with fake demo data only. None of it ever changes
+          Pooks&apos; real progress, coins or pet. 💛
+        </p>
+        <div className="sandbox-grid">
+          <button className="secondary-btn" type="button" onClick={sandbox.previewAsPooks}>
+            👀 Preview as Pooks
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.eggHatch}>
+            🐣 Trigger egg hatching
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.discovery}>
+            ✨ Trigger bird discovery
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.milestone}>
+            🎁 Trigger milestone reward
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.tweetyGrowth}>
+            🐤 Trigger Tweety growth
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.hiddenNote}>
+            💌 Test hidden note unlock
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.dateIdea}>
+            💕 Test date idea unlock
+          </button>
+          <button className="secondary-btn" type="button" onClick={sandbox.birdSnap}>
+            🎮 Test Bird Snap game
+          </button>
+          <button className="ghost-btn" type="button" onClick={sandbox.reset}>
+            ♻️ Reset all test data
+          </button>
+        </div>
+      </section>
+
+      <section className="soft-card full-span admin-inbox-sender">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Send Pooks a message 💛</p>
+            <h2>Drop a note in her inbox</h2>
+          </div>
+        </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!inboxDraft.body.trim()) return
+            onSendMessage(inboxDraft.body, inboxDraft.title)
+            setInboxDraft({ title: '', body: '' })
+          }}
+        >
+          <label>
+            Title (optional)
+            <input
+              value={inboxDraft.title}
+              onChange={(event) => setInboxDraft((d) => ({ ...d, title: event.target.value }))}
+              placeholder="A note just for you"
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              value={inboxDraft.body}
+              onChange={(event) => setInboxDraft((d) => ({ ...d, body: event.target.value }))}
+              placeholder="Write something that will make her smile…"
+            />
+          </label>
+          <button className="primary-btn submit-btn" type="submit" disabled={!inboxDraft.body.trim()}>
+            Send to her inbox 📬
+          </button>
+        </form>
+        {(() => {
+          const reactions = (data.messages || []).filter((m) => m.type === 'marnich' && m.reaction)
+          if (!reactions.length) return null
+          return (
+            <div className="admin-reactions">
+              <p className="eyebrow">Her reactions to your messages</p>
+              <ul className="admin-reaction-list">
+                {reactions.slice(0, 6).map((m) => (
+                  <li key={m.id}>
+                    <span className="admin-reaction-emoji">{m.reaction}</span>
+                    <span className="admin-reaction-text">{m.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })()}
       </section>
 
       <section className="soft-card full-span">

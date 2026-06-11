@@ -1,6 +1,10 @@
 ﻿// Real bird photos via Wikipedia's Special:FilePath (serves Wikimedia Commons
 // files, redirect-based, hotlink-friendly), keyed by common name.
 const birdPhotos = {
+  'Common Fiscal': 'https://en.wikipedia.org/wiki/Special:FilePath/Common_fiscal_%28Lanius_collaris_subcoronatus%29.jpg?width=500',
+  'Arrow-marked Babbler': 'https://en.wikipedia.org/wiki/Special:FilePath/Arrow-marked_Babbler%2CTurdoides_jardineii%2C_at_Hwange_National_Park%2C_Zimbabwe_%2835097040664%29.jpg?width=500',
+  'African Green Pigeon': 'https://en.wikipedia.org/wiki/Special:FilePath/African_green_pigeon_%28Treron_calvus_sharpei%29.jpg?width=500',
+  'Black-headed Oriole': 'https://en.wikipedia.org/wiki/Special:FilePath/Orop%C3%A9ndola_enmascarada_%28Oriolus_larvatus%29%2C_parque_nacional_Kruger%2C_Sud%C3%A1frica%2C_2018-07-25%2C_DD_29_%28recortada%29.jpg?width=500',
   'Cape Robin-Chat': 'https://en.wikipedia.org/wiki/Special:FilePath/Cape_Robin-Chat_%28Cossypha_caffra%292.jpg?width=500',
   'Hadeda Ibis': 'https://en.wikipedia.org/wiki/Special:FilePath/Ibis_hadada_%28Bostrychia_hagedash%29%2C_parque_nacional_de_Tarangire%2C_Tanzania%2C_2024-05-24%2C_DD_23.jpg?width=500',
   'Cape White-eye': 'https://en.wikipedia.org/wiki/Special:FilePath/Zosterops_pallidus00%2C_crop.jpg?width=500',
@@ -1256,7 +1260,7 @@ const baseBirdLibrary = [
     bestTime: 'Early morning, singing from a high perch.',
     behaviour: 'Bold and sociable around gardens and feeding trays.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Dark-capped_Bulbul_(Pycnonotus_tricolor).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Common_bulbul_%28Pycnonotus_barbatus_barbatus%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'African Red-eyed Bulbul',
@@ -1281,7 +1285,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, near fruiting trees.',
     behaviour: 'Active and noisy in small groups.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/African_red-eyed_bulbul,_Pycnonotus_nigricans.jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/African_red-eyed_bulbul_%28Pycnonotus_nigricans%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Cape Canary',
@@ -1306,7 +1310,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, singing in flight.',
     behaviour: 'Gregarious, often in flocks outside breeding.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Serinus_canicollis_-_Cape_Canary.jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Cape_Canary_%28Serinus_canicollis%29_1.jpg?width=500',
   }),
   makeBird({
     commonName: 'Yellow Canary',
@@ -1331,7 +1335,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, on exposed perches.',
     behaviour: 'Forms flocks at seeding grass.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Yellow_canary_(Crithagra_flaviventris).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Serinus_flaviventris_-Great_Karoo%2C_Northern_Cape%2C_South_Africa_-adult_male-8.jpg?width=500',
   }),
   makeBird({
     commonName: 'House Sparrow',
@@ -1381,7 +1385,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, in bushveld gardens.',
     behaviour: 'Forages quietly in pairs or small groups.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Grey-headed_Sparrow_(Passer_diffusus).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Southern_Grey-headed_Sparrow_%28Passer_diffusus%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Common Starling',
@@ -1431,7 +1435,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, on open ground.',
     behaviour: 'Sociable, breeds cooperatively.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Pied_Starling,_Lamprotornis_bicolor.jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Pied_Starling_%28Spreo_bicolor%29_%2832553081476%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Wattled Starling',
@@ -1456,7 +1460,7 @@ const baseBirdLibrary = [
     bestTime: 'When insect swarms appear.',
     behaviour: 'Nomadic and highly gregarious.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Wattled_Starling,_Creatophora_cinerea.jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Wattled_Starling_%28Creatophora_cinerea%29_%286017306206%29%2C_crop.jpg?width=500',
   }),
   makeBird({
     commonName: 'Common Waxbill',
@@ -1481,7 +1485,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, in rank grass near water.',
     behaviour: 'Always in busy little flocks.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Common_Waxbill_(Estrilda_astrild).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Common_waxbill_%28Estrilda_astrild_jagoensis%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Blue Waxbill',
@@ -1531,7 +1535,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, on seeding grass.',
     behaviour: 'Always in chittering family flocks.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Bronze_Mannikin_(Spermestes_cucullata).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Bronze_mannikin_%28Spermestes_cucullata_cucullata%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Pin-tailed Whydah',
@@ -1556,7 +1560,7 @@ const baseBirdLibrary = [
     bestTime: 'Summer, when males display.',
     behaviour: 'Males fiercely defend feeding territories.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Pin-tailed_Whydah_(Vidua_macroura)_male.jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Pin-tailed_whydah_%28Vidua_macroura%29_male_Sao_Tome.jpg?width=500',
   }),
   makeBird({
     commonName: 'Red-billed Quelea',
@@ -1606,7 +1610,7 @@ const baseBirdLibrary = [
     bestTime: 'Summer, over wet grassland.',
     behaviour: 'Males display with a bouncing, puffed flight.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Yellow-crowned_Bishop_(Euplectes_afer).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Euplectes_afer_-Lake_Baringo%2C_Kenya_-male-8_CROP.jpg?width=500',
   }),
   makeBird({
     commonName: 'Long-tailed Widowbird',
@@ -1631,7 +1635,7 @@ const baseBirdLibrary = [
     bestTime: 'Summer evenings, males drifting over grass.',
     behaviour: 'Males display in slow, floating flights.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Long-tailed_Widowbird_(Euplectes_progne).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Long-tailed_Widowbird_%28Euplectes_progne%29_male_...._%2846718360972%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Red-collared Widowbird',
@@ -1656,7 +1660,7 @@ const baseBirdLibrary = [
     bestTime: 'Summer, on grassy slopes.',
     behaviour: 'Males flit and display over territories.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Red-collared_Widowbird_(Euplectes_ardens).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Red-collared_Widowbird%2C_Sakania%2C_DR_Congo_%287147889925%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'White-bellied Sunbird',
@@ -1681,7 +1685,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, at flowering shrubs.',
     behaviour: 'Busy and territorial around nectar sources.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/White-bellied_Sunbird_(Cinnyris_talatala).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/White-breasted_Sunbird_%28Cinnyris_talatala%29_%284030672432%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Marico Sunbird',
@@ -1706,7 +1710,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, at aloes and flowers.',
     behaviour: 'Defends flowering bushes fiercely.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Marico_Sunbird_(Cinnyris_mariquensis).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Marico_sunbird%2C_Cinnyris_mariquensis%2C_at_Marakele_National_Park%2C_Limpopo%2C_South_Africa_%2831756233857%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Greater Striped Swallow',
@@ -1731,7 +1735,7 @@ const baseBirdLibrary = [
     bestTime: 'Summer, hawking over open ground.',
     behaviour: 'Migratory; returns to old nest sites.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Greater_Striped_Swallow_(Cecropis_cucullata).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Greater_Striped_Swallow_%28Cecropis_cucullata%29_%2831008773580%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'White-throated Swallow',
@@ -1881,7 +1885,7 @@ const baseBirdLibrary = [
     bestTime: 'All day in towns.',
     behaviour: 'Tame and gregarious around people.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Rock_dove_-_Columba_livia.jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Columba_livia_%28Rock_Dove%2C_wild%29%2C_Duncansby_Head%2C_Caithness%2C_Scotland_1.jpg?width=500',
   }),
   makeBird({
     commonName: 'Crowned Lapwing',
@@ -1981,7 +1985,7 @@ const baseBirdLibrary = [
     bestTime: 'Dawn, crowing from mounds.',
     behaviour: 'Wary; prefers to run for cover.',
     conservationStatus: 'Least Concern',
-    imageUrl: "https://en.wikipedia.org/wiki/Special:FilePath/Swainson's_Spurfowl_(Pternistis_swainsonii).jpg?width=500",
+    imageUrl: "https://en.wikipedia.org/wiki/Special:FilePath/Swainson%27s_Spurfowl_%28Pternistis_swainsonii%29_male_%2816362960767%29.jpg?width=500",
   }),
   makeBird({
     commonName: 'Spur-winged Goose',
@@ -2006,7 +2010,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning on dams and fields.',
     behaviour: 'Grazes in flocks; wary and strong-flying.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Spur-winged_Goose_(Plectropterus_gambensis).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Spur-winged_goose_%28Plectropterus_gambensis%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Red-knobbed Coot',
@@ -2081,7 +2085,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning on quiet water.',
     behaviour: 'Dives constantly; shy and quick.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Little_Grebe_(Tachybaptus_ruficollis).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Little_grebe_Zwergtaucher.jpg?width=500',
   }),
   makeBird({
     commonName: 'White-breasted Cormorant',
@@ -2231,7 +2235,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning at reedy edges.',
     behaviour: 'Perches low and dives for tiny fish.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Malachite_Kingfisher_(Corythornis_cristatus).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Malachite_kingfisher_%28Corythornis_cristatus_cristatus%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Black-collared Barbet',
@@ -2256,7 +2260,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, duetting from a bare branch.',
     behaviour: 'Pairs duet face to face, flicking wings.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Black-collared_Barbet_(Lybius_torquatus).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Barbudo_acollarado_%28Lybius_torquatus%29%2C_parque_nacional_Kruger%2C_Sud%C3%A1frica%2C_2018-07-25%2C_DD_27.jpg?width=500',
   }),
   makeBird({
     commonName: 'Black-shouldered Kite',
@@ -2281,7 +2285,7 @@ const baseBirdLibrary = [
     bestTime: 'Late afternoon, hovering over fields.',
     behaviour: 'Hovers and drops onto rodents.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Black-shouldered_Kite_(Elanus_caeruleus).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Black-shouldered_Kite_%28Elanus_caeruleus%29_in_Hyderabad_W_IMG_4418.jpg?width=500',
   }),
   makeBird({
     commonName: 'African Stonechat',
@@ -2306,7 +2310,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, on low perches.',
     behaviour: 'Sits upright, flicks wings and tail.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/African_Stonechat_(Saxicola_torquatus).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Saxicola_torquatus_-South_Africa_-male-8_%283%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Cape Longclaw',
@@ -2331,7 +2335,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, calling from grass.',
     behaviour: 'Walks through grass; perches to call.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Cape_Longclaw_(Macronyx_capensis).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Cape_Longclaw_%28Macronyx_capensis%29_%2831320650481%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Groundscraper Thrush',
@@ -2356,7 +2360,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, on open ground.',
     behaviour: 'Stands tall, runs and flicks wings.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Groundscraper_Thrush_(Psophocichla_litsitsirupa).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Groundscraper_Thrush_%28Turdus_litsitsirupa%29%2C_Kgalagadi_Transfrontier_Park_%286451619527%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Tawny-flanked Prinia',
@@ -2381,7 +2385,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, in rank growth.',
     behaviour: 'Flicks tail and scolds from low cover.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Tawny-flanked_Prinia_(Prinia_subflava).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Tawny-flanked_Prinia_%28Prinia_subflava%29_%2811465162445%29.jpg?width=500',
   }),
   makeBird({
     commonName: 'Black-chested Prinia',
@@ -2406,7 +2410,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, in dry scrub.',
     behaviour: 'Restless; cocks and waves its tail.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Black-chested_Prinia_(Prinia_flavicans).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Black-chested_prinia_%28Prinia_flavicans%29_breeding_female.jpg?width=500',
   }),
   makeBird({
     commonName: 'Crimson-breasted Shrike',
@@ -2432,7 +2436,7 @@ const baseBirdLibrary = [
     bestTime: 'Morning, low in thornveld.',
     behaviour: 'Skulks in dense bush; duets unseen.',
     conservationStatus: 'Least Concern',
-    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Crimson-breasted_Shrike_(Laniarius_atrococcineus).jpg?width=500',
+    imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/161_Crimson-breasted_shrike_in_Otjozondjupa_Region_Photo_by_Giles_Laurent.jpg?width=500',
   }),
   makeBird({
     commonName: 'White-browed Sparrow-Weaver',

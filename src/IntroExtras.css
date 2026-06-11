@@ -1,0 +1,79 @@
+/* Extra intro chrome: evidence narration, manual nav + dots, music toggle. */
+
+.intro-narration {
+  margin: 4px auto 14px;
+  max-width: 520px;
+  text-align: center;
+  font-size: 1rem;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  color: rgba(243, 234, 210, 0.92);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  animation: intro-narr-in 600ms ease both;
+  min-height: 1.4em;
+}
+@keyframes intro-narr-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Background-music toggle (top-right) */
+.intro-music-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 7;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  border-radius: 999px;
+  color: rgba(243, 234, 210, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(243, 234, 210, 0.22);
+}
+
+/* Move Skip up so it never collides with the nav bar */
+.intro-skip { bottom: 70px; }
+
+/* Manual navigation bar with progress dots */
+.intro-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.intro-nav-arrow {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  border-radius: 999px;
+  color: rgba(243, 234, 210, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(243, 234, 210, 0.22);
+}
+.intro-nav-arrow:disabled { opacity: 0.3; cursor: default; }
+.intro-dots { display: flex; gap: 9px; }
+.intro-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  background: rgba(243, 234, 210, 0.32);
+  transition: transform 150ms ease, background 150ms ease;
+}
+.intro-dot.active {
+  background: #f4c049;
+  transform: scale(1.35);
+  box-shadow: 0 0 8px rgba(244, 192, 73, 0.8);
+}
