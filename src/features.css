@@ -203,19 +203,54 @@
 .map-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .map-legend i { width: 12px; height: 12px; border-radius: 999px; display: inline-block; }
 .sa-map-wrap {
+  position: relative;
   border-radius: 20px;
   background: linear-gradient(180deg, #eaf3fb, #f3efe2);
   padding: 10px;
   border: 1px solid var(--line);
+  overflow: hidden;
 }
-.sa-map { width: 100%; height: auto; display: block; }
+.sa-map { position: relative; z-index: 1; width: 100%; height: auto; display: block; }
 .sa-land {
   fill: #dcecd2;
-  stroke: #7fa56a;
-  stroke-width: 3;
+  stroke: #6f9a5c;
+  stroke-width: 3.5;
   stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 3px 5px rgba(60, 90, 50, 0.25));
 }
-.sa-lesotho { fill: #cfe0c2; stroke: #7fa56a; stroke-width: 2; }
+.sa-lesotho {
+  fill: #bcd6ab;
+  stroke: #6f9a5c;
+  stroke-width: 2.5;
+  stroke-dasharray: 7 5;
+}
+
+/* Decorative birds drifting across the country */
+.sa-map-birds { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.sa-fly-bird {
+  position: absolute;
+  left: -8%;
+  font-size: 1.2rem;
+  opacity: 0.75;
+  animation: saFly var(--fly-dur, 14s) linear var(--fly-delay, 0s) infinite;
+}
+@keyframes saFly {
+  0% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(58vw) translateY(-8px); }
+  100% { transform: translateX(118vw) translateY(0); }
+}
+
+/* Always-on reference markers (Potchefstroom + Kruger) */
+.map-ref-dot { fill: #6b4a2a; stroke: #fff; stroke-width: 2; }
+.map-ref-label {
+  font-size: 22px;
+  font-weight: 800;
+  fill: #5a4327;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 4px;
+}
 .map-pin { cursor: pointer; }
 .map-pin-drop { transition: transform 150ms ease; transform-origin: center bottom; }
 .map-pin.active .map-pin-drop { transform: scale(1.25); }

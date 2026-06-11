@@ -18,22 +18,52 @@ function project(lon, lat) {
   return [x, y]
 }
 
-// Rough national boundary, traced clockwise from the west coast. Approximate —
-// it just needs to read as "South Africa".
+// National boundary as real (lon, lat) points, traced clockwise from the Orange
+// River mouth (NW) down the Atlantic coast, around Cape Point and Cape Agulhas,
+// up the Indian-Ocean coast past Durban (the Drakensberg curve), to the NE
+// corner, then west along the Limpopo and Botswana/Namibia borders back to the
+// start. Detailed enough to read clearly as South Africa.
 const OUTLINE = [
-  [16.45, -28.6], [17.4, -30.4], [17.9, -32.6], [18.4, -34.35], [19.9, -34.8],
-  [20.9, -34.4], [22.5, -34.0], [24.0, -34.2], [25.6, -34.0], [26.9, -33.7],
-  [28.0, -32.9], [28.9, -32.3], [30.0, -31.1], [31.1, -29.9], [32.4, -28.6],
-  [32.9, -27.0], [32.0, -26.3], [31.4, -25.7], [31.9, -24.4], [31.3, -22.4],
-  [29.4, -22.1], [28.2, -22.7], [27.0, -23.6], [26.4, -24.6], [25.6, -25.7],
-  [24.0, -25.7], [22.7, -26.0], [20.6, -25.6], [20.0, -26.8], [19.9, -28.0],
-  [19.0, -28.4], [17.5, -28.7], [16.45, -28.6],
+  // West / Atlantic coast, north → south
+  [16.45, -28.6], [16.9, -29.25], [17.25, -30.0], [17.55, -30.9], [18.0, -31.6],
+  [18.25, -32.3], [18.32, -32.9], [17.88, -33.05], [18.2, -33.45], [18.38, -33.9],
+  [18.46, -34.12], [18.42, -34.35], // Cape Point
+  // South / Indian-Ocean coast, west → east
+  [19.3, -34.66], [19.99, -34.83], // Cape Agulhas (southernmost point)
+  [20.9, -34.42], [21.6, -34.32], [22.15, -34.18], [23.4, -34.06], [24.2, -34.16],
+  [25.6, -33.96], [26.3, -33.74], [26.9, -33.6], [27.9, -33.02], [28.6, -32.55],
+  [29.3, -31.95], [30.05, -31.3], [30.7, -30.55], [31.05, -29.86], // Durban
+  [31.7, -29.2], [32.05, -28.78], [32.4, -28.4], [32.55, -27.5], [32.9, -26.85], // NE coast corner
+  // Northern border, east → west (Mozambique, Limpopo, Botswana, Namibia)
+  [32.0, -26.5], [31.98, -25.95], [31.55, -25.6], [31.45, -24.4], [31.25, -23.5],
+  [31.2, -22.4], // Pafuri — northern tip
+  [30.3, -22.35], [29.4, -22.2], [28.5, -22.55], [28.05, -22.7], [27.3, -23.45],
+  [26.85, -24.05], [26.4, -24.65], [25.85, -24.75], [25.6, -25.45], [24.7, -25.75],
+  [23.5, -25.95], [22.7, -26.0], [21.8, -26.7], [20.95, -26.8], [20.6, -26.5],
+  [20.3, -25.65], [19.98, -26.5], [19.95, -27.4], [19.2, -28.2], [18.5, -28.55],
+  [17.4, -28.7], [16.45, -28.6],
 ]
 
-// Lesotho sits as a hole inside SA — drawn as a hint, not a true cutout.
+// Lesotho — a small mountain kingdom completely enclosed by SA. Drawn as an
+// enclave patch on top of the land so it reads as the classic "hole".
 const LESOTHO = [
-  [27.3, -28.6], [28.4, -28.6], [29.4, -29.3], [29.3, -30.2], [28.4, -30.6],
-  [27.5, -30.1], [27.0, -29.4], [27.3, -28.6],
+  [27.45, -28.65], [28.2, -28.62], [28.7, -28.9], [29.1, -29.3], [29.45, -29.7],
+  [29.3, -30.15], [28.85, -30.5], [28.3, -30.65], [27.75, -30.3], [27.3, -29.75],
+  [27.05, -29.3], [27.3, -28.9], [27.45, -28.65],
+]
+
+// Always-on reference markers so the map is legible even before any sightings.
+const REFERENCE_DOTS = [
+  { name: 'Potchefstroom', lon: 27.1, lat: -26.72, dx: 8, anchor: 'start' },
+  { name: 'Kruger', lon: 31.59, lat: -24.99, dx: -8, anchor: 'end' },
+]
+
+// Decorative birds drifting across the map (purely cosmetic).
+const FLYING_BIRDS = [
+  { emoji: '🦅', top: '18%', dur: 13, delay: 0 },
+  { emoji: '🐦', top: '42%', dur: 16, delay: 2.5 },
+  { emoji: '🕊️', top: '63%', dur: 14, delay: 5 },
+  { emoji: '🦩', top: '78%', dur: 18, delay: 1.2 },
 ]
 
 const PLACES = [
@@ -135,8 +165,13 @@ export function BirdMapPage({ data, onBack }) {
   const [activeKey, setActiveKey] = useState(null)
   const active = pins.find((p) => p.label.toLowerCase() === activeKey) || null
 
-  const outlinePath = `M ${OUTLINE.map(([lo, la]) => project(lo, la).map((n) => n.toFixed(1)).join(' ')).join(' L ')} Z`
-  const lesothoPath = `M ${LESOTHO.map(([lo, la]) => project(lo, la).map((n) => n.toFixed(1)).join(' ')).join(' L ')} Z`
+  const toPath = (pts) => `M ${pts.map(([lo, la]) => project(lo, la).map((n) => n.toFixed(1)).join(' ')).join(' L ')} Z`
+  const outlinePath = toPath(OUTLINE)
+  const lesothoPath = toPath(LESOTHO)
+  const refDots = REFERENCE_DOTS.map((d) => {
+    const [x, y] = project(d.lon, d.lat)
+    return { ...d, x, y }
+  })
 
   return (
     <div className="page-grid bird-map-page">
@@ -152,46 +187,63 @@ export function BirdMapPage({ data, onBack }) {
           <span className="status-pill">{pins.length} spot{pins.length === 1 ? '' : 's'}</span>
         </div>
 
-        {pins.length === 0 ? (
-          <div className="inbox-empty">
-            <span className="inbox-empty-icon" aria-hidden="true">📍</span>
-            <p>Add a location when you save a bird and it will appear here on the map.</p>
+        <>
+          <div className="map-legend">
+            <span><i style={{ background: '#3E78C8' }} /> Water</span>
+            <span><i style={{ background: '#D9534F' }} /> Raptor</span>
+            <span><i style={{ background: '#5BA85B' }} /> Garden</span>
+            <span><i style={{ background: '#E0A53A' }} /> Other</span>
           </div>
-        ) : (
-          <>
-            <div className="map-legend">
-              <span><i style={{ background: '#3E78C8' }} /> Water</span>
-              <span><i style={{ background: '#D9534F' }} /> Raptor</span>
-              <span><i style={{ background: '#5BA85B' }} /> Garden</span>
-              <span><i style={{ background: '#E0A53A' }} /> Other</span>
-            </div>
 
-            <div className="sa-map-wrap">
-              <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label="Map of South Africa with bird sighting pins">
-                <path className="sa-land" d={outlinePath} />
-                <path className="sa-lesotho" d={lesothoPath} />
-                {pins.map((p) => {
-                  const on = active && active.label === p.label
-                  return (
-                    <g
-                      key={p.label}
-                      className={`map-pin${on ? ' active' : ''}`}
-                      transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
-                      onClick={() => setActiveKey(on ? null : p.label.toLowerCase())}
-                    >
-                      <circle className="map-pin-halo" r={on ? 26 : 0} fill={p.colour} />
-                      <path className="map-pin-drop" d="M0 0 C -9 -16 -9 -28 0 -28 C 9 -28 9 -16 0 0 Z" fill={p.colour} />
-                      <circle cx="0" cy="-20" r="5" fill="#fff" />
-                      {p.sightings.length > 1 && (
-                        <text className="map-pin-count" x="0" y="-16" textAnchor="middle">{p.sightings.length}</text>
-                      )}
-                    </g>
-                  )
-                })}
-              </svg>
+          <div className="sa-map-wrap">
+            {/* Decorative birds drifting across the country */}
+            <div className="sa-map-birds" aria-hidden="true">
+              {FLYING_BIRDS.map((b, i) => (
+                <span
+                  key={i}
+                  className="sa-fly-bird"
+                  style={{ top: b.top, '--fly-dur': `${b.dur}s`, '--fly-delay': `${b.delay}s` }}
+                >
+                  {b.emoji}
+                </span>
+              ))}
             </div>
+            <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label="Map of South Africa with bird sighting pins">
+              <path className="sa-land" d={outlinePath} />
+              <path className="sa-lesotho" d={lesothoPath} />
+              {/* Always-on reference markers (Potchefstroom + Kruger) */}
+              {refDots.map((d) => (
+                <g key={d.name} className="map-ref" transform={`translate(${d.x.toFixed(1)} ${d.y.toFixed(1)})`}>
+                  <circle className="map-ref-dot" r="7" />
+                  <text className="map-ref-label" x={d.dx} y="5" textAnchor={d.anchor}>{d.name}</text>
+                </g>
+              ))}
+              {pins.map((p) => {
+                const on = active && active.label === p.label
+                return (
+                  <g
+                    key={p.label}
+                    className={`map-pin${on ? ' active' : ''}`}
+                    transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
+                    onClick={() => setActiveKey(on ? null : p.label.toLowerCase())}
+                  >
+                    <circle className="map-pin-halo" r={on ? 26 : 0} fill={p.colour} />
+                    <path className="map-pin-drop" d="M0 0 C -9 -16 -9 -28 0 -28 C 9 -28 9 -16 0 0 Z" fill={p.colour} />
+                    <circle cx="0" cy="-20" r="5" fill="#fff" />
+                    {p.sightings.length > 1 && (
+                      <text className="map-pin-count" x="0" y="-16" textAnchor="middle">{p.sightings.length}</text>
+                    )}
+                  </g>
+                )
+              })}
+            </svg>
+          </div>
 
-            {active ? (
+          {pins.length === 0 ? (
+            <p className="fine-print map-hint">
+              📍 Add a location when you save a bird and it will appear here on the map.
+            </p>
+          ) : active ? (
               <div className="map-detail">
                 <div className="section-heading">
                   <div>
@@ -220,8 +272,7 @@ export function BirdMapPage({ data, onBack }) {
             ) : (
               <p className="fine-print map-hint">Tap a pin to see the birds you spotted there 🐦</p>
             )}
-          </>
-        )}
+        </>
       </section>
     </div>
   )

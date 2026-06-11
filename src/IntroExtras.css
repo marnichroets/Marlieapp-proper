@@ -1,40 +1,42 @@
-/* Styles for the redesigned 8-screen intro (continuation of the letter).
+/* Styles for the redesigned ~17-screen intro (continuation of the letter).
    Mobile-first 390px. Reuses base classes from IntroSequence.css (root, grain,
-   seal, evidence polaroids, kit list, note card, accept, burst, flash). */
+   seal, evidence polaroids, kit list, note card, accept, burst, flash).
+   Dark screens: 1–12 (welcome, evidence intro, evidence A–I, dramatic pause).
+   Warm screens: 13–17 (briefing, how-it-works, Tweety, note, accept). */
 
-.intro-redux { padding: 20px 16px 96px; }
+.intro-redux { padding: 20px 16px 84px; }
 .intro-redux .intro-stage { width: min(360px, 100%); }
 
 /* ---- Per-screen mood / background ---- */
-.intro-root.intro-screen-4,
-.intro-root.intro-screen-5 {
+.intro-root.intro-screen-13,
+.intro-root.intro-screen-14 {
   background: radial-gradient(130% 100% at 50% 24%, #fdf3da 0%, #f3e2bb 52%, #e7c98e 100%);
   color: #5a3b18;
 }
-.intro-root.intro-screen-6 {
+.intro-root.intro-screen-15 {
   background: radial-gradient(130% 100% at 50% 32%, #fff2cf 0%, #f7d98f 48%, #eebf63 100%);
   color: #5a3b18;
 }
-.intro-root.intro-screen-7 {
+.intro-root.intro-screen-16 {
   background: radial-gradient(130% 100% at 50% 36%, #fffdf8 0%, #fbf3e3 55%, #f3e7cf 100%);
   color: #5a3b18;
 }
-.intro-root.intro-screen-8 {
+.intro-root.intro-screen-17 {
   background: radial-gradient(120% 100% at 50% 40%, #ffeec0 0%, #f4cf7d 46%, #e7ab50 100%);
   color: #5a3b18;
 }
-.intro-root.intro-screen-4 .intro-grain,
-.intro-root.intro-screen-5 .intro-grain,
-.intro-root.intro-screen-6 .intro-grain,
-.intro-root.intro-screen-7 .intro-grain,
-.intro-root.intro-screen-8 .intro-grain { opacity: 0.05; mix-blend-mode: multiply; }
-.intro-root.intro-screen-4::after,
-.intro-root.intro-screen-5::after,
-.intro-root.intro-screen-6::after,
-.intro-root.intro-screen-8::after {
+.intro-root.intro-screen-13 .intro-grain,
+.intro-root.intro-screen-14 .intro-grain,
+.intro-root.intro-screen-15 .intro-grain,
+.intro-root.intro-screen-16 .intro-grain,
+.intro-root.intro-screen-17 .intro-grain { opacity: 0.05; mix-blend-mode: multiply; }
+.intro-root.intro-screen-13::after,
+.intro-root.intro-screen-14::after,
+.intro-root.intro-screen-15::after,
+.intro-root.intro-screen-17::after {
   background: radial-gradient(120% 100% at 50% 42%, transparent 58%, rgba(150, 96, 30, 0.26) 100%);
 }
-.intro-root.intro-screen-7::after {
+.intro-root.intro-screen-16::after {
   background: radial-gradient(120% 100% at 50% 44%, transparent 60%, rgba(190, 150, 90, 0.18) 100%);
 }
 
@@ -102,18 +104,71 @@
   50% { transform: scaleX(0.6) rotate(-12deg); }
 }
 
-/* ---- Screen 2: four polaroids, 2x2 ---- */
-.intro-s2 .intro-tline { font-size: 1.05rem; margin-bottom: 16px; }
-.intro-evi-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px 10px;
-  justify-items: center;
+/* ---- Screen 2: evidence intro ---- */
+.intro-s2intro .intro-tline { font-size: 1.3rem; margin-top: 6px; }
+.intro-file-stack {
+  margin: 26px 0 0;
+  font-size: 2.6rem;
+  letter-spacing: 0.2em;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  animation: stackBob 2.4s ease-in-out infinite;
 }
-.intro-redux .intro-evi { width: 100%; max-width: 158px; }
-.intro-redux .intro-evi figcaption { min-height: 3.4em; }
+@keyframes stackBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-/* ---- Screen 3: spotlight + golden text ---- */
+/* ---- Screens 3–11: one big evidence polaroid per screen ---- */
+.intro-evscreen { display: flex; flex-direction: column; align-items: center; }
+.intro-evi-big {
+  width: min(300px, 82vw);
+  margin: 6px auto 0;
+  padding: 14px 14px 18px;
+  background: #fbf6e7;
+  border-radius: 8px;
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.5);
+  transform-origin: center bottom;
+  animation: eviBigDrop 0.7s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+  rotate: -1.5deg;
+}
+@keyframes eviBigDrop {
+  0% { opacity: 0; transform: translateY(-70px) scale(1.12) rotate(7deg); }
+  70% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+.intro-evi-big-photo {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #d8cdb2;
+}
+.intro-evi-big-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.04) saturate(0.96);
+}
+.intro-evi-big .intro-evi-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 4.4rem;
+  background: repeating-linear-gradient(45deg, #d8cdb2 0 12px, #cfc3a4 12px 24px);
+}
+.intro-stamp.big { font-size: 0.92rem; padding: 5px 14px; }
+.intro-evi-comment {
+  margin: 16px auto 0;
+  max-width: 320px;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  color: #ece1c4;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.intro-evi-comment.show { opacity: 1; transform: none; }
+
+/* ---- Screen 12: spotlight + golden text ---- */
 .intro-s3 { position: relative; }
 .intro-spotlight {
   position: absolute;
@@ -152,16 +207,16 @@
   100% { transform: translateY(-120px) rotate(20deg); opacity: 0; }
 }
 
-/* ---- Screen 4: field kit (warm) ---- */
-.intro-root.intro-screen-4 .intro-eyebrow { color: #a06a16; }
-.intro-root.intro-screen-4 .intro-kit-item {
+/* ---- Screen 13: field kit (warm) ---- */
+.intro-root.intro-screen-13 .intro-eyebrow { color: #a06a16; }
+.intro-root.intro-screen-13 .intro-kit-item {
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(190, 140, 70, 0.35);
   color: #5a3b18;
 }
 .intro-corner-chick { position: absolute; right: 0; bottom: -6px; }
 
-/* ---- Screen 5: how it works ---- */
+/* ---- Screen 14: how it works ---- */
 .intro-howto-title {
   margin: 0 0 18px;
   font-size: 1.5rem;
@@ -194,7 +249,7 @@
   z-index: 1;
 }
 
-/* ---- Screen 6: Tweety ---- */
+/* ---- Screen 15: Tweety ---- */
 .intro-s6 { display: flex; flex-direction: column; align-items: center; }
 .intro-tweety-stage { position: relative; margin: 0 auto 8px; }
 .intro-tweety-stage.hop { animation: tweetyHop 0.7s ease 0s 2; }
@@ -213,7 +268,7 @@
 .intro-tweety-lines { display: grid; gap: 6px; margin: 8px 0; }
 .intro-s6 .intro-tline { margin: 4px 0; }
 
-/* ---- Screen 7: candlelit personal note ---- */
+/* ---- Screen 16: candlelit personal note ---- */
 .intro-s7 { width: min(360px, 100%); }
 .intro-redux .intro-note-card {
   width: 100%;
@@ -237,7 +292,7 @@
   .intro-note-photo-corner { width: 80px; right: -2px; }
 }
 
-/* ---- Screen 8: accept ---- */
+/* ---- Screen 17: accept ---- */
 .intro-s8 { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .intro-big-bird {
   font-size: 4.4rem;
@@ -270,11 +325,11 @@
   bottom: auto;
   z-index: 8;
 }
-.intro-root.intro-screen-4 .intro-skip,
-.intro-root.intro-screen-5 .intro-skip,
-.intro-root.intro-screen-6 .intro-skip,
-.intro-root.intro-screen-7 .intro-skip,
-.intro-root.intro-screen-8 .intro-skip {
+.intro-root.intro-screen-13 .intro-skip,
+.intro-root.intro-screen-14 .intro-skip,
+.intro-root.intro-screen-15 .intro-skip,
+.intro-root.intro-screen-16 .intro-skip,
+.intro-root.intro-screen-17 .intro-skip {
   color: rgba(90, 59, 24, 0.6);
   background: rgba(255, 255, 255, 0.4);
   border-color: rgba(150, 110, 50, 0.3);
@@ -294,34 +349,35 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(243, 234, 210, 0.22);
 }
-.intro-root.intro-screen-4 .intro-music-toggle,
-.intro-root.intro-screen-5 .intro-music-toggle,
-.intro-root.intro-screen-6 .intro-music-toggle,
-.intro-root.intro-screen-7 .intro-music-toggle,
-.intro-root.intro-screen-8 .intro-music-toggle {
+.intro-root.intro-screen-13 .intro-music-toggle,
+.intro-root.intro-screen-14 .intro-music-toggle,
+.intro-root.intro-screen-15 .intro-music-toggle,
+.intro-root.intro-screen-16 .intro-music-toggle,
+.intro-root.intro-screen-17 .intro-music-toggle {
   color: rgba(90, 59, 24, 0.75);
   background: rgba(255, 255, 255, 0.4);
   border-color: rgba(150, 110, 50, 0.3);
 }
 
-/* ---- Navigation bar: back / dots / next ---- */
+/* ---- Navigation bar: back / dots / next (17 compact dots) ---- */
 .intro-nav {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 18px;
+  bottom: 16px;
   z-index: 7;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
 }
 .intro-nav-arrow {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   line-height: 1;
   border-radius: 999px;
   color: rgba(243, 234, 210, 0.9);
@@ -329,38 +385,44 @@
   border: 1px solid rgba(243, 234, 210, 0.22);
 }
 .intro-nav-arrow:disabled { opacity: 0.28; }
-.intro-root.intro-screen-4 .intro-nav-arrow,
-.intro-root.intro-screen-5 .intro-nav-arrow,
-.intro-root.intro-screen-6 .intro-nav-arrow,
-.intro-root.intro-screen-7 .intro-nav-arrow,
-.intro-root.intro-screen-8 .intro-nav-arrow {
+.intro-root.intro-screen-13 .intro-nav-arrow,
+.intro-root.intro-screen-14 .intro-nav-arrow,
+.intro-root.intro-screen-15 .intro-nav-arrow,
+.intro-root.intro-screen-16 .intro-nav-arrow,
+.intro-root.intro-screen-17 .intro-nav-arrow {
   color: rgba(90, 59, 24, 0.8);
   background: rgba(255, 255, 255, 0.45);
   border-color: rgba(150, 110, 50, 0.3);
 }
-.intro-dots { display: flex; gap: 8px; }
+.intro-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  max-width: 220px;
+}
 .intro-dot {
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   border: 0;
   padding: 0;
   background: rgba(243, 234, 210, 0.32);
   transition: transform 150ms ease, background 150ms ease;
 }
-.intro-root.intro-screen-4 .intro-dot,
-.intro-root.intro-screen-5 .intro-dot,
-.intro-root.intro-screen-6 .intro-dot,
-.intro-root.intro-screen-7 .intro-dot,
-.intro-root.intro-screen-8 .intro-dot { background: rgba(120, 85, 40, 0.3); }
+.intro-root.intro-screen-13 .intro-dot,
+.intro-root.intro-screen-14 .intro-dot,
+.intro-root.intro-screen-15 .intro-dot,
+.intro-root.intro-screen-16 .intro-dot,
+.intro-root.intro-screen-17 .intro-dot { background: rgba(120, 85, 40, 0.3); }
 .intro-dot.active {
   background: #f4c049;
   transform: scale(1.4);
-  box-shadow: 0 0 8px rgba(244, 192, 73, 0.8);
+  box-shadow: 0 0 7px rgba(244, 192, 73, 0.8);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .intro-tline, .intro-golden-text, .intro-step, .intro-kit-item,
-  .intro-hadeda-bird, .intro-hadeda-foot, .intro-big-bird, .intro-tweety-stage.hop,
-  .intro-up-feather { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .intro-tline, .intro-golden-text, .intro-step, .intro-kit-item, .intro-evi-comment,
+  .intro-evi-big, .intro-hadeda-bird, .intro-hadeda-foot, .intro-big-bird,
+  .intro-tweety-stage.hop, .intro-up-feather { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

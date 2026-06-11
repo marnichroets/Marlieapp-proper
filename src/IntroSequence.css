@@ -648,22 +648,8 @@
 .story-card p { color: #d9cdae; }
 .story-card .story-replay-btn { max-width: 360px; margin: 8px auto 0; }
 
-/* ---------- Screen 6: personal note from Marnich ---------- */
-/* Switch from the dark official dossier to a warm, candlelit love letter. */
-.intro-root.intro-screen-6 {
-  background: radial-gradient(130% 100% at 50% 28%, #fff4d8 0%, #f6dca2 46%, #e8b566 100%);
-  color: #5a3b18;
-}
-
-.intro-root.intro-screen-6::after {
-  background: radial-gradient(120% 100% at 50% 42%, transparent 58%, rgba(150, 96, 30, 0.26) 100%);
-}
-
-.intro-root.intro-screen-6 .intro-grain {
-  opacity: 0.05;
-  mix-blend-mode: multiply;
-}
-
+/* ---------- Personal note from Marnich (warm candlelit love letter) ---------- */
+/* The per-screen warm backgrounds live in IntroExtras.css (screens 13–17). */
 .intro-note-card {
   position: relative;
   width: min(520px, 100%);

@@ -1,26 +1,38 @@
 // One-time cinematic intro — a CONTINUATION of the physical letter Pooks
-// already read. Eight mobile-first screens (390px), all manually paced: tap
-// anywhere or the arrow to advance, back arrow + progress dots + skip. Content
-// animates in on each screen, but nothing auto-advances — she controls it.
+// already read. ~17 mobile-first screens (390px). NOTHING auto-advances: text
+// and items reveal on their own when a screen loads, but moving to the NEXT
+// screen only happens when she taps the arrow, or taps the screen (first tap
+// fast-forwards the reveal, second tap advances).
 import { useEffect, useRef, useState } from 'react'
 import './IntroSequence.css'
 import './IntroExtras.css'
 import { playChirp } from './tweetyData'
 import { TweetyBird } from './Tweety'
 
-const TOTAL = 8
+// Screen map (17 total):
+//  1 welcome · 2 evidence intro · 3–11 evidence A–I (one photo each)
+//  12 dramatic pause · 13 mission briefing · 14 how it works
+//  15 meet Tweety · 16 personal note · 17 accept
+const TOTAL = 17
+const EVI_FIRST = 3
+const EVI_LAST = 11
 
-// ---- Screen 2 evidence (the four NEW reports) ----
+// The nine evidence files, each its own dedicated screen, with a funny,
+// specific Bird Council comment.
 const EVIDENCE = [
-  { id: 'f', src: '/intro/evidence-f.jpg', emoji: '🦩', alt: 'A wake of flamingos', label: 'FILE F', note: 'Flamingo congregation. Unbothered and fabulous.' },
-  { id: 'g', src: '/intro/evidence-g.jpg', emoji: '🐓', alt: 'A chicken', label: 'FILE G', note: 'This is a chicken. The Council acknowledges it. Moving on.' },
-  { id: 'h', src: '/intro/evidence-h.jpg', emoji: '🐦', alt: 'A barbet', label: 'FILE H', note: 'Barbet spotted. The barbet division wept actual tears.' },
-  { id: 'i', src: '/intro/evidence-i.jpg', emoji: '🦅', alt: 'Two Fish Eagles together', label: 'FILE I', note: 'Two Fish Eagles together. The Council found this romantic. No further comment.' },
+  { id: 'a', src: '/intro/evidence-a.jpg', emoji: '🦅', alt: 'Vultures in the field', file: 'EVIDENCE A', comment: 'The Vulture Division has never recovered from this photo. They still talk about it at meetings.' },
+  { id: 'b', src: '/intro/evidence-b.jpg', emoji: '🦉', alt: 'A Spotted Eagle-Owl hidden in bark', file: 'EVIDENCE B', comment: 'Three years. THREE YEARS the owl spent perfecting that hiding spot. Gone in seconds.' },
+  { id: 'c', src: '/intro/evidence-c.jpg', emoji: '🏌️', alt: 'Agent Marnich at the golf course', file: 'EVIDENCE C', comment: 'This is Agent Marnich at Skukuza Golf Course. He was supposed to be watching the birds. He was not watching the birds.' },
+  { id: 'd', src: '/intro/evidence-d.jpg', emoji: '🦉', alt: 'A Verreaux Eagle-Owl up close', file: 'EVIDENCE D', comment: 'Face to face with a Verreaux Eagle-Owl. She did not blink. The owl blinked first. Historic.' },
+  { id: 'e', src: '/intro/evidence-e.jpg', emoji: '🐦', alt: 'Marlie standing beside a stork', file: 'EVIDENCE E', comment: 'The stork filed a formal complaint. The Council reviewed it. The Council dismissed it. The stork is still upset.' },
+  { id: 'f', src: '/intro/evidence-f.jpg', emoji: '🦩', alt: 'A wake of flamingos', file: 'EVIDENCE F', comment: 'The Flamingo Department requested that this photo be framed and displayed in the Council chambers. Request approved.' },
+  { id: 'g', src: '/intro/evidence-g.jpg', emoji: '🐓', alt: 'A rooster', file: 'EVIDENCE G', comment: 'This is a chicken. The Council acknowledges its presence. The Council is moving on.' },
+  { id: 'h', src: '/intro/evidence-h.jpg', emoji: '🐦', alt: 'A Black-collared Barbet', file: 'EVIDENCE H', comment: 'A Black-collared Barbet. Spotted. Photographed. The Barbet Division wept actual tears and gave her a standing ovation.' },
+  { id: 'i', src: '/intro/evidence-i.jpg', emoji: '🦅', alt: 'Two African Fish Eagles together', file: 'EVIDENCE I', comment: 'Two African Fish Eagles. Together. The Council found this unexpectedly romantic and had to take a five minute break.' },
 ]
-const EVI_TILTS = [-4, 3, -2.5, 4]
 
 const FIELD_KIT = [
-  ['🐦', 'Spot birds → photograph them → AI identifies them → they join your collection'],
+  ['🐦', 'A personal bird collection to fill — hundreds of SA species waiting to be found'],
   ['🥚', 'Every new species you spot → a mystery egg appears in your nest'],
   ['🎁', 'Reach milestones → unlock real surprises from Marnich Bank'],
   ['💌', 'Earn enough coins → unlock hidden notes from Marnich'],
@@ -34,7 +46,6 @@ const STEPS = [
   ['💛', 'Step 4', 'Earn coins → unlock gifts → Marnich gets notified'],
 ]
 
-// Tweety's care lines (screen 6 beats 4–8).
 const TWEETY_LINES = [
   'She needs feeding every day.',
   'And water.',
@@ -56,26 +67,22 @@ const NOTE_LINES = [
   '— Marnich',
 ]
 
-// Cumulative reveal timings (ms from when a screen mounts). One entry per beat.
-const BEATS = {
+// Cumulative reveal timings (ms from screen mount) for the named screens. These
+// only animate content WITHIN a screen — they never advance to the next screen.
+const SCREEN_BEATS = {
   1: [600, 2100, 3700],
-  2: [400, 1400, 2400, 3400, 4400],
-  3: [700, 2400, 4300],
-  4: [400, 1000, 1600, 2200, 2800],
-  5: [400, 1000, 1600, 2200],
-  6: [700, 2200, 3700, 5100, 6100, 7100, 8300, 9500, 10900],
-  7: [700, 1900, 4100, 5100, 7300, 8300, 10500, 11500, 13700, 14700],
-  8: [300],
+  2: [500],
+  12: [700, 2400, 4300],
+  13: [400, 1000, 1600, 2200, 2800],
+  14: [400, 1000, 1600, 2200],
+  15: [700, 2200, 3700, 5100, 6100, 7100, 8300, 9500, 10900],
+  16: [700, 1900, 4100, 5100, 7300, 8300, 10500, 11500, 13700, 14700],
+  17: [300],
 }
-// Which reveal index (1-based) plays which sound.
-const SOUND_BEATS = {
-  2: { 2: 'thud', 3: 'thud', 4: 'thud', 5: 'thud' },
-  3: { 3: 'chime' },
-  4: { 1: 'tick', 2: 'tick', 3: 'tick', 4: 'tick', 5: 'tick' },
-  6: { 3: 'chirp' },
-}
+const isEvidence = (s) => s >= EVI_FIRST && s <= EVI_LAST
+const beatsFor = (s) => (isEvidence(s) ? [250, 1100] : SCREEN_BEATS[s])
 
-// ---- Sound (all guarded so a missing/blocked AudioContext is just silent) ----
+// ---- Sound (guarded so a missing/blocked AudioContext is just silent) ----
 let sharedCtx
 function getCtx() {
   try {
@@ -116,11 +123,14 @@ function thud() {
     /* ignore */
   }
 }
-function playSound(name) {
-  if (name === 'thud') thud()
-  else if (name === 'chime') chirp('play')
-  else if (name === 'chirp') chirp('feed')
-  else if (name === 'tick') chirp('water')
+function playBeatSound(screen, beat) {
+  if (isEvidence(screen)) {
+    if (beat === 1) thud()
+    return
+  }
+  if (screen === 12 && beat === 3) chirp('play')
+  else if (screen === 13) chirp('water')
+  else if (screen === 15 && beat === 3) chirp('feed')
 }
 
 // Gentle dawn ambience (soft pad + occasional birdsong), toggleable.
@@ -175,25 +185,25 @@ function stopAmbience() {
 }
 
 // ---- Small pieces ----
-function EvidencePhoto({ item, index }) {
+function EvidenceScreen({ item, commentShown }) {
   const [failed, setFailed] = useState(false)
   return (
-    <figure className="intro-evi" style={{ '--evi-tilt': `${EVI_TILTS[index % EVI_TILTS.length]}deg` }}>
-      <div className="intro-evi-photo">
-        {failed ? (
-          <div className="intro-evi-fallback" role="img" aria-label={item.alt}>
-            <span aria-hidden="true">{item.emoji}</span>
-          </div>
-        ) : (
-          <img src={item.src} alt={item.alt} onError={() => setFailed(true)} draggable="false" />
-        )}
-        <span className="intro-stamp">CLASSIFIED</span>
-      </div>
-      <figcaption>
-        <strong>{item.label}</strong>
-        <span>{item.note}</span>
-      </figcaption>
-    </figure>
+    <div className="intro-stage intro-evscreen">
+      <p className="intro-eyebrow">{item.file}</p>
+      <figure className="intro-evi-big">
+        <div className="intro-evi-big-photo">
+          {failed ? (
+            <div className="intro-evi-fallback" role="img" aria-label={item.alt}>
+              <span aria-hidden="true">{item.emoji}</span>
+            </div>
+          ) : (
+            <img src={item.src} alt={item.alt} onError={() => setFailed(true)} draggable="false" />
+          )}
+          <span className="intro-stamp big">CLASSIFIED</span>
+        </div>
+      </figure>
+      <p className={`intro-evi-comment${commentShown ? ' show' : ''}`}>{item.comment}</p>
+    </div>
   )
 }
 
@@ -229,7 +239,7 @@ export default function IntroSequence({ onComplete, onAccept }) {
   const jumpFullRef = useRef(false)
   const done = useRef(false)
 
-  const maxReveal = BEATS[screen].length
+  const maxReveal = beatsFor(screen).length
 
   function clearTimers() {
     timersRef.current.forEach((t) => window.clearTimeout(t))
@@ -243,10 +253,12 @@ export default function IntroSequence({ onComplete, onAccept }) {
     return () => stopAmbience()
   }, [musicOn])
 
-  // Per-screen reveal scheduler. Jumps (back/dots/skip) show everything at once.
+  // Per-screen reveal scheduler. These timers ONLY reveal content on the current
+  // screen — none of them call setScreen, so nothing ever auto-advances. Jumps
+  // (back / dots / skip) show everything at once.
   useEffect(() => {
     clearTimers()
-    const delays = BEATS[screen]
+    const delays = beatsFor(screen)
     if (jumpFullRef.current) {
       jumpFullRef.current = false
       setReveal(delays.length)
@@ -258,8 +270,7 @@ export default function IntroSequence({ onComplete, onAccept }) {
       timersRef.current.push(
         window.setTimeout(() => {
           setReveal(i + 1)
-          const sound = SOUND_BEATS[screen]?.[i + 1]
-          if (sound) playSound(sound)
+          playBeatSound(screen, i + 1)
         }, delay),
       )
     })
@@ -289,7 +300,7 @@ export default function IntroSequence({ onComplete, onAccept }) {
     setScreen(TOTAL)
   }
 
-  // Tap anywhere: first finish revealing this screen, then advance.
+  // Tap anywhere: first finish revealing this screen, then advance. NEVER auto.
   function tapStage() {
     if (screen === TOTAL) return
     if (reveal < maxReveal) {
@@ -342,20 +353,25 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* ---------- SCREEN 2 — Additional evidence ---------- */}
+      {/* ---------- SCREEN 2 — Additional evidence intro ---------- */}
       {screen === 2 && (
-        <div className="intro-stage intro-s2">
-          <p className={`intro-tline${shown(1) ? ' show' : ''}`}>
+        <div className="intro-stage intro-s2intro">
+          <p className="intro-eyebrow">CASE FILE · SUBJECT: MARLIE</p>
+          <p className={`intro-tline big${shown(1) ? ' show' : ''}`}>
             While you were reading… our agents filed more reports.
           </p>
-          <div className="intro-evi-grid">
-            {EVIDENCE.map((item, i) => (shown(i + 2) ? <EvidencePhoto key={item.id} item={item} index={i} /> : null))}
-          </div>
+          <div className="intro-file-stack" aria-hidden="true">📁📷🪶</div>
+          {shown(maxReveal) && <p className="intro-tap-hint">tap to see the evidence ›</p>}
         </div>
       )}
 
-      {/* ---------- SCREEN 3 — The dramatic pause ---------- */}
-      {screen === 3 && (
+      {/* ---------- SCREENS 3–11 — Evidence A–I (one photo each) ---------- */}
+      {isEvidence(screen) && (
+        <EvidenceScreen item={EVIDENCE[screen - EVI_FIRST]} commentShown={shown(2)} />
+      )}
+
+      {/* ---------- SCREEN 12 — The dramatic pause ---------- */}
+      {screen === 12 && (
         <div className="intro-stage intro-s3">
           <div className="intro-spotlight" aria-hidden="true" />
           <p className={`intro-tline big${shown(1) ? ' show' : ''}`}>You already know about the vote.</p>
@@ -371,8 +387,8 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* ---------- SCREEN 4 — Mission briefing ---------- */}
-      {screen === 4 && (
+      {/* ---------- SCREEN 13 — Mission briefing ---------- */}
+      {screen === 13 && (
         <div className="intro-stage intro-s4">
           <p className="intro-eyebrow">YOUR FIELD KIT — CLASSIFIED</p>
           <ul className="intro-kit-list">
@@ -389,8 +405,8 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* ---------- SCREEN 5 — How it works ---------- */}
-      {screen === 5 && (
+      {/* ---------- SCREEN 14 — How it works ---------- */}
+      {screen === 14 && (
         <div className="intro-stage intro-s5">
           <h2 className="intro-howto-title">How your adventure works</h2>
           <div className="intro-steps">
@@ -408,8 +424,8 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* ---------- SCREEN 6 — Meet Tweety ---------- */}
-      {screen === 6 && (
+      {/* ---------- SCREEN 15 — Meet Tweety ---------- */}
+      {screen === 15 && (
         <div className="intro-stage intro-s6">
           <div className={`intro-tweety-stage${shown(3) ? ' hop' : ''}`}>
             <TweetyBird level="chick" mood="happy" dancing={shown(3)} size={150} />
@@ -430,8 +446,8 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* ---------- SCREEN 7 — The personal note ---------- */}
-      {screen === 7 && (
+      {/* ---------- SCREEN 16 — The personal note ---------- */}
+      {screen === 16 && (
         <div className="intro-stage intro-s7">
           <article className="intro-note-card">
             <span className="intro-note-heart" aria-hidden="true">💛</span>
@@ -453,8 +469,8 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* ---------- SCREEN 8 — Accept ---------- */}
-      {screen === 8 && (
+      {/* ---------- SCREEN 17 — Accept ---------- */}
+      {screen === 17 && (
         <div className="intro-stage intro-s8">
           <span className="intro-big-bird" aria-hidden="true">🐦</span>
           <h2 className="intro-begin-title">Your adventure begins now</h2>
