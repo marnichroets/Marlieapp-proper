@@ -31,6 +31,7 @@ import {
   tweetyCareState,
   getCompanion,
 } from './tweetyData'
+import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
 import { TweetyWorldCard, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
@@ -93,6 +94,10 @@ const OFFLINE_BIRD_COUNCIL_MESSAGE =
   'The Bird Council is practicing offline, so this is a demo result.'
 
 const SESSION_STORAGE_KEY = 'marlie-bird-session-v1'
+
+// One-time cinematic intro flag. Set once Pooks taps "Accept my mission" so the
+// evidence-dossier intro never plays again.
+const INTRO_SEEN_KEY = 'pooks_intro_seen'
 
 // Coin earning rules (rebalanced so coins feel valuable).
 const COINS = {
@@ -1588,6 +1593,14 @@ function App() {
   })
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
+  // Has Pooks already seen the one-time cinematic intro?
+  const [introSeen, setIntroSeen] = useState(() => {
+    try {
+      return localStorage.getItem(INTRO_SEEN_KEY) === 'yes'
+    } catch {
+      return true
+    }
+  })
   const [reveal, setReveal] = useState(null)
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
@@ -3654,6 +3667,25 @@ function App() {
       return <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} />
     }
     return <LoginScreen data={data} onLogin={login} />
+  }
+
+  // The very first time Pooks opens the app after login, play the one-time
+  // cinematic "evidence dossier" intro. Stored forever in localStorage so it
+  // never shows again. Admin/preview sessions skip it entirely.
+  if (session.role === 'pooks' && !introSeen) {
+    return (
+      <IntroSequence
+        onComplete={() => {
+          try {
+            localStorage.setItem(INTRO_SEEN_KEY, 'yes')
+          } catch {
+            /* if storage is full the intro simply may replay; harmless */
+          }
+          setActivePage('home')
+          setIntroSeen(true)
+        }}
+      />
+    )
   }
 
   // First-login: Pooks chooses her first mystery egg. It hatches into her Tweety.
