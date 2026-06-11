@@ -2352,6 +2352,29 @@ textarea:focus {
   backdrop-filter: blur(14px);
 }
 
+.brand-wrap {
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 8px 13px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.nav-back-btn:hover { background: var(--mint); }
+.nav-back-btn:active { transform: scale(0.96); }
+
 .brand-pill {
   display: inline-flex;
   align-items: center;

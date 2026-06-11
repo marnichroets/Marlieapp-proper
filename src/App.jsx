@@ -1768,7 +1768,44 @@ function App() {
   })
   const tapTrackerRef = useRef({ count: 0, last: 0 })
 
-  // Secret tap sequence: 5 quick taps on the bird logo opens admin login.
+  // --- Navigation history so every page has a working "previous" Back ---
+  // Recorded in refs (no re-render) and updated automatically on every page
+  // change, regardless of how the change was triggered — so nothing ever
+  // becomes a dead end.
+  const navHistoryRef = useRef([])
+  const prevPageRef = useRef('home')
+  const backNavRef = useRef(false)
+
+  useEffect(() => {
+    if (backNavRef.current) {
+      backNavRef.current = false
+    } else if (prevPageRef.current !== activePage) {
+      navHistoryRef.current.push(prevPageRef.current)
+      if (navHistoryRef.current.length > 50) navHistoryRef.current.shift()
+    }
+    prevPageRef.current = activePage
+  }, [activePage])
+
+  // Step back to the page she came from (falls back to Home at the root).
+  function goBack() {
+    const hist = navHistoryRef.current
+    if (hist.length === 0) {
+      setActivePage('home')
+      return
+    }
+    backNavRef.current = true
+    setActivePage(hist.pop())
+  }
+
+  // The Pooks logo always returns to Home and resets the trail.
+  function goHome() {
+    navHistoryRef.current = []
+    backNavRef.current = true
+    setActivePage('home')
+  }
+
+  // Secret tap sequence: 5 quick taps on the bird logo opens admin login;
+  // otherwise the logo always takes her Home.
   function handleBrandTap() {
     const now = Date.now()
     const tracker = tapTrackerRef.current
@@ -1779,7 +1816,7 @@ function App() {
       setAdminGate(true)
       return
     }
-    setActivePage('home')
+    goHome()
   }
 
   const dailyStreak = useMemo(
@@ -3211,7 +3248,7 @@ function App() {
   }
 
   function closeBirdProfile() {
-    setActivePage(birdProfile?.source === 'library' ? 'library' : 'birds')
+    goBack()
   }
 
   function saveFieldGuideNotes(key, patch) {
@@ -3984,11 +4021,21 @@ function App() {
 
       <header className="app-header">
         <div className="brand-wrap">
+          {activePage !== 'home' && (
+            <button
+              className="nav-back-btn"
+              type="button"
+              onClick={goBack}
+              aria-label="Back to previous page"
+            >
+              ← Back
+            </button>
+          )}
           <button
             className="brand-pill"
             type="button"
             onClick={handleBrandTap}
-            title={`This week: ${weekly.name}`}
+            title="Back to Home"
           >
             <WeeklyBird size={32} className="brand-bird" />
             Pooks
@@ -4055,7 +4102,7 @@ function App() {
           <SanctuaryPage
             tweety={data.tweety}
             isAdmin={session.role === 'admin'}
-            onBack={() => setActivePage('home')}
+            onBack={goBack}
             onLeaveNote={leaveSanctuaryNote}
           />
         )}
@@ -4065,7 +4112,7 @@ function App() {
             season={season}
             coins={data.featherCoins}
             isAdmin={session.role === 'admin'}
-            onBack={() => setActivePage('home')}
+            onBack={goBack}
             onBuy={(item) => buyRoomFurniture(item)}
             onInteract={roomInteract}
           />
@@ -4074,7 +4121,7 @@ function App() {
           <TweetyStatsPage
             tweety={data.tweety}
             birdCount={data.birds.length}
-            onBack={() => setActivePage('home')}
+            onBack={goBack}
             onRename={renameTweety}
           />
         )}
@@ -4082,7 +4129,7 @@ function App() {
           <WardrobePage
             tweety={data.tweety}
             isAdmin={session.role === 'admin'}
-            onBack={() => setActivePage('home')}
+            onBack={goBack}
             onWear={wearWearable}
             onToggleWishlist={toggleWishlistItem}
             goToMarket={() => setActivePage('rewards')}
@@ -4173,7 +4220,7 @@ function App() {
           />
         )}
         {activePage === 'birdmap' && (
-          <BirdMapPage data={data} onBack={() => setActivePage('home')} />
+          <BirdMapPage data={data} onBack={goBack} />
         )}
         {activePage === 'profile' && (
           <ProfilePage
