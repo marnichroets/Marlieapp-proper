@@ -49,7 +49,42 @@ const EVIDENCE = [
     label: 'EVIDENCE E',
     note: 'Subject shows no fear. Stork filed complaint. Dismissed.',
   },
+  {
+    id: 'f',
+    src: '/intro/evidence-f.jpg',
+    emoji: '🦩',
+    alt: 'A wake of flamingos',
+    label: 'EVIDENCE F',
+    note: 'Flamingo congregation, pink and unbothered',
+  },
+  {
+    id: 'g',
+    src: '/intro/evidence-g.jpg',
+    emoji: '🐓',
+    alt: 'A rooster',
+    label: 'EVIDENCE G',
+    note: 'Rooster located. Loud. Opinionated. Noted.',
+  },
+  {
+    id: 'h',
+    src: '/intro/evidence-h.jpg',
+    emoji: '🐦',
+    alt: 'A barbet',
+    label: 'EVIDENCE H',
+    note: 'Barbet sighting, colourful and well dressed',
+  },
+  {
+    id: 'i',
+    src: '/intro/evidence-i.jpg',
+    emoji: '🦅',
+    alt: 'African Fish Eagles',
+    label: 'EVIDENCE I',
+    note: 'Fish Eagles, regal. The Council approves.',
+  },
 ]
+
+// The "us" photo — Marnich and Marlie together — tucked into the note screen.
+const NOTE_PHOTO = { src: '/intro/evidence-us.jpg', emoji: '💞', alt: 'Marnich and Marlie together' }
 
 const VERDICT_LINES = ['After heated debate…', 'The Council has decided.']
 
@@ -125,7 +160,29 @@ function thud() {
 }
 
 // Slight "thrown polaroid" tilts between -3 and +3 degrees, one per card.
-const EVI_TILTS = [-3, 2.4, -1.4, 3, -2.2]
+const EVI_TILTS = [-3, 2.4, -1.4, 3, -2.2, 1.6, -2.8, 2, -1]
+const EVI_STAGGER = 0.85 // seconds between each polaroid landing
+
+// Small "us" polaroid pinned to the corner of Marnich's note.
+function NotePhoto() {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className="intro-note-photo" aria-hidden={failed ? undefined : true}>
+      {failed ? (
+        <span className="intro-note-photo-fallback" role="img" aria-label={NOTE_PHOTO.alt}>
+          {NOTE_PHOTO.emoji}
+        </span>
+      ) : (
+        <img
+          src={NOTE_PHOTO.src}
+          alt={NOTE_PHOTO.alt}
+          onError={() => setFailed(true)}
+          draggable="false"
+        />
+      )}
+    </div>
+  )
+}
 
 function EvidencePhoto({ item, index }) {
   const [failed, setFailed] = useState(false)
@@ -133,7 +190,7 @@ function EvidencePhoto({ item, index }) {
   return (
     <figure
       className="intro-evi"
-      style={{ '--evi-delay': `${index * 1.1 + 0.2}s`, '--evi-tilt': `${tilt}deg` }}
+      style={{ '--evi-delay': `${index * EVI_STAGGER + 0.2}s`, '--evi-tilt': `${tilt}deg` }}
     >
       <div className="intro-evi-photo">
         {failed ? (
@@ -153,7 +210,7 @@ function EvidencePhoto({ item, index }) {
   )
 }
 
-export default function IntroSequence({ onComplete }) {
+export default function IntroSequence({ onComplete, onAccept }) {
   const [screen, setScreen] = useState(1)
   const [verdictStep, setVerdictStep] = useState(0)
   const [crowned, setCrowned] = useState(false)
@@ -180,8 +237,9 @@ export default function IntroSequence({ onComplete }) {
     }
     if (screen === 2) {
       // A soft thud as each evidence card lands on the table.
-      const taps = EVIDENCE.map((_, i) => setTimeout(() => thud(), i * 1100 + 600))
-      const next = setTimeout(() => setScreen(3), EVIDENCE.length * 1100 + 2600)
+      const step = EVI_STAGGER * 1000
+      const taps = EVIDENCE.map((_, i) => setTimeout(() => thud(), i * step + 600))
+      const next = setTimeout(() => setScreen(3), EVIDENCE.length * step + 2400)
       return () => {
         taps.forEach(clearTimeout)
         clearTimeout(next)
@@ -243,6 +301,9 @@ export default function IntroSequence({ onComplete }) {
   function accept() {
     if (done.current) return
     done.current = true
+    // Persist "seen" the instant she commits, so even if she closes the app
+    // during the flash the intro never replays.
+    onAccept?.()
     setBursting(true)
     chirp('play')
     setTimeout(() => chirp('feed'), 150)
@@ -377,6 +438,7 @@ export default function IntroSequence({ onComplete }) {
       {screen === 6 && (
         <div className="intro-stage intro-stage-6">
           <article className="intro-note-card">
+            <NotePhoto />
             <span className="intro-note-heart" aria-hidden="true">💛</span>
             <div className="intro-note-body">
               {NOTE_LINES.map((line, i) => (

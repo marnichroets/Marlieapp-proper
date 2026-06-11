@@ -1,10 +1,15 @@
-Drop the five intro evidence photos here, using these EXACT file names:
+Drop the intro photos here, using these EXACT file names:
 
   evidence-a.jpg  — the vultures (EVIDENCE A)
   evidence-b.jpg  — owl in a tree, Spotted Eagle-Owl (EVIDENCE B)
   evidence-c.jpg  — Marnich golfing (EVIDENCE C)
   evidence-d.jpg  — big Verreaux Eagle-Owl, face to face (EVIDENCE D)
   evidence-e.jpg  — Marlie with the stork (EVIDENCE E)
+  evidence-f.jpg  — flamingos (EVIDENCE F)
+  evidence-g.jpg  — rooster (EVIDENCE G)
+  evidence-h.jpg  — barbet (EVIDENCE H)
+  evidence-i.jpg  — fish eagles (EVIDENCE I)
+  evidence-us.jpg — Marnich & Marlie together (shown on the personal note screen)
 
 Tips:
 - .jpg is expected. If you only have .png/.jpeg, either rename to .jpg or

@@ -96,8 +96,51 @@ const OFFLINE_BIRD_COUNCIL_MESSAGE =
 const SESSION_STORAGE_KEY = 'marlie-bird-session-v1'
 
 // One-time cinematic intro flag. Set once Pooks taps "Accept my mission" so the
-// evidence-dossier intro never plays again.
+// evidence-dossier intro never plays again. We persist to BOTH localStorage and
+// a cookie: when localStorage is full of sighting photos a tiny setItem throws
+// QuotaExceededError and the flag would be lost — the cookie is immune to that,
+// so the intro reliably shows only once, ever.
 const INTRO_SEEN_KEY = 'pooks_intro_seen'
+
+function readIntroSeen() {
+  try {
+    if (localStorage.getItem(INTRO_SEEN_KEY) === 'yes') return true
+  } catch {
+    /* localStorage may be unavailable */
+  }
+  try {
+    if (document.cookie.split('; ').some((c) => c === `${INTRO_SEEN_KEY}=yes`)) return true
+  } catch {
+    /* cookies may be unavailable */
+  }
+  return false
+}
+
+function markIntroSeen() {
+  try {
+    localStorage.setItem(INTRO_SEEN_KEY, 'yes')
+  } catch {
+    /* storage full — the cookie below still records it */
+  }
+  try {
+    document.cookie = `${INTRO_SEEN_KEY}=yes; max-age=${60 * 60 * 24 * 3650}; path=/; samesite=lax`
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearIntroSeen() {
+  try {
+    localStorage.removeItem(INTRO_SEEN_KEY)
+  } catch {
+    /* ignore */
+  }
+  try {
+    document.cookie = `${INTRO_SEEN_KEY}=; max-age=0; path=/`
+  } catch {
+    /* ignore */
+  }
+}
 
 // Coin earning rules (rebalanced so coins feel valuable).
 const COINS = {
@@ -1115,6 +1158,61 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
   }
 }
 
+// ---- Weekly Bird Quiz (magazine) ----
+// 5 data-accurate multiple-choice questions about this week's featured birds.
+// Seeded by the week number so questions are stable to retake but change with
+// each new issue.
+function weeklyQuizSeed(week) {
+  let h = 2166136261
+  const s = `weekly-quiz-${week}`
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function seededShuffleLocal(items, seed) {
+  const arr = [...items]
+  let s = seed || 1
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff
+    const j = s % (i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+function buildWeeklyQuiz(issue, library) {
+  const hasAfr = (b) => b && b.commonName && b.afrikaansName
+  const pool = (library || []).filter(hasAfr)
+  const featured = (issue.featuredBirds || []).filter(hasAfr)
+  const seed = weeklyQuizSeed(issue.week)
+  // Top up to 5 subjects from the wider library if needed.
+  const extra = seededShuffleLocal(
+    pool.filter((b) => !featured.some((f) => f.id === b.id)),
+    seed,
+  )
+  const subjects = [...featured, ...extra].slice(0, 5)
+  return subjects.map((bird, qi) => {
+    const askAfrikaans = qi % 2 === 0
+    const correct = askAfrikaans ? bird.afrikaansName : bird.commonName
+    const decoyPool = pool
+      .filter((b) => b.id !== bird.id)
+      .map((b) => (askAfrikaans ? b.afrikaansName : b.commonName))
+      .filter((v, i, arr) => v && v !== correct && arr.indexOf(v) === i)
+    const decoys = seededShuffleLocal(decoyPool, seed + qi * 7919).slice(0, 3)
+    const options = seededShuffleLocal([correct, ...decoys], seed + qi * 104729)
+    return {
+      q: askAfrikaans
+        ? `What is the Afrikaans name for the ${bird.commonName}?`
+        : `Which bird is known in Afrikaans as “${bird.afrikaansName}”?`,
+      options,
+      answer: options.indexOf(correct),
+    }
+  })
+}
+
 function getCurrentLevel(uniqueCount) {
   return levels.reduce((current, level) => {
     return uniqueCount >= level.birds ? level : current
@@ -1223,6 +1321,7 @@ function buildDefaultState() {
     tweety: defaultTweety(),
     store: defaultStore(),
     games: defaultGames(),
+    weeklyQuizClaimedWeek: null,
     discoveries: [],
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
@@ -1602,14 +1701,9 @@ function App() {
   })
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
-  // Has Pooks already seen the one-time cinematic intro?
-  const [introSeen, setIntroSeen] = useState(() => {
-    try {
-      return localStorage.getItem(INTRO_SEEN_KEY) === 'yes'
-    } catch {
-      return true
-    }
-  })
+  // Has Pooks already seen the one-time cinematic intro? Read immediately on
+  // app load so a refresh/navigation never replays it.
+  const [introSeen, setIntroSeen] = useState(readIntroSeen)
   const [reveal, setReveal] = useState(null)
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
@@ -1975,11 +2069,7 @@ function App() {
   // she can rewatch her Bird Council dossier as many times as she likes.
   function replayIntro() {
     setMenuOpen(false)
-    try {
-      localStorage.removeItem(INTRO_SEEN_KEY)
-    } catch {
-      /* ignore */
-    }
+    clearIntroSeen()
     setIntroSeen(false)
   }
 
@@ -2797,110 +2887,40 @@ function App() {
     })
   }
 
-  function onQuizDone(who, result) {
+  // All three games (quiz, snap, bluff) are score-based: highest score wins,
+  // ties broken by who answered faster. One handler resolves them all.
+  function onGameDone(gameKey, who, result) {
     const g = data.games
-    const base = g.quiz.code === result.code ? g.quiz : { code: result.code, pooks: null, marnich: null }
-    const quiz = { ...base, [who]: { score: result.score, timeMs: result.timeMs } }
-    if (!quiz.pooks || !quiz.marnich) return storeWaiting('quiz', quiz, who)
+    const prev =
+      g[gameKey] && g[gameKey].code === result.code
+        ? g[gameKey]
+        : { code: result.code, pooks: null, marnich: null }
+    const round = { ...prev, [who]: { score: result.score, timeMs: result.timeMs } }
+    if (!round.pooks || !round.marnich) return storeWaiting(gameKey, round, who)
     const winner =
-      quiz.pooks.score > quiz.marnich.score
+      round.pooks.score > round.marnich.score
         ? 'pooks'
-        : quiz.marnich.score > quiz.pooks.score
+        : round.marnich.score > round.pooks.score
           ? 'marnich'
-          : quiz.pooks.timeMs < quiz.marnich.timeMs
+          : round.pooks.timeMs < round.marnich.timeMs
             ? 'pooks'
-            : quiz.marnich.timeMs < quiz.pooks.timeMs
+            : round.marnich.timeMs < round.pooks.timeMs
               ? 'marnich'
               : 'draw'
-    finishMatch('quiz', winner, {
-      pooks: quiz.pooks,
-      marnich: quiz.marnich,
-      maxScore: 10,
-    })
+    finishMatch(gameKey, winner, { pooks: round.pooks, marnich: round.marnich })
     return undefined
   }
 
-  function onWordleDone(who, result) {
-    const g = data.games
-    const base = g.wordle.code === result.code ? g.wordle : { code: result.code, pooks: null, marnich: null }
-    const entry = { guesses: result.guesses, solved: result.solved, timeMs: result.timeMs }
-    const wordle = { ...base, [who]: entry }
-    // Immediate solve reward for Pooks (fewer guesses + faster = more coins).
-    let solveCoins = 0
-    if (who === 'pooks' && result.solved) {
-      solveCoins = Math.max(20, (7 - result.guesses) * 15) + (result.timeMs < 90000 ? 20 : 0)
-    }
-    if (!wordle.pooks || !wordle.marnich) {
-      commit(
-        { ...data, games: { ...g, wordle, lastResult: { game: 'wordle', status: 'waiting', who, code: result.code } }, featherCoins: data.featherCoins + solveCoins },
-        {
-          title: 'Bird Wordle 🎯',
-          body:
-            who === 'pooks'
-              ? result.solved
-                ? `Solved in ${result.guesses}! +${solveCoins} 🪙. Share the code so Marnich can try.`
-                : 'Out of time! Share the code for Marnich to try.'
-              : "Marnich's Wordle is in — waiting on Pooks.",
-        },
-      )
-      return
-    }
-    const pScore = wordle.pooks.solved ? wordle.pooks.guesses : 99
-    const mScore = wordle.marnich.solved ? wordle.marnich.guesses : 99
-    const winner =
-      pScore < mScore
-        ? 'pooks'
-        : mScore < pScore
-          ? 'marnich'
-          : wordle.pooks.timeMs < wordle.marnich.timeMs
-            ? 'pooks'
-            : wordle.marnich.timeMs < wordle.pooks.timeMs
-              ? 'marnich'
-              : 'draw'
-    finishMatch('wordle', winner, { pooks: wordle.pooks, marnich: wordle.marnich, wordle: true }, solveCoins)
-  }
-
-  function on20QDone(who, result) {
-    const g = data.games
-    const base = g.twentyq.code === result.code ? g.twentyq : { code: result.code, pooks: null, marnich: null }
-    const entry = { questions: result.questions, won: result.won, timeMs: result.timeMs }
-    const twentyq = { ...base, [who]: entry }
-    const best = g.twentyqBest || { pooks: null, marnich: null }
-    const nextBest =
-      result.won && (best[who] === null || result.questions < best[who])
-        ? { ...best, [who]: result.questions }
-        : best
-    let solveCoins = 0
-    if (who === 'pooks' && result.won) solveCoins = Math.max(20, (10 - result.questions) * 15)
-    if (!twentyq.pooks || !twentyq.marnich) {
-      commit(
-        { ...data, games: { ...g, twentyq, twentyqBest: nextBest, lastResult: { game: 'twentyq', status: 'waiting', who, code: result.code } }, featherCoins: data.featherCoins + solveCoins },
-        {
-          title: '20 Questions 🐦',
-          body:
-            who === 'pooks'
-              ? result.won
-                ? `Guessed it in ${result.questions}! +${solveCoins} 🪙. Share the code for Marnich.`
-                : 'Not this time 😂 Share the code for Marnich to try.'
-              : 'Marnich played — waiting on Pooks.',
-        },
-      )
-      return
-    }
-    const pScore = twentyq.pooks.won ? twentyq.pooks.questions : 99
-    const mScore = twentyq.marnich.won ? twentyq.marnich.questions : 99
-    const winner =
-      pScore < mScore
-        ? 'pooks'
-        : mScore < pScore
-          ? 'marnich'
-          : twentyq.pooks.timeMs < twentyq.marnich.timeMs
-            ? 'pooks'
-            : twentyq.marnich.timeMs < twentyq.pooks.timeMs
-              ? 'marnich'
-              : 'draw'
-    finishMatch('twentyq', winner, { pooks: twentyq.pooks, marnich: twentyq.marnich, twentyq: true }, solveCoins)
-    setData((c) => ({ ...c, games: { ...c.games, twentyqBest: nextBest } }))
+  // Weekly magazine quiz: 25 coins for finishing, but only once per week.
+  function claimWeeklyQuiz(week) {
+    if (data.weeklyQuizClaimedWeek === week) return
+    commit(
+      { ...data, weeklyQuizClaimedWeek: week, featherCoins: data.featherCoins + 25 },
+      {
+        title: 'Weekly Bird Quiz complete! 🧠',
+        body: 'The Bird Council added 25 Feather Coins to your bank 🪙',
+      },
+    )
   }
 
   function setTrashTalk(message) {
@@ -3700,12 +3720,9 @@ function App() {
   if (session.role === 'pooks' && !introSeen) {
     return (
       <IntroSequence
+        onAccept={markIntroSeen}
         onComplete={() => {
-          try {
-            localStorage.setItem(INTRO_SEEN_KEY, 'yes')
-          } catch {
-            /* if storage is full the intro simply may replay; harmless */
-          }
+          markIntroSeen()
           setActivePage('home')
           setIntroSeen(true)
         }}
@@ -3843,13 +3860,7 @@ function App() {
           />
         )}
         {activePage === 'games' && (
-          <GamesHub
-            data={data}
-            who="pooks"
-            onQuizDone={onQuizDone}
-            onWordleDone={onWordleDone}
-            on20QDone={on20QDone}
-          />
+          <GamesHub data={data} who="pooks" onGameDone={onGameDone} />
         )}
         {activePage === 'add' && (
           <AddBirdPage addBird={addBird} birdLibrary={data.birdLibrary} />
@@ -3919,7 +3930,11 @@ function App() {
         {activePage === 'bingo' && <BingoPage data={data} toggleBingo={toggleBingo} />}
         {activePage === 'codes' && <SecretCodesPage data={data} redeemCode={redeemCode} />}
         {activePage === 'magazine' && (
-          <WeeklyMagazinePage data={data} openBirdProfile={openBirdProfile} />
+          <WeeklyMagazinePage
+            data={data}
+            openBirdProfile={openBirdProfile}
+            claimWeeklyQuiz={claimWeeklyQuiz}
+          />
         )}
         {activePage === 'profile' && (
           <ProfilePage
@@ -3948,9 +3963,7 @@ function App() {
             triggerEscape={triggerEscape}
             giftRoomFurniture={(item) => buyRoomFurniture(item, { free: true })}
             buyStoreItem={buyStoreItem}
-            onQuizDone={onQuizDone}
-            onWordleDone={onWordleDone}
-            on20QDone={on20QDone}
+            onGameDone={onGameDone}
             setTrashTalk={setTrashTalk}
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
@@ -6871,7 +6884,112 @@ function getWeeklyRecap(data) {
   }
 }
 
-function WeeklyMagazinePage({ data, openBirdProfile }) {
+function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
+  const [answers, setAnswers] = useState({})
+  const [submitted, setSubmitted] = useState(false)
+  const [justAwarded, setJustAwarded] = useState(false)
+  const alreadyClaimed = claimedWeek === week
+  const allAnswered = quiz.length > 0 && Object.keys(answers).length >= quiz.length
+  const score = quiz.reduce((n, q, i) => n + (answers[i] === q.answer ? 1 : 0), 0)
+
+  function choose(qi, oi) {
+    if (submitted) return
+    setAnswers((a) => ({ ...a, [qi]: oi }))
+  }
+  function submit() {
+    if (!allAnswered) return
+    setSubmitted(true)
+    if (!alreadyClaimed) {
+      onClaim(week)
+      setJustAwarded(true)
+    }
+  }
+  function retake() {
+    setAnswers({})
+    setSubmitted(false)
+  }
+
+  const verdict =
+    score === 5
+      ? 'A perfect score — the Bird Council is in awe! 🏆'
+      : score === 4
+        ? 'The Bird Council is impressed!'
+        : score === 3
+          ? 'Solidly done — the Council nods approvingly. 🐦'
+          : score >= 1
+            ? 'A few to revisit — back to the field, agent! 💛'
+            : 'Tricky week! Flip back and study the featured birds. 📖'
+
+  if (!quiz.length) {
+    return (
+      <div className="magazine-quiz-page" key="quiz">
+        <p className="eyebrow">Weekly Bird Quiz 🧠</p>
+        <p>This week’s quiz is warming up — check back soon. 🐦</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="magazine-quiz-page" key="quiz">
+      <p className="eyebrow">Weekly Bird Quiz 🧠</p>
+      <h2>Test yourself on this week’s birds</h2>
+      <p className="fine-print">5 questions · no timer · 25 Feather Coins for finishing (once a week).</p>
+      <ol className="weekly-quiz-list">
+        {quiz.map((q, qi) => (
+          <li key={qi} className="weekly-quiz-item">
+            <p className="weekly-quiz-q">{q.q}</p>
+            <div className="weekly-quiz-options">
+              {q.options.map((opt, oi) => {
+                const picked = answers[qi] === oi
+                const reveal = submitted
+                const state = reveal
+                  ? oi === q.answer
+                    ? ' correct'
+                    : picked
+                      ? ' wrong'
+                      : ''
+                  : picked
+                    ? ' picked'
+                    : ''
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`weekly-quiz-option${state}`}
+                    onClick={() => choose(qi, oi)}
+                    disabled={submitted}
+                  >
+                    {opt}
+                  </button>
+                )
+              })}
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      {!submitted ? (
+        <button className="primary-btn wide big-btn" type="button" disabled={!allAnswered} onClick={submit}>
+          {allAnswered ? 'See my score 🐦' : 'Answer all 5 to finish'}
+        </button>
+      ) : (
+        <div className="weekly-quiz-result">
+          <h3>You scored {score}/5 — {verdict}</h3>
+          {justAwarded ? (
+            <p className="weekly-quiz-coins">+25 Feather Coins added 🪙</p>
+          ) : alreadyClaimed ? (
+            <p className="fine-print">You already earned this week’s 25 coins 💛 (retakes are just for fun).</p>
+          ) : null}
+          <button className="secondary-btn wide" type="button" onClick={retake}>
+            Try again 🔁
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
   const season = getSeasonInfo()
   const weekIndex = getAbsoluteWeekIndex()
@@ -6881,6 +6999,12 @@ function WeeklyMagazinePage({ data, openBirdProfile }) {
   const featuredBird =
     issue.featuredBirds.find((bird) => bird.id !== coverBird?.id) || issue.featuredBirds[1] || null
   const recap = getWeeklyRecap(data)
+  const weeklyQuiz = useMemo(
+    () => buildWeeklyQuiz(issue, data.birdLibrary),
+    // issue is rebuilt each render; week + library are what actually matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [issue.week, data.birdLibrary],
+  )
   const [page, setPage] = useState(0)
 
   const coverPhoto = (commonName, imageUrl) =>
@@ -6983,7 +7107,18 @@ function WeeklyMagazinePage({ data, openBirdProfile }) {
     </div>,
   )
 
-  // Page 5 — inside this issue gallery.
+  // Page 5 — Weekly Bird Quiz.
+  pages.push(
+    <WeeklyQuiz
+      key="quiz"
+      quiz={weeklyQuiz}
+      week={issue.week}
+      claimedWeek={data.weeklyQuizClaimedWeek}
+      onClaim={claimWeeklyQuiz}
+    />,
+  )
+
+  // Page 6 — inside this issue gallery.
   pages.push(
     <div className="magazine-gallery-page" key="gallery">
       <p className="eyebrow">Inside this issue</p>
@@ -7139,9 +7274,7 @@ function AdminPage({
   triggerEscape,
   giftRoomFurniture,
   buyStoreItem,
-  onQuizDone,
-  onWordleDone,
-  on20QDone,
+  onGameDone,
   setTrashTalk,
   resetData,
   previewMarlieView,
@@ -7511,13 +7644,7 @@ function AdminPage({
             Send trash talk 😏
           </button>
         </div>
-        <GamesHub
-          data={data}
-          who="marnich"
-          onQuizDone={onQuizDone}
-          onWordleDone={onWordleDone}
-          on20QDone={on20QDone}
-        />
+        <GamesHub data={data} who="marnich" onGameDone={onGameDone} />
       </section>
 
       <section className="soft-card full-span">

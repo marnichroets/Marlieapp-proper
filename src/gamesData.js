@@ -1,13 +1,15 @@
 // Pure data + helpers for the competitive bird games (no components).
+// Three games only: Quiz Battle, Bird Snap, Bird or Bluff. All are score-based
+// and synced by a shared 4-digit session code so both players get the same
+// questions in the same order.
 
 export function defaultGames() {
   return {
     leaderboard: { pooksWins: 0, marnichWins: 0, draws: 0 },
     // Each game is resolved per shared session code.
     quiz: { code: '', pooks: null, marnich: null },
-    wordle: { code: '', pooks: null, marnich: null },
-    twentyq: { code: '', pooks: null, marnich: null },
-    twentyqBest: { pooks: null, marnich: null },
+    snap: { code: '', pooks: null, marnich: null },
+    bluff: { code: '', pooks: null, marnich: null },
     trashTalk: '',
     lastResult: null,
   }
@@ -51,6 +53,8 @@ function seededShuffle(items, seed) {
 }
 
 // ---- Quiz Battle -----------------------------------------------------------
+// Pool of 40+ so every session's 10 questions feel fresh. Correct answer is
+// always index 0 here; getQuizForSession reshuffles options per session.
 export const QUIZ_BANK = [
   { q: 'Which bird is known for its loud cry at dawn?', options: ['Hadeda Ibis', 'Cape White-eye', 'Malachite Sunbird'], answer: 0 },
   { q: 'What colour is a breeding male Southern Masked Weaver?', options: ['Bright yellow', 'Deep blue', 'Pure white'], answer: 0 },
@@ -70,6 +74,30 @@ export const QUIZ_BANK = [
   { q: 'Which bird follows grazing animals to catch insects?', options: ['Cattle Egret', 'African Fish Eagle', 'Crested Barbet'], answer: 0 },
   { q: 'The Afrikaans “Kolgans” is which bird?', options: ['Egyptian Goose', 'African Hoopoe', 'Pied Crow'], answer: 0 },
   { q: 'Which dove’s call sounds like a gentle little chuckle?', options: ['Laughing Dove', 'African Fish Eagle', 'Spotted Eagle-Owl'], answer: 0 },
+  { q: 'Which flightless bird is the largest living bird on Earth?', options: ['Common Ostrich', 'African Penguin', 'Hamerkop'], answer: 0 },
+  { q: 'Which black-and-white penguin breeds on South African beaches?', options: ['African Penguin', 'Cape Gannet', 'Egyptian Goose'], answer: 0 },
+  { q: 'What is South Africa’s national bird?', options: ['Blue Crane', 'Hadeda Ibis', 'Pied Crow'], answer: 0 },
+  { q: 'Which bird famously stamps on snakes when it hunts?', options: ['Secretary Bird', 'Cattle Egret', 'Laughing Dove'], answer: 0 },
+  { q: 'Which colourful bird does tumbling barrel-rolls in display flight?', options: ['Lilac-breasted Roller', 'Cape Sparrow', 'Olive Thrush'], answer: 0 },
+  { q: 'Which bird leads people and honey badgers to bees’ nests?', options: ['Greater Honeyguide', 'Common Myna', 'Grey Heron'], answer: 0 },
+  { q: 'Which tiny bird hovers at flowers to drink nectar?', options: ['Malachite Sunbird', 'Pied Crow', 'Blacksmith Lapwing'], answer: 0 },
+  { q: 'Which is one of the heaviest birds still able to fly?', options: ['Kori Bustard', 'Cape White-eye', 'Laughing Dove'], answer: 0 },
+  { q: 'Which bird builds an enormous domed stick nest?', options: ['Hamerkop', 'Cape Sparrow', 'Common Myna'], answer: 0 },
+  { q: 'Which seabird plunge-dives off the Cape in huge flocks?', options: ['Cape Gannet', 'Egyptian Goose', 'Hadeda Ibis'], answer: 0 },
+  { q: 'Which bird rides on big mammals, eating their ticks?', options: ['Red-billed Oxpecker', 'Cape Robin-Chat', 'Olive Thrush'], answer: 0 },
+  { q: 'Which weaver builds giant communal “haystack” nests?', options: ['Sociable Weaver', 'Pied Crow', 'Grey Heron'], answer: 0 },
+  { q: 'Which fynbos bird has a very long streaming tail?', options: ['Cape Sugarbird', 'Cape Sparrow', 'Hadeda Ibis'], answer: 0 },
+  { q: 'Which crane wears a golden crown of feathers?', options: ['Grey Crowned Crane', 'Blue Crane', 'Pied Crow'], answer: 0 },
+  { q: 'Which bird is named for its hammer-shaped head?', options: ['Hamerkop', 'Hadeda Ibis', 'Cape Robin-Chat'], answer: 0 },
+  { q: 'Which raptor is also called the African Sea Eagle?', options: ['African Fish Eagle', 'Rock Kestrel', 'Cattle Egret'], answer: 0 },
+  { q: 'The Bokmakierie is which kind of bird?', options: ['Bush-shrike', 'Weaver', 'Dove'], answer: 0 },
+  { q: 'Which weaver turns bright red and black to breed?', options: ['Southern Red Bishop', 'Pied Crow', 'Grey Heron'], answer: 0 },
+  { q: 'Which is the most common garden dove in South Africa?', options: ['Laughing Dove', 'African Fish Eagle', 'Kori Bustard'], answer: 0 },
+  { q: 'Which glossy starling shines brilliant blue-green?', options: ['Cape Glossy Starling', 'Olive Thrush', 'Cape Sparrow'], answer: 0 },
+  { q: 'Which migratory swallow visits SA in summer?', options: ['Barn Swallow', 'Egyptian Goose', 'Hadeda Ibis'], answer: 0 },
+  { q: 'Which little falcon hovers while hunting mice?', options: ['Rock Kestrel', 'Cattle Egret', 'Common Myna'], answer: 0 },
+  { q: 'Which bird’s name in Zulu, “iNgududu”, mimics its booming call?', options: ['Ground Hornbill', 'Cape Sparrow', 'Laughing Dove'], answer: 0 },
+  { q: 'Which sunbird male flashes a glittering green throat?', options: ['Malachite Sunbird', 'Pied Crow', 'Olive Thrush'], answer: 0 },
 ]
 
 // 10 questions for a session, shuffled by the code, with options shuffled too
@@ -85,64 +113,63 @@ export function getQuizForSession(code) {
   })
 }
 
-// ---- Wordle ----------------------------------------------------------------
-export const WORDLE_WORDS = [
-  'ROBIN', 'HERON', 'EGRET', 'CRANE', 'STORK', 'GREBE', 'RAVEN', 'QUAIL', 'SNIPE', 'STILT',
-  'HOOPOE', 'DRONGO', 'WEAVER', 'BISHOP', 'COUCAL', 'BARBET', 'CANARY', 'MARTIN', 'ORIOLE',
-  'PIGEON', 'BULBUL', 'SHRIKE', 'FISCAL', 'BOUBOU', 'DARTER', 'JACANA', 'AVOCET', 'PLOVER', 'CUCKOO',
+// ---- Bird Snap -------------------------------------------------------------
+// Photo + 4 name options. Built from the bird library so both players get the
+// same 10 birds and the same option order from the shared code.
+export function getSnapForSession(code, library) {
+  const withPhoto = (library || []).filter((b) => b && b.imageUrl && b.commonName)
+  if (withPhoto.length < 4) return []
+  const seed = seedFromCode(code)
+  const picks = seededShuffle(withPhoto, seed).slice(0, 10)
+  const allNames = withPhoto.map((b) => b.commonName)
+  return picks.map((bird, qi) => {
+    const decoys = seededShuffle(
+      allNames.filter((n) => n !== bird.commonName),
+      seed + qi * 6271,
+    ).slice(0, 3)
+    const options = seededShuffle([bird.commonName, ...decoys], seed + qi * 911)
+    return {
+      name: bird.commonName,
+      imageUrl: bird.imageUrl,
+      options,
+      answer: options.indexOf(bird.commonName),
+    }
+  })
+}
+
+// ---- Bird or Bluff ---------------------------------------------------------
+// Real, verified facts vs. clearly made-up "bluffs". `real: true` means it is
+// a genuine fact (tap REAL); `real: false` is a bluff (tap BLUFF).
+export const BLUFF_BANK = [
+  { text: 'The Hadeda Ibis’s loud call can be heard up to 2km away.', real: true },
+  { text: 'The Secretary Bird hunts on foot, stamping on snakes to stun them.', real: true },
+  { text: 'The Greater Honeyguide leads people to wild bees’ nests for honey.', real: true },
+  { text: 'The Common Ostrich is the largest living bird and cannot fly.', real: true },
+  { text: 'Weaver birds tie real knots in grass to build their nests.', real: true },
+  { text: 'The Blue Crane is South Africa’s national bird.', real: true },
+  { text: 'Oxpeckers perch on big mammals and eat the ticks off them.', real: true },
+  { text: 'African Penguins breed on South African beaches like Boulders Beach.', real: true },
+  { text: 'The Hamerkop builds one of the largest nests of any African bird.', real: true },
+  { text: 'Sociable Weavers build huge communal nests used for many generations.', real: true },
+  { text: 'The Kori Bustard is one of the heaviest birds that can still fly.', real: true },
+  { text: 'Lilac-breasted Rollers do tumbling “rolling” display flights.', real: true },
+  { text: 'The Cape Sugarbird sips nectar from protea flowers in the fynbos.', real: true },
+  { text: 'Cape Gannets plunge-dive head-first into the sea to catch fish.', real: true },
+  { text: 'The Southern Ground Hornbill can live for several decades.', real: true },
+  { text: 'The Hadeda Ibis can copy human speech just like a parrot.', real: false },
+  { text: 'Ostriches bury their heads in the sand when they get scared.', real: false },
+  { text: 'Egyptian Geese hibernate underwater all through winter.', real: false },
+  { text: 'The Cape Robin-Chat changes colour with the seasons like a chameleon.', real: false },
+  { text: 'The Pied Crow can count out loud all the way to one hundred.', real: false },
+  { text: 'Sunbirds sleep hanging upside-down like little bats.', real: false },
+  { text: 'The Secretary Bird got its name from carrying letters between farms.', real: false },
+  { text: 'Blacksmith Lapwings forge tiny nests out of scrap metal.', real: false },
+  { text: 'The Helmeted Guineafowl’s bony helmet is actually a second brain.', real: false },
+  { text: 'African Fish Eagles dive ten metres underwater to grab fish.', real: false },
+  { text: 'Weavers trade their woven nests using small pebbles as money.', real: false },
+  { text: 'The Hoopoe steers by magnets hidden in its crown feathers.', real: false },
 ]
 
-export function getWordForSession(code) {
-  return WORDLE_WORDS[seedFromCode(code) % WORDLE_WORDS.length]
-}
-
-// Returns array of 'correct' | 'present' | 'absent' for each letter of guess.
-export function evaluateGuess(guess, answer) {
-  const res = Array(guess.length).fill('absent')
-  const a = answer.split('')
-  const used = Array(answer.length).fill(false)
-  for (let i = 0; i < guess.length; i += 1) {
-    if (guess[i] === a[i]) {
-      res[i] = 'correct'
-      used[i] = true
-    }
-  }
-  for (let i = 0; i < guess.length; i += 1) {
-    if (res[i] === 'correct') continue
-    const j = a.findIndex((ch, k) => !used[k] && ch === guess[i])
-    if (j >= 0) {
-      res[i] = 'present'
-      used[j] = true
-    }
-  }
-  return res
-}
-
-// ---- 20 Questions ----------------------------------------------------------
-function sizeCm(bird) {
-  const m = String(bird.size || '').match(/(\d+)\s*-?\s*(\d+)?\s*cm/)
-  if (!m) return 0
-  return Number(m[2] || m[1])
-}
-
-export const TWENTYQ_QUESTIONS = [
-  { id: 'water', label: 'Is it a water bird? 💧', test: (b) => (b.tags || []).includes('Water birds') || b.category === 'Water birds' },
-  { id: 'garden', label: 'Would I see it in a garden? 🌳', test: (b) => (b.tags || []).includes('Garden birds') },
-  { id: 'colour', label: 'Is it brightly colourful? 🌈', test: (b) => (b.tags || []).includes('Colourful birds') },
-  { id: 'noisy', label: 'Is it a noisy bird? 📢', test: (b) => (b.tags || []).includes('Noisy birds') },
-  { id: 'prey', label: 'Is it a bird of prey? 🦅', test: (b) => (b.tags || []).includes('Birds of prey') || b.category === 'Birds of prey' },
-  { id: 'big', label: 'Is it bigger than a dove (30cm+)? 📏', test: (b) => sizeCm(b) >= 30 },
-  { id: 'tiny', label: 'Is it tiny (under 16cm)? 🐤', test: (b) => sizeCm(b) > 0 && sizeCm(b) < 16 },
-  { id: 'nearme', label: 'Is it common near Potchefstroom? 📍', test: (b) => Boolean(b.nearMe) },
-  { id: 'rare', label: 'Is it a rare or special bird? ✨', test: (b) => Boolean(b.special) },
-]
-
-export function answer20Q(bird, questionId) {
-  const q = TWENTYQ_QUESTIONS.find((item) => item.id === questionId)
-  return q ? Boolean(q.test(bird)) : false
-}
-
-// Deterministic target index so both players guess the same bird from a code.
-export function getTwentyQIndex(code, length) {
-  return seedFromCode(code) % Math.max(1, length)
+export function getBluffForSession(code) {
+  return seededShuffle(BLUFF_BANK, seedFromCode(code)).slice(0, 15)
 }

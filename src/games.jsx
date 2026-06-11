@@ -1,14 +1,12 @@
 // Competitive bird games — a real game-show feel with session codes, synced
 // 3-2-1 countdown, per-question timers, speed bonuses and dramatic results.
+// Three games: Quiz Battle, Bird Snap, Bird or Bluff.
 // (Components only; pure data/helpers live in ./gamesData.)
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getQuizForSession,
-  getWordForSession,
-  evaluateGuess,
-  TWENTYQ_QUESTIONS,
-  answer20Q,
-  getTwentyQIndex,
+  getSnapForSession,
+  getBluffForSession,
   generateSessionCode,
   now,
 } from './gamesData'
@@ -125,157 +123,182 @@ function QuizGame({ code, onDone }) {
   )
 }
 
-// ---- Wordle: 3-minute total clock ------------------------------------------
-function WordleGame({ code, onDone }) {
-  const word = useMemo(() => getWordForSession(code), [code])
-  const len = word.length
-  const max = 6
-  const [guesses, setGuesses] = useState([])
-  const [current, setCurrent] = useState('')
+// ---- Bird Snap: 10 rounds, 8s each, faster correct tap = more points -------
+function SnapGame({ code, library, onDone }) {
+  const rounds = useMemo(() => getSnapForSession(code, library), [code, library])
+  const [index, setIndex] = useState(0)
+  const [picked, setPicked] = useState(null) // null | optionIndex | -2 (timeout)
+  const [score, setScore] = useState(0)
+  const [imgFailed, setImgFailed] = useState(false)
   const [start] = useState(() => now())
-  const doneRef = useRef(false)
-  useTick(true, 250)
+  const [qStart, setQStart] = useState(() => now())
+  useTick(picked === null && rounds.length > 0)
 
-  const remaining = Math.max(0, 180000 - (now() - start))
-  const solved = guesses.some((g) => g.guess === word)
+  const round = rounds[index]
+  const limit = 8000
+  const remaining = Math.max(0, limit - (now() - qStart))
 
-  function finish(didSolve, count) {
-    if (doneRef.current) return
-    doneRef.current = true
-    onDone({ guesses: didSolve ? count : max + 1, solved: didSolve, timeMs: now() - start })
+  function choose(idx, timeout = false) {
+    if (picked !== null || !round) return
+    const tq = now() - qStart
+    const correct = !timeout && idx === round.answer
+    // Base 5 for correct, plus up to +10 speed bonus the quicker she taps.
+    const speed = Math.max(0, Math.round((1 - tq / limit) * 10))
+    const nextScore = score + (correct ? 5 + speed : 0)
+    if (correct) setScore(nextScore)
+    setPicked(timeout ? -2 : idx)
+    window.setTimeout(() => {
+      if (index + 1 < rounds.length) {
+        setIndex(index + 1)
+        setPicked(null)
+        setImgFailed(false)
+        setQStart(now())
+      } else {
+        onDone({ score: nextScore, timeMs: now() - start })
+      }
+    }, 850)
   }
 
   useEffect(() => {
-    if (solved) finish(true, guesses.length)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solved])
-
-  useEffect(() => {
+    if (picked !== null || !round) return undefined
     const id = window.setInterval(() => {
-      if (now() - start >= 180000) {
+      if (now() - qStart >= limit) {
         window.clearInterval(id)
-        finish(false, guesses.length)
+        choose(-1, true)
       }
-    }, 300)
+    }, 120)
     return () => window.clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [index, picked, qStart, round])
 
-  function submit(event) {
-    event.preventDefault()
-    const g = current.toUpperCase().replace(/[^A-Z]/g, '')
-    if (g.length !== len || solved || guesses.length >= max) return
-    const next = [...guesses, { guess: g, result: evaluateGuess(g, word) }]
-    setGuesses(next)
-    setCurrent('')
-    if (g === word) finish(true, next.length)
-    else if (next.length >= max) finish(false, next.length)
+  if (!rounds.length) {
+    return (
+      <section className="soft-card full-span game-card">
+        <p>Not enough bird photos to play Bird Snap yet. 🐦</p>
+        <button className="primary-btn" type="button" onClick={() => onDone({ score: 0, timeMs: 0 })}>
+          Back
+        </button>
+      </section>
+    )
   }
 
-  const mm = Math.floor(remaining / 60000)
-  const ss = String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0')
-  const done = solved || guesses.length >= max || remaining <= 0
+  const danger = remaining <= 3000
   return (
     <section className="soft-card full-span game-card">
       <div className="game-topbar">
-        <span className="eyebrow">{len}-letter SA bird · {max} guesses</span>
-        <span className={`game-clock${remaining < 30000 ? ' danger' : ''}`}>⏱️ {mm}:{ss}</span>
+        <span className="eyebrow">Snap {index + 1}/{rounds.length}</span>
+        <span className="game-score">Score {score}</span>
       </div>
-      <div className="wordle-grid">
-        {guesses.map((row, r) => (
-          <div className="wordle-row" key={r}>
-            {row.guess.split('').map((ch, c) => (
-              <span className={`wordle-cell ${row.result[c]}`} key={c}>{ch}</span>
-            ))}
-          </div>
-        ))}
+      <div className={`timer-bar${danger ? ' danger' : ''}`} aria-hidden="true">
+        <span style={{ width: `${(remaining / limit) * 100}%` }}></span>
       </div>
-      {!done && (
-        <form onSubmit={submit} className="wordle-form">
-          <input
-            value={current}
-            onChange={(e) => setCurrent(e.target.value.toUpperCase().slice(0, len))}
-            maxLength={len}
-            placeholder={`${len} letters`}
-            autoCapitalize="characters"
-          />
-          <button className="primary-btn" type="submit" disabled={current.length !== len}>Guess</button>
-        </form>
-      )}
-      {done && (
-        <p className="wordle-result">{solved ? `Solved in ${guesses.length}! 🎯` : `The bird was ${word}. 🐦`}</p>
-      )}
+      <div className="snap-photo">
+        {imgFailed ? (
+          <div className="snap-photo-fallback" aria-hidden="true">🐦</div>
+        ) : (
+          <img src={round.imageUrl} alt="Which bird is this?" onError={() => setImgFailed(true)} />
+        )}
+      </div>
+      <div className="quiz-options snap-options">
+        {round.options.map((opt, idx) => {
+          const state =
+            picked === null
+              ? ''
+              : idx === round.answer
+                ? ' correct'
+                : idx === picked
+                  ? ' wrong'
+                  : ''
+          return (
+            <button className={`quiz-option${state}`} type="button" key={opt} onClick={() => choose(idx)}>
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+      {picked === -2 && <p className="timeout-note">Too slow! 0 points ⏱️</p>}
     </section>
   )
 }
 
-// ---- 20 Questions: 30s/question pressure, same target from the code --------
-function TwentyQGame({ code, library, onDone }) {
-  const target = useMemo(() => library[getTwentyQIndex(code, library.length)] || library[0], [code, library])
-  const [asked, setAsked] = useState([])
-  const [phase, setPhase] = useState('ask')
-  const [options, setOptions] = useState([])
+// ---- Bird or Bluff: 15 rounds, 10s each, REAL vs BLUFF ----------------------
+function BluffGame({ code, onDone }) {
+  const rounds = useMemo(() => getBluffForSession(code), [code])
+  const [index, setIndex] = useState(0)
+  const [picked, setPicked] = useState(null) // null | true(real) | false(bluff) | -2 timeout
+  const [score, setScore] = useState(0)
   const [start] = useState(() => now())
   const [qStart, setQStart] = useState(() => now())
-  useTick(phase === 'ask', 200)
+  useTick(picked === null)
 
-  const remaining = Math.max(0, 30000 - (now() - qStart))
-  const danger = remaining <= 8000
+  const round = rounds[index]
+  const limit = 10000
+  const remaining = Math.max(0, limit - (now() - qStart))
 
-  function ask(question) {
-    if (asked.some((a) => a.id === question.id)) return
-    setAsked([...asked, { ...question, ans: answer20Q(target, question.id) }])
-    setQStart(now())
-  }
-  function startGuess() {
-    const order = (getTwentyQIndex(code, 997) % 7) + 1
-    const decoys = library
-      .filter((b) => b.id !== target.id)
-      .filter((_, i) => i % order === 0)
-      .slice(0, 3)
-    const opts = [target, ...decoys]
-    setOptions(opts.map((b, i) => opts[(i + order) % opts.length]))
-    setPhase('guess')
-  }
-  function guess(bird) {
-    onDone({ questions: asked.length, won: bird.id === target.id, timeMs: now() - start, targetName: target.commonName })
+  function answer(choiceReal, timeout = false) {
+    if (picked !== null) return
+    const tq = now() - qStart
+    const correct = !timeout && choiceReal === round.real
+    const speed = Math.max(0, Math.round((1 - tq / limit) * 10))
+    const nextScore = score + (correct ? 5 + speed : 0)
+    if (correct) setScore(nextScore)
+    setPicked(timeout ? -2 : choiceReal)
+    window.setTimeout(() => {
+      if (index + 1 < rounds.length) {
+        setIndex(index + 1)
+        setPicked(null)
+        setQStart(now())
+      } else {
+        onDone({ score: nextScore, timeMs: now() - start })
+      }
+    }, 1000)
   }
 
-  const remainingQ = TWENTYQ_QUESTIONS.filter((q) => !asked.some((a) => a.id === q.id))
+  useEffect(() => {
+    if (picked !== null) return undefined
+    const id = window.setInterval(() => {
+      if (now() - qStart >= limit) {
+        window.clearInterval(id)
+        answer(null, true)
+      }
+    }, 120)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, picked, qStart])
+
+  const revealed = picked !== null
+  const danger = remaining <= 3000
   return (
     <section className="soft-card full-span game-card">
       <div className="game-topbar">
-        <span className="eyebrow">Questions: {asked.length}</span>
-        <span className="game-score">Fewer = more coins</span>
+        <span className="eyebrow">Fact {index + 1}/{rounds.length}</span>
+        <span className="game-score">Score {score}</span>
       </div>
-      {phase === 'ask' && (
-        <div className={`timer-bar${danger ? ' danger' : ''}`} aria-hidden="true">
-          <span style={{ width: `${(remaining / 30000) * 100}%` }}></span>
-        </div>
-      )}
-      {asked.length > 0 && (
-        <div className="twentyq-log">
-          {asked.map((a) => (
-            <p key={a.id}>{a.label} <strong>{a.ans ? 'Yes ✅' : 'No ❌'}</strong></p>
-          ))}
-        </div>
-      )}
-      {phase === 'ask' ? (
-        <>
-          <div className="twentyq-cards">
-            {remainingQ.map((q) => (
-              <button className="secondary-btn" type="button" key={q.id} onClick={() => ask(q)}>{q.label}</button>
-            ))}
-          </div>
-          <button className="primary-btn wide" type="button" onClick={startGuess}>I&apos;m ready to guess! 🐦</button>
-        </>
-      ) : (
-        <div className="twentyq-guess">
-          <p className="eyebrow">Which bird is it?</p>
-          {options.map((b) => (
-            <button className="secondary-btn wide" type="button" key={b.id} onClick={() => guess(b)}>{b.commonName}</button>
-          ))}
-        </div>
+      <div className={`timer-bar${danger ? ' danger' : ''}`} aria-hidden="true">
+        <span style={{ width: `${(remaining / limit) * 100}%` }}></span>
+      </div>
+      <p className="bluff-fact">“{round.text}”</p>
+      <div className="bluff-buttons">
+        <button
+          className={`bluff-btn real${revealed && round.real ? ' correct' : ''}${revealed && picked === true && !round.real ? ' wrong' : ''}`}
+          type="button"
+          onClick={() => answer(true)}
+        >
+          ✅ REAL
+        </button>
+        <button
+          className={`bluff-btn bluff${revealed && !round.real ? ' correct' : ''}${revealed && picked === false && round.real ? ' wrong' : ''}`}
+          type="button"
+          onClick={() => answer(false)}
+        >
+          🤥 BLUFF
+        </button>
+      </div>
+      {revealed && (
+        <p className="bluff-reveal">
+          {round.real ? 'That one’s REAL! 🐦' : 'That was a BLUFF! 😂'}
+          {picked === -2 ? ' (Out of time)' : ''}
+        </p>
       )}
     </section>
   )
@@ -298,12 +321,12 @@ function Leaderboard({ games }) {
 }
 
 // ---- Dramatic results -------------------------------------------------------
-const GAME_NAMES = { quiz: 'Bird Quiz', wordle: 'Bird Wordle', twentyq: '20 Questions' }
+const GAME_NAMES = { quiz: 'Quiz Battle', snap: 'Bird Snap', bluff: 'Bird or Bluff' }
 
 function ResultsScreen({ games, who, onClose }) {
   const r = games?.lastResult
   const [copied, setCopied] = useState(false)
-  if (!r || typeof r === 'string') {
+  if (!r || typeof r === 'string' || !GAME_NAMES[r.game]) {
     return (
       <section className="soft-card full-span">
         <p>Play a game to see the results here.</p>
@@ -323,8 +346,8 @@ function ResultsScreen({ games, who, onClose }) {
   }
 
   const name = GAME_NAMES[r.game] || 'Game'
-  const pScore = r.wordle ? `${r.pooks.solved ? r.pooks.guesses : 'X'} guesses` : r.twentyq ? `${r.pooks.questions} Qs` : `${r.pooks.score}/${(r.maxScore || 1) * 10}`
-  const mScore = r.wordle ? `${r.marnich.solved ? r.marnich.guesses : 'X'} guesses` : r.twentyq ? `${r.marnich.questions} Qs` : `${r.marnich.score}/${(r.maxScore || 1) * 10}`
+  const pScore = `${r.pooks?.score ?? 0} pts`
+  const mScore = `${r.marnich?.score ?? 0} pts`
 
   function share() {
     const youWon = r.winner === 'pooks'
@@ -371,7 +394,7 @@ function ResultsScreen({ games, who, onClose }) {
 }
 
 // ---- Hub: lobby → countdown → play → results --------------------------------
-export function GamesHub({ data, who, onQuizDone, onWordleDone, on20QDone }) {
+export function GamesHub({ data, who, onGameDone }) {
   const [stage, setStage] = useState('menu')
   const [gameType, setGameType] = useState('quiz')
   const [code, setCode] = useState('')
@@ -391,10 +414,7 @@ export function GamesHub({ data, who, onQuizDone, onWordleDone, on20QDone }) {
     setStage('countdown')
   }
   function handleDone(result) {
-    const payload = { ...result, code }
-    if (gameType === 'quiz') onQuizDone(who, payload)
-    else if (gameType === 'wordle') onWordleDone(who, payload)
-    else on20QDone(who, payload)
+    onGameDone(gameType, who, { ...result, code })
     setStage('result')
   }
 
@@ -409,10 +429,10 @@ export function GamesHub({ data, who, onQuizDone, onWordleDone, on20QDone }) {
     return (
       <div className="page-grid games-page">
         {gameType === 'quiz' && <QuizGame code={code} onDone={handleDone} />}
-        {gameType === 'wordle' && <WordleGame code={code} onDone={handleDone} />}
-        {gameType === 'twentyq' && (
-          <TwentyQGame code={code} library={data.birdLibrary} onDone={handleDone} />
+        {gameType === 'snap' && (
+          <SnapGame code={code} library={data.birdLibrary} onDone={handleDone} />
         )}
+        {gameType === 'bluff' && <BluffGame code={code} onDone={handleDone} />}
       </div>
     )
   }
@@ -475,8 +495,8 @@ export function GamesHub({ data, who, onQuizDone, onWordleDone, on20QDone }) {
         <p className="fine-print">Timed, head-to-head, no excuses. Loser drops 50 coins. 🏆</p>
         <div className="game-menu">
           <button className="primary-btn big-btn" type="button" onClick={() => pick('quiz')}>Quiz Battle ⏱️</button>
-          <button className="secondary-btn big-btn" type="button" onClick={() => pick('wordle')}>Bird Wordle 🎯</button>
-          <button className="secondary-btn big-btn" type="button" onClick={() => pick('twentyq')}>20 Questions 🐦</button>
+          <button className="secondary-btn big-btn" type="button" onClick={() => pick('snap')}>Bird Snap 📸</button>
+          <button className="secondary-btn big-btn" type="button" onClick={() => pick('bluff')}>Bird or Bluff 🤥</button>
         </div>
       </section>
       <Leaderboard games={games} />

@@ -475,8 +475,10 @@
   color: #ece1c4;
 }
 
+/* Inline (not inline-block) so the spaces between words are preserved and the
+   paragraph wraps and reads normally. */
 .intro-brief-word {
-  display: inline-block;
+  display: inline;
   opacity: 0;
   filter: blur(4px);
   animation: briefWord 0.5s ease forwards;
@@ -673,6 +675,40 @@
   border: 1px solid rgba(196, 150, 80, 0.4);
   text-align: center;
   animation: noteIn 0.9s ease both;
+}
+
+/* The little "us" polaroid pinned to the top-right corner of the note. */
+.intro-note-photo {
+  position: absolute;
+  top: -22px;
+  right: -10px;
+  width: 96px;
+  padding: 6px 6px 12px;
+  background: #fffdf7;
+  border-radius: 4px;
+  box-shadow: 0 10px 22px rgba(120, 75, 20, 0.35);
+  transform: rotate(5deg);
+  z-index: 2;
+}
+
+.intro-note-photo img,
+.intro-note-photo-fallback {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.intro-note-photo-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 2.2rem;
+  background: repeating-linear-gradient(45deg, #f3e6c8 0 8px, #ecdcb6 8px 16px);
+}
+
+@media (max-width: 480px) {
+  .intro-note-photo { width: 78px; top: -18px; right: -4px; }
 }
 
 @keyframes noteIn {
