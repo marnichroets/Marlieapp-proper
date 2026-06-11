@@ -3,7 +3,7 @@ import './App.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
-import { getWeeklyBird, weeklyFaviconDataUrl } from './birdData'
+import { getWeeklyBird } from './birdData'
 import {
   TweetyHomeCard,
   TweetyStatsPage,
@@ -1759,17 +1759,8 @@ function App() {
     }
   }, [data.tweety, data.birds.length, data.store])
 
-  // Browser-tab favicon follows the weekly bird.
-  useEffect(() => {
-    let link = document.querySelector("link[rel='icon']")
-    if (!link) {
-      link = document.createElement('link')
-      link.rel = 'icon'
-      document.head.appendChild(link)
-    }
-    link.type = 'image/svg+xml'
-    link.href = weeklyFaviconDataUrl()
-  }, [weekly.week])
+  // The browser-tab favicon stays the app icon (set statically in index.html),
+  // so it matches the installed app icon everywhere.
 
   // Show a "new look this week" tooltip once when the weekly bird changes.
   useEffect(() => {

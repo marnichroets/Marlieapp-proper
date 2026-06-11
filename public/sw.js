@@ -1,6 +1,8 @@
 // Minimal service worker so Pooks Birds is installable as a PWA.
-const CACHE = 'pooks-birds-v1'
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.svg']
+// Bump this version whenever cached app-shell assets (like the app icon)
+// change, so returning/installed users get the update instead of the old cache.
+const CACHE = 'pooks-birds-v2'
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.png', '/icon-192.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
