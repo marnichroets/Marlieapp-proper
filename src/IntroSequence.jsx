@@ -66,6 +66,19 @@ const FIELD_KIT = [
   ['🏆', 'Challenges set by the Council — and by Agent Marnich, who fully expects to lose'],
 ]
 
+// The handwritten note from Marnich, revealed line by line. `pauseBefore`
+// adds an extra beat; `small` / `sign` change the styling of the last lines.
+const NOTE_LINES = [
+  { text: 'I built this for you because you light up every single time you see a bird.' },
+  { text: 'Your eyes go wide and you grab my arm and say look, look —' },
+  { text: 'and honestly, watching you is better than watching any bird.' },
+  { text: 'This app is yours. The birds are waiting.', pauseBefore: true },
+  { text: 'And I will be right here — losing at Bird Quiz, sending you surprises,' },
+  { text: 'and watching you collect every single one.' },
+  { text: 'Now go find some birds, Pooks. 🐦', small: true },
+  { text: '— Marnich', sign: true },
+]
+
 // ---- Sound. All wrapped so a missing/blocked AudioContext is simply silent. ----
 let sharedCtx
 function getCtx() {
@@ -145,9 +158,12 @@ export default function IntroSequence({ onComplete }) {
   const [verdictStep, setVerdictStep] = useState(0)
   const [crowned, setCrowned] = useState(false)
   const [kitCount, setKitCount] = useState(0)
+  const [noteStep, setNoteStep] = useState(0)
+  const [showAccept, setShowAccept] = useState(false)
   const [bursting, setBursting] = useState(false)
   const [flash, setFlash] = useState(false)
   const done = useRef(false)
+  const skipped = useRef(false)
 
   const briefWords = useMemo(() => BRIEF_PARAGRAPH.split(' '), [])
 
@@ -204,6 +220,22 @@ export default function IntroSequence({ onComplete }) {
     if (screen === 5) {
       const t = setTimeout(() => setScreen(6), 5400)
       return () => clearTimeout(t)
+    }
+    if (screen === 6) {
+      // The personal note from Marnich. Lines appear slowly, one at a time;
+      // then, after a beat, the Accept button fades in. (Skip jumps straight
+      // to the full note + button.)
+      if (skipped.current) return undefined
+      chirp('water')
+      const timers = []
+      let t = 900
+      NOTE_LINES.forEach((line, i) => {
+        if (line.pauseBefore) t += 1100
+        timers.push(setTimeout(() => setNoteStep(i + 1), t))
+        t += line.sign ? 1100 : line.small ? 1500 : 1700
+      })
+      timers.push(setTimeout(() => setShowAccept(true), t + 700))
+      return () => timers.forEach(clearTimeout)
     }
     return undefined
   }, [screen, briefWords])
@@ -341,12 +373,31 @@ export default function IntroSequence({ onComplete }) {
         </div>
       )}
 
-      {/* Screen 6 — accept the mission */}
+      {/* Screen 6 — a personal, handwritten note from Marnich, then Accept */}
       {screen === 6 && (
         <div className="intro-stage intro-stage-6">
-          <span className="intro-big-feather" aria-hidden="true">🪶</span>
-          <p className="intro-eyebrow">CLEARANCE GRANTED</p>
-          <button type="button" className="intro-accept" onClick={accept} disabled={bursting}>
+          <article className="intro-note-card">
+            <span className="intro-note-heart" aria-hidden="true">💛</span>
+            <div className="intro-note-body">
+              {NOTE_LINES.map((line, i) => (
+                <p
+                  key={i}
+                  className={`intro-note-line${line.small ? ' small' : ''}${
+                    line.sign ? ' sign' : ''
+                  } ${noteStep > i ? 'show' : ''}`}
+                >
+                  {line.text}
+                </p>
+              ))}
+            </div>
+          </article>
+          <button
+            type="button"
+            className={`intro-accept intro-note-accept ${showAccept ? 'show' : ''}`}
+            onClick={accept}
+            disabled={bursting || !showAccept}
+            aria-hidden={!showAccept}
+          >
             Accept my mission 🪶
           </button>
         </div>
@@ -379,7 +430,16 @@ export default function IntroSequence({ onComplete }) {
       )}
 
       {screen < 6 && !flash && (
-        <button type="button" className="intro-skip" onClick={() => setScreen(6)}>
+        <button
+          type="button"
+          className="intro-skip"
+          onClick={() => {
+            skipped.current = true
+            setNoteStep(NOTE_LINES.length)
+            setShowAccept(true)
+            setScreen(6)
+          }}
+        >
           Skip ▸
         </button>
       )}
