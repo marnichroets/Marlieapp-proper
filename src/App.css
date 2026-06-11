@@ -3635,10 +3635,11 @@ textarea:focus {
     radial-gradient(circle at 88% 6%, rgba(200, 90, 58, 0.26), transparent 42%);
 }
 .season-winter .season-wash {
+  /* Keep the background warm cream — only a faint frost cue at the top, no
+     full-width grey wash. The snow particles carry the winter feel. */
   background:
-    radial-gradient(circle at 16% 0%, rgba(156, 196, 228, 0.4), transparent 46%),
-    radial-gradient(circle at 88% 8%, rgba(196, 167, 231, 0.28), transparent 42%),
-    linear-gradient(180deg, rgba(220, 230, 240, 0.22), transparent 30%);
+    radial-gradient(circle at 16% 0%, rgba(190, 214, 235, 0.2), transparent 44%),
+    radial-gradient(circle at 88% 8%, rgba(255, 222, 170, 0.24), transparent 42%);
 }
 .season-spring .season-wash {
   background:

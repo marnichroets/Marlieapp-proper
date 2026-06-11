@@ -1302,6 +1302,10 @@ function loadState() {
     return recalculateState({
       ...base,
       ...saved,
+      // One-time migration: clear whatever Tweety happened to be wearing (e.g.
+      // a stray witch hat) so she starts as a plain golden chick. Pooks can
+      // dress her again from the wardrobe and that choice will stick.
+      tweetyWornResetV1: true,
       birds: Array.isArray(saved.birds) ? saved.birds : base.birds,
       sightings: Array.isArray(saved.sightings) ? saved.sightings : base.sightings,
       rewards: mergeByKey(base.rewards, saved.rewards, 'id'),
@@ -1335,7 +1339,12 @@ function loadState() {
         wardrobe: {
           ...base.tweety.wardrobe,
           ...(saved.tweety?.wardrobe || {}),
-          worn: { ...base.tweety.wardrobe.worn, ...(saved.tweety?.wardrobe?.worn || {}) },
+          // Until the reset has run once, force everything off; afterwards
+          // honour whatever Pooks has chosen to wear.
+          worn:
+            saved.tweetyWornResetV1 === true
+              ? { ...base.tweety.wardrobe.worn, ...(saved.tweety?.wardrobe?.worn || {}) }
+              : { hat: null, accessory: null, outfit: null },
         },
         careAt: { ...base.tweety.careAt, ...(saved.tweety?.careAt || {}) },
       }),
@@ -3672,8 +3681,11 @@ function App() {
   }
 
   const activeRewardUnlock = rewardUnlockQueue[0] || null
+  // Pooks' menu is intentionally bare: just "My Story" (replay intro) and Log
+  // out, both rendered by SettingsMenu itself. The feature pages still exist —
+  // they're only hidden from her menu for now. Admin still sees everything.
   const fullMenu =
-    session?.role === 'admin' ? [...menuItems, ['admin', 'Admin', '🔒']] : menuItems
+    session?.role === 'admin' ? [...menuItems, ['admin', 'Admin', '🔒']] : []
 
   if (!session) {
     if (adminGate) {
@@ -4083,19 +4095,21 @@ function SettingsMenu({ items, session, onPick, onLogout, onClose, onReplayIntro
         onClick={(event) => event.stopPropagation()}
       >
         <p className="eyebrow">Signed in as {session.name}</p>
-        <div className="menu-list">
-          {items.map(([id, label, icon]) => (
-            <button key={id} className="menu-item" type="button" onClick={() => onPick(id)}>
-              <span aria-hidden="true">{icon}</span>
-              {label}
-            </button>
-          ))}
-        </div>
+        {items.length > 0 && (
+          <div className="menu-list">
+            {items.map(([id, label, icon]) => (
+              <button key={id} className="menu-item" type="button" onClick={() => onPick(id)}>
+                <span aria-hidden="true">{icon}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {onReplayIntro && (
           <div className="menu-story">
             <p className="eyebrow">My Story</p>
             <button className="story-replay-btn" type="button" onClick={onReplayIntro}>
-              <span aria-hidden="true">🪶</span>
+              <span aria-hidden="true">🎬</span>
               Replay my Bird Council dossier
             </button>
           </div>
