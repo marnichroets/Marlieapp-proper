@@ -1,0 +1,15 @@
+# Railway runs ONLY the Python backend (backend/). Keep the React frontend out
+# of the build context so Nixpacks never detects a Node project. The frontend
+# is built/hosted separately.
+node_modules/
+dist/
+src/
+public/
+scripts/
+index.html
+package.json
+package-lock.json
+vite.config.js
+eslint.config.js
+*.log
+.env.local
