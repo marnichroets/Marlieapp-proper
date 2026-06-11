@@ -1,121 +1,81 @@
-// One-time cinematic "evidence dossier" intro that plays the very first time
-// Pooks opens the app after login — and can be replayed forever from the gear
-// menu / profile. Tone: warm, mysterious, funny and personal.
-import { useEffect, useMemo, useRef, useState } from 'react'
+// One-time cinematic intro — a CONTINUATION of the physical letter Pooks
+// already read. Eight mobile-first screens (390px), all manually paced: tap
+// anywhere or the arrow to advance, back arrow + progress dots + skip. Content
+// animates in on each screen, but nothing auto-advances — she controls it.
+import { useEffect, useRef, useState } from 'react'
 import './IntroSequence.css'
 import './IntroExtras.css'
 import { playChirp } from './tweetyData'
+import { TweetyBird } from './Tweety'
 
-// The five evidence photos. Drop the real image files in public/intro/ using
-// these exact names and they appear automatically. Until then a labelled
-// placeholder shows in their place so the build/preview never breaks.
+const TOTAL = 8
+
+// ---- Screen 2 evidence (the four NEW reports) ----
 const EVIDENCE = [
-  {
-    id: 'a',
-    src: '/intro/evidence-a.jpg',
-    emoji: '🦅',
-    alt: 'Vultures in the field',
-    label: 'EVIDENCE A',
-    note: 'Field observation, confirmed',
-  },
-  {
-    id: 'b',
-    src: '/intro/evidence-b.jpg',
-    emoji: '🦉',
-    alt: 'Spotted Eagle-Owl in a tree',
-    label: 'EVIDENCE B',
-    note: 'Spotted Eagle-Owl encounter, impressive',
-  },
-  {
-    id: 'c',
-    src: '/intro/evidence-c.jpg',
-    emoji: '🏌️',
-    alt: 'Agent Marnich on the golf course',
-    label: 'EVIDENCE C',
-    note: 'Agent Marnich field report… unsatisfactory 🏌️',
-  },
-  {
-    id: 'd',
-    src: '/intro/evidence-d.jpg',
-    emoji: '🦉',
-    alt: 'Verreaux Eagle-Owl up close',
-    label: 'EVIDENCE D',
-    note: 'Verreaux Eagle-Owl, face to face. Remarkable.',
-  },
-  {
-    id: 'e',
-    src: '/intro/evidence-e.jpg',
-    emoji: '🐦',
-    alt: 'Marlie standing fearlessly beside a stork',
-    label: 'EVIDENCE E',
-    note: 'Subject shows no fear. Stork filed complaint. Dismissed.',
-  },
-  {
-    id: 'f',
-    src: '/intro/evidence-f.jpg',
-    emoji: '🦩',
-    alt: 'A wake of flamingos',
-    label: 'EVIDENCE F',
-    note: 'Flamingo congregation, pink and unbothered',
-  },
-  {
-    id: 'g',
-    src: '/intro/evidence-g.jpg',
-    emoji: '🐓',
-    alt: 'A rooster',
-    label: 'EVIDENCE G',
-    note: 'Rooster located. Loud. Opinionated. Noted.',
-  },
-  {
-    id: 'h',
-    src: '/intro/evidence-h.jpg',
-    emoji: '🐦',
-    alt: 'A barbet',
-    label: 'EVIDENCE H',
-    note: 'Barbet sighting, colourful and well dressed',
-  },
-  {
-    id: 'i',
-    src: '/intro/evidence-i.jpg',
-    emoji: '🦅',
-    alt: 'African Fish Eagles',
-    label: 'EVIDENCE I',
-    note: 'Fish Eagles, regal. The Council approves.',
-  },
+  { id: 'f', src: '/intro/evidence-f.jpg', emoji: '🦩', alt: 'A wake of flamingos', label: 'FILE F', note: 'Flamingo congregation. Unbothered and fabulous.' },
+  { id: 'g', src: '/intro/evidence-g.jpg', emoji: '🐓', alt: 'A chicken', label: 'FILE G', note: 'This is a chicken. The Council acknowledges it. Moving on.' },
+  { id: 'h', src: '/intro/evidence-h.jpg', emoji: '🐦', alt: 'A barbet', label: 'FILE H', note: 'Barbet spotted. The barbet division wept actual tears.' },
+  { id: 'i', src: '/intro/evidence-i.jpg', emoji: '🦅', alt: 'Two Fish Eagles together', label: 'FILE I', note: 'Two Fish Eagles together. The Council found this romantic. No further comment.' },
 ]
-
-// The "us" photo — Marnich and Marlie together — tucked into the note screen.
-const NOTE_PHOTO = { src: '/intro/evidence-us.jpg', emoji: '💞', alt: 'Marnich and Marlie together' }
-
-const VERDICT_LINES = ['After heated debate…', 'The Council has decided.']
-
-const BRIEF_PARAGRAPH =
-  'Every bird you find will be recorded in your official Bird Council field kit — ' +
-  'a secret app built specifically for you by Agent Marnich, who, despite his ' +
-  'catastrophic performance at Skukuza, does occasionally do something right.'
+const EVI_TILTS = [-4, 3, -2.5, 4]
 
 const FIELD_KIT = [
-  ['🐦', 'A personal bird collection to fill — 110 South African species waiting to be found'],
-  ['🥚', 'A baby bird waiting to hatch — care for it every day and watch it grow'],
-  ['🎁', 'Surprises hidden behind every milestone — rewards from Marnich Bank'],
-  ['💌', 'Secret notes that only unlock when you have truly earned them'],
-  ['🏆', 'Challenges set by the Council — and by Agent Marnich, who fully expects to lose'],
+  ['🐦', 'Spot birds → photograph them → AI identifies them → they join your collection'],
+  ['🥚', 'Every new species you spot → a mystery egg appears in your nest'],
+  ['🎁', 'Reach milestones → unlock real surprises from Marnich Bank'],
+  ['💌', 'Earn enough coins → unlock hidden notes from Marnich'],
+  ['🏆', 'Complete daily challenges → earn coins → make the Council proud'],
 ]
 
-// The handwritten note from Marnich, revealed line by line. `pauseBefore`
-// adds an extra beat; `small` / `sign` change the styling of the last lines.
+const STEPS = [
+  ['🌿', 'Step 1', 'Go outside → spot a bird'],
+  ['📷', 'Step 2', 'Open the app → tap Spot → take a photo'],
+  ['🐦', 'Step 3', 'AI identifies it → confirm → bird added to your collection'],
+  ['💛', 'Step 4', 'Earn coins → unlock gifts → Marnich gets notified'],
+]
+
+// Tweety's care lines (screen 6 beats 4–8).
+const TWEETY_LINES = [
+  'She needs feeding every day.',
+  'And water.',
+  'And someone to play with.',
+  'She has been very patient.',
+  'Unlike Field Agent Hadeda.',
+]
+
 const NOTE_LINES = [
-  { text: 'I built this for you because you light up every single time you see a bird.' },
-  { text: 'Your eyes go wide and you grab my arm and say look, look —' },
-  { text: 'and honestly, watching you is better than watching any bird.' },
-  { text: 'This app is yours. The birds are waiting.', pauseBefore: true },
-  { text: 'And I will be right here — losing at Bird Quiz, sending you surprises,' },
-  { text: 'and watching you collect every single one.' },
-  { text: 'Now go find some birds, Pooks. 🐦', small: true },
-  { text: '— Marnich', sign: true },
+  'I built this for you',
+  'because you light up every single time you see a bird.',
+  'Your eyes go wide and you grab my arm',
+  'and say look, look —',
+  'and honestly, watching you',
+  'is better than watching any bird.',
+  'This app is yours.',
+  'The birds are waiting.',
+  'Now go find some birds, Pooks. 🐦',
+  '— Marnich',
 ]
 
-// ---- Sound. All wrapped so a missing/blocked AudioContext is simply silent. ----
+// Cumulative reveal timings (ms from when a screen mounts). One entry per beat.
+const BEATS = {
+  1: [600, 2100, 3700],
+  2: [400, 1400, 2400, 3400, 4400],
+  3: [700, 2400, 4300],
+  4: [400, 1000, 1600, 2200, 2800],
+  5: [400, 1000, 1600, 2200],
+  6: [700, 2200, 3700, 5100, 6100, 7100, 8300, 9500, 10900],
+  7: [700, 1900, 4100, 5100, 7300, 8300, 10500, 11500, 13700, 14700],
+  8: [300],
+}
+// Which reveal index (1-based) plays which sound.
+const SOUND_BEATS = {
+  2: { 2: 'thud', 3: 'thud', 4: 'thud', 5: 'thud' },
+  3: { 3: 'chime' },
+  4: { 1: 'tick', 2: 'tick', 3: 'tick', 4: 'tick', 5: 'tick' },
+  6: { 3: 'chirp' },
+}
+
+// ---- Sound (all guarded so a missing/blocked AudioContext is just silent) ----
 let sharedCtx
 function getCtx() {
   try {
@@ -128,27 +88,42 @@ function getCtx() {
     return null
   }
 }
-
 function chirp(kind) {
   try {
     playChirp(kind)
   } catch {
-    /* sound is a nicety; never let it break the intro */
+    /* sound is a nicety */
   }
 }
+function thud() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(165, now)
+    osc.frequency.exponentialRampToValueAtTime(56, now + 0.13)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.22)
+  } catch {
+    /* ignore */
+  }
+}
+function playSound(name) {
+  if (name === 'thud') thud()
+  else if (name === 'chime') chirp('play')
+  else if (name === 'chirp') chirp('feed')
+  else if (name === 'tick') chirp('water')
+}
 
-// Narration that introduces the evidence, building the story beat by beat.
-// One line is revealed above the table as each of the first five polaroids land.
-const NARRATION = [
-  'The Council received its first field report…',
-  'Agent Hadeda filed a second observation…',
-  'Then came the Skukuza incident…',
-  'But the most compelling evidence was yet to come…',
-  'The Council was unanimous.',
-]
-
-// ---- Gentle background ambience (soft pad + occasional birdsong). All Web
-// Audio, no files. Returns a stop() handle; safe if audio is blocked. ----
+// Gentle dawn ambience (soft pad + occasional birdsong), toggleable.
 let ambienceHandle = null
 function startAmbience() {
   if (ambienceHandle) return
@@ -156,10 +131,9 @@ function startAmbience() {
   if (!ctx) return
   try {
     const master = ctx.createGain()
-    master.gain.value = 0.0
-    master.gain.setTargetAtTime(0.06, ctx.currentTime, 1.2) // fade in softly
+    master.gain.value = 0.0001
+    master.gain.setTargetAtTime(0.05, ctx.currentTime, 1.2)
     master.connect(ctx.destination)
-    // Two detuned sine "pads" for a warm, calm drone.
     const oscs = [196, 261.6].map((freq) => {
       const osc = ctx.createOscillator()
       const g = ctx.createGain()
@@ -171,15 +145,14 @@ function startAmbience() {
       osc.start()
       return osc
     })
-    // Occasional soft chirp so it feels like a garden at dawn.
-    const chirpTimer = window.setInterval(() => {
-      if (Math.random() < 0.7) chirp(Math.random() < 0.5 ? 'play' : 'water')
-    }, 3600)
+    const timer = window.setInterval(() => {
+      if (Math.random() < 0.6) chirp(Math.random() < 0.5 ? 'play' : 'water')
+    }, 4200)
     ambienceHandle = {
       stop() {
         try {
           master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4)
-          window.clearInterval(chirpTimer)
+          window.clearInterval(timer)
           oscs.forEach((o) => {
             try {
               o.stop(ctx.currentTime + 0.6)
@@ -194,69 +167,18 @@ function startAmbience() {
       },
     }
   } catch {
-    /* ambience is a nicety; never let it break the intro */
+    /* ambience is a nicety */
   }
 }
 function stopAmbience() {
   if (ambienceHandle) ambienceHandle.stop()
 }
 
-// Soft low "thud" for a polaroid landing on the table.
-function thud() {
-  const ctx = getCtx()
-  if (!ctx) return
-  try {
-    const now = ctx.currentTime
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(160, now)
-    osc.frequency.exponentialRampToValueAtTime(58, now + 0.13)
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.012)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start(now)
-    osc.stop(now + 0.22)
-  } catch {
-    /* ignore */
-  }
-}
-
-// Slight "thrown polaroid" tilts between -3 and +3 degrees, one per card.
-const EVI_TILTS = [-3, 2.4, -1.4, 3, -2.2, 1.6, -2.8, 2, -1]
-const EVI_STAGGER = 0.85 // seconds between each polaroid landing
-
-// Small "us" polaroid pinned to the corner of Marnich's note.
-function NotePhoto() {
-  const [failed, setFailed] = useState(false)
-  return (
-    <div className="intro-note-photo" aria-hidden={failed ? undefined : true}>
-      {failed ? (
-        <span className="intro-note-photo-fallback" role="img" aria-label={NOTE_PHOTO.alt}>
-          {NOTE_PHOTO.emoji}
-        </span>
-      ) : (
-        <img
-          src={NOTE_PHOTO.src}
-          alt={NOTE_PHOTO.alt}
-          onError={() => setFailed(true)}
-          draggable="false"
-        />
-      )}
-    </div>
-  )
-}
-
+// ---- Small pieces ----
 function EvidencePhoto({ item, index }) {
   const [failed, setFailed] = useState(false)
-  const tilt = EVI_TILTS[index % EVI_TILTS.length]
   return (
-    <figure
-      className="intro-evi"
-      style={{ '--evi-delay': `${index * EVI_STAGGER + 0.2}s`, '--evi-tilt': `${tilt}deg` }}
-    >
+    <figure className="intro-evi" style={{ '--evi-tilt': `${EVI_TILTS[index % EVI_TILTS.length]}deg` }}>
       <div className="intro-evi-photo">
         {failed ? (
           <div className="intro-evi-fallback" role="img" aria-label={item.alt}>
@@ -275,310 +197,284 @@ function EvidencePhoto({ item, index }) {
   )
 }
 
+function HadedaTap({ corner = false }) {
+  return (
+    <div className={`intro-hadeda${corner ? ' corner' : ''}`} role="img" aria-label="An impatient Hadeda">
+      <span className="intro-hadeda-bird">🦤</span>
+      <span className="intro-hadeda-foot" aria-hidden="true" />
+    </div>
+  )
+}
+
+function NotePhoto() {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className="intro-note-photo intro-note-photo-corner" aria-hidden="true">
+      {failed ? (
+        <span className="intro-note-photo-fallback" role="img" aria-label="Marnich and Marlie together">💞</span>
+      ) : (
+        <img src="/intro/evidence-us.jpg" alt="" onError={() => setFailed(true)} draggable="false" />
+      )}
+    </div>
+  )
+}
+
 export default function IntroSequence({ onComplete, onAccept }) {
   const [screen, setScreen] = useState(1)
-  const [verdictStep, setVerdictStep] = useState(0)
-  const [crowned, setCrowned] = useState(false)
-  const [kitCount, setKitCount] = useState(0)
-  const [noteStep, setNoteStep] = useState(0)
-  const [showAccept, setShowAccept] = useState(false)
+  const [reveal, setReveal] = useState(0)
+  const [musicOn, setMusicOn] = useState(true)
   const [bursting, setBursting] = useState(false)
   const [flash, setFlash] = useState(false)
-  const [narrationStep, setNarrationStep] = useState(0)
-  const [musicOn, setMusicOn] = useState(true)
+  const timersRef = useRef([])
+  const jumpFullRef = useRef(false)
   const done = useRef(false)
-  const skipped = useRef(false)
-  const TOTAL_SCREENS = 6
 
-  const briefWords = useMemo(() => BRIEF_PARAGRAPH.split(' '), [])
+  const maxReveal = BEATS[screen].length
 
-  // Opening bird call as the dossier appears.
-  useEffect(() => {
-    chirp('play')
-  }, [])
+  function clearTimers() {
+    timersRef.current.forEach((t) => window.clearTimeout(t))
+    timersRef.current = []
+  }
 
-  // Gentle background ambience, toggleable. Always stops on unmount.
+  // Toggleable ambience; always stops on unmount.
   useEffect(() => {
     if (musicOn) startAmbience()
     else stopAmbience()
     return () => stopAmbience()
   }, [musicOn])
 
-  // Manual navigation — she can tap to advance or go back at any time.
-  function goTo(target) {
-    const next = Math.max(1, Math.min(TOTAL_SCREENS, target))
-    if (next === screen) return
-    chirp('feed')
-    // When jumping onto a screen, reveal its content right away so she never
-    // sits looking at a half-built screen she navigated to on purpose.
-    if (next >= 3) setVerdictStep(2)
-    if (next >= 3) setCrowned(true)
-    if (next >= 4) setKitCount(FIELD_KIT.length)
-    if (next === 2) setNarrationStep(NARRATION.length)
-    if (next === 6) {
-      setNoteStep(NOTE_LINES.length)
-      setShowAccept(true)
+  // Per-screen reveal scheduler. Jumps (back/dots/skip) show everything at once.
+  useEffect(() => {
+    clearTimers()
+    const delays = BEATS[screen]
+    if (jumpFullRef.current) {
+      jumpFullRef.current = false
+      setReveal(delays.length)
+      return undefined
     }
+    setReveal(0)
+    if (screen === 1) timersRef.current.push(window.setTimeout(() => thud(), 250))
+    delays.forEach((delay, i) => {
+      timersRef.current.push(
+        window.setTimeout(() => {
+          setReveal(i + 1)
+          const sound = SOUND_BEATS[screen]?.[i + 1]
+          if (sound) playSound(sound)
+        }, delay),
+      )
+    })
+    return clearTimers
+  }, [screen])
+
+  function goNext() {
+    if (screen >= TOTAL) return
+    chirp('feed')
+    jumpFullRef.current = false
+    setScreen(screen + 1)
+  }
+  function goPrev() {
+    if (screen <= 1) return
+    chirp('water')
+    jumpFullRef.current = true
+    setScreen(screen - 1)
+  }
+  function goTo(target) {
+    const next = Math.max(1, Math.min(TOTAL, target))
+    if (next === screen) return
+    jumpFullRef.current = true
     setScreen(next)
   }
-  const goNext = () => (screen >= TOTAL_SCREENS ? null : goTo(screen + 1))
-  const goPrev = () => goTo(screen - 1)
+  function skip() {
+    jumpFullRef.current = true
+    setScreen(TOTAL)
+  }
 
-  // Per-screen timing. Each branch returns its own cleanup so timers never leak.
-  useEffect(() => {
-    if (screen === 1) {
-      const t = setTimeout(() => setScreen(2), 5200)
-      return () => clearTimeout(t)
+  // Tap anywhere: first finish revealing this screen, then advance.
+  function tapStage() {
+    if (screen === TOTAL) return
+    if (reveal < maxReveal) {
+      clearTimers()
+      setReveal(maxReveal)
+    } else {
+      goNext()
     }
-    if (screen === 2) {
-      // A soft thud as each evidence card lands on the table, with a narration
-      // line revealed above the table for the first five photos.
-      const step = EVI_STAGGER * 1000
-      const taps = EVIDENCE.map((_, i) => setTimeout(() => thud(), i * step + 600))
-      const narrate = NARRATION.map((_, i) =>
-        setTimeout(() => setNarrationStep(i + 1), i * step + 400),
-      )
-      const next = setTimeout(() => setScreen(3), EVIDENCE.length * step + 3200)
-      return () => {
-        taps.forEach(clearTimeout)
-        narrate.forEach(clearTimeout)
-        clearTimeout(next)
-      }
-    }
-    if (screen === 3) {
-      const timers = [
-        setTimeout(() => setVerdictStep(1), 700),
-        setTimeout(() => {
-          setVerdictStep(2)
-          chirp('play')
-        }, 2200),
-        setTimeout(() => {
-          setCrowned(true)
-          chirp('feed')
-        }, 3900),
-        setTimeout(() => setScreen(4), 6400),
-      ]
-      return () => timers.forEach(clearTimeout)
-    }
-    if (screen === 4) {
-      // Paragraph reveals word by word, then the 5 field-kit items bounce in.
-      const paragraphMs = briefWords.length * 70 + 400
-      const items = FIELD_KIT.map((_, i) =>
-        setTimeout(() => {
-          setKitCount(i + 1)
-          chirp(i % 2 ? 'feed' : 'water')
-        }, paragraphMs + i * 700),
-      )
-      const next = setTimeout(() => setScreen(5), paragraphMs + FIELD_KIT.length * 700 + 2400)
-      return () => {
-        items.forEach(clearTimeout)
-        clearTimeout(next)
-      }
-    }
-    if (screen === 5) {
-      const t = setTimeout(() => setScreen(6), 5400)
-      return () => clearTimeout(t)
-    }
-    if (screen === 6) {
-      // The personal note from Marnich. Lines appear slowly, one at a time;
-      // then, after a beat, the Accept button fades in. (Skip jumps straight
-      // to the full note + button.)
-      if (skipped.current) return undefined
-      chirp('water')
-      const timers = []
-      let t = 900
-      NOTE_LINES.forEach((line, i) => {
-        if (line.pauseBefore) t += 1100
-        timers.push(setTimeout(() => setNoteStep(i + 1), t))
-        t += line.sign ? 1100 : line.small ? 1500 : 1700
-      })
-      timers.push(setTimeout(() => setShowAccept(true), t + 700))
-      return () => timers.forEach(clearTimeout)
-    }
-    return undefined
-  }, [screen, briefWords])
+  }
 
-  function accept() {
+  function accept(event) {
+    event?.stopPropagation()
     if (done.current) return
     done.current = true
-    // Persist "seen" the instant she commits, so even if she closes the app
-    // during the flash the intro never replays.
     onAccept?.()
     setBursting(true)
     chirp('play')
     setTimeout(() => chirp('feed'), 150)
     setTimeout(() => chirp('water'), 320)
-    // Two-second golden flash, then fade to home.
     setTimeout(() => setFlash(true), 500)
     setTimeout(() => onComplete(), 2700)
   }
 
+  const stop = (event) => event.stopPropagation()
+  const shown = (n) => reveal >= n
+
   return (
-    <div className={`intro-root intro-screen-${screen}`} role="dialog" aria-modal="true" aria-label="Welcome dossier">
+    <div
+      className={`intro-root intro-redux intro-screen-${screen}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Welcome dossier"
+      onClick={tapStage}
+    >
       <div className="intro-grain" aria-hidden="true" />
 
-      {/* Screen 1 — wax seal & council heading */}
+      {/* ---------- SCREEN 1 — Welcome back ---------- */}
       {screen === 1 && (
-        <div className="intro-stage intro-stage-1">
+        <div className="intro-stage intro-s1">
           <div className="intro-seal" aria-hidden="true">
             <span className="intro-seal-feather">🪶</span>
           </div>
-          <h1 className="intro-council">SOUTHERN AFRICAN BIRD COUNCIL</h1>
-          <p className="intro-sub">CLASSIFIED FIELD AGENT DOSSIER</p>
+          <div className="intro-lines">
+            <p className={`intro-tline big${shown(1) ? ' show' : ''}`}>So. You read the letter.</p>
+            <p className={`intro-tline big${shown(2) ? ' show' : ''}`}>Good.</p>
+            <p className={`intro-tline${shown(3) ? ' show' : ''}`}>The Council has been waiting.</p>
+          </div>
+          <HadedaTap />
+          {shown(maxReveal) && <p className="intro-tap-hint">tap anywhere to continue ›</p>}
         </div>
       )}
 
-      {/* Screen 2 — evidence photos placed one by one */}
+      {/* ---------- SCREEN 2 — Additional evidence ---------- */}
       {screen === 2 && (
-        <div className="intro-stage intro-stage-2">
-          <p className="intro-eyebrow">CASE FILE · SUBJECT: MARLIE</p>
-          <p className="intro-narration" key={narrationStep}>
-            {NARRATION[Math.min(Math.max(narrationStep - 1, 0), NARRATION.length - 1)]}
+        <div className="intro-stage intro-s2">
+          <p className={`intro-tline${shown(1) ? ' show' : ''}`}>
+            While you were reading… our agents filed more reports.
           </p>
-          <div className="intro-evidence-table">
-            {EVIDENCE.map((item, i) => (
-              <EvidencePhoto key={item.id} item={item} index={i} />
-            ))}
+          <div className="intro-evi-grid">
+            {EVIDENCE.map((item, i) => (shown(i + 2) ? <EvidencePhoto key={item.id} item={item} index={i} /> : null))}
           </div>
         </div>
       )}
 
-      {/* Screen 3 — the verdict */}
+      {/* ---------- SCREEN 3 — The dramatic pause ---------- */}
       {screen === 3 && (
-        <div className="intro-stage intro-stage-3">
-          <span className="intro-falling-feather" aria-hidden="true">🪶</span>
-          <div className="intro-verdict">
-            {VERDICT_LINES.map((line, i) => (
-              <p key={line} className={`intro-verdict-line ${verdictStep > i ? 'show' : ''}`}>
-                {line}
-              </p>
-            ))}
-            <div className={`intro-welcome-wrap ${crowned ? 'show' : ''}`}>
-              {crowned && (
-                <div className="intro-welcome-feathers" aria-hidden="true">
-                  {Array.from({ length: 10 }, (_, i) => (
-                    <span
-                      key={i}
-                      className="intro-float-feather"
-                      style={{
-                        left: `${8 + i * 9}%`,
-                        '--ff-delay': `${(i % 5) * 0.3}s`,
-                        '--ff-dur': `${2.6 + (i % 3) * 0.6}s`,
-                      }}
-                    >
-                      🪶
-                    </span>
-                  ))}
-                </div>
-              )}
-              <h2 className="intro-welcome">WELCOME, FIELD AGENT POOKS 🐦</h2>
+        <div className="intro-stage intro-s3">
+          <div className="intro-spotlight" aria-hidden="true" />
+          <p className={`intro-tline big${shown(1) ? ' show' : ''}`}>You already know about the vote.</p>
+          <p className={`intro-tline${shown(2) ? ' show' : ''}`}>What you do not know…</p>
+          <p className={`intro-golden-text${shown(3) ? ' show' : ''}`}>is what happens next.</p>
+          {shown(3) && (
+            <div className="intro-up-feathers" aria-hidden="true">
+              {Array.from({ length: 8 }, (_, i) => (
+                <span key={i} className="intro-up-feather" style={{ left: `${10 + i * 11}%`, '--uf-delay': `${(i % 4) * 0.35}s` }}>🪶</span>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Screen 4 — mission briefing: what's in the field kit */}
+      {/* ---------- SCREEN 4 — Mission briefing ---------- */}
       {screen === 4 && (
-        <div className="intro-stage intro-stage-4">
-          <div className="intro-watcher" aria-hidden="true">
-            <span className="intro-watcher-bird">🐤</span>
-          </div>
-          <p className="intro-eyebrow">MISSION BRIEFING</p>
-          <p className="intro-brief-para">
-            {briefWords.map((word, i) => (
-              <span key={i} className="intro-brief-word" style={{ animationDelay: `${i * 0.07}s` }}>
-                {word}{' '}
-              </span>
-            ))}
-          </p>
+        <div className="intro-stage intro-s4">
+          <p className="intro-eyebrow">YOUR FIELD KIT — CLASSIFIED</p>
           <ul className="intro-kit-list">
             {FIELD_KIT.map(([icon, text], i) => (
-              <li key={i} className={`intro-kit-item ${kitCount > i ? 'show' : ''}`}>
+              <li key={i} className={`intro-kit-item${shown(i + 1) ? ' show' : ''}`}>
                 <span className="intro-kit-icon" aria-hidden="true">{icon}</span>
                 <span>{text}</span>
               </li>
             ))}
           </ul>
+          <div className="intro-corner-chick" aria-hidden="true">
+            <TweetyBird level="chick" mood="happy" size={64} />
+          </div>
         </div>
       )}
 
-      {/* Screen 5 — mission & map */}
+      {/* ---------- SCREEN 5 — How it works ---------- */}
       {screen === 5 && (
-        <div className="intro-stage intro-stage-5">
-          <p className="intro-eyebrow">YOUR MISSION</p>
-          <h2 className="intro-mission">Document the birds of South Africa</h2>
-          <div className="intro-map" aria-hidden="true">
-            <svg viewBox="0 0 200 160" role="presentation">
-              <path
-                className="intro-map-land"
-                d="M40 38 C58 24 92 22 120 30 C146 37 168 46 176 70 C182 90 172 108 150 122 C140 128 138 140 126 144 C112 149 104 138 92 138 C74 138 60 132 48 118 C34 102 24 84 26 66 C27 52 30 46 40 38 Z"
-              />
-              {/* Lesotho enclave, because the Council is thorough */}
-              <circle className="intro-map-hole" cx="128" cy="104" r="9" />
-            </svg>
-            {[
-              ['18%', '34%', '🦅', 0],
-              ['64%', '26%', '🦉', 0.5],
-              ['44%', '58%', '🐦', 1],
-              ['78%', '62%', '🦩', 1.5],
-              ['32%', '74%', '🦜', 2],
-              ['58%', '80%', '🕊️', 2.5],
-            ].map(([left, top, emoji, delay], i) => (
-              <span
-                key={i}
-                className="intro-map-bird"
-                style={{ left, top, '--bird-delay': `${delay}s` }}
-              >
-                {emoji}
-              </span>
+        <div className="intro-stage intro-s5">
+          <h2 className="intro-howto-title">How your adventure works</h2>
+          <div className="intro-steps">
+            {STEPS.map(([icon, label, text], i) => (
+              <div key={label} className={`intro-step${shown(i + 1) ? ' show' : ''}`}>
+                <span className="intro-step-icon" aria-hidden="true">{icon}</span>
+                <div>
+                  <strong>{label}</strong>
+                  <p>{text}</p>
+                </div>
+                {i < STEPS.length - 1 && <span className="intro-step-arrow" aria-hidden="true">↓</span>}
+              </div>
             ))}
           </div>
-          <p className="intro-kit">Your field kit is ready.</p>
         </div>
       )}
 
-      {/* Screen 6 — a personal, handwritten note from Marnich, then Accept */}
+      {/* ---------- SCREEN 6 — Meet Tweety ---------- */}
       {screen === 6 && (
-        <div className="intro-stage intro-stage-6">
+        <div className="intro-stage intro-s6">
+          <div className={`intro-tweety-stage${shown(3) ? ' hop' : ''}`}>
+            <TweetyBird level="chick" mood="happy" dancing={shown(3)} size={150} />
+            <div className="intro-tweety-nest" aria-hidden="true" />
+          </div>
+          <p className={`intro-tline big${shown(1) ? ' show' : ''}`}>But first…</p>
+          <p className={`intro-tline${shown(2) ? ' show' : ''}`}>Someone has been waiting for you.</p>
+          <p className={`intro-tline big${shown(3) ? ' show' : ''}`}>This is Tweety. 🐣</p>
+          <div className="intro-tweety-lines">
+            {TWEETY_LINES.map((line, i) => (
+              <p key={line} className={`intro-tline small${shown(i + 4) ? ' show' : ''}`}>{line}</p>
+            ))}
+          </div>
+          {shown(8) && <HadedaTap corner />}
+          <p className={`intro-tline${shown(9) ? ' show' : ''}`}>
+            Take care of her and she might have a surprise for you one day… 🥚
+          </p>
+        </div>
+      )}
+
+      {/* ---------- SCREEN 7 — The personal note ---------- */}
+      {screen === 7 && (
+        <div className="intro-stage intro-s7">
           <article className="intro-note-card">
-            <NotePhoto />
             <span className="intro-note-heart" aria-hidden="true">💛</span>
             <div className="intro-note-body">
               {NOTE_LINES.map((line, i) => (
                 <p
                   key={i}
-                  className={`intro-note-line${line.small ? ' small' : ''}${
-                    line.sign ? ' sign' : ''
-                  } ${noteStep > i ? 'show' : ''}`}
+                  className={`intro-note-line${i === NOTE_LINES.length - 1 ? ' sign' : ''}${
+                    i === NOTE_LINES.length - 2 ? ' small' : ''
+                  }${shown(i + 1) ? ' show' : ''}`}
                 >
-                  {line.text}
+                  {line}
                 </p>
               ))}
             </div>
+            {shown(NOTE_LINES.length) && <NotePhoto />}
           </article>
-          <button
-            type="button"
-            className={`intro-accept intro-note-accept ${showAccept ? 'show' : ''}`}
-            onClick={accept}
-            disabled={bursting || !showAccept}
-            aria-hidden={!showAccept}
-          >
+          {shown(maxReveal) && <p className="intro-tap-hint dark">tap when you are ready ›</p>}
+        </div>
+      )}
+
+      {/* ---------- SCREEN 8 — Accept ---------- */}
+      {screen === 8 && (
+        <div className="intro-stage intro-s8">
+          <span className="intro-big-bird" aria-hidden="true">🐦</span>
+          <h2 className="intro-begin-title">Your adventure begins now</h2>
+          <p className="intro-begin-sub">
+            The Bird Council is watching. Agent Marnich is watching more nervously.
+          </p>
+          <button type="button" className="intro-accept intro-accept-pulse" onClick={accept} disabled={bursting}>
             Accept my mission 🪶
           </button>
         </div>
       )}
 
+      {/* Confetti burst on accept */}
       {bursting && (
         <div className="intro-burst" aria-hidden="true">
-          {Array.from({ length: 28 }, (_, i) => (
+          {Array.from({ length: 30 }, (_, i) => (
             <span
               key={i}
               className="intro-burst-bit"
-              style={{
-                left: `${(i * 37) % 100}%`,
-                '--bit-delay': `${(i % 7) * 60}ms`,
-                '--bit-dur': `${1400 + (i % 5) * 220}ms`,
-              }}
+              style={{ left: `${(i * 37) % 100}%`, '--bit-delay': `${(i % 7) * 60}ms`, '--bit-dur': `${1400 + (i % 5) * 240}ms` }}
             >
               {['🪶', '✨', '🐦', '💛', '🌟', '🎉'][i % 6]}
             </span>
@@ -586,7 +482,7 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* Final golden flash before fading to home */}
+      {/* Final golden flash */}
       {flash && (
         <div className="intro-flash" role="presentation">
           <span className="intro-flash-bird" aria-hidden="true">🐦</span>
@@ -594,53 +490,45 @@ export default function IntroSequence({ onComplete, onAccept }) {
         </div>
       )}
 
-      {/* Background-music toggle */}
+      {/* Skip — top right on every screen before the finale */}
+      {!flash && !bursting && screen < TOTAL && (
+        <button type="button" className="intro-skip" onClick={(e) => { stop(e); skip() }}>
+          Skip ▸
+        </button>
+      )}
+
+      {/* Music toggle — top left */}
       {!flash && !bursting && (
         <button
           type="button"
           className="intro-music-toggle"
-          onClick={() => setMusicOn((on) => !on)}
+          onClick={(e) => { stop(e); setMusicOn((on) => !on) }}
           aria-pressed={musicOn}
-          aria-label={musicOn ? 'Turn background music off' : 'Turn background music on'}
+          aria-label={musicOn ? 'Turn music off' : 'Turn music on'}
         >
           {musicOn ? '🔊' : '🔇'}
         </button>
       )}
 
-      {screen < 6 && !flash && (
-        <button
-          type="button"
-          className="intro-skip"
-          onClick={() => {
-            skipped.current = true
-            setNoteStep(NOTE_LINES.length)
-            setShowAccept(true)
-            setScreen(6)
-          }}
-        >
-          Skip ▸
-        </button>
-      )}
-
-      {/* Manual navigation: tap to advance or go back, with progress dots */}
+      {/* Navigation: back / dots / next */}
       {!flash && !bursting && (
-        <div className="intro-nav" aria-label="Intro navigation">
+        <div className="intro-nav" onClick={stop}>
           <button
             type="button"
             className="intro-nav-arrow"
-            onClick={goPrev}
+            onClick={(e) => { stop(e); goPrev() }}
             disabled={screen <= 1}
-            aria-label="Previous"
+            aria-label="Back"
           >
             ‹
           </button>
           <div className="intro-dots" role="tablist">
-            {Array.from({ length: TOTAL_SCREENS }, (_, i) => (
+            {Array.from({ length: TOTAL }, (_, i) => (
               <button
                 key={i}
                 type="button"
                 className={`intro-dot${screen === i + 1 ? ' active' : ''}`}
-                onClick={() => goTo(i + 1)}
+                onClick={(e) => { stop(e); goTo(i + 1) }}
                 aria-label={`Go to screen ${i + 1}`}
                 aria-selected={screen === i + 1}
               />
@@ -649,8 +537,8 @@ export default function IntroSequence({ onComplete, onAccept }) {
           <button
             type="button"
             className="intro-nav-arrow"
-            onClick={goNext}
-            disabled={screen >= TOTAL_SCREENS}
+            onClick={(e) => { stop(e); if (screen < TOTAL) goNext() }}
+            disabled={screen >= TOTAL}
             aria-label="Next"
           >
             ›

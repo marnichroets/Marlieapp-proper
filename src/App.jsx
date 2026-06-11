@@ -3931,7 +3931,9 @@ function App() {
   // out, both rendered by SettingsMenu itself. The feature pages still exist —
   // they're only hidden from her menu for now. Admin still sees everything.
   const fullMenu =
-    session?.role === 'admin' ? [...menuItems, ['admin', 'Admin', '🔒']] : []
+    session?.role === 'admin'
+      ? [...menuItems, ['admin', 'Admin', '🔒']]
+      : [['games', 'Bird Battles', '⚔️']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
