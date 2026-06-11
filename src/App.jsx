@@ -36,7 +36,7 @@ import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
 import { defaultStore, rainbowActive, tweetyNeverSad, isOwned } from './store'
 import { TweetyWorldCard, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
-import { MarketTab, WardrobePage } from './MarketUI'
+import { WardrobePage } from './MarketUI'
 import { defaultWardrobe, ownsWearable, wearableById, rotationIndex } from './market'
 import {
   MAX_EGGS,
@@ -6560,19 +6560,7 @@ function RewardsPage({
   buyHiddenNote,
   buyDateIdea,
   buyFeaturedBirdProfile,
-  buyWearable,
-  giftWearable,
-  toggleWishlistItem,
-  setMarnichPick,
-  markMarketSeen,
 }) {
-  const [tab, setTab] = useState('surprises')
-  const [marketRotation] = useState(() => rotationIndex(Date.now()))
-  const marketHasNew = marketRotation !== data.settings?.marketSeenRotation
-  function openMarket() {
-    setTab('market')
-    markMarketSeen()
-  }
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
   const claimedRewards = revealedRewards.filter((reward) =>
     ['Claimed', 'Paid'].includes(reward.status),
@@ -6603,36 +6591,6 @@ function RewardsPage({
         </p>
       </section>
 
-      <div className="store-tabs" role="tablist">
-        <button
-          className={tab === 'surprises' ? 'filter-chip active' : 'filter-chip'}
-          type="button"
-          onClick={() => setTab('surprises')}
-        >
-          Marnich Surprises 🎁
-        </button>
-        <button
-          className={tab === 'market' ? 'filter-chip active' : 'filter-chip'}
-          type="button"
-          onClick={openMarket}
-        >
-          Market 🛍️{marketHasNew && <span className="tab-new-dot" aria-label="New items">●</span>}
-        </button>
-      </div>
-
-      {tab === 'market' ? (
-        <MarketTab
-          wardrobe={data.tweety?.wardrobe}
-          coins={coins}
-          isAdmin={isAdmin}
-          marketPick={data.settings?.marketPick}
-          onBuy={buyWearable}
-          onGift={giftWearable}
-          onToggleWishlist={toggleWishlistItem}
-          onSetPick={setMarnichPick}
-        />
-      ) : (
-      <>
       <section className="soft-card full-span">
         <div className="section-heading">
           <div>
@@ -6773,8 +6731,6 @@ function RewardsPage({
           </div>
         )}
       </section>
-      </>
-      )}
     </div>
   )
 }
