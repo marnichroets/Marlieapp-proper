@@ -318,8 +318,10 @@
   margin-top: 14px;
   padding: 2px 2px 8px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
   scrollbar-width: thin;
 }
 .near-you-bird {
@@ -355,12 +357,46 @@
   font-weight: 800;
   color: var(--ink-strong);
   line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .near-you-afr {
   font-size: 0.72rem;
   font-style: italic;
   color: var(--muted);
   line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile (≤430px): shrink the cards so a full row fits and swipes smoothly. */
+@media (max-width: 430px) {
+  .near-you-card {
+    padding: 14px 12px 12px;
+  }
+  .near-you-scroll {
+    gap: 9px;
+  }
+  .near-you-bird {
+    width: 90px;
+    padding: 6px;
+    gap: 5px;
+  }
+  .near-you-photo {
+    height: 70px;
+    aspect-ratio: auto;
+  }
+  .near-you-name {
+    font-size: 0.66rem; /* ~9pt */
+    line-height: 1.1;
+  }
+  .near-you-afr {
+    font-size: 0.6rem;
+  }
 }
 
 /* ---- Monthly activity bar (Jan→Dec) ---- */
@@ -509,6 +545,26 @@
   margin: -4px 0 0;
   font-size: 0.86rem;
   font-style: italic;
+  color: var(--leaf);
+}
+.explore-thought {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--ink-strong);
+  line-height: 1.45;
+}
+.explore-months {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.explore-months-label {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--leaf);
 }
 .explore-meta {

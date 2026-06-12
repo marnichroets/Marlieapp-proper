@@ -5,7 +5,13 @@ import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
-import { EXPLORE_FILTERS, MONTHS, monthlyActivity, birdsNearPotchToday } from './birdExplore'
+import {
+  EXPLORE_FILTERS,
+  MONTHS,
+  monthlyActivity,
+  birdsNearPotchThisWeek,
+  locationThought,
+} from './birdExplore'
 import {
   TweetyHomeCard,
   TweetyStatsPage,
@@ -194,7 +200,7 @@ const SHOP = {
 const bottomTabs = [
   ['home', 'Home', '🏡'],
   ['add', 'Spot', '📷'],
-  ['magazine', 'Magazine', '📖'],
+  ['explore', 'Explore', '🔍'],
   ['library', 'Collection', '🦜'],
   ['messages', 'Inbox', '📬'],
   ['rewards', 'Gifts', '🎁'],
@@ -3968,10 +3974,12 @@ function App() {
   // Pooks' menu is intentionally bare: just "My Story" (replay intro) and Log
   // out, both rendered by SettingsMenu itself. The feature pages still exist —
   // they're only hidden from her menu for now. Admin still sees everything.
+  // Explore now lives in the bottom nav, so the gear menu carries Magazine (which
+  // gave up its bottom-nav slot) plus the role-specific extras.
   const fullMenu =
     session?.role === 'admin'
-      ? [...menuItems, ['explore', 'Explore Birds', '🔍'], ['admin', 'Admin', '🔒']]
-      : [['explore', 'Explore Birds', '🔍'], ['games', 'Bird Battles', '⚔️']]
+      ? [...menuItems, ['magazine', 'Magazine', '📖'], ['admin', 'Admin', '🔒']]
+      : [['magazine', 'Magazine', '📖'], ['games', 'Bird Battles', '⚔️']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
@@ -4963,7 +4971,7 @@ function MonthlyActivityBar({ bird }) {
 // Potchefstroom, so there's always something new to look for. Tap one to read
 // its profile.
 function BirdsNearYouCard({ library, openBirdProfile }) {
-  const birds = useMemo(() => birdsNearPotchToday(library, new Date(), 7), [library])
+  const birds = useMemo(() => birdsNearPotchThisWeek(library, new Date(), 7), [library])
   if (!birds.length) return null
   return (
     <section className="soft-card near-you-card">
@@ -5002,7 +5010,11 @@ function ExploreBirdCard({ bird, onOpen }) {
       <div className="explore-card-body">
         <h3>{bird.commonName}</h3>
         {bird.afrikaansName && <p className="explore-afrikaans">{bird.afrikaansName}</p>}
-        <MonthlyActivityBar bird={bird} />
+        <p className="explore-thought">{locationThought(bird)}</p>
+        <div className="explore-months">
+          <span className="explore-months-label">When you&apos;ll see it</span>
+          <MonthlyActivityBar bird={bird} />
+        </div>
         <dl className="explore-meta">
           <div>
             <dt>Habitat</dt>
@@ -5036,8 +5048,7 @@ function ExploreBirdsPage({ data, openBirdProfile }) {
         <p className="eyebrow">A field guide for quiet evenings</p>
         <h2>Explore Birds 🔍</h2>
         <p className="explore-hero-sub">
-          Page through every bird in the book — no coins, no game. Just beautiful birds to
-          read about at night.
+          South Africa is full of remarkable birds. Here are some worth knowing. 🐦
         </p>
       </section>
 

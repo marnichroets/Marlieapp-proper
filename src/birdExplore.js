@@ -123,15 +123,89 @@ function hash(str) {
   return h >>> 0
 }
 
-// A daily-rotating little watch-list of birds likely near Potchefstroom, so it
-// feels fresh every day she opens the app.
-export function birdsNearPotchToday(library, date = new Date(), count = 7) {
+// The Monday-based week index for a date (whole weeks since a Monday epoch), so
+// a watch-list reseeds every Monday and stays put for the rest of the week.
+function weekSeed(date) {
+  const dayNumber = Math.floor(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000,
+  )
+  // Unix day 0 was a Thursday; +3 shifts week boundaries to Monday.
+  return Math.floor((dayNumber + 3) / 7)
+}
+
+// A weekly watch-list of birds likely near Potchefstroom: the same set shows all
+// week, then a fresh set appears every Monday so it feels new without churning
+// day to day.
+export function birdsNearPotchThisWeek(library, date = new Date(), count = 7) {
   const pool = (library || []).filter(nearPotchefstroom)
   if (!pool.length) return []
-  const daySeed = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000)
+  const seed = weekSeed(date)
   return pool
-    .map((bird, i) => ({ bird, k: hash(`${daySeed}-${bird.id || bird.commonName}-${i}`) }))
+    .map((bird, i) => ({ bird, k: hash(`${seed}-${bird.id || bird.commonName}-${i}`) }))
     .sort((a, b) => a.k - b.k)
     .slice(0, Math.min(count, pool.length))
     .map((o) => o.bird)
+}
+
+// Warm, evocative one-line "where you'll meet this bird" thoughts for the field
+// guide — feelings of place, not clinical habitat notes. Deterministic per bird
+// so the line never flickers between renders.
+const LOCATION_THOUGHTS = {
+  prey: [
+    'Watches over the bushveld from the tallest dead trees',
+    'Rides the thermals high above the Highveld plains',
+    'Hunts the open grassland with a patient, golden eye',
+  ],
+  water: [
+    'Patrols the dams and rivers of the North West',
+    'Wades the quiet shallows where the reeds whisper',
+    'Drifts across the Highveld dams at first light',
+  ],
+  garden: [
+    'Found singing in gardens from Potchefstroom to Pretoria',
+    'A familiar friend in leafy suburban gardens',
+    'Flits through the fruit trees of a quiet backyard',
+  ],
+  colourful: [
+    'A flash of colour among the garden blossoms',
+    'Brightens the bushveld like a scattered jewel',
+    'Catches the morning sun in a blaze of colour',
+  ],
+  noisy: [
+    'Announces the Highveld dawn whether you like it or not',
+    'Heard long before it is ever seen',
+    'Fills the morning air with its unmistakable call',
+  ],
+  general: [
+    'A common sight on Highveld fence posts at dawn',
+    'Found across the grasslands and gardens of the North West',
+    'One of the everyday birds of the South African veld',
+  ],
+}
+
+function pickThought(pool, bird) {
+  return pool[hash(bird.id || bird.commonName || '') % pool.length]
+}
+
+export function locationThought(bird) {
+  const name = lc(bird.commonName)
+  if (/weaver/.test(name)) {
+    return 'Builds elaborate nests in acacia trees across the bushveld'
+  }
+  const raptor =
+    bird.category === 'Birds of prey' ||
+    /(eagle|kite|buzzard|hawk|falcon|kestrel|\bowl\b|owlet|harrier|goshawk|sparrowhawk|vulture)/.test(
+      name,
+    )
+  if (raptor) {
+    if (nearKruger(bird) && !nearPotchefstroom(bird)) {
+      return 'Watches over Kruger from the tallest dead trees'
+    }
+    return pickThought(LOCATION_THOUGHTS.prey, bird)
+  }
+  if (bird.category === 'Water birds') return pickThought(LOCATION_THOUGHTS.water, bird)
+  if (bird.category === 'Garden birds') return pickThought(LOCATION_THOUGHTS.garden, bird)
+  if (bird.category === 'Colourful birds') return pickThought(LOCATION_THOUGHTS.colourful, bird)
+  if (bird.category === 'Noisy birds') return pickThought(LOCATION_THOUGHTS.noisy, bird)
+  return pickThought(LOCATION_THOUGHTS.general, bird)
 }
