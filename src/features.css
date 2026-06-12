@@ -285,6 +285,9 @@
 .map-sighting h4 { margin: 0 0 2px; }
 .map-sighting-note { font-size: 0.82rem; color: var(--muted); margin: 4px 0 0; }
 
+/* ---- Admin: spacing for the Tweety time-skip subheading ---- */
+.admin-subheading { margin-top: 18px; }
+
 /* ---- Field-guide photo (shared by "Birds near you" + Explore) ---- */
 .field-guide-photo {
   display: block;

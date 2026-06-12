@@ -67,7 +67,7 @@ import {
   tweetyGrowthSystemMessage,
   hatchSystemMessage,
 } from './messages'
-import { tweetyGrowthIndex, tweetyGrowth } from './tweetyData'
+import { tweetyGrowthIndex, tweetyGrowth, tweetyGrowthProgress } from './tweetyData'
 
 function bumpLeaderboard(lb, winner) {
   return {
@@ -2844,6 +2844,204 @@ function App() {
     })
   }
 
+  // ----- Admin Tweety time-skip controls (these change the REAL pet, for
+  // testing growth / eggs / hatching without waiting real days) -----
+  function adminSkipTweetyDay() {
+    const tw = data.tweety
+    if (!tw) return
+    if (tw.companion && tw.bornAt) {
+      const born = new Date(tw.bornAt)
+      born.setDate(born.getDate() - 1)
+      const iso = born.toISOString()
+      setData((c) => ({ ...c, tweety: { ...c.tweety, bornAt: iso } }))
+      setToast({
+        title: 'Skipped forward a day ⏩',
+        body: `${tw.name || 'Tweety'} is a day older.`,
+        tone: 'success',
+      })
+      return
+    }
+    if (tw.firstEgg) {
+      const warms = (tw.firstEgg.warms || 0) + 1
+      if (warms >= FIRST_EGG_WARMS) {
+        adminForceTweetyHatch()
+      } else {
+        setData((c) => ({
+          ...c,
+          tweety: { ...c.tweety, firstEgg: { ...c.tweety.firstEgg, warms, lastWarmDay: '' } },
+        }))
+        setToast({
+          title: 'Egg warmed a day ⏩',
+          body: `${warms}/${FIRST_EGG_WARMS} days warmed.`,
+          tone: 'success',
+        })
+      }
+      return
+    }
+    setToast({ title: 'No Tweety yet', body: 'Give Tweety an egg first.', tone: 'calm' })
+  }
+
+  function adminGiveTweetyEgg() {
+    const tw = data.tweety
+    if (!tw) return
+    // No companion yet → hand her a fresh first egg, ready to warm/hatch.
+    if (!tw.companion) {
+      const idx = Math.floor(Math.random() * FIRST_EGGS.length)
+      const egg = FIRST_EGGS[idx]
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          companion: null,
+          firstEgg: {
+            companion: firstEggCompanionFor(idx),
+            color: egg.color,
+            name: egg.name,
+            warms: 0,
+            lastWarmDay: '',
+            startedAt: new Date().toISOString(),
+          },
+        },
+      }))
+      setToast({
+        title: 'First egg given 🥚',
+        body: `A ${egg.name} egg is ready — warm it or force it to hatch.`,
+        tone: 'success',
+      })
+      return
+    }
+    // Already grown → drop a mystery egg in the basket to incubate.
+    if (tw.incubating) {
+      setToast({
+        title: 'Already incubating 🥚',
+        body: 'Hatch or finish the current egg first.',
+        tone: 'calm',
+      })
+      return
+    }
+    const species = RARE_EGG_BIRDS[Math.floor(Math.random() * RARE_EGG_BIRDS.length)]
+    setData((c) => ({
+      ...c,
+      tweety: {
+        ...c.tweety,
+        eggs: [...(c.tweety.eggs || []), { id: createId('egg'), species, kind: 'mystery' }],
+      },
+    }))
+    setToast({
+      title: 'Mystery egg added 🥚',
+      body: `A ${species} egg is in the basket — tap it to incubate, or force-hatch it.`,
+      tone: 'success',
+    })
+  }
+
+  function adminForceTweetyHatch() {
+    const tw = data.tweety
+    if (!tw) return
+    // 1) First egg pending → hatch into the companion and begin real-day growth.
+    if (tw.firstEgg && !tw.companion) {
+      const companion = tw.firstEgg.companion
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          companion,
+          firstEgg: null,
+          bornAt: new Date().toISOString(),
+          careAt: { fed: null, watered: null, played: null },
+        },
+      }))
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: 'Egg hatched! 🐣',
+        body: `Meet ${getCompanion(companion).name}! Real-day growth has begun.`,
+      })
+      return
+    }
+    // 2) Currently incubating a basket egg → hatch straight into a baby.
+    if (tw.incubating) {
+      const species = tw.incubating.species
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          incubating: null,
+          baby: { hatchedAt: new Date().toISOString(), species, careLog: {} },
+        },
+        messages: [hatchSystemMessage(species), ...(c.messages || [])],
+      }))
+      setConfetti(Date.now())
+      setReveal({ tone: 'bird', title: 'It hatched! 🐣🎉', body: `A baby ${species} burst out!` })
+      return
+    }
+    // 3) A basket egg waiting → hatch it straight into a baby.
+    if ((tw.eggs || []).length) {
+      const egg = tw.eggs[0]
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          eggs: c.tweety.eggs.filter((e) => e.id !== egg.id),
+          baby: { hatchedAt: new Date().toISOString(), species: egg.species, careLog: {} },
+        },
+        messages: [hatchSystemMessage(egg.species), ...(c.messages || [])],
+      }))
+      setConfetti(Date.now())
+      setReveal({ tone: 'bird', title: 'It hatched! 🐣🎉', body: `A baby ${egg.species} burst out!` })
+      return
+    }
+    // 4) Legacy single mystery egg → hatch into a baby.
+    if (tw.egg) {
+      const species = tw.egg.species
+      setData((c) => ({
+        ...c,
+        tweety: {
+          ...c.tweety,
+          egg: null,
+          baby: { hatchedAt: new Date().toISOString(), species, careLog: {} },
+        },
+        messages: [hatchSystemMessage(species), ...(c.messages || [])],
+      }))
+      setConfetti(Date.now())
+      setReveal({ tone: 'bird', title: 'It hatched! 🐣🎉', body: `A baby ${species} burst out!` })
+      return
+    }
+    setToast({ title: 'No egg to hatch', body: 'Give Tweety an egg first.', tone: 'calm' })
+  }
+
+  function adminAdvanceTweetyStage() {
+    const tw = data.tweety
+    if (!tw || !tw.companion || !tw.bornAt) {
+      setToast({
+        title: 'No grown Tweety yet',
+        body: 'Hatch the first egg before advancing growth stages.',
+        tone: 'calm',
+      })
+      return
+    }
+    const progress = tweetyGrowthProgress(tw)
+    if (!progress.next) {
+      setToast({
+        title: 'Already fully grown 👑',
+        body: `${tw.name || 'Tweety'} is a crowned adult.`,
+        tone: 'calm',
+      })
+      return
+    }
+    // Set bornAt so today's age lands on the first day of the next stage.
+    const targetAgeDays = progress.stage.maxDay + 1
+    const born = new Date()
+    born.setHours(0, 0, 0, 0)
+    born.setDate(born.getDate() - targetAgeDays)
+    const iso = born.toISOString()
+    setData((c) => ({ ...c, tweety: { ...c.tweety, bornAt: iso } }))
+    setToast({
+      title: 'Grew up! 🌱',
+      body: `${tw.name || 'Tweety'} advanced to ${progress.next.short}.`,
+      tone: 'success',
+    })
+  }
+
   function sendFlockTreat() {
     const flock = data.tweety?.aviary || []
     if (flock.length === 0) {
@@ -4257,6 +4455,10 @@ function App() {
             sendTweetyTreat={sendTweetyTreat}
             sendMysteryEgg={sendMysteryEgg}
             sendFlockTreat={sendFlockTreat}
+            skipTweetyDay={adminSkipTweetyDay}
+            giveTweetyEgg={adminGiveTweetyEgg}
+            forceTweetyHatch={adminForceTweetyHatch}
+            advanceTweetyStage={adminAdvanceTweetyStage}
             addDiscoveryToLibrary={addDiscoveryToLibrary}
             triggerWorldEvent={triggerWorldEvent}
             triggerEscape={triggerEscape}
@@ -7705,6 +7907,10 @@ function AdminPage({
   sendTweetyTreat,
   sendMysteryEgg,
   sendFlockTreat,
+  skipTweetyDay,
+  giveTweetyEgg,
+  forceTweetyHatch,
+  advanceTweetyStage,
   addDiscoveryToLibrary,
   triggerWorldEvent,
   triggerEscape,
@@ -8084,6 +8290,31 @@ function AdminPage({
           </button>
           <button className="ghost-btn" type="button" onClick={sandbox.reset}>
             ♻️ Reset all test data
+          </button>
+        </div>
+
+        <div className="section-heading admin-subheading">
+          <div>
+            <p className="eyebrow">Tweety time-skip ⏩</p>
+            <h3>Fast-forward the real pet</h3>
+          </div>
+        </div>
+        <p className="fine-print">
+          Unlike the buttons above, these <strong>do</strong> change Pooks&apos; real Tweety —
+          handy for checking growth, eggs and hatching without waiting real days.
+        </p>
+        <div className="sandbox-grid">
+          <button className="secondary-btn" type="button" onClick={skipTweetyDay}>
+            ⏩ Skip Tweety forward 1 day
+          </button>
+          <button className="secondary-btn" type="button" onClick={giveTweetyEgg}>
+            🥚 Give Tweety an egg now
+          </button>
+          <button className="secondary-btn" type="button" onClick={forceTweetyHatch}>
+            🐣 Force egg to hatch now
+          </button>
+          <button className="secondary-btn" type="button" onClick={advanceTweetyStage}>
+            🌱 Advance Tweety to next growth stage
           </button>
         </div>
       </section>
