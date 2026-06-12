@@ -14,6 +14,8 @@ import {
   tweetyTodayKey,
   tweetyCareState,
   tweetySimpleMood,
+  nextCareWindow,
+  windowsDoneToday,
   tweetyGrowth,
   tweetyGrowthProgress,
   MOOD_FACE,
@@ -496,6 +498,9 @@ export function TweetyHomeCard({
 }) {
   const name = tweety?.name || 'Tweety'
   const care = tweetyCareState(tweety)
+  const win = care.window
+  const next = nextCareWindow()
+  const windowsDone = windowsDoneToday(tweety)
   const mood = tweetySimpleMood(tweety)
   const face = MOOD_FACE[mood] || MOOD_FACE.content
   const growth = tweetyGrowth(tweety)
@@ -541,36 +546,55 @@ export function TweetyHomeCard({
 
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
-      <div className="tweety-care-row">
-        <button
-          className={`tweety-care-btn${care.fed ? ' done' : ''}`}
-          type="button"
-          onClick={onFeed}
-          disabled={care.fed}
-        >
-          <span className="tweety-care-icon" aria-hidden="true">🌾</span>
-          <span>{care.fed ? 'Fed ✓' : 'Feed'}</span>
-        </button>
-        <button
-          className={`tweety-care-btn${care.watered ? ' done' : ''}`}
-          type="button"
-          onClick={onWater}
-          disabled={care.watered}
-        >
-          <span className="tweety-care-icon" aria-hidden="true">💧</span>
-          <span>{care.watered ? 'Watered ✓' : 'Water'}</span>
-        </button>
-        <button
-          className={`tweety-care-btn${care.played ? ' done' : ''}`}
-          type="button"
-          onClick={onPlay}
-          disabled={care.played}
-        >
-          <span className="tweety-care-icon" aria-hidden="true">💕</span>
-          <span>{care.played ? 'Played ✓' : 'Play'}</span>
-        </button>
-      </div>
-      <p className="tweety-hint">Feed, water &amp; play — each refreshes every 8 hours 💛</p>
+      {win ? (
+        <>
+          <div className="tweety-care-row">
+            <button
+              className={`tweety-care-btn${care.fed ? ' done' : ''}`}
+              type="button"
+              onClick={onFeed}
+              disabled={care.fed}
+            >
+              <span className="tweety-care-icon" aria-hidden="true">🌾</span>
+              <span>{care.fed ? 'Fed ✓' : 'Feed'}</span>
+            </button>
+            <button
+              className={`tweety-care-btn${care.watered ? ' done' : ''}`}
+              type="button"
+              onClick={onWater}
+              disabled={care.watered}
+            >
+              <span className="tweety-care-icon" aria-hidden="true">💧</span>
+              <span>{care.watered ? 'Watered ✓' : 'Water'}</span>
+            </button>
+            <button
+              className={`tweety-care-btn${care.played ? ' done' : ''}`}
+              type="button"
+              onClick={onPlay}
+              disabled={care.played}
+            >
+              <span className="tweety-care-icon" aria-hidden="true">💕</span>
+              <span>{care.played ? 'Played ✓' : 'Play'}</span>
+            </button>
+          </div>
+          <p className="tweety-hint">
+            {win.emoji} {win.label} care window — feed, water &amp; play before {win.end}:00
+            {windowsDone > 0 ? ` · ${windowsDone}/3 windows today` : ''} 💛
+          </p>
+        </>
+      ) : (
+        <div className="tweety-resting">
+          <span className="tweety-resting-emoji" aria-hidden="true">😴</span>
+          <p className="tweety-resting-line">{name} is resting</p>
+          <p className="tweety-resting-sub">
+            Next care window ({next.window.emoji} {next.window.label}) in {next.hoursUntil} hour
+            {next.hoursUntil === 1 ? '' : 's'}
+          </p>
+          {windowsDone > 0 && (
+            <p className="tweety-resting-sub">{windowsDone}/3 care windows done today 💛</p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

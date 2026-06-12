@@ -2815,6 +2815,102 @@ textarea:focus {
   text-align: center;
 }
 
+/* --- First-mission debrief popup --- */
+.welcome-mission-card {
+  width: min(380px, 100%);
+  display: grid;
+  gap: 12px;
+  text-align: center;
+  border-radius: 26px;
+  padding: 26px 22px;
+  box-shadow: var(--shadow-strong);
+  animation: modal-in 240ms ease both;
+}
+
+.welcome-mission-code {
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+/* The debrief reads like a classified dossier. */
+.welcome-mission-debrief {
+  border: 1px solid rgba(60, 70, 50, 0.5);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(255, 214, 130, 0.18), transparent 55%),
+    linear-gradient(170deg, #20241b, #161a13);
+  color: #f3efe2;
+}
+
+.welcome-mission-seal {
+  font-size: 2.6rem;
+  line-height: 1;
+  animation: badge-pop 320ms ease both;
+}
+
+.welcome-mission-card h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--ink-strong);
+  line-height: 1.15;
+}
+
+.welcome-mission-sub {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.welcome-mission-form {
+  display: grid;
+  gap: 10px;
+}
+
+.welcome-mission-input {
+  width: 100%;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-strong);
+}
+
+.welcome-mission-error {
+  margin: 0;
+  color: var(--rose);
+  font-weight: 800;
+  font-size: 0.84rem;
+}
+
+.welcome-mission-later {
+  justify-self: center;
+}
+
+.welcome-mission-eyebrow {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  font-size: 0.92rem;
+  color: #ffd782;
+}
+
+.welcome-mission-message {
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 600;
+  white-space: pre-line;
+}
+
+.welcome-mission-reward {
+  margin: 0;
+  font-weight: 900;
+  color: #ffe6a8;
+}
+
 .sent-line {
   margin: 0;
   color: var(--leaf-dark);
@@ -3941,6 +4037,36 @@ textarea:focus {
   color: var(--muted);
 }
 
+/* Tweety is resting between care windows — shown instead of the care buttons. */
+.tweety-resting {
+  margin-top: 12px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(120, 132, 150, 0.1);
+  border: 1px dashed rgba(120, 132, 150, 0.35);
+  text-align: center;
+}
+
+.tweety-resting-emoji {
+  font-size: 1.6rem;
+}
+
+.tweety-resting-line {
+  margin: 0;
+  font-weight: 900;
+  color: var(--ink-strong);
+}
+
+.tweety-resting-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .tweety-stats-hero {
   display: flex;
   align-items: center;
@@ -4700,6 +4826,10 @@ textarea:focus {
   .home-stack .tweety-card .tweety-streak-pill { font-size: 0.6rem; padding: 2px 7px; }
   .home-stack .tweety-card .tweety-growth { display: none; }
   .home-stack .tweety-card .tweety-hint { display: none; }
+  .home-stack .tweety-card .tweety-resting { margin-top: 6px; padding: 8px; }
+  .home-stack .tweety-card .tweety-resting-emoji { font-size: 1.3rem; }
+  .home-stack .tweety-card .tweety-resting-line { font-size: 0.95rem; }
+  .home-stack .tweety-card .tweety-resting-sub { font-size: 0.75rem; }
   .home-stack .tweety-care-row { gap: 6px; margin-top: 4px; }
   .home-stack .tweety-care-btn {
     grid-auto-flow: column;

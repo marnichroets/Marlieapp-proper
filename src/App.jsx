@@ -37,6 +37,8 @@ import {
   FIRST_EGG_WARMS,
   firstEggCompanionFor,
   tweetyCareState,
+  currentCareWindow,
+  CARE_WINDOWS,
   getCompanion,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
@@ -160,6 +162,30 @@ function clearIntroSeen() {
     /* ignore */
   }
 }
+
+// One-time hard reset on a new app version. When the stored version doesn't
+// match, we wipe EVERYTHING (all saved data, coins, test sightings, the intro
+// flag) so Pooks starts completely fresh on this deploy. Her login is the
+// default "Pooks / feather", which buildDefaultState restores anyway, so a
+// clean slate keeps her credentials working. Runs once at module load, before
+// loadState reads anything.
+const APP_VERSION = '2.0'
+const APP_VERSION_KEY = 'pooks_app_version'
+
+function ensureAppVersion() {
+  try {
+    if (localStorage.getItem(APP_VERSION_KEY) === APP_VERSION) return
+    localStorage.clear()
+    localStorage.setItem(APP_VERSION_KEY, APP_VERSION)
+  } catch {
+    /* storage unavailable — nothing to reset */
+  }
+  // The intro-seen flag also lives in a cookie (survives localStorage.clear),
+  // so clear it too — a fresh start should replay the welcome intro.
+  clearIntroSeen()
+}
+
+ensureAppVersion()
 
 // Coin earning rules (rebalanced so coins feel valuable).
 const COINS = {
@@ -1380,6 +1406,10 @@ function buildDefaultState() {
       unlockedDateIdeas: [],
       tweetyLetter: 'Dear Tweety, please look after my Pooks for me. 💛 — Marnich',
       marnichCode: '1972',
+      // First-mission secret debrief, shown once on home after the intro.
+      debriefCode: 'MILKSHAKE',
+      debriefMessage:
+        'Welcome to the Bird Council, Field Agent Pooks. Your mission starts now. I have prepared everything. I have also prepared snacks. The snacks are not for you. They are for Tweety. Good luck. — Agent Marnich 🐦',
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -1390,6 +1420,8 @@ function buildDefaultState() {
     messagesMeta: { lastCouncilDay: '', shownCouncil: [] },
     // Last Tweety growth stage we have already celebrated (index into stages).
     tweetyGrowthSeen: 0,
+    // Has Pooks completed her one-time first-mission debrief? (secret code popup)
+    welcomeMissionDone: false,
   }
 }
 
@@ -1760,6 +1792,9 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
+  // First-mission debrief popup (secret code → briefing from Agent Marnich).
+  const [welcomeMission, setWelcomeMission] = useState(false)
+  const welcomeMissionShownRef = useRef(false)
   // True if Tweety hasn't been visited in over 24h (captured once on load).
   const [missedYou] = useState(() => {
     const lv = data.tweety?.lastVisit
@@ -1856,6 +1891,31 @@ function App() {
     document.documentElement.scrollTop = 0
     if (document.body) document.body.scrollTop = 0
   }, [activePage])
+
+  // The first time Pooks lands on Home after the intro, open her secret first
+  // mission debrief. Opens once per session; once she has completed it (or
+  // dismissed it) the persisted flag stops it ever auto-opening again.
+  useEffect(() => {
+    if (welcomeMissionShownRef.current) return undefined
+    if (
+      session?.role !== 'pooks' ||
+      !introSeen ||
+      activePage !== 'home' ||
+      data.welcomeMissionDone
+    ) {
+      return undefined
+    }
+    welcomeMissionShownRef.current = true
+    // Defer the open so we never setState synchronously inside the effect body.
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setWelcomeMission(true)
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [session, introSeen, activePage, data.welcomeMissionDone])
 
   // First app-open of the day: a warm new dispatch from the Bird Council lands
   // in the inbox, with a real SA bird fact she has not seen before.
@@ -2251,26 +2311,52 @@ function App() {
     })
   }
 
-  // Feed / water / play with Tweety. Each action refreshes every 8 hours.
+  // She entered the correct debrief code: award her 100 welcome coins, throw
+  // confetti and permanently mark the first mission complete (so it never shows
+  // again). The modal itself stays open to reveal Agent Marnich's briefing.
+  function unlockWelcomeMission() {
+    setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins + 100,
+        welcomeMissionDone: true,
+      },
+      {
+        title: 'Debrief unlocked! 🕵️',
+        body: 'Welcome to the Bird Council, Field Agent Pooks. +100 welcome coins 🪙',
+        tone: 'success',
+      },
+    )
+  }
+
+  // Feed / water / play with Tweety — only inside one of the three daily care
+  // windows (morning / afternoon / evening). Each action is done once per
+  // window; completing all three windows fills the whole day.
   function careTweety(kind) {
+    const now = new Date()
+    const win = currentCareWindow(now)
+    if (!win) return // Tweety is resting between care windows
     const field = kind === 'water' ? 'watered' : kind === 'play' ? 'played' : 'fed'
-    // 8-hour window: block only if this action was done within the last 8h.
-    const careNow = tweetyCareState(data.tweety)
-    if (careNow[field]) return
+    const careNow = tweetyCareState(data.tweety, now)
+    if (careNow[field]) return // already done in this window
 
     playChirp(kind)
     const key = tweetyTodayKey()
-    const today = data.tweety?.care?.[key] || { fed: false, watered: false, played: false }
-    const nextToday = { ...today, [field]: true }
+    // Is this window now fully complete (feed + water + play) after this action?
+    const windowComplete = ['fed', 'watered', 'played'].every((f) => f === field || careNow[f])
+    const today = data.tweety?.care?.[key] || {}
+    const nextToday = windowComplete ? { ...today, [win.key]: true } : today
     const nextTweety = {
       ...data.tweety,
       care: { ...(data.tweety?.care || {}), [key]: nextToday },
-      careAt: { ...(data.tweety?.careAt || {}), [field]: new Date().toISOString() },
+      careAt: { ...(data.tweety?.careAt || {}), [field]: now.toISOString() },
     }
 
     let coins = COINS.tweetyCare
     let bonusNote = ''
-    const becameFull = nextToday.fed && nextToday.watered && nextToday.played
+    // The whole day is "full" once all three care windows are complete.
+    const becameFull = windowComplete && CARE_WINDOWS.every((w) => nextToday[w.key])
     let newStreak = 0
     if (becameFull) {
       newStreak = tweetyStreak(nextTweety)
@@ -4225,6 +4311,14 @@ function App() {
         onClose={() => setRewardUnlockQueue((current) => current.slice(1))}
       />
       <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
+      {welcomeMission && (
+        <WelcomeMissionModal
+          code={data.settings.debriefCode}
+          message={data.settings.debriefMessage}
+          onUnlock={unlockWelcomeMission}
+          onClose={() => setWelcomeMission(false)}
+        />
+      )}
 
       <header className="app-header">
         <div className="brand-wrap">
@@ -4696,6 +4790,87 @@ function RevealModal({ reveal, onClose }) {
         <button className="primary-btn wide big-btn" type="button" onClick={onClose}>
           Yay 💛
         </button>
+      </article>
+    </div>
+  )
+}
+
+// First-mission debrief: she enters a secret code to unlock a funny classified
+// briefing from Agent Marnich (and 100 welcome coins). Two phases: enter the
+// code, then read the debrief.
+function WelcomeMissionModal({ code, message, onUnlock, onClose }) {
+  const [phase, setPhase] = useState('code')
+  const [entry, setEntry] = useState('')
+  const [error, setError] = useState(false)
+
+  function submit(event) {
+    event.preventDefault()
+    const expected = String(code || 'MILKSHAKE').trim().toUpperCase()
+    if (entry.trim().toUpperCase() === expected) {
+      setError(false)
+      setPhase('debrief')
+      onUnlock()
+    } else {
+      setError(true)
+    }
+  }
+
+  return (
+    <div className="reward-modal-backdrop" role="presentation">
+      <article
+        className={`welcome-mission-card welcome-mission-${phase}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcome-mission-title"
+      >
+        {phase === 'code' ? (
+          <>
+            <div className="welcome-mission-seal" aria-hidden="true">🪶</div>
+            <h2 id="welcome-mission-title">The Bird Council has issued your first mission</h2>
+            <p className="welcome-mission-sub">
+              Enter the debrief code to receive your briefing from Agent Marnich.
+            </p>
+            <form className="welcome-mission-form" onSubmit={submit}>
+              <input
+                className="welcome-mission-input"
+                value={entry}
+                onChange={(e) => {
+                  setEntry(e.target.value)
+                  setError(false)
+                }}
+                placeholder="DEBRIEF CODE"
+                aria-label="Debrief code"
+                autoFocus
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck="false"
+              />
+              {error && (
+                <p className="welcome-mission-error">
+                  That code isn&apos;t right. Ask Agent Marnich for the debrief code 🕵️
+                </p>
+              )}
+              <button type="submit" className="primary-btn wide big-btn">
+                Submit code 🔓
+              </button>
+            </form>
+            <button type="button" className="text-btn welcome-mission-later" onClick={onClose}>
+              Maybe later
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="welcome-mission-seal classified" aria-hidden="true">🕵️</div>
+            <p className="welcome-mission-eyebrow" id="welcome-mission-title">
+              DEBRIEF UNLOCKED — Agent Marnich reporting
+            </p>
+            <p className="welcome-mission-message">{message}</p>
+            <p className="welcome-mission-reward">+100 welcome coins 🪙</p>
+            <button type="button" className="primary-btn wide big-btn" onClick={onClose}>
+              Begin my mission 🪶
+            </button>
+          </>
+        )}
       </article>
     </div>
   )
@@ -8735,6 +8910,30 @@ function AdminPage({
           onChange={(event) => updateSetting('marnichDailyMessage', event.target.value)}
           placeholder="A little message under today's mission"
         />
+      </section>
+
+      <section className="soft-card full-span">
+        <h3>First-mission debrief 🕵️</h3>
+        <p className="fine-print">
+          A one-time secret popup on Pooks’ Home, just after the intro. She types the debrief
+          code to unlock your briefing and earn 100 welcome coins.
+        </p>
+        <label>
+          Debrief code (what she must type)
+          <input
+            value={data.settings.debriefCode || ''}
+            onChange={(event) => updateSetting('debriefCode', event.target.value)}
+            placeholder="MILKSHAKE"
+          />
+        </label>
+        <label>
+          Debrief message from Agent Marnich
+          <textarea
+            value={data.settings.debriefMessage || ''}
+            onChange={(event) => updateSetting('debriefMessage', event.target.value)}
+            placeholder="Welcome to the Bird Council, Field Agent Pooks…"
+          />
+        </label>
       </section>
 
       <section className="soft-card full-span">

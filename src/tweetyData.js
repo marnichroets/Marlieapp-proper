@@ -35,43 +35,89 @@ export function firstEggCompanionFor(id) {
   return TWEETY_COMPANIONS[id % TWEETY_COMPANIONS.length]?.id || TWEETY_COMPANIONS[0].id
 }
 
-// ---- Simple 8-hour care windows + 5 moods ----------------------------------
-export const CARE_RESET_MS = 8 * 60 * 60 * 1000
-const SAD_AFTER_MS = 12 * 60 * 60 * 1000
+// ---- Three daily care windows (a natural routine, not a timer game) --------
+// Tweety is cared for three times a day inside fixed windows. Inside a window
+// she can feed, water AND play once each; outside every window she is resting.
+// Completing all three windows in a day = full happiness and the day counts
+// toward her streak. Missing a window (it closes uncompleted) makes her a
+// little sad.
+export const CARE_WINDOWS = [
+  { key: 'morning', label: 'Morning', emoji: '🌅', start: 6, end: 10 },
+  { key: 'afternoon', label: 'Afternoon', emoji: '☀️', start: 12, end: 16 },
+  { key: 'evening', label: 'Evening', emoji: '🌙', start: 18, end: 22 },
+]
 
-function withinMs(iso, ms) {
-  if (!iso) return false
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return false
-  return Date.now() - then <= ms
+// The window we're inside right now, or null if Tweety is resting.
+export function currentCareWindow(now = new Date()) {
+  const h = now.getHours()
+  return CARE_WINDOWS.find((w) => h >= w.start && h < w.end) || null
 }
 
-// Which of feed/water/play are currently "done" (within the last 8 hours).
-export function tweetyCareState(tweety) {
+// The next window to open and how many whole hours until it does.
+export function nextCareWindow(now = new Date()) {
+  const h = now.getHours() + now.getMinutes() / 60
+  for (const w of CARE_WINDOWS) {
+    if (h < w.start) return { window: w, hoursUntil: Math.max(1, Math.ceil(w.start - h)) }
+  }
+  // Past the last window today — the next one is tomorrow morning.
+  const first = CARE_WINDOWS[0]
+  return { window: first, hoursUntil: Math.max(1, Math.ceil(24 - h + first.start)) }
+}
+
+// The moment the given window started today (used to scope careAt timestamps).
+function windowStartTime(window, now = new Date()) {
+  const d = new Date(now)
+  d.setHours(window.start, 0, 0, 0)
+  return d.getTime()
+}
+
+// Which of feed/water/play have been done WITHIN the current window. Outside a
+// window everything reads false and `window` is null (→ resting).
+export function tweetyCareState(tweety, now = new Date()) {
+  const win = currentCareWindow(now)
+  if (!win) return { fed: false, watered: false, played: false, window: null }
   const at = tweety?.careAt || {}
+  const start = windowStartTime(win, now)
+  const inWindow = (iso) => {
+    if (!iso) return false
+    const t = new Date(iso).getTime()
+    return !Number.isNaN(t) && t >= start
+  }
   return {
-    fed: withinMs(at.fed, CARE_RESET_MS),
-    watered: withinMs(at.watered, CARE_RESET_MS),
-    played: withinMs(at.played, CARE_RESET_MS),
+    fed: inWindow(at.fed),
+    watered: inWindow(at.watered),
+    played: inWindow(at.played),
+    window: win,
   }
 }
 
-// Five clear moods based on the 8h/12h care windows.
-export function tweetySimpleMood(tweety) {
-  const at = tweety?.careAt || {}
-  const fed = withinMs(at.fed, CARE_RESET_MS)
-  const watered = withinMs(at.watered, CARE_RESET_MS)
-  const played = withinMs(at.played, CARE_RESET_MS)
-  const anyRecent =
-    withinMs(at.fed, SAD_AFTER_MS) ||
-    withinMs(at.watered, SAD_AFTER_MS) ||
-    withinMs(at.played, SAD_AFTER_MS)
+// How many of today's windows have been fully completed (feed+water+play).
+export function windowsDoneToday(tweety) {
+  const day = tweety?.care?.[dayKey(0)] || {}
+  return CARE_WINDOWS.filter((w) => day[w.key]).length
+}
 
-  if (!anyRecent) return 'sad'
-  if (fed && watered && played) return 'happy'
-  if (!fed) return 'hungry'
-  if (!watered) return 'thirsty'
-  return 'content'
+// Has a window already CLOSED today without being completed? (→ a little sad.)
+function missedAWindow(tweety, now = new Date()) {
+  const day = tweety?.care?.[dayKey(0)] || {}
+  const h = now.getHours()
+  return CARE_WINDOWS.some((w) => h >= w.end && !day[w.key])
+}
+
+// Five clear moods built from the window routine.
+export function tweetySimpleMood(tweety, now = new Date()) {
+  if (windowsDoneToday(tweety) === 3) return 'happy'
+  const care = tweetyCareState(tweety, now)
+  const missed = missedAWindow(tweety, now)
+  if (care.window) {
+    if (care.fed && care.watered && care.played) return 'content'
+    if (!care.fed) return missed && !care.watered && !care.played ? 'sad' : 'hungry'
+    if (!care.watered) return 'thirsty'
+    return 'content'
+  }
+  // Resting between windows.
+  if (windowsDoneToday(tweety) > 0) return 'content'
+  return missed ? 'sad' : 'content'
 }
 
 export const MOOD_FACE = {
@@ -231,12 +277,14 @@ export function tweetyTodayKey() {
   return dayKey(0)
 }
 
+// Today's per-window completion map, e.g. { morning: true, evening: true }.
 export function tweetyToday(tweety) {
-  return tweety?.care?.[dayKey(0)] || { fed: false, watered: false, played: false }
+  return tweety?.care?.[dayKey(0)] || {}
 }
 
+// A day is "fully cared for" only when all three care windows were completed.
 function caredFully(day) {
-  return Boolean(day && day.fed && day.watered && day.played)
+  return Boolean(day && CARE_WINDOWS.every((w) => day[w.key]))
 }
 
 // Consecutive fully-cared days ending today or yesterday.
@@ -276,15 +324,14 @@ export function tweetyLongestStreak(tweety) {
   return best
 }
 
-// Gentle mood: only truly "sad" after a whole forgotten day.
-// neverSad (from store perks like the Infinite Feeder / Playground) floors it at content.
+// Home-screen mood tint (happy / content / sad), derived from the window mood.
+// neverSad (from store perks like the Infinite Feeder / Playground) floors it
+// at content.
 export function tweetyMood(tweety, { neverSad = false } = {}) {
-  const today = tweetyToday(tweety)
-  const doneCount = [today.fed, today.watered, today.played].filter(Boolean).length
-  if (doneCount === 3) return 'happy'
-  if (doneCount > 0) return 'content'
-  if (caredFully(tweety?.care?.[dayKey(1)])) return 'content'
-  return neverSad ? 'content' : 'sad'
+  const mood = tweetySimpleMood(tweety)
+  if (mood === 'happy') return 'happy'
+  if (mood === 'sad') return neverSad ? 'content' : 'sad'
+  return 'content'
 }
 
 const LEVELS = [

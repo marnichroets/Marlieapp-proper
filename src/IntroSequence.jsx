@@ -3,10 +3,13 @@
 // moving to the NEXT screen only happens when she taps the arrow, or taps the
 // screen (first tap fast-forwards the reveal, second tap advances).
 //
-// No music — silence is the default. Instead, subtle Web-Audio bird sound
-// effects play at key moments (a distant Hadeda when the seal drops, a soft
-// chirp as each polaroid lands, a triumphant birdsong at the verdict, a joyful
-// chorus on accept). The personal-note screen is kept completely silent.
+// No music — silence is the default. Instead, characterful Web-Audio bird
+// calls play at key moments: a loud comedic Hadeda when the seal drops, soft
+// murmuring "meeting" chatter at the Council, a different call as each evidence
+// polaroid lands (flamingo honk, an extra-loud rooster crow, a rapid barbet
+// tok-tok-tok, the iconic Fish Eagle), a Fish-Eagle-plus-Hadeda fanfare at the
+// verdict, cute chick cheeps when she meets Tweety, and a full chorus explosion
+// on accept. The personal-note screen is kept completely silent.
 import { useEffect, useRef, useState } from 'react'
 import './IntroSequence.css'
 import './IntroExtras.css'
@@ -121,16 +124,18 @@ const TWEETY_LINES = [
   'Unlike Field Agent Hadeda.',
 ]
 
+// The personal note — in Afrikaans, revealed slowly line by line in silence,
+// with the photo of them together fading in at the end.
 const NOTE_LINES = [
-  'I built this for you',
-  'because you light up every single time you see a bird.',
-  'Your eyes go wide and you grab my arm',
-  'and say look, look —',
-  'and honestly, watching you',
-  'is better than watching any bird.',
-  'This app is yours.',
-  'The birds are waiting.',
-  'Now go find some birds, Pooks. 🐦',
+  'Ek het dit vir jou gebou',
+  "omdat jy elke keer oplig wanneer jy 'n voël sien.",
+  'Jou oë word groot en jy gryp my arm',
+  'en sê kyk, kyk —',
+  'en eerlik, om vir jou te kyk',
+  'is beter as om na enige voël te kyk.',
+  'Hierdie app is joune.',
+  'Die voëls wag vir jou.',
+  'Gaan soek nou voëls, Pooks. 🐦',
   '— Marnich',
 ]
 
@@ -197,7 +202,7 @@ function thud() {
 }
 
 // A single distant Hadeda — the classic nasal "ha-ha-haaa", quietened by a
-// distance factor so it feels far away.
+// distance factor so it feels far away. Used for the verdict chorus.
 function hadedaCall(distance = 1) {
   const ctx = getCtx()
   if (!ctx) return
@@ -233,6 +238,237 @@ function hadedaCall(distance = 1) {
   }
 }
 
+// A LOUD, comedic Hadeda right in your face — the "haa-haa-HAA-de-DAH!" that
+// makes everyone in earshot jump and then laugh. Screen 1, when the seal drops.
+function loudHadedaCall() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    const notes = [
+      [0.0, 360, 0.18, 0.5],
+      [0.22, 300, 0.18, 0.5],
+      [0.46, 420, 0.2, 0.58], // the comedic upward swing
+      [0.72, 520, 0.46, 0.62], // "...DAAAH!"
+    ]
+    notes.forEach(([t, f, dur, vol]) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const filt = ctx.createBiquadFilter()
+      filt.type = 'bandpass'
+      filt.frequency.value = f * 2.1
+      filt.Q.value = 5
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(f * 1.08, now + t)
+      osc.frequency.exponentialRampToValueAtTime(f, now + t + 0.1)
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(vol, now + t + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + dur)
+      osc.connect(filt)
+      filt.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + dur + 0.05)
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+// Soft overlapping murmurs — quiet random chirps that sound like a room full of
+// birds muttering through an agenda. Screen 2, the Council meeting.
+function murmurChatter() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    for (let i = 0; i < 14; i += 1) {
+      const t = Math.random() * 2.2
+      const f = 380 + Math.random() * 520
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(f, now + t)
+      osc.frequency.exponentialRampToValueAtTime(f * (0.9 + Math.random() * 0.3), now + t + 0.08)
+      const vol = 0.03 + Math.random() * 0.03
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(vol, now + t + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.12)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + 0.16)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+// A nasal goose-like double honk — Evidence F, the flamingos.
+function flamingoHonk() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    ;[0, 0.34].forEach((t) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const filt = ctx.createBiquadFilter()
+      filt.type = 'bandpass'
+      filt.frequency.value = 520
+      filt.Q.value = 4
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(196, now + t)
+      osc.frequency.linearRampToValueAtTime(233, now + t + 0.1)
+      osc.frequency.linearRampToValueAtTime(180, now + t + 0.26)
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(0.3, now + t + 0.04)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.3)
+      osc.connect(filt)
+      filt.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + 0.34)
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+// An EXTRA-LOUD, proud, slightly ridiculous "cock-a-doodle-dooo" with a long
+// deflating finale — Evidence G, the rooster.
+function roosterCrow() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    const syllables = [
+      [0.0, 520, 0.14, 0.7],
+      [0.18, 660, 0.12, 0.72],
+      [0.34, 600, 0.16, 0.76],
+      [0.54, 700, 0.58, 0.82], // the loud, long, comically wavering finale
+    ]
+    syllables.forEach(([t, f, dur, vol], i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const filt = ctx.createBiquadFilter()
+      filt.type = 'bandpass'
+      filt.frequency.value = f * 1.8
+      filt.Q.value = 7
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(f, now + t)
+      if (i === 3) {
+        osc.frequency.linearRampToValueAtTime(f * 1.06, now + t + 0.2)
+        osc.frequency.linearRampToValueAtTime(f * 0.97, now + t + 0.38)
+        osc.frequency.exponentialRampToValueAtTime(f * 0.58, now + t + dur)
+      } else {
+        osc.frequency.linearRampToValueAtTime(f * 1.08, now + t + dur * 0.6)
+      }
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(vol, now + t + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + dur)
+      osc.connect(filt)
+      filt.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + dur + 0.05)
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+// A rapid clipped "tok-tok-tok-tok" — Evidence H, the barbet.
+function barbetCall() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    for (let i = 0; i < 8; i += 1) {
+      const t = i * 0.11
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(1180, now + t)
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(0.16, now + t + 0.008)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.06)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + 0.08)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+// The iconic African Fish Eagle — a high opening yelp tumbling into descending
+// "kyow-kow-kow". Evidence I, and the verdict fanfare.
+function fishEagleCall() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    const notes = [
+      [0.0, 1600, 0.3, 0.26],
+      [0.36, 1500, 0.18, 0.24],
+      [0.6, 1320, 0.18, 0.22],
+      [0.84, 1180, 0.2, 0.2],
+      [1.08, 1040, 0.26, 0.18],
+    ]
+    notes.forEach(([t, f, dur, vol]) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(f * 1.04, now + t)
+      osc.frequency.exponentialRampToValueAtTime(f * 0.92, now + t + dur)
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(vol, now + t + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + dur)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + dur + 0.05)
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+// Soft, cute, tiny rising peeps — Screen 11, meeting Tweety the chick.
+function chickCheep() {
+  const ctx = getCtx()
+  if (!ctx) return
+  try {
+    const now = ctx.currentTime
+    ;[0, 0.2, 0.42].forEach((t, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      const base = 1500 + i * 90
+      osc.frequency.setValueAtTime(base, now + t)
+      osc.frequency.exponentialRampToValueAtTime(base * 1.5, now + t + 0.07)
+      osc.frequency.exponentialRampToValueAtTime(base * 1.2, now + t + 0.14)
+      gain.gain.setValueAtTime(0.0001, now + t)
+      gain.gain.exponentialRampToValueAtTime(0.12, now + t + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.15)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now + t)
+      osc.stop(now + t + 0.18)
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+// Triumphant Fish Eagle followed by a chorus of Hadedas — Screen 8, the verdict.
+function verdictFanfare() {
+  fishEagleCall()
+  ;[200, 500, 800].forEach((ms) => window.setTimeout(() => hadedaCall(1), ms))
+}
+
 // A bright rising flourish — the triumphant birdsong at the verdict.
 function birdsongBurst() {
   const ctx = getCtx()
@@ -259,33 +495,47 @@ function birdsongBurst() {
   }
 }
 
-// A joyful little chorus — the celebration when she accepts.
-function birdChorus() {
+// A full, joyful chorus explosion — the celebration when she accepts: a rising
+// birdsong burst layered with eagles, a hadeda, a flamingo, a barbet roll and a
+// scatter of happy chirps.
+function fullChorusExplosion() {
   birdsongBurst()
-  ;[120, 260, 420, 560, 720].forEach((ms, i) =>
-    window.setTimeout(() => softChirp(i % 2 ? 'play' : 'water'), ms),
+  fishEagleCall()
+  window.setTimeout(() => barbetCall(), 200)
+  window.setTimeout(() => loudHadedaCall(), 320)
+  window.setTimeout(() => flamingoHonk(), 480)
+  ;[100, 240, 400, 560, 720, 880].forEach((ms, i) =>
+    window.setTimeout(() => softChirp(['feed', 'water', 'play'][i % 3]), ms),
   )
 }
 
 function playBeatSound(screen, beat) {
   if (isEvidence(screen)) {
-    if (beat === 1) softChirp('play') // polaroid lands
+    if (beat === 1) {
+      // A different call as each evidence polaroid lands.
+      const id = EVIDENCE[screen - EVI_FIRST]?.id
+      if (id === 'f') flamingoHonk()
+      else if (id === 'g') roosterCrow()
+      else if (id === 'h') barbetCall()
+      else if (id === 'i') fishEagleCall()
+    }
     return
   }
   if (screen === 1) {
     if (beat === 1) {
       thud() // wax seal drops
-      hadedaCall(3) // a single distant Hadeda
+      loudHadedaCall() // a loud, funny Hadeda right on cue
     }
   } else if (screen === 2) {
-    if (beat === 3) thud() // the gavel
+    if (beat === 1) murmurChatter() // soft meeting murmur
+    else if (beat === 3) thud() // the gavel
   } else if (screen === 7) {
     if (beat === 5) thud() // "Enough."
     else if (beat === 8) softChirp('play') // UNANIMOUS sparkle
   } else if (screen === 8) {
-    if (beat === 1) birdsongBurst() // triumphant verdict
+    if (beat === 1) verdictFanfare() // triumphant Fish Eagle + Hadeda chorus
   } else if (screen === 11) {
-    if (beat === 3) softChirp('feed') // "This is Tweety."
+    if (beat === 3) chickCheep() // "This is Tweety."
   }
   // screen 12 (personal note): intentionally silent.
 }
@@ -419,7 +669,7 @@ export default function IntroSequence({ onComplete, onAccept }) {
     done.current = true
     onAccept?.()
     setBursting(true)
-    birdChorus()
+    fullChorusExplosion()
     setTimeout(() => setFlash(true), 500)
     setTimeout(() => onComplete(), 2700)
   }
