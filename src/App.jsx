@@ -7136,6 +7136,12 @@ function RewardsPage({
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
     { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
+  // For now the Gifts page shows ONLY the Milkshake Date. Every other shop item
+  // and gift section is kept in code but hidden. To bring them back later, add
+  // their ids to visibleShopIds and/or flip showOtherGiftSections to true.
+  const visibleShopIds = ['milkshakeDate']
+  const visibleShopItems = shopItems.filter((item) => visibleShopIds.includes(item.id))
+  const showOtherGiftSections = false
 
   return (
     <div className="page-grid surprises-page">
@@ -7159,24 +7165,30 @@ function RewardsPage({
           </div>
         </div>
         <div className="shop-grid">
-          {shopItems.map((item) => (
-            <article className="shop-tile" key={item.id}>
-              <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
-              <h3>{item.name}</h3>
-              <small>{item.hint}</small>
-              <button
-                className="primary-btn wide big-btn"
-                type="button"
-                disabled={coins < item.cost}
-                onClick={item.action}
-              >
-                {item.cost} 🪙
-              </button>
-            </article>
-          ))}
+          {visibleShopItems.length === 0 ? (
+            <EmptyState text="The shop is resting for now. 🪶" />
+          ) : (
+            visibleShopItems.map((item) => (
+              <article className="shop-tile" key={item.id}>
+                <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
+                <h3>{item.name}</h3>
+                <small>{item.hint}</small>
+                <button
+                  className="primary-btn wide big-btn"
+                  type="button"
+                  disabled={coins < item.cost}
+                  onClick={item.action}
+                >
+                  {item.cost} 🪙
+                </button>
+              </article>
+            ))
+          )}
         </div>
       </section>
 
+      {showOtherGiftSections && (
+        <>
       <section className="soft-card full-span">
         <div className="section-heading">
           <div>
@@ -7291,6 +7303,8 @@ function RewardsPage({
           </div>
         )}
       </section>
+        </>
+      )}
     </div>
   )
 }
