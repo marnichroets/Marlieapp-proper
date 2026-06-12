@@ -376,12 +376,12 @@
   text-overflow: ellipsis;
 }
 
-/* Mobile (≤430px): a tight strip — header + one row of 80px cards under 130px,
-   swiping smoothly. Afrikaans name + subtitle + eyebrow are dropped to save
-   vertical space. */
+/* Mobile (≤430px): a tight strip — header + one row of 75px cards, ~120px tall
+   total, swiping smoothly. Afrikaans name + subtitle + eyebrow are dropped to
+   save vertical space. */
 @media (max-width: 430px) {
   .near-you-card {
-    padding: 8px 10px;
+    padding: 6px 8px;
   }
   .near-you-head .eyebrow {
     display: none;
@@ -389,27 +389,27 @@
   .near-you-head h3 {
     margin: 0;
     font-size: 11px;
-    line-height: 1.15;
+    line-height: 1.1;
   }
   .near-you-sub {
     display: none;
   }
   .near-you-scroll {
-    gap: 8px;
-    margin-top: 8px;
-    padding-bottom: 6px;
+    gap: 7px;
+    margin-top: 6px;
+    padding-bottom: 5px;
   }
   .near-you-bird {
-    width: 80px;
-    padding: 5px;
-    gap: 4px;
+    width: 75px;
+    padding: 4px;
+    gap: 3px;
   }
   .near-you-photo {
-    height: 60px;
+    height: 55px;
     aspect-ratio: auto;
   }
   .near-you-name {
-    font-size: 0.64rem;
+    font-size: 9px;
     line-height: 1.1;
   }
   .near-you-afr {

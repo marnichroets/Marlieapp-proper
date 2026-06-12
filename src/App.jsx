@@ -4209,7 +4209,7 @@ function App() {
   }
 
   return (
-    <div className={`app-shell has-bottom-nav season-${season.key}`}>
+    <div className={`app-shell has-bottom-nav season-${season.key}${activePage === 'home' ? ' on-home' : ''}`}>
       <div className="season-wash" aria-hidden="true" />
       <SeasonalAmbient />
       <Toast toast={toast} />
@@ -5001,6 +5001,7 @@ function HomePage({
   resolveWorldEvent,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
+  const [showWorld, setShowWorld] = useState(false)
   const seenLibraryCount = data.birdLibrary.filter((bird) => bird.seen).length
   const collectionProgress = data.birdLibrary.length
     ? Math.round((seenLibraryCount / data.birdLibrary.length) * 100)
@@ -5047,32 +5048,45 @@ function HomePage({
             onOpenStats={() => goTo('tweety')}
           />
 
-          <TweetyWorldCard
-            tweety={data.tweety}
-            event={data.tweety?.worldEvent}
-            onStartIncubate={startIncubate}
-            onWarm={warmEgg}
-            onRapidTap={rapidTapEgg}
-            onEventTap={tapWorldEvent}
-            onEventResolve={() => resolveWorldEvent(true)}
-            onOpenRoom={() => goTo('birdroom')}
-            onOpenSanctuary={() => goTo('sanctuary')}
-            hideLinks
-          />
+          {/* On mobile these three cards are hidden to keep the home screen
+              above the fold; this link reveals them. On desktop the link is
+              hidden and the cards show inline as usual. */}
+          <button
+            type="button"
+            className="home-world-link"
+            onClick={() => setShowWorld((value) => !value)}
+          >
+            🌍 {showWorld ? 'Hide Tweety’s World' : 'Tweety’s World'} →
+          </button>
 
-          <TweetyFamilyCard
-            tweety={data.tweety}
-            onCareBaby={careBaby}
-            onRelease={releaseBaby}
-            onKeep={keepBaby}
-          />
+          <div className={`home-world-extras${showWorld ? ' open' : ''}`}>
+            <TweetyWorldCard
+              tweety={data.tweety}
+              event={data.tweety?.worldEvent}
+              onStartIncubate={startIncubate}
+              onWarm={warmEgg}
+              onRapidTap={rapidTapEgg}
+              onEventTap={tapWorldEvent}
+              onEventResolve={() => resolveWorldEvent(true)}
+              onOpenRoom={() => goTo('birdroom')}
+              onOpenSanctuary={() => goTo('sanctuary')}
+              hideLinks
+            />
 
-          <AviaryCard
-            tweety={data.tweety}
-            aviaryTier={data.store?.aviaryTier || 'basic'}
-            flockDance={Boolean(data.tweety?.flockTreat)}
-            onReleaseAviary={releaseAviaryBird}
-          />
+            <TweetyFamilyCard
+              tweety={data.tweety}
+              onCareBaby={careBaby}
+              onRelease={releaseBaby}
+              onKeep={keepBaby}
+            />
+
+            <AviaryCard
+              tweety={data.tweety}
+              aviaryTier={data.store?.aviaryTier || 'basic'}
+              flockDance={Boolean(data.tweety?.flockTreat)}
+              onReleaseAviary={releaseAviaryBird}
+            />
+          </div>
         </>
       )}
 
