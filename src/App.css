@@ -2574,7 +2574,19 @@ textarea:focus {
 /* --- Home: game feel --- */
 .home-stack {
   display: grid;
+  /* Match .page-grid (the wrapper every other screen uses): minmax(0, 1fr)
+     — not the implicit minmax(auto, 1fr) — so a non-shrinkable child (e.g. the
+     nowrap season-greeting blurb, or the Birds-Near-You strip) can't stretch
+     the column past the viewport and make the whole home screen overflow.
+     This is the root reason home didn't fit on mobile while other screens did. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+}
+
+/* Children must be allowed to shrink so their text wraps/ellipsizes inside the
+   column instead of forcing it wider — same rule .page-grid applies. */
+.home-stack > * {
+  min-width: 0;
 }
 
 .home-topline {
