@@ -5,6 +5,7 @@ import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
+import { EXPLORE_FILTERS, MONTHS, monthlyActivity, birdsNearPotchToday } from './birdExplore'
 import {
   TweetyHomeCard,
   TweetyStatsPage,
@@ -3969,8 +3970,8 @@ function App() {
   // they're only hidden from her menu for now. Admin still sees everything.
   const fullMenu =
     session?.role === 'admin'
-      ? [...menuItems, ['admin', 'Admin', '🔒']]
-      : [['games', 'Bird Battles', '⚔️']]
+      ? [...menuItems, ['explore', 'Explore Birds', '🔍'], ['admin', 'Admin', '🔒']]
+      : [['explore', 'Explore Birds', '🔍'], ['games', 'Bird Battles', '⚔️']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
@@ -4081,6 +4082,7 @@ function App() {
             dailyStreak={dailyStreak}
             completeDailyChallenge={completeDailyChallenge}
             goTo={setActivePage}
+            openBirdProfile={openBirdProfile}
             season={season}
             tweetyView={tweetyView}
             tweetyDancing={tweetyDancing}
@@ -4150,6 +4152,9 @@ function App() {
             openBirdProfile={openBirdProfile}
             goToSpot={() => setActivePage('add')}
           />
+        )}
+        {activePage === 'explore' && (
+          <ExploreBirdsPage data={data} openBirdProfile={openBirdProfile} />
         )}
         {activePage === 'birdProfile' && (
           <BirdProfilePage
@@ -4768,6 +4773,7 @@ function HomePage({
   dailyStreak,
   completeDailyChallenge,
   goTo,
+  openBirdProfile,
   season,
   tweetyView,
   tweetyDancing,
@@ -4801,6 +4807,8 @@ function HomePage({
         <h2>{season.greeting}</h2>
         <p>{season.blurb}</p>
       </section>
+
+      <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />
 
       {missedYou && data.tweety?.companion && (
         <button className="tweety-nudge" type="button" onClick={() => goTo('tweety')}>
@@ -4904,6 +4912,173 @@ function StatCard({ label, value, detail }) {
       <strong>{value}</strong>
       <p>{detail}</p>
     </section>
+  )
+}
+
+// A real bird photo with a graceful fall-back to soft initials when the library
+// has no usable image (placehold.co URLs and broken links both count as "none").
+function FieldGuidePhoto({ bird, className = '' }) {
+  const [errored, setErrored] = useState(false)
+  const usable = bird.imageUrl && !bird.imageUrl.includes('placehold')
+  if (errored || !usable) {
+    return (
+      <div className={`field-guide-photo placeholder-photo ${className}`.trim()} aria-hidden="true">
+        <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
+      </div>
+    )
+  }
+  return (
+    <img
+      className={`field-guide-photo ${className}`.trim()}
+      src={bird.imageUrl}
+      alt={bird.commonName}
+      loading="lazy"
+      onError={() => setErrored(true)}
+    />
+  )
+}
+
+// A tiny Jan→Dec presence chart: twelve little bars, the current month gently
+// highlighted, so she can see at a glance when a bird is around.
+function MonthlyActivityBar({ bird }) {
+  const months = monthlyActivity(bird)
+  const current = new Date().getMonth()
+  return (
+    <div className="month-bar" role="img" aria-label="Activity through the year, January to December">
+      {months.map((value, index) => (
+        <span
+          key={MONTHS[index]}
+          className={`month-cell${index === current ? ' now' : ''}`}
+          title={`${MONTHS[index]}: ${value >= 0.9 ? 'very active' : value >= 0.5 ? 'around' : 'scarce'}`}
+        >
+          <span className="month-fill" style={{ height: `${Math.max(8, Math.round(value * 100))}%` }} />
+          <small>{MONTHS[index][0]}</small>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// Home-screen card: a daily-rotating little watch-list of birds likely near
+// Potchefstroom, so there's always something new to look for. Tap one to read
+// its profile.
+function BirdsNearYouCard({ library, openBirdProfile }) {
+  const birds = useMemo(() => birdsNearPotchToday(library, new Date(), 7), [library])
+  if (!birds.length) return null
+  return (
+    <section className="soft-card near-you-card">
+      <div className="near-you-head">
+        <p className="eyebrow">Out there right now</p>
+        <h3>Birds likely near Potchefstroom today 🐦</h3>
+        <p className="near-you-sub">A fresh little watch-list every day — tap one to read about it.</p>
+      </div>
+      <div className="near-you-scroll">
+        {birds.map((bird) => (
+          <button
+            key={bird.id}
+            type="button"
+            className="near-you-bird"
+            onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
+          >
+            <FieldGuidePhoto bird={bird} className="near-you-photo" />
+            <span className="near-you-name">{bird.commonName}</span>
+            {bird.afrikaansName && <span className="near-you-afr">{bird.afrikaansName}</span>}
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// One card in the Explore field guide: photo, names, monthly activity, habitat
+// and region. Purely for browsing — no coins, no game mechanics.
+function ExploreBirdCard({ bird, onOpen }) {
+  return (
+    <article className="explore-card tappable" onClick={onOpen}>
+      <div className="explore-card-photo-frame">
+        <FieldGuidePhoto bird={bird} className="explore-card-photo" />
+        {bird.category && <span className="explore-card-tag">{bird.category}</span>}
+      </div>
+      <div className="explore-card-body">
+        <h3>{bird.commonName}</h3>
+        {bird.afrikaansName && <p className="explore-afrikaans">{bird.afrikaansName}</p>}
+        <MonthlyActivityBar bird={bird} />
+        <dl className="explore-meta">
+          <div>
+            <dt>Habitat</dt>
+            <dd>{bird.habitat || bird.region || '—'}</dd>
+          </div>
+          <div>
+            <dt>Region</dt>
+            <dd>{bird.whereFoundInSouthAfrica || bird.region || '—'}</dd>
+          </div>
+        </dl>
+      </div>
+    </article>
+  )
+}
+
+// A beautiful, browsable field guide to every bird in the library. Separate from
+// the game collection: no coins, no "caught" — just reading and learning.
+function ExploreBirdsPage({ data, openBirdProfile }) {
+  const [search, setSearch] = useState('')
+  const [filterId, setFilterId] = useState('all')
+  const filter = EXPLORE_FILTERS.find((f) => f.id === filterId) || EXPLORE_FILTERS[0]
+  const searchKey = search.trim().toLowerCase()
+  const birds = data.birdLibrary
+    .filter((bird) => filter.test(bird))
+    .filter((bird) => !searchKey || getBirdSearchText(bird).includes(searchKey))
+    .sort((a, b) => a.commonName.localeCompare(b.commonName))
+
+  return (
+    <div className="page-grid explore-page">
+      <section className="soft-card full-span explore-hero">
+        <p className="eyebrow">A field guide for quiet evenings</p>
+        <h2>Explore Birds 🔍</h2>
+        <p className="explore-hero-sub">
+          Page through every bird in the book — no coins, no game. Just beautiful birds to
+          read about at night.
+        </p>
+      </section>
+
+      <section className="soft-card full-span explore-controls">
+        <label className="explore-search">
+          <span>Search</span>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name…"
+            aria-label="Search birds by name"
+          />
+        </label>
+        <div className="filter-row" aria-label="Field guide filters">
+          {EXPLORE_FILTERS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={filterId === option.id ? 'filter-chip active' : 'filter-chip'}
+              onClick={() => setFilterId(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="explore-count">
+          {birds.length} bird{birds.length === 1 ? '' : 's'}
+        </p>
+      </section>
+
+      <section className="full-span explore-grid" aria-live="polite">
+        {birds.length === 0 && <EmptyState text="No birds match that search yet." />}
+        {birds.map((bird) => (
+          <ExploreBirdCard
+            key={bird.id}
+            bird={bird}
+            onOpen={() => openBirdProfile({ source: 'library', id: bird.id })}
+          />
+        ))}
+      </section>
+    </div>
   )
 }
 
