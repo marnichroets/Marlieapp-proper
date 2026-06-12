@@ -376,29 +376,44 @@
   text-overflow: ellipsis;
 }
 
-/* Mobile (≤430px): shrink the cards so a full row fits and swipes smoothly. */
+/* Mobile (≤430px): a tight strip — header + one row of 80px cards under 130px,
+   swiping smoothly. Afrikaans name + subtitle + eyebrow are dropped to save
+   vertical space. */
 @media (max-width: 430px) {
   .near-you-card {
-    padding: 14px 12px 12px;
+    padding: 8px 10px;
+  }
+  .near-you-head .eyebrow {
+    display: none;
+  }
+  .near-you-head h3 {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+  .near-you-sub {
+    display: none;
   }
   .near-you-scroll {
-    gap: 9px;
+    gap: 8px;
+    margin-top: 8px;
+    padding-bottom: 6px;
   }
   .near-you-bird {
-    width: 90px;
-    padding: 6px;
-    gap: 5px;
+    width: 80px;
+    padding: 5px;
+    gap: 4px;
   }
   .near-you-photo {
-    height: 70px;
+    height: 60px;
     aspect-ratio: auto;
   }
   .near-you-name {
-    font-size: 0.66rem; /* ~9pt */
+    font-size: 0.64rem;
     line-height: 1.1;
   }
   .near-you-afr {
-    font-size: 0.6rem;
+    display: none;
   }
 }
 

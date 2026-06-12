@@ -5000,6 +5000,7 @@ function HomePage({
   tapWorldEvent,
   resolveWorldEvent,
 }) {
+  const [showMissionMsg, setShowMissionMsg] = useState(false)
   const seenLibraryCount = data.birdLibrary.filter((bird) => bird.seen).length
   const collectionProgress = data.birdLibrary.length
     ? Math.round((seenLibraryCount / data.birdLibrary.length) * 100)
@@ -5080,7 +5081,20 @@ function HomePage({
         <h2 className="mission-text">
           {dailyChallenge.main?.text || 'Find one tiny bird moment today'}
         </h2>
-        <p className="mission-message">{data.settings.marnichDailyMessage}</p>
+        {data.settings.marnichDailyMessage && (
+          <div className="mission-message-wrap">
+            <p className={`mission-message${showMissionMsg ? ' expanded' : ''}`}>
+              {data.settings.marnichDailyMessage}
+            </p>
+            <button
+              type="button"
+              className="mission-readmore"
+              onClick={() => setShowMissionMsg((value) => !value)}
+            >
+              {showMissionMsg ? 'Hide note' : 'Read note from Marnich ›'}
+            </button>
+          </div>
+        )}
         <ChallengeProof
           challenge={dailyChallenge.main}
           complete={done}

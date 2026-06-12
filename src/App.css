@@ -2646,6 +2646,21 @@ textarea:focus {
   font-style: italic;
 }
 
+/* "Read more" toggle for the mission note — only shown on mobile (see the
+   max-width: 430px home block); the full note shows inline on larger screens. */
+.mission-readmore {
+  display: none;
+  justify-self: start;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--honey);
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .mission-btn {
   margin-top: 4px;
 }
@@ -4576,6 +4591,83 @@ textarea:focus {
   .magazine-quote {
     font-size: 1.2rem;
   }
+
+  /* ===== Home screen only (390px): compact + reorder above the fold ===== */
+  /* Order: top bar · greeting · mission · birds strip · Tweety · Spot.
+     Everything else (World/Family/Aviary cards, mini-cards) drops below. */
+  .home-stack { gap: 10px; }
+  .home-stack > * { order: 10; }
+  .home-stack > .home-topline { order: 1; }
+  .home-stack > .season-greeting { order: 2; }
+  .home-stack > .mission-card { order: 3; }
+  .home-stack > .near-you-card { order: 4; }
+  .home-stack > .tweety-card { order: 5; }
+  .home-stack > .giant-spot-btn { order: 6; }
+
+  /* Seasonal greeting — compact, one line each. */
+  .home-stack .season-greeting { padding: 8px 0; gap: 2px; }
+  .home-stack .season-greeting h2 { font-size: 1.125rem; line-height: 1.15; }
+  .home-stack .season-greeting p {
+    font-size: 0.8rem;
+    line-height: 1.2;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Today's Mission — compact; the personal note folds behind "read more". */
+  .home-stack .mission-card { padding: 12px; gap: 8px; margin: 8px 0; border-radius: 20px; }
+  .home-stack .mission-text {
+    font-size: 1rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .home-stack .mission-message { display: none; }
+  .home-stack .mission-message.expanded { display: block; }
+  .home-stack .mission-readmore { display: inline-block; }
+  .home-stack .mission-card .challenge-proof button,
+  .home-stack .mission-card .primary-btn,
+  .home-stack .mission-card .secondary-btn { min-height: 44px; }
+
+  /* Tweety card — compact: small bird, inline pills, slim care buttons. */
+  .home-stack .tweety-card { padding: 10px; }
+  .home-stack .tweety-card .section-heading { margin-bottom: 4px; }
+  .home-stack .tweety-card .tweety-stage { padding: 2px 0 0; gap: 2px; }
+  .home-stack .tweety-card .tweety-bird { width: 70px !important; height: 70px !important; }
+  .home-stack .tweety-card .tweety-nest-base { width: 84px; height: 24px; margin-top: -18px; }
+  .home-stack .tweety-card .tweety-level-pill,
+  .home-stack .tweety-card .tweety-streak-pill { font-size: 0.64rem; padding: 3px 8px; }
+  .home-stack .tweety-card .tweety-growth { margin: 4px 4px 0; }
+  .home-stack .tweety-card .tweety-hint { display: none; }
+  .home-stack .tweety-care-row { gap: 6px; margin-top: 6px; }
+  .home-stack .tweety-care-btn {
+    grid-auto-flow: column;
+    align-items: center;
+    gap: 5px;
+    padding: 0 4px;
+    min-height: 40px;
+  }
+  .home-stack .tweety-care-btn .tweety-care-icon { font-size: 1.05rem; }
+
+  /* Spot a Bird — slim full-width bar, sits right below Tweety. */
+  .home-stack .giant-spot-btn {
+    min-height: 48px;
+    grid-auto-flow: column;
+    gap: 8px;
+    font-size: 1.05rem;
+    border-radius: 16px;
+  }
+  .home-stack .giant-spot-emoji { font-size: 1.4rem; }
+
+  /* World card egg basket — collapse the detail; the "N/8 🧺" line is the badge. */
+  .home-stack .egg-basket { padding: 0; }
+  .home-stack .egg-basket .fine-print,
+  .home-stack .egg-basket .basket-row { display: none; }
 }
 
 /* ===================== Tweety World ===================== */
