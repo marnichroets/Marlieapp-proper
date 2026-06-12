@@ -187,6 +187,34 @@ function ensureAppVersion() {
 
 ensureAppVersion()
 
+// One-time silent welcome bonus: the very first time the app loads (after the
+// v2.0 reset cleared this flag), Pooks starts with 500 Feather Coins already in
+// her balance — no popup, no fanfare. The flag is persisted independently of
+// her save data so the bonus is never granted twice.
+const WELCOME_COINS = 500
+const WELCOME_COINS_KEY = 'pooks_welcome_coins_given'
+// One-time "Claim your Milkshake Date 🥤" shop item. Once she buys it, this flag
+// is set and the item never appears in the shop again.
+const MILKSHAKE_CLAIMED_KEY = 'pooks_milkshake_claimed'
+
+function applyWelcomeCoins(state) {
+  try {
+    if (localStorage.getItem(WELCOME_COINS_KEY) === 'true') return state
+    localStorage.setItem(WELCOME_COINS_KEY, 'true')
+    return { ...state, featherCoins: (state.featherCoins || 0) + WELCOME_COINS }
+  } catch {
+    return state
+  }
+}
+
+function milkshakeClaimed() {
+  try {
+    return localStorage.getItem(MILKSHAKE_CLAIMED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
 // Coin earning rules (rebalanced so coins feel valuable).
 const COINS = {
   spot: 30,
@@ -220,6 +248,8 @@ const SHOP = {
   hiddenNote: 200,
   birdProfile: 250,
   dateIdea: 500,
+  // Matches the 500 welcome coins so her first treat can be the milkshake date.
+  milkshakeDate: 500,
 }
 
 // Bottom tab bar (5) + everything else tucked behind the settings menu.
@@ -1406,10 +1436,6 @@ function buildDefaultState() {
       unlockedDateIdeas: [],
       tweetyLetter: 'Dear Tweety, please look after my Pooks for me. 💛 — Marnich',
       marnichCode: '1972',
-      // First-mission secret debrief, shown once on home after the intro.
-      debriefCode: 'MILKSHAKE',
-      debriefMessage:
-        'Welcome to the Bird Council, Field Agent Pooks. Your mission starts now. I have prepared everything. I have also prepared snacks. The snacks are not for you. They are for Tweety. Good luck. — Agent Marnich 🐦',
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -1420,8 +1446,6 @@ function buildDefaultState() {
     messagesMeta: { lastCouncilDay: '', shownCouncil: [] },
     // Last Tweety growth stage we have already celebrated (index into stages).
     tweetyGrowthSeen: 0,
-    // Has Pooks completed her one-time first-mission debrief? (secret code popup)
-    welcomeMissionDone: false,
   }
 }
 
@@ -1468,7 +1492,13 @@ function normalizeTweety(tweety) {
   return next
 }
 
+// loadState wraps the raw loader so the one-time welcome coins are applied to
+// whatever state we end up with (fresh default or restored save).
 function loadState() {
+  return applyWelcomeCoins(loadStateRaw())
+}
+
+function loadStateRaw() {
   const base = buildDefaultState()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -1792,9 +1822,6 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
-  // First-mission debrief popup (secret code → briefing from Agent Marnich).
-  const [welcomeMission, setWelcomeMission] = useState(false)
-  const welcomeMissionShownRef = useRef(false)
   // True if Tweety hasn't been visited in over 24h (captured once on load).
   const [missedYou] = useState(() => {
     const lv = data.tweety?.lastVisit
@@ -1891,31 +1918,6 @@ function App() {
     document.documentElement.scrollTop = 0
     if (document.body) document.body.scrollTop = 0
   }, [activePage])
-
-  // The first time Pooks lands on Home after the intro, open her secret first
-  // mission debrief. Opens once per session; once she has completed it (or
-  // dismissed it) the persisted flag stops it ever auto-opening again.
-  useEffect(() => {
-    if (welcomeMissionShownRef.current) return undefined
-    if (
-      session?.role !== 'pooks' ||
-      !introSeen ||
-      activePage !== 'home' ||
-      data.welcomeMissionDone
-    ) {
-      return undefined
-    }
-    welcomeMissionShownRef.current = true
-    // Defer the open so we never setState synchronously inside the effect body.
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      if (!cancelled) setWelcomeMission(true)
-    }, 0)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [session, introSeen, activePage, data.welcomeMissionDone])
 
   // First app-open of the day: a warm new dispatch from the Bird Council lands
   // in the inbox, with a real SA bird fact she has not seen before.
@@ -2309,25 +2311,6 @@ function App() {
       body: 'It is now waiting in her hidden notes.',
       tone: 'success',
     })
-  }
-
-  // She entered the correct debrief code: award her 100 welcome coins, throw
-  // confetti and permanently mark the first mission complete (so it never shows
-  // again). The modal itself stays open to reveal Agent Marnich's briefing.
-  function unlockWelcomeMission() {
-    setConfetti(Date.now())
-    commit(
-      {
-        ...data,
-        featherCoins: data.featherCoins + 100,
-        welcomeMissionDone: true,
-      },
-      {
-        title: 'Debrief unlocked! 🕵️',
-        body: 'Welcome to the Bird Council, Field Agent Pooks. +100 welcome coins 🪙',
-        tone: 'success',
-      },
-    )
   }
 
   // Feed / water / play with Tweety — only inside one of the three daily care
@@ -4043,6 +4026,28 @@ function App() {
     )
   }
 
+  // One-time "Claim your Milkshake Date 🥤". Sets a localStorage flag so the
+  // item disappears from the shop forever once claimed.
+  function buyMilkshakeDate() {
+    if (milkshakeClaimed()) return
+    if (data.featherCoins < SHOP.milkshakeDate) return notEnoughCoins()
+    try {
+      localStorage.setItem(MILKSHAKE_CLAIMED_KEY, 'true')
+    } catch {
+      /* storage unavailable — the coin deduction below still records intent */
+    }
+    setConfetti(Date.now())
+    setReveal({
+      tone: 'date',
+      title: 'Milkshake Date claimed 🥤',
+      body: 'It’s a date! Marnich owes you one real milkshake date. 💛',
+    })
+    commit(
+      { ...data, featherCoins: data.featherCoins - SHOP.milkshakeDate },
+      { title: 'Milkshake Date claimed 🥤', body: 'A real milkshake date with Marnich 💛' },
+    )
+  }
+
   function unlockBirdProfile(birdId) {
     if (data.featherCoins < SHOP.birdProfile) return notEnoughCoins()
     const already = data.settings.unlockedProfiles || []
@@ -4311,14 +4316,6 @@ function App() {
         onClose={() => setRewardUnlockQueue((current) => current.slice(1))}
       />
       <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
-      {welcomeMission && (
-        <WelcomeMissionModal
-          code={data.settings.debriefCode}
-          message={data.settings.debriefMessage}
-          onUnlock={unlockWelcomeMission}
-          onClose={() => setWelcomeMission(false)}
-        />
-      )}
 
       <header className="app-header">
         <div className="brand-wrap">
@@ -4474,6 +4471,7 @@ function App() {
             buyMysteryBox={buyMysteryBox}
             buyHiddenNote={buyHiddenNote}
             buyDateIdea={buyDateIdea}
+            buyMilkshakeDate={buyMilkshakeDate}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
             buyWearable={buyWearable}
             giftWearable={giftWearable}
@@ -4790,87 +4788,6 @@ function RevealModal({ reveal, onClose }) {
         <button className="primary-btn wide big-btn" type="button" onClick={onClose}>
           Yay 💛
         </button>
-      </article>
-    </div>
-  )
-}
-
-// First-mission debrief: she enters a secret code to unlock a funny classified
-// briefing from Agent Marnich (and 100 welcome coins). Two phases: enter the
-// code, then read the debrief.
-function WelcomeMissionModal({ code, message, onUnlock, onClose }) {
-  const [phase, setPhase] = useState('code')
-  const [entry, setEntry] = useState('')
-  const [error, setError] = useState(false)
-
-  function submit(event) {
-    event.preventDefault()
-    const expected = String(code || 'MILKSHAKE').trim().toUpperCase()
-    if (entry.trim().toUpperCase() === expected) {
-      setError(false)
-      setPhase('debrief')
-      onUnlock()
-    } else {
-      setError(true)
-    }
-  }
-
-  return (
-    <div className="reward-modal-backdrop" role="presentation">
-      <article
-        className={`welcome-mission-card welcome-mission-${phase}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="welcome-mission-title"
-      >
-        {phase === 'code' ? (
-          <>
-            <div className="welcome-mission-seal" aria-hidden="true">🪶</div>
-            <h2 id="welcome-mission-title">The Bird Council has issued your first mission</h2>
-            <p className="welcome-mission-sub">
-              Enter the debrief code to receive your briefing from Agent Marnich.
-            </p>
-            <form className="welcome-mission-form" onSubmit={submit}>
-              <input
-                className="welcome-mission-input"
-                value={entry}
-                onChange={(e) => {
-                  setEntry(e.target.value)
-                  setError(false)
-                }}
-                placeholder="DEBRIEF CODE"
-                aria-label="Debrief code"
-                autoFocus
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck="false"
-              />
-              {error && (
-                <p className="welcome-mission-error">
-                  That code isn&apos;t right. Ask Agent Marnich for the debrief code 🕵️
-                </p>
-              )}
-              <button type="submit" className="primary-btn wide big-btn">
-                Submit code 🔓
-              </button>
-            </form>
-            <button type="button" className="text-btn welcome-mission-later" onClick={onClose}>
-              Maybe later
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="welcome-mission-seal classified" aria-hidden="true">🕵️</div>
-            <p className="welcome-mission-eyebrow" id="welcome-mission-title">
-              DEBRIEF UNLOCKED — Agent Marnich reporting
-            </p>
-            <p className="welcome-mission-message">{message}</p>
-            <p className="welcome-mission-reward">+100 welcome coins 🪙</p>
-            <button type="button" className="primary-btn wide big-btn" onClick={onClose}>
-              Begin my mission 🪶
-            </button>
-          </>
-        )}
       </article>
     </div>
   )
@@ -7197,6 +7114,7 @@ function RewardsPage({
   buyMysteryBox,
   buyHiddenNote,
   buyDateIdea,
+  buyMilkshakeDate,
   buyFeaturedBirdProfile,
 }) {
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
@@ -7209,6 +7127,10 @@ function RewardsPage({
     : 0
   const coins = data.featherCoins
   const shopItems = [
+    // One-time milkshake date — only while it hasn't been claimed yet.
+    ...(milkshakeClaimed()
+      ? []
+      : [{ id: 'milkshakeDate', name: 'Claim your Milkshake Date 🥤', emoji: '🥤', cost: SHOP.milkshakeDate, action: buyMilkshakeDate, hint: 'A real milkshake date with Marnich' }]),
     { id: 'mysteryBox', name: 'Mystery gift box', emoji: '🎁', cost: SHOP.mysteryBox, action: buyMysteryBox, hint: 'A surprise from Marnich' },
     { id: 'hiddenNote', name: 'Hidden note', emoji: '💌', cost: SHOP.hiddenNote, action: buyHiddenNote, hint: 'A folded love note' },
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
@@ -8910,30 +8832,6 @@ function AdminPage({
           onChange={(event) => updateSetting('marnichDailyMessage', event.target.value)}
           placeholder="A little message under today's mission"
         />
-      </section>
-
-      <section className="soft-card full-span">
-        <h3>First-mission debrief 🕵️</h3>
-        <p className="fine-print">
-          A one-time secret popup on Pooks’ Home, just after the intro. She types the debrief
-          code to unlock your briefing and earn 100 welcome coins.
-        </p>
-        <label>
-          Debrief code (what she must type)
-          <input
-            value={data.settings.debriefCode || ''}
-            onChange={(event) => updateSetting('debriefCode', event.target.value)}
-            placeholder="MILKSHAKE"
-          />
-        </label>
-        <label>
-          Debrief message from Agent Marnich
-          <textarea
-            value={data.settings.debriefMessage || ''}
-            onChange={(event) => updateSetting('debriefMessage', event.target.value)}
-            placeholder="Welcome to the Bird Council, Field Agent Pooks…"
-          />
-        </label>
       </section>
 
       <section className="soft-card full-span">
