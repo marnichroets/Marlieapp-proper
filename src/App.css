@@ -3818,6 +3818,31 @@ textarea:focus {
   color: var(--honey);
 }
 
+/* One-off countdown to Pooks' trip to see Roetsie (auto-hides after 19 Jun). */
+.visit-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.28), rgba(255, 159, 183, 0.28));
+  border: 1.5px solid rgba(255, 159, 183, 0.45);
+  box-shadow: 0 6px 18px rgba(255, 159, 183, 0.18);
+}
+
+.visit-countdown-emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.visit-countdown-text {
+  margin: 0;
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: var(--ink-strong);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .season-particle,
   .cute-bird-eye,
@@ -4665,7 +4690,11 @@ textarea:focus {
   /* Reorder, and drop everything that isn't one of the six essentials. */
   .home-stack > * { order: 20; }
   .home-stack > .home-topline { order: 1; }
+  /* Countdown shares the greeting's slot; DOM order keeps it just above. */
+  .home-stack > .visit-countdown { order: 2; }
   .home-stack > .season-greeting { order: 2; }
+  .home-stack > .visit-countdown { padding: 8px 12px; }
+  .home-stack > .visit-countdown .visit-countdown-text { font-size: 0.95rem; }
   .home-stack > .mission-card { order: 3; }
   .home-stack > .near-you-card { order: 4; }
   .home-stack > .tweety-card { order: 5; }

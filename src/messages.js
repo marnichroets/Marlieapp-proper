@@ -84,6 +84,29 @@ export const COUNCIL_MESSAGES = [
   'Good morning! The White-browed Robin-Chat (Heuglin’s Robin) sings a rising, ringing duet at dawn that carries across the whole garden. Nature’s alarm, but pretty. 🪶',
 ]
 
+// One-off good-luck dispatches for the week of Pooks' big presentation (Fri
+// 19 Jun 2026). Keyed by the same YYYY-MM-DD key tweetyTodayKey() produces, so
+// on these exact days they REPLACE the normal rotating council message. Any
+// other day this map has no match and the usual rotation runs unchanged — once
+// the week passes nothing here ever fires again, no cleanup needed.
+export const SPECIAL_COUNCIL_MESSAGES = {
+  '2026-06-15':
+    'Good morning Pooks! The Council heard about your big presentation on Friday. Even the Secretary Bird is nervous for you, and he is never nervous. You’ve got this. 🪶',
+  '2026-06-16':
+    'The Council has reviewed your preparation from afar (we cannot say how) and is confident. Field Agents are rooting for you today. 💛',
+  '2026-06-17':
+    'Two more days until your presentation, Pooks. The Hadeda has agreed to be slightly less loud tomorrow morning, as a show of support.',
+  '2026-06-18':
+    'Tomorrow is the big day. The whole Council — even the dramatic ones — believes in you. Sleep well, Field Agent.',
+  '2026-06-19':
+    'Today is the day, Pooks. Go show them what the Bird Council already knows: you are remarkable. Good luck. We are all rooting for you — Agent Marnich included, who is somehow more nervous than you are. 💛🪶',
+}
+
+// The special good-luck message for a given day key, or null on any normal day.
+export function specialCouncilMessage(dayKey) {
+  return SPECIAL_COUNCIL_MESSAGES[dayKey] || null
+}
+
 // Pick the next council message we have not shown yet. Once all 60+ have been
 // seen we gently start the cycle again (kept deterministic so it never repeats
 // two days running).

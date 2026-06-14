@@ -63,6 +63,7 @@ import { InboxPage } from './Inbox'
 import { BirdMapPage } from './BirdMap'
 import {
   nextCouncilMessage,
+  specialCouncilMessage,
   councilDailyMessage,
   marnichMessage,
   milestoneSystemMessage,
@@ -2151,16 +2152,23 @@ function App() {
     let cancelled = false
     const timer = window.setTimeout(() => {
       if (cancelled) return
-      const { index, text } = nextCouncilMessage(data.messagesMeta?.shownCouncil || [])
+      // On the presentation-week days a one-off good-luck dispatch replaces the
+      // normal rotation; the rotation log is left untouched so it resumes intact.
+      const special = specialCouncilMessage(todayKey)
+      const rotation = special ? null : nextCouncilMessage(data.messagesMeta?.shownCouncil || [])
+      const text = special || rotation.text
       setData((current) => {
         if (current.messagesMeta?.lastCouncilDay === todayKey) return current
-        const shown = [...(current.messagesMeta?.shownCouncil || []), index]
-        // Keep the "shown" log from growing forever once we've cycled the pool.
-        const trimmed = shown.length > 80 ? shown.slice(shown.length - 80) : shown
+        let shown = current.messagesMeta?.shownCouncil || []
+        if (!special) {
+          shown = [...shown, rotation.index]
+          // Keep the "shown" log from growing forever once we've cycled the pool.
+          if (shown.length > 80) shown = shown.slice(shown.length - 80)
+        }
         return {
           ...current,
           messages: [councilDailyMessage(text), ...(current.messages || [])],
-          messagesMeta: { lastCouncilDay: todayKey, shownCouncil: trimmed },
+          messagesMeta: { ...current.messagesMeta, lastCouncilDay: todayKey, shownCouncil: shown },
         }
       })
     }, 0)
@@ -5692,6 +5700,17 @@ function InstallPrompt() {
   )
 }
 
+// One-off countdown to Pooks' Friday 19 June 2026 trip to see Marnich ("Roetsie"
+// is her nickname for him). Returns whole days until that date (0 on the day,
+// negative once it has passed). After 19 June this goes negative forever and the
+// card simply stops rendering — no cleanup needed.
+const MARNICH_VISIT_DATE = new Date(2026, 5, 19) // 19 June 2026, local midnight
+function daysUntilMarnichVisit(now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const MS_PER_DAY = 24 * 60 * 60 * 1000
+  return Math.round((MARNICH_VISIT_DATE - today) / MS_PER_DAY)
+}
+
 function HomePage({
   data,
   dailyChallenge,
@@ -5729,6 +5748,21 @@ function HomePage({
         <span className="streak-chip">Day {dailyStreak} streak 🔥</span>
         <span className="coin-chip">{data.featherCoins} 🪙</span>
       </div>
+
+      {(() => {
+        const days = daysUntilMarnichVisit()
+        if (days < 0) return null
+        const label =
+          days === 0
+            ? 'Today you see Roetsie! 🏠'
+            : `${days} ${days === 1 ? 'day' : 'days'} until you see Roetsie! 🏠`
+        return (
+          <section className="visit-countdown">
+            <span className="visit-countdown-emoji" aria-hidden="true">🏠💛</span>
+            <p className="visit-countdown-text">{label}</p>
+          </section>
+        )
+      })()}
 
       <section className="season-greeting">
         <h2>{season.greeting}</h2>
