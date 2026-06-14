@@ -383,9 +383,44 @@ def _save_player_state(payload: StateSave) -> dict[str, Any]:
     return {"ok": True, "version": new_version, "updatedAt": now}
 
 
+class StateImport(BaseModel):
+    accounts: dict[str, Any] = {}
+
+
+def _export_all_states() -> dict[str, Any]:
+    """Dump every account's stored state in a single payload. Grab this (and save
+    the JSON somewhere) before risky changes — e.g. switching the database over to
+    a Railway volume — then restore it later via POST /api/state/import."""
+    accounts = {acct: _load_player_state(acct) for acct in sorted(VALID_ACCOUNTS)}
+    return {"exportedAt": _now_iso(), "accounts": accounts}
+
+
+def _import_all_states(payload: StateImport) -> dict[str, Any]:
+    """Restore accounts from an /api/state/export dump. Accepts either the export
+    shape ({account: {state: {...}}}) or a bare {account: {...state}} map; unknown
+    accounts and empty (never-saved) states are skipped. Each restore is a normal
+    save, so versions bump rather than being forced backwards."""
+    restored = []
+    for acct, entry in (payload.accounts or {}).items():
+        cleaned = str(acct or "").strip().lower()
+        if cleaned not in VALID_ACCOUNTS:
+            continue
+        state = entry.get("state") if isinstance(entry, dict) and "state" in entry else entry
+        if not isinstance(state, dict):
+            continue
+        result = _save_player_state(StateSave(account=cleaned, state=state, version=0))
+        restored.append({"account": cleaned, "version": result["version"]})
+    return {"ok": True, "restored": restored}
+
+
 # Create the tables at import time so the database is ready before the first
 # request, regardless of startup-event handling.
 init_games_db()
+
+# Surface the resolved database location at startup so the Railway deploy logs
+# make it obvious whether we're writing to the persistent volume (e.g. a path
+# under /data) or the ephemeral container filesystem that resets on redeploy.
+print(f"[marlie] GAMES_DB_PATH resolved to: {os.path.abspath(GAMES_DB_PATH)}", flush=True)
 
 
 @app.post("/api/games/submit")
@@ -411,6 +446,16 @@ async def get_state(account: str) -> dict[str, Any]:
 @app.post("/api/state")
 async def post_state(payload: StateSave) -> dict[str, Any]:
     return await asyncio.to_thread(_save_player_state, payload)
+
+
+@app.get("/api/state/export")
+async def export_state() -> dict[str, Any]:
+    return await asyncio.to_thread(_export_all_states)
+
+
+@app.post("/api/state/import")
+async def import_state(payload: StateImport) -> dict[str, Any]:
+    return await asyncio.to_thread(_import_all_states, payload)
 
 
 @app.get("/api/health")
