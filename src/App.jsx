@@ -1798,6 +1798,17 @@ function loadStateRaw(account = 'pooks') {
   }
 }
 
+// Load the right save for a session + Marnich mode WITHOUT any side effects when
+// it's the read-only "View Pooks" mirror. loadState() runs applyWelcomeCoins(),
+// which writes a localStorage flag and grants 500 coins — fine when Pooks (or
+// Marnich's own sandbox) is the real owner, but in the read-only mirror it would
+// silently consume Pooks' one-time welcome bonus. So the mirror always uses the
+// pure loadStateRaw() reader and never mutates her data.
+function loadStateForSession(session, marnichMode) {
+  const account = dataAccountFor(session, marnichMode)
+  return isReadOnlyView(session, marnichMode) ? loadStateRaw(account) : loadState(account)
+}
+
 function makeCertificate(reward) {
   return {
     id: `cert-${reward.id}`,
@@ -2010,7 +2021,7 @@ function App() {
   const account = dataAccountFor(session, marnichMode)
   const readOnly = isReadOnlyView(session, marnichMode)
   const [data, setData] = useState(() =>
-    loadState(dataAccountFor(readStoredSession(), readMarnichMode())),
+    loadStateForSession(readStoredSession(), readMarnichMode()),
   )
   const [toast, setToast] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -2562,7 +2573,7 @@ function App() {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
     writeMarnichMode(nextMode)
     setMarnichMode(nextMode)
-    setData(loadState(nextAccount))
+    setData(loadStateForSession(nextSession, nextMode))
     setIntroSeen(readIntroSeen(nextAccount))
     setSession(nextSession)
     setActivePage(page)
@@ -2575,7 +2586,7 @@ function App() {
     const nextAccount = dataAccountFor(session, nextMode)
     writeMarnichMode(nextMode)
     setMarnichMode(nextMode)
-    setData(loadState(nextAccount))
+    setData(loadStateForSession(session, nextMode))
     setIntroSeen(readIntroSeen(nextAccount))
     setActivePage('home')
     setMenuOpen(false)
@@ -4797,10 +4808,13 @@ function App() {
     return <LoginScreen data={data} onLogin={login} />
   }
 
-  // The very first time Pooks (or Marnich, on his own test account) opens the
+  // The very first time Pooks (or Marnich, in his own Test sandbox) opens the
   // app after login, play the one-time cinematic "evidence dossier" intro.
   // Stored per-account so it never shows again. The admin panel skips it.
-  if ((session.role === 'pooks' || session.role === 'marnich') && !introSeen) {
+  // Marnich's default "View Pooks 👀" mode is a read-only mirror and must go
+  // straight to her live screen — the intro only belongs to his own sandbox, so
+  // skip it whenever this is the read-only view.
+  if (!readOnly && (session.role === 'pooks' || session.role === 'marnich') && !introSeen) {
     return (
       <IntroSequence
         onAccept={() => markIntroSeen(account)}
@@ -4814,8 +4828,12 @@ function App() {
   }
 
   // First-login: choose a first mystery egg that hatches into a personal Tweety.
-  // Marnich gets his own egg/Tweety on his own account, exactly like Pooks.
+  // Marnich gets his own egg/Tweety in his Test sandbox, exactly like Pooks. In
+  // his read-only "View Pooks" mirror we never show the egg picker (it would
+  // mirror her own unfinished setup and, worse, write to her data on tap) — the
+  // mirror always drops straight to her real, live screen.
   if (
+    !readOnly &&
     (session.role === 'pooks' || session.role === 'marnich') &&
     !data.tweety?.companion &&
     !data.tweety?.firstEgg
