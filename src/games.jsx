@@ -492,7 +492,7 @@ export function GamesHub({ data, who, onGameDone }) {
         {isPooks && games?.trashTalk && (
           <p className="trash-talk">Marnich says: {games.trashTalk} 😏</p>
         )}
-        <p className="fine-print">Timed, head-to-head, no excuses. Loser drops 50 coins. 🏆</p>
+        <p className="fine-print">Timed, head-to-head, no excuses. Winner takes 25 coins, 10 for playing. 🏆</p>
         <div className="game-menu">
           <button className="primary-btn big-btn" type="button" onClick={() => pick('quiz')}>Quiz Battle ⏱️</button>
           <button className="secondary-btn big-btn" type="button" onClick={() => pick('snap')}>Bird Snap 📸</button>

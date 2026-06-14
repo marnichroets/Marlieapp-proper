@@ -88,6 +88,43 @@ function storageKeyForAccount(account) {
   return account === 'marnich' ? MARNICH_STORAGE_KEY : STORAGE_KEY
 }
 
+// Marnich's login has two modes:
+//   • 'view'    — a READ-ONLY mirror of Pooks' real account (default), so he can
+//                 monitor how she's doing without ever changing her data.
+//   • 'sandbox' — his own separate test data for trying features (fast-forward
+//                 lives here only).
+const MARNICH_MODE_KEY = 'marlie-marnich-mode'
+
+function readMarnichMode() {
+  try {
+    return localStorage.getItem(MARNICH_MODE_KEY) === 'sandbox' ? 'sandbox' : 'view'
+  } catch {
+    return 'view'
+  }
+}
+
+function writeMarnichMode(mode) {
+  try {
+    localStorage.setItem(MARNICH_MODE_KEY, mode === 'sandbox' ? 'sandbox' : 'view')
+  } catch {
+    /* ignore */
+  }
+}
+
+// Which save the active session is reading/writing. Marnich in sandbox mode →
+// his own test save; everyone else (Pooks, admin, and Marnich's view mirror) →
+// Pooks' real save.
+function dataAccountFor(session, marnichMode) {
+  if (session?.role === 'marnich' && marnichMode === 'sandbox') return 'marnich'
+  return 'pooks'
+}
+
+// True when the screen is Marnich's read-only mirror of Pooks' account — no
+// action may write to or modify her data.
+function isReadOnlyView(session, marnichMode) {
+  return session?.role === 'marnich' && marnichMode !== 'sandbox'
+}
+
 // The active account is derived purely from the logged-in session: Marnich's
 // own player login → his account; Pooks and the admin panel → Pooks' account.
 function accountForSession(session) {
@@ -305,15 +342,15 @@ function milkshakeClaimed(account = 'pooks') {
   }
 }
 
-// Coin earning rules (rebalanced so coins feel valuable).
+// Coin earning rules (rebalanced for a sustainable ~1-2 weeks-per-item pace).
 const COINS = {
-  spot: 30,
-  firstSpecies: 10,
-  withMarnich: 25,
-  dailyChallenge: 20,
-  streakBonus: 15,
-  tweetyCare: 5,
-  tweetyStreak: 50,
+  spot: 30, // spotting any bird
+  firstSpecies: 10, // +10 bonus the first time a species is seen (40 total)
+  withMarnich: 0, // spotting "with Marnich" is sentimental, not extra coins
+  dailyChallenge: 20, // daily challenge completion
+  streakBonus: 15, // occasional daily-challenge streak bonus (every 3 days)
+  tweetyCare: 5, // per completed Tweety care window (3 windows = 15/day)
+  tweetyStreak: 50, // 7-day Tweety care streak bonus
 }
 
 // ---- Random wildlife encounters --------------------------------------------
@@ -469,13 +506,36 @@ function getWeeklyQuote(weekIndex = getAbsoluteWeekIndex()) {
   return weeklyQuotes[Math.abs(weekIndex) % weeklyQuotes.length]
 }
 
+// A pool of funny Bird Council loading lines. One is picked at random each time
+// she identifies a bird, and they rotate randomly while she waits — never the
+// same one twice in a row.
 const loadingMessages = [
-  'Consulting the Bird Council...',
-  'Looking for feathers...',
-  'Asking the nearest pigeon...',
-  'Checking if this is a bird or a suspicious leaf...',
-  'Almost done. The bird is being dramatic.',
+  'The Council is examining the evidence... 🔍',
+  'Consulting the official field guides... 📖',
+  'Agent Hadeda is squinting at your photo... 👀',
+  'Cross-referencing with the feather database... 🪶',
+  'The owl division has been called in for a second opinion... 🦉',
+  'Measuring beak proportions very seriously... 📏',
+  'The Council is in a brief huddle... 🐦',
+  'Checking if this is the chicken again... 🐔',
+  'Running it past the vulture division... 👁️',
+  'Someone spilled rooibos on the file, please wait... ☕',
+  'The flamingo department wants to see too... 🦩',
+  'Comparing wing patterns under candlelight... 🕯️',
+  'Agent Marnich is trying to help, please be patient... 🏌️',
+  'The Secretary Bird is double-checking everything... 📋',
+  'Almost there, the Council is very thorough... 🪶',
 ]
+
+// Pick a random message index, never repeating the one currently shown.
+function nextLoadingIndex(current) {
+  if (loadingMessages.length <= 1) return 0
+  let next = current
+  while (next === current) {
+    next = Math.floor(Math.random() * loadingMessages.length)
+  }
+  return next
+}
 
 const mockAiBirdMatches = [
   {
@@ -1943,9 +2003,15 @@ function addBirdToState(state, match, photo) {
 function App() {
   const [activePage, setActivePage] = useState('home')
   const [session, setSession] = useState(readStoredSession)
-  // Which account's independent save is active, derived purely from the session.
-  const account = accountForSession(session)
-  const [data, setData] = useState(() => loadState(accountForSession(readStoredSession())))
+  // Marnich's view ('view' mirror of Pooks | 'sandbox' test data). Irrelevant
+  // for Pooks/admin sessions.
+  const [marnichMode, setMarnichMode] = useState(readMarnichMode)
+  // Which save is active + whether the screen is a read-only mirror of Pooks.
+  const account = dataAccountFor(session, marnichMode)
+  const readOnly = isReadOnlyView(session, marnichMode)
+  const [data, setData] = useState(() =>
+    loadState(dataAccountFor(readStoredSession(), readMarnichMode())),
+  )
   const [toast, setToast] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
@@ -1959,7 +2025,7 @@ function App() {
   // Has the active account already seen the one-time cinematic intro? Read
   // immediately on app load so a refresh/navigation never replays it.
   const [introSeen, setIntroSeen] = useState(() =>
-    readIntroSeen(accountForSession(readStoredSession())),
+    readIntroSeen(dataAccountFor(readStoredSession(), readMarnichMode())),
   )
   const [reveal, setReveal] = useState(null)
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
@@ -2067,7 +2133,8 @@ function App() {
   // First app-open of the day: a warm new dispatch from the Bird Council lands
   // in the inbox, with a real SA bird fact she has not seen before.
   useEffect(() => {
-    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
     const todayKey = tweetyTodayKey()
     if (data.messagesMeta?.lastCouncilDay === todayKey) return undefined
     let cancelled = false
@@ -2095,7 +2162,8 @@ function App() {
 
   // Celebrate whenever Tweety grows into a new life stage (real calendar days).
   useEffect(() => {
-    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
     if (!data.tweety?.companion && !data.tweety?.bornAt) return undefined
     const idx = tweetyGrowthIndex(data.tweety)
     if (idx <= (data.tweetyGrowthSeen || 0)) return undefined
@@ -2163,7 +2231,8 @@ function App() {
 
   // If Marnich left a surprise treat, Tweety does a happy dance on open.
   useEffect(() => {
-    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
     if (!data.tweety?.pendingTreat) return undefined
     let cancelled = false
     const start = window.setTimeout(() => {
@@ -2192,7 +2261,8 @@ function App() {
 
   // Daily aviary income: pay out once per day when birds live in the aviary.
   useEffect(() => {
-    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
     const aviary = data.tweety?.aviary || []
     const key = tweetyTodayKey()
     if (!aviary.length || data.tweety?.lastAviaryPayout === key) return undefined
@@ -2268,7 +2338,8 @@ function App() {
 
   // On opening the app: a chance of a story event, or (rarely) an escape.
   useEffect(() => {
-    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
     let cancelled = false
     const timer = window.setTimeout(() => {
       if (cancelled) return
@@ -2348,6 +2419,8 @@ function App() {
   }, [data.challenges, data.dailyChallengeCompletions])
 
   useEffect(() => {
+    // Read-only mirror of Pooks: never write anything back to her save.
+    if (readOnly) return
     try {
       // Always save under the active account's key, so Marnich's test save and
       // Pooks' real save never overwrite one another.
@@ -2363,15 +2436,17 @@ function App() {
         })
       }, 0)
     }
-  }, [data, account])
+  }, [data, account, readOnly])
 
   // Stamp this visit so the "Tweety missed you" nudge only shows after a real gap.
+  // Never stamp while viewing Pooks' read-only mirror.
   useEffect(() => {
+    if (readOnly) return undefined
     const t = window.setTimeout(() => {
       setData((c) => ({ ...c, tweety: { ...c.tweety, lastVisit: new Date().toISOString() } }))
     }, 0)
     return () => window.clearTimeout(t)
-  }, [])
+  }, [readOnly])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -2431,7 +2506,8 @@ function App() {
   // occasionally a critter wanders by. At most once per app session.
   useEffect(() => {
     const isPlayer = session?.role === 'pooks' || session?.role === 'marnich'
-    if (!isPlayer || !data.tweety?.companion) return undefined
+    // No encounters while viewing Pooks' read-only mirror (they'd award coins).
+    if (!isPlayer || readOnly || !data.tweety?.companion) return undefined
     if (encounterShownRef.current) return undefined
     if (activePage !== 'home' && activePage !== 'tweety') return undefined
     const t = window.setTimeout(() => {
@@ -2443,10 +2519,30 @@ function App() {
       }
     }, 1400)
     return () => window.clearTimeout(t)
-  }, [activePage, session, data.tweety?.companion])
+  }, [activePage, session, readOnly, data.tweety?.companion])
+
+  // Live mirror: while viewing Pooks' read-only progress, re-read her real save
+  // every few seconds and on window focus so the view stays current.
+  useEffect(() => {
+    if (!readOnly) return undefined
+    const refresh = () => {
+      try {
+        setData(loadStateRaw('pooks'))
+      } catch {
+        /* ignore transient read errors */
+      }
+    }
+    const id = window.setInterval(refresh, 4000)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [readOnly])
 
   // One tap kept Tweety safe — close the encounter and pay the small reward.
   function resolveEncounter() {
+    if (readOnly) return
     setData((c) => ({ ...c, featherCoins: (c.featherCoins || 0) + ENCOUNTER_REWARD }))
     setEncounter(null)
     setToast({
@@ -2460,12 +2556,28 @@ function App() {
   // intro state in the same batch so the next render reads the right data and
   // nothing leaks between Pooks and Marnich.
   function switchAccount(nextSession, page = 'home') {
-    const nextAccount = accountForSession(nextSession)
+    // Marnich always lands in the read-only "View Pooks' progress" mode first.
+    const nextMode = 'view'
+    const nextAccount = dataAccountFor(nextSession, nextMode)
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+    writeMarnichMode(nextMode)
+    setMarnichMode(nextMode)
     setData(loadState(nextAccount))
     setIntroSeen(readIntroSeen(nextAccount))
     setSession(nextSession)
     setActivePage(page)
+    setMenuOpen(false)
+  }
+
+  // Marnich toggles between watching Pooks (read-only) and his own test sandbox.
+  function setMarnichViewMode(mode) {
+    const nextMode = mode === 'sandbox' ? 'sandbox' : 'view'
+    const nextAccount = dataAccountFor(session, nextMode)
+    writeMarnichMode(nextMode)
+    setMarnichMode(nextMode)
+    setData(loadState(nextAccount))
+    setIntroSeen(readIntroSeen(nextAccount))
+    setActivePage('home')
     setMenuOpen(false)
   }
 
@@ -2509,7 +2621,9 @@ function App() {
 
   function logout() {
     localStorage.removeItem(SESSION_STORAGE_KEY)
-    // Return to the logged-out Pooks account view.
+    // Return to the logged-out Pooks account view (and reset Marnich's mode).
+    writeMarnichMode('view')
+    setMarnichMode('view')
     setData(loadState('pooks'))
     setIntroSeen(readIntroSeen('pooks'))
     setSession(null)
@@ -2521,6 +2635,7 @@ function App() {
   // is cleared while she watches and restored when she taps Accept again, so
   // she can rewatch her Bird Council dossier as many times as she likes.
   function replayIntro() {
+    if (readOnly) return // don't touch Pooks' intro flag from her mirror
     setMenuOpen(false)
     clearIntroSeen(account)
     setIntroSeen(false)
@@ -2554,6 +2669,7 @@ function App() {
   // windows (morning / afternoon / evening). Each action is done once per
   // window; completing all three windows fills the whole day.
   function careTweety(kind) {
+    if (readOnly) return // viewing Pooks' mirror — never change her Tweety
     const now = new Date()
     const win = currentCareWindow(now)
     if (!win) return // Tweety is resting between care windows
@@ -2573,7 +2689,9 @@ function App() {
       careAt: { ...(data.tweety?.careAt || {}), [field]: now.toISOString() },
     }
 
-    let coins = COINS.tweetyCare
+    // Coins are earned per completed care WINDOW (feed+water+play), so a full
+    // day of all three windows pays 15 — individual taps just keep Tweety happy.
+    let coins = windowComplete ? COINS.tweetyCare : 0
     let bonusNote = ''
     // The whole day is "full" once all three care windows are complete.
     const becameFull = windowComplete && CARE_WINDOWS.every((w) => nextToday[w.key])
@@ -2651,7 +2769,7 @@ function App() {
             : field === 'watered'
               ? 'Refreshing! 💧'
               : 'So much fun! 💗',
-        body: `${nextTweety.name || 'Tweety'} loved that. +${coins} Feather Coins.${bonusNote}${familyNote}`,
+        body: `${nextTweety.name || 'Tweety'} loved that.${coins > 0 ? ` Care window complete! +${coins} Feather Coins.` : ''}${bonusNote}${familyNote}`,
       },
     )
   }
@@ -3356,6 +3474,7 @@ function App() {
   // ages Tweety / warms the first egg, advances incubation, and resets today's
   // care windows + daily challenge. It never runs on, or affects, Pooks' data.
   function fastForwardDay() {
+    if (readOnly) return // sandbox-only tool; never touches Pooks' data
     const tw = data.tweety || {}
     const nextTweety = { ...tw }
     let note = ''
@@ -3556,10 +3675,11 @@ function App() {
   }
 
   // ----- Competitive games (backend-synced sessions + all-time leaderboard) --
-  // Coins the local player earns for winning each game.
-  function gameWinCoins(gameKey) {
-    return gameKey === 'quiz' ? 150 : 100
-  }
+  // Both players earn coins for playing a Bird Battle: 25 for a win, 15 for a
+  // draw, 10 for a loss (a small thank-you, never a penalty).
+  const GAME_WIN_COINS = 25
+  const GAME_DRAW_COINS = 15
+  const GAME_LOSS_COINS = 10
 
   // Apply a backend session state to the local UI. The leaderboard always comes
   // from the server (single source of truth across both devices); the local
@@ -3580,14 +3700,13 @@ function App() {
     }
     const winner = state.winner
     const localWon = winner === who
-    const localLost = winner !== 'draw' && winner !== who
-    const coinDelta = localWon ? gameWinCoins(gameKey) : localLost ? -50 : 0
+    const coinDelta = localWon ? GAME_WIN_COINS : winner === 'draw' ? GAME_DRAW_COINS : GAME_LOSS_COINS
     const text =
       winner === 'draw'
-        ? 'A tie?! The Bird Council demands a rematch 🐦'
+        ? `A tie?! The Bird Council demands a rematch 🐦 +${GAME_DRAW_COINS} coins each`
         : localWon
-          ? 'You win! The Bird Council is delighted in you 🏆'
-          : 'They got you this time… the Council suspects Googling 🤨'
+          ? `You win! The Bird Council is delighted in you 🏆 +${GAME_WIN_COINS} coins`
+          : `So close! They edged it this time — +${GAME_LOSS_COINS} coins for playing 🐦`
     if (localWon) setConfetti(Date.now())
     const lastResult = {
       game: gameKey,
@@ -3615,17 +3734,17 @@ function App() {
   // Used only if the server can't be reached, so a network blip never loses a game.
   function finishMatch(gameKey, winner, detail, extraPooksCoins = 0) {
     const g = data.games
+    // Same sustainable, friendly payout as the online path: 25 win / 15 draw /
+    // 10 loss, always a small gain for the local player (Pooks on this device).
     const coinDelta =
-      (winner === 'pooks' ? 150 : winner === 'marnich' ? -50 : 0) *
-        (gameKey === 'quiz' ? 1 : 0) +
-      (gameKey !== 'quiz' ? (winner === 'pooks' ? 100 : winner === 'marnich' ? -50 : 0) : 0) +
+      (winner === 'pooks' ? GAME_WIN_COINS : winner === 'draw' ? GAME_DRAW_COINS : GAME_LOSS_COINS) +
       extraPooksCoins
     const text =
       winner === 'pooks'
-        ? 'Pooks wins! The Bird Council is disappointed in Marnich 😂 −50 coins from Marnich Bank'
+        ? `Pooks wins! The Bird Council is delighted 🏆 +${GAME_WIN_COINS} coins`
         : winner === 'marnich'
-          ? 'Marnich wins this time... The Bird Council suspects he Googled it 🤨 −50 coins from Pooks'
-          : 'A tie?! The Bird Council demands a rematch 🐦'
+          ? `Marnich edged it this time 🤨 +${GAME_LOSS_COINS} coins for playing`
+          : `A tie?! The Bird Council demands a rematch 🐦 +${GAME_DRAW_COINS} coins`
     if (winner === 'pooks') setConfetti(Date.now())
     const lastResult = { game: gameKey, winner, text, status: 'done', ...detail }
     commit(
@@ -3659,7 +3778,7 @@ function App() {
       title: 'Score locked in 🔒',
       body:
         who === 'pooks'
-          ? 'Now share the code so Marnich can play from the Admin panel.'
+          ? 'Now share the code so Marnich can play from his own Games screen.'
           : 'Marnich is done — waiting on Pooks.',
       tone: 'calm',
     })
@@ -3693,6 +3812,7 @@ function App() {
   // shared session code; the second player to finish resolves the match, and the
   // first player polls until the result arrives.
   function onGameDone(gameKey, who, result) {
+    if (readOnly) return // viewing Pooks — don't submit scores as her
     // Lock the score in immediately and show "waiting" while we reach the server.
     setData((c) => ({
       ...c,
@@ -3741,6 +3861,15 @@ function App() {
   }
 
   function commit(nextState, message) {
+    // Central guard: while viewing Pooks' read-only mirror, no action persists.
+    if (readOnly) {
+      setToast({
+        title: 'Viewing only 👀',
+        body: "You're viewing Pooks' progress. Switch to Test sandbox 🧪 to interact.",
+        tone: 'calm',
+      })
+      return
+    }
     let recalculated = recalculateState(nextState)
     // Award milestone coin bonuses when the unique-species count crosses a threshold.
     const milestoneBonus = milestoneCoinsBetween(data.birds.length, recalculated.birds.length)
@@ -3881,6 +4010,7 @@ function App() {
   }
 
   function resetData() {
+    if (readOnly) return // never clear Pooks' save from the read-only mirror
     if (
       !window.confirm(
         'Clear all local Marlie Bird Journey data from this browser? This cannot be undone.',
@@ -4145,6 +4275,7 @@ function App() {
   }
 
   async function completeDailyChallenge(kind = 'daily', photoFile = null) {
+    if (readOnly) return // viewing Pooks' mirror — read-only
     const challenge = kind === 'bonus' ? dailyChallenge.bonus : dailyChallenge.main
     if (!challenge) return
 
@@ -4416,6 +4547,7 @@ function App() {
   // One-time "Claim your Milkshake Date 🥤". Sets a localStorage flag so the
   // item disappears from the shop forever once claimed.
   function buyMilkshakeDate() {
+    if (readOnly) return // writes a claim flag — never run on Pooks' mirror
     if (milkshakeClaimed(account)) return
     if (data.featherCoins < SHOP.milkshakeDate) return notEnoughCoins()
     try {
@@ -4702,11 +4834,29 @@ function App() {
       )}
       {confetti ? <Confetti seed={confetti} /> : null}
       {session.role === 'marnich' && (
+        <div className="marnich-mode-bar">
+          <button
+            className={`marnich-mode-tab${marnichMode === 'view' ? ' active' : ''}`}
+            type="button"
+            onClick={() => setMarnichViewMode('view')}
+          >
+            👀 View Pooks
+          </button>
+          <button
+            className={`marnich-mode-tab${marnichMode === 'sandbox' ? ' active' : ''}`}
+            type="button"
+            onClick={() => setMarnichViewMode('sandbox')}
+          >
+            🧪 Test sandbox
+          </button>
+        </div>
+      )}
+      {session.role === 'marnich' && marnichMode === 'sandbox' && (
         <button
           className="marnich-ff-btn"
           type="button"
           onClick={fastForwardDay}
-          title="Advance your test account by one day"
+          title="Advance your test sandbox by one day"
         >
           ⏩ Fast Forward
         </button>
@@ -5891,7 +6041,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     if (aiStatus !== 'loading') return undefined
 
     const intervalId = window.setInterval(() => {
-      setLoadingIndex((current) => (current + 1) % loadingMessages.length)
+      setLoadingIndex((current) => nextLoadingIndex(current))
     }, 1500)
 
     return () => window.clearInterval(intervalId)
@@ -5965,6 +6115,8 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     event.preventDefault()
     if (!photoFile) return
 
+    // Start each identification on a fresh random Council message.
+    setLoadingIndex(Math.floor(Math.random() * loadingMessages.length))
     setAiStatus('loading')
     setLoadingIndex(0)
     setConfirmation(null)
