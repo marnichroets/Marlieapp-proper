@@ -197,6 +197,46 @@ async function fetchGameLeaderboard() {
   return response.json()
 }
 
+// ---- Cross-device account sync ----------------------------------------------
+// The backend is the source of truth for each account's full state, keyed by
+// account name ('pooks' | 'marnich'). localStorage is only an offline cache.
+// Both helpers are offline-safe: they return null on any failure so the app
+// silently falls back to the local cache rather than breaking.
+const STATE_API = `${BIRD_API_URL}/api/state`
+
+async function fetchRemoteState(account) {
+  try {
+    // no-store: the live mirror and login must always see the latest state, never
+    // a stale cached GET response.
+    const response = await fetch(`${STATE_API}?account=${encodeURIComponent(account)}`, {
+      cache: 'no-store',
+    })
+    if (!response.ok) return null
+    const data = await response.json()
+    // { state: <obj>|null, version }. A null state means "no save yet".
+    if (!data || typeof data !== 'object') return null
+    return { state: data.state || null, version: Number(data.version) || 0 }
+  } catch {
+    return null
+  }
+}
+
+async function saveRemoteState(account, state, version = 0, { keepalive = false } = {}) {
+  try {
+    const response = await fetch(STATE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account, state, version }),
+      keepalive,
+    })
+    if (!response.ok) return null
+    const data = await response.json()
+    return { version: Number(data.version) || version }
+  } catch {
+    return null
+  }
+}
+
 const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
 // NOTE: import.meta.env.VITE_* is inlined at BUILD time, not read at runtime.
 // .trim() guards against a stray newline/space if the key was pasted in Vercel.
@@ -1646,6 +1686,9 @@ function buildDefaultState() {
     messagesMeta: { lastCouncilDay: '', shownCouncil: [] },
     // Last Tweety growth stage we have already celebrated (index into stages).
     tweetyGrowthSeen: 0,
+    // Whether the one-time cinematic intro has been watched. Lives in the synced
+    // state (not just a per-device flag) so a new device knows she is not new.
+    introSeen: false,
   }
 }
 
@@ -1704,10 +1747,33 @@ function loadStateRaw(account = 'pooks') {
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return base
-    const saved = JSON.parse(raw)
-    return recalculateState({
-      ...base,
-      ...saved,
+    return normalizeLoadedState(JSON.parse(raw))
+  } catch (error) {
+    console.warn('Could not load Marlie Bird App data', error)
+    // Never silently destroy a save we couldn't parse — keep a backup copy so
+    // it can be recovered instead of being overwritten by the empty default.
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) localStorage.setItem(`${key}-backup`, raw)
+    } catch {
+      // ignore
+    }
+    return base
+  }
+}
+
+// Merge a saved state object — which may be partial, and may come from
+// localStorage OR the cross-device backend — onto the current defaults and
+// recalculate derived fields. Missing keys are filled from buildDefaultState(),
+// so the result is always a complete, render-safe state. Every adopt path (local
+// cache reads AND remote pulls) goes through this, so a partial save (e.g. an
+// older device's smaller blob) can never break the screen.
+function normalizeLoadedState(saved) {
+  const base = buildDefaultState()
+  if (!saved || typeof saved !== 'object') return base
+  return recalculateState({
+    ...base,
+    ...saved,
       // One-time migration: clear whatever Tweety happened to be wearing (e.g.
       // a stray witch hat) so she starts as a plain golden chick. Pooks can
       // dress her again from the wardrobe and that choice will stick.
@@ -1785,18 +1851,6 @@ function loadStateRaw(account = 'pooks') {
         ...(saved.monthlyReportData || {}),
       },
     })
-  } catch (error) {
-    console.warn('Could not load Marlie Bird App data', error)
-    // Never silently destroy a save we couldn't parse — keep a backup copy so
-    // it can be recovered instead of being overwritten by the empty default.
-    try {
-      const raw = localStorage.getItem(key)
-      if (raw) localStorage.setItem(`${key}-backup`, raw)
-    } catch {
-      // ignore
-    }
-    return base
-  }
 }
 
 // Load the right save for a session + Marnich mode WITHOUT any side effects when
@@ -2024,6 +2078,9 @@ function App() {
   const [data, setData] = useState(() =>
     loadStateForSession(readStoredSession(), readMarnichMode()),
   )
+  // Always-current snapshot of data so a flush-on-exit save sends the latest.
+  const dataRef = useRef(data)
+  dataRef.current = data
   const [toast, setToast] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
@@ -2034,6 +2091,9 @@ function App() {
   // once per app session via encounterShownRef.
   const [encounter, setEncounter] = useState(null)
   const encounterShownRef = useRef(false)
+  // Last known backend version of the active account's state, so debounced saves
+  // can bump it monotonically and we can tell our cache from a fresher remote.
+  const stateVersionRef = useRef(0)
   // Has the active account already seen the one-time cinematic intro? Read
   // immediately on app load so a refresh/navigation never replays it.
   const [introSeen, setIntroSeen] = useState(() =>
@@ -2457,6 +2517,38 @@ function App() {
     }
   }, [data, account, readOnly])
 
+  // Source of truth: debounce-save the active account's state to the backend so
+  // it follows her login onto any device. The localStorage write above stays as
+  // the offline cache. Never runs while viewing Pooks' read-only mirror.
+  useEffect(() => {
+    if (readOnly || !session) return undefined
+    if (account !== 'pooks' && account !== 'marnich') return undefined
+    const timer = window.setTimeout(() => {
+      saveRemoteState(account, data, stateVersionRef.current).then((res) => {
+        if (res) stateVersionRef.current = res.version
+      })
+    }, 10000)
+    return () => window.clearTimeout(timer)
+  }, [data, account, readOnly, session])
+
+  // Flush the latest state to the backend when the tab is hidden or closed, so
+  // changes in the last few seconds aren't lost before the debounce fires.
+  useEffect(() => {
+    if (readOnly || !session) return undefined
+    if (account !== 'pooks' && account !== 'marnich') return undefined
+    const flushNow = () =>
+      saveRemoteState(account, dataRef.current, stateVersionRef.current, { keepalive: true })
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushNow()
+    }
+    window.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('beforeunload', flushNow)
+    return () => {
+      window.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('beforeunload', flushNow)
+    }
+  }, [account, readOnly, session])
+
   // Stamp this visit so the "Tweety missed you" nudge only shows after a real gap.
   // Never stamp while viewing Pooks' read-only mirror.
   useEffect(() => {
@@ -2478,6 +2570,28 @@ function App() {
     const timer = window.setTimeout(() => setConfetti(0), 2400)
     return () => window.clearTimeout(timer)
   }, [confetti])
+
+  // On app open while already logged in, pull the account's authoritative state
+  // from the backend so reopening on any device shows the latest (the read-only
+  // Pooks mirror is handled separately by its own effect).
+  useEffect(() => {
+    const stored = readStoredSession()
+    if (!stored) return undefined
+    const mode = readMarnichMode()
+    if (isReadOnlyView(stored, mode)) return undefined
+    const acct = dataAccountFor(stored, mode)
+    if (acct !== 'pooks' && acct !== 'marnich') return undefined
+    let cancelled = false
+    fetchRemoteState(acct).then((remote) => {
+      if (cancelled || !remote || !remote.state) return
+      adoptState(acct, remote.state, remote.version)
+    })
+    return () => {
+      cancelled = true
+    }
+    // Runs once on mount — deliberately not re-run on account changes (logins
+    // and toggles adopt remote state on their own).
+  }, [])
 
   // Load the all-time leaderboard from the server whenever the app opens, so it
   // shows correctly every time either person opens the app.
@@ -2540,20 +2654,31 @@ function App() {
     return () => window.clearTimeout(t)
   }, [activePage, session, readOnly, data.tweety?.companion])
 
-  // Live mirror: while viewing Pooks' read-only progress, re-read her real save
-  // every few seconds and on window focus so the view stays current.
+  // Live mirror: while viewing Pooks' read-only progress, fetch her real state
+  // from the backend every few seconds and on window focus, so Marnich sees her
+  // current data on ANY device. Falls back to her local cache when offline.
   useEffect(() => {
     if (!readOnly) return undefined
+    let cancelled = false
     const refresh = () => {
-      try {
-        setData(loadStateRaw('pooks'))
-      } catch {
-        /* ignore transient read errors */
-      }
+      fetchRemoteState('pooks').then((res) => {
+        if (cancelled) return
+        if (res && res.state) {
+          setData(normalizeLoadedState(res.state))
+        } else {
+          try {
+            setData(loadStateRaw('pooks'))
+          } catch {
+            /* ignore transient read errors */
+          }
+        }
+      })
     }
-    const id = window.setInterval(refresh, 4000)
+    refresh()
+    const id = window.setInterval(refresh, 6000)
     window.addEventListener('focus', refresh)
     return () => {
+      cancelled = true
       window.clearInterval(id)
       window.removeEventListener('focus', refresh)
     }
@@ -2571,78 +2696,153 @@ function App() {
     })
   }
 
-  // Flip to a different account, loading that account's own independent save and
-  // intro state in the same batch so the next render reads the right data and
-  // nothing leaks between Pooks and Marnich.
-  function switchAccount(nextSession, page = 'home') {
-    // Marnich always lands in the read-only "View Pooks' progress" mode first.
+  // Adopt an account's state into the live app + local cache, tracking its
+  // backend version and restoring the synced intro-seen flag. Used when a login
+  // or toggle has already fetched the authoritative state from the backend.
+  function adoptState(acct, rawState, version) {
+    // Fill any missing keys from the defaults so an older device's partial blob
+    // is always complete and safe to render.
+    const state = normalizeLoadedState(rawState)
+    stateVersionRef.current = version || 0
+    try {
+      localStorage.setItem(storageKeyForAccount(acct), JSON.stringify(state))
+    } catch {
+      /* cache may be full — backend remains the source of truth */
+    }
+    setData(state)
+    setIntroSeen(Boolean(state.introSeen) || readIntroSeen(acct))
+    if (state.introSeen) markIntroSeen(acct)
+  }
+
+  // Flip to a different account/session. With a preloaded backend state we adopt
+  // it directly; otherwise we fall back to that account's local cache. Marnich
+  // always lands in the read-only "View Pooks" mirror first.
+  function switchAccount(nextSession, page = 'home', options = {}) {
     const nextMode = 'view'
     const nextAccount = dataAccountFor(nextSession, nextMode)
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
     writeMarnichMode(nextMode)
     setMarnichMode(nextMode)
-    setData(loadStateForSession(nextSession, nextMode))
-    setIntroSeen(readIntroSeen(nextAccount))
+    if (options.preloaded) {
+      adoptState(nextAccount, options.preloaded, options.version)
+    } else {
+      stateVersionRef.current = 0
+      setData(loadStateForSession(nextSession, nextMode))
+      setIntroSeen(readIntroSeen(nextAccount))
+    }
     setSession(nextSession)
     setActivePage(page)
     setMenuOpen(false)
   }
 
   // Marnich toggles between watching Pooks (read-only) and his own test sandbox.
-  function setMarnichViewMode(mode) {
+  // The sandbox is his own synced account, so pull its latest backend state.
+  async function setMarnichViewMode(mode) {
     const nextMode = mode === 'sandbox' ? 'sandbox' : 'view'
-    const nextAccount = dataAccountFor(session, nextMode)
     writeMarnichMode(nextMode)
     setMarnichMode(nextMode)
-    setData(loadStateForSession(session, nextMode))
-    setIntroSeen(readIntroSeen(nextAccount))
     setActivePage('home')
     setMenuOpen(false)
+    if (nextMode === 'sandbox') {
+      const remote = await fetchRemoteState('marnich')
+      if (remote && remote.state) {
+        adoptState('marnich', remote.state, remote.version)
+      } else {
+        stateVersionRef.current = 0
+        setData(loadStateForSession(session, nextMode))
+        setIntroSeen(readIntroSeen('marnich'))
+      }
+    } else {
+      // View Pooks mirror — the read-only mirror effect populates her live state.
+      stateVersionRef.current = 0
+      setData(loadStateForSession(session, nextMode))
+      setIntroSeen(readIntroSeen('pooks'))
+    }
   }
 
   // Login screen: Pooks' own login, plus Marnich's separate test-player login.
-  // Admin is intentionally NOT reachable from here.
-  function login(name, secret) {
+  // The backend is the source of truth: fetch the account's state and validate
+  // the secret against the password stored INSIDE it, so the right password
+  // works from any device. Falls back to local validation when nothing is synced
+  // yet (first login ever) or the backend is unreachable.
+  async function login(name, secret) {
     const cleanName = String(name || '').trim().toLowerCase()
     const cleanSecret = String(secret || '').trim()
-    if (cleanName === 'pooks' || cleanName === 'marlie') {
-      if (cleanSecret && cleanSecret === data.settings.pooksSecret) {
-        switchAccount({ role: 'pooks', name: 'Pooks' })
-        return true
-      }
-    }
-    // Marnich's own fully separate player account — never touches Pooks' save.
-    if (cleanName === MARNICH_LOGIN_NAME) {
-      if (cleanSecret && cleanSecret === marnichLoginSecret()) {
-        switchAccount({ role: 'marnich', name: 'Marnich' })
-        return true
-      }
-    }
-    return false
-  }
+    let role = null
+    if (cleanName === 'pooks' || cleanName === 'marlie') role = 'pooks'
+    else if (cleanName === MARNICH_LOGIN_NAME) role = 'marnich'
+    if (!role || !cleanSecret) return false
 
-  // Separate, hidden admin login reached only via /admin or the secret tap. The
-  // admin panel always manages Pooks' real account.
-  function adminLogin(secret) {
-    const cleanSecret = String(secret || '').trim()
-    if (cleanSecret && cleanSecret === data.settings.adminSecret) {
-      switchAccount({ role: 'admin', name: 'Marnich' }, 'admin')
-      setAdminGate(false)
-      try {
-        window.history.replaceState(null, '', '/')
-      } catch {
-        // ignore
+    const acct = role === 'marnich' ? 'marnich' : 'pooks'
+    const nextSession =
+      role === 'marnich' ? { role: 'marnich', name: 'Marnich' } : { role: 'pooks', name: 'Pooks' }
+    const remote = await fetchRemoteState(acct)
+
+    if (remote && remote.state) {
+      const savedSecret =
+        role === 'marnich'
+          ? remote.state.settings?.marnichSecret || MARNICH_DEFAULT_SECRET
+          : remote.state.settings?.pooksSecret || 'feather'
+      if (cleanSecret !== savedSecret) return false
+      // Marnich starts in the read-only Pooks mirror (view mode), so we don't
+      // load his own state into the screen — the mirror effect shows Pooks. We
+      // only needed his synced state to verify his password.
+      if (role === 'marnich') {
+        switchAccount(nextSession)
+      } else {
+        switchAccount(nextSession, 'home', { preloaded: remote.state, version: remote.version })
       }
       return true
     }
-    return false
+
+    // First login anywhere (or backend offline): validate locally, then seed the
+    // backend from the local save so the next device inherits it.
+    const localOk =
+      role === 'marnich'
+        ? cleanSecret === marnichLoginSecret()
+        : cleanSecret === data.settings.pooksSecret
+    if (!localOk) return false
+    switchAccount(nextSession)
+    const seed = loadStateRaw(acct)
+    saveRemoteState(acct, seed, 0).then((res) => {
+      if (res) stateVersionRef.current = res.version
+    })
+    return true
+  }
+
+  // Separate, hidden admin login reached only via /admin or the secret tap. The
+  // admin panel manages Pooks' real account, so it adopts her live backend state.
+  async function adminLogin(secret) {
+    const cleanSecret = String(secret || '').trim()
+    if (!cleanSecret) return false
+    const remote = await fetchRemoteState('pooks')
+    const adminSecret = remote?.state?.settings?.adminSecret || data.settings.adminSecret
+    if (cleanSecret !== adminSecret) return false
+    const adminSession = { role: 'admin', name: 'Marnich' }
+    if (remote && remote.state) {
+      switchAccount(adminSession, 'admin', { preloaded: remote.state, version: remote.version })
+    } else {
+      switchAccount(adminSession, 'admin')
+    }
+    setAdminGate(false)
+    try {
+      window.history.replaceState(null, '', '/')
+    } catch {
+      // ignore
+    }
+    return true
   }
 
   function logout() {
+    // Flush the final state of the account we're leaving (best effort).
+    if (!readOnly && (account === 'pooks' || account === 'marnich')) {
+      saveRemoteState(account, dataRef.current, stateVersionRef.current, { keepalive: true })
+    }
     localStorage.removeItem(SESSION_STORAGE_KEY)
     // Return to the logged-out Pooks account view (and reset Marnich's mode).
     writeMarnichMode('view')
     setMarnichMode('view')
+    stateVersionRef.current = 0
     setData(loadState('pooks'))
     setIntroSeen(readIntroSeen('pooks'))
     setSession(null)
@@ -4830,6 +5030,8 @@ function App() {
           markIntroSeen(account)
           setActivePage('home')
           setIntroSeen(true)
+          // Persist into the synced state so other devices know she's not new.
+          setData((current) => ({ ...current, introSeen: true }))
         }}
       />
     )
@@ -5181,10 +5383,15 @@ function App() {
 function AdminGate({ onLogin, onCancel, overlay = false }) {
   const [secret, setSecret] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault()
-    if (!onLogin(secret)) {
+    if (busy) return
+    setBusy(true)
+    const ok = await onLogin(secret)
+    setBusy(false)
+    if (!ok) {
       setError('Wrong admin password.')
     }
   }
@@ -5211,8 +5418,8 @@ function AdminGate({ onLogin, onCancel, overlay = false }) {
             />
           </label>
           {error && <p className="login-error">{error}</p>}
-          <button className="primary-btn wide big-btn" type="submit">
-            Enter control room
+          <button className="primary-btn wide big-btn" type="submit" disabled={busy}>
+            {busy ? 'Checking…' : 'Enter control room'}
           </button>
           <button className="text-btn" type="button" onClick={onCancel}>
             Cancel
@@ -5227,11 +5434,16 @@ function LoginScreen({ data, onLogin }) {
   const [name, setName] = useState('')
   const [secret, setSecret] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const season = getSeasonInfo()
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault()
-    if (!onLogin(name, secret)) {
+    if (busy) return
+    setBusy(true)
+    const ok = await onLogin(name, secret)
+    setBusy(false)
+    if (!ok) {
       setError('That name and secret word don’t match. Try again. 🪶')
     }
   }
@@ -5273,8 +5485,8 @@ function LoginScreen({ data, onLogin }) {
             />
           </label>
           {error && <p className="login-error">{error}</p>}
-          <button className="primary-btn wide big-btn" type="submit">
-            Open my bird world 🪶
+          <button className="primary-btn wide big-btn" type="submit" disabled={busy}>
+            {busy ? 'Opening…' : 'Open my bird world 🪶'}
           </button>
         </form>
         {!data.settings.pooksSecret && (

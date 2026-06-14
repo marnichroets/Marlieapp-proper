@@ -88,6 +88,17 @@ _db_lock = threading.Lock()
 VALID_PLAYERS = {"pooks", "marnich"}
 VALID_GAMES = {"quiz", "snap", "bluff"}
 
+# ---- Cross-device player state ----------------------------------------------
+# Each account's full app state (coins, collection, Tweety, inbox, intro-seen,
+# egg choice — everything) is saved here as a JSON blob keyed by account name, so
+# logging in on any device restores the exact same state. localStorage on the
+# client is just an offline cache; this table is the source of truth.
+VALID_ACCOUNTS = {"pooks", "marnich"}
+# Safety valve. Sighting photos are downscaled client-side to a few hundred KB,
+# so a full state stays well under this; anything larger is rejected rather than
+# bloating the database.
+MAX_STATE_BYTES = 9 * 1024 * 1024
+
 
 def _db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(GAMES_DB_PATH, timeout=10)
@@ -132,6 +143,16 @@ def init_games_db() -> None:
                 winner TEXT NOT NULL,
                 resolved_at TEXT NOT NULL,
                 PRIMARY KEY (code, game)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_state (
+                account TEXT PRIMARY KEY,
+                state TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                updated_at TEXT NOT NULL
             )
             """
         )
@@ -295,6 +316,73 @@ def _get_leaderboard() -> dict[str, int]:
         return _read_leaderboard(conn)
 
 
+# ---- Player state load / save ------------------------------------------------
+class StateSave(BaseModel):
+    account: str = ""
+    state: dict[str, Any] = {}
+    version: int = 0
+
+
+def _normalize_account(account: str) -> str:
+    cleaned = str(account or "").strip().lower()
+    if cleaned not in VALID_ACCOUNTS:
+        raise HTTPException(status_code=400, detail="Unknown account.")
+    return cleaned
+
+
+def _load_player_state(account: str) -> dict[str, Any]:
+    acct = _normalize_account(account)
+    with _db_lock, _db_connect() as conn:
+        row = conn.execute(
+            "SELECT state, version, updated_at FROM player_state WHERE account = ?",
+            (acct,),
+        ).fetchone()
+    if row is None:
+        return {"account": acct, "state": None, "version": 0, "updatedAt": None}
+    try:
+        state = json.loads(row["state"])
+    except (json.JSONDecodeError, TypeError):
+        state = None
+    return {
+        "account": acct,
+        "state": state,
+        "version": row["version"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def _save_player_state(payload: StateSave) -> dict[str, Any]:
+    acct = _normalize_account(payload.account)
+    if not isinstance(payload.state, dict):
+        raise HTTPException(status_code=400, detail="State must be an object.")
+
+    serialized = json.dumps(payload.state, separators=(",", ":"))
+    if len(serialized.encode("utf-8")) > MAX_STATE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Saved state is too large. Try removing a few old photos.",
+        )
+
+    now = _now_iso()
+    with _db_lock, _db_connect() as conn:
+        row = conn.execute(
+            "SELECT version FROM player_state WHERE account = ?", (acct,)
+        ).fetchone()
+        # Last-write-wins: bump the version monotonically so other devices can
+        # tell their cached copy is stale on their next load.
+        new_version = (row["version"] if row else 0) + 1
+        conn.execute(
+            "INSERT INTO player_state (account, state, version, updated_at)"
+            " VALUES (?, ?, ?, ?)"
+            " ON CONFLICT(account) DO UPDATE SET"
+            " state = excluded.state, version = excluded.version,"
+            " updated_at = excluded.updated_at",
+            (acct, serialized, new_version, now),
+        )
+        conn.commit()
+    return {"ok": True, "version": new_version, "updatedAt": now}
+
+
 # Create the tables at import time so the database is ready before the first
 # request, regardless of startup-event handling.
 init_games_db()
@@ -313,6 +401,16 @@ async def games_state(code: str, game: str) -> dict[str, Any]:
 @app.get("/api/games/leaderboard")
 async def games_leaderboard() -> dict[str, int]:
     return await asyncio.to_thread(_get_leaderboard)
+
+
+@app.get("/api/state")
+async def get_state(account: str) -> dict[str, Any]:
+    return await asyncio.to_thread(_load_player_state, account)
+
+
+@app.post("/api/state")
+async def post_state(payload: StateSave) -> dict[str, Any]:
+    return await asyncio.to_thread(_save_player_state, payload)
 
 
 @app.get("/api/health")
