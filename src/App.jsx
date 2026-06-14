@@ -80,6 +80,48 @@ function bumpLeaderboard(lb, winner) {
 }
 
 const STORAGE_KEY = 'marlie-bird-app-v1'
+// Marnich's separate test-player account keeps its own fully independent save,
+// so nothing he does can ever read or write Pooks' data.
+const MARNICH_STORAGE_KEY = 'marlie-bird-app-marnich-v1'
+
+function storageKeyForAccount(account) {
+  return account === 'marnich' ? MARNICH_STORAGE_KEY : STORAGE_KEY
+}
+
+// The active account is derived purely from the logged-in session: Marnich's
+// own player login → his account; Pooks and the admin panel → Pooks' account.
+function accountForSession(session) {
+  return session?.role === 'marnich' ? 'marnich' : 'pooks'
+}
+
+function readStoredSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+
+// Marnich's player login. The password lives only in his own account save, so
+// it never appears in Pooks' data; before his first login it falls back to the
+// default below.
+const MARNICH_LOGIN_NAME = 'marnich'
+const MARNICH_DEFAULT_SECRET = 'tweety'
+
+function marnichLoginSecret() {
+  try {
+    const raw = localStorage.getItem(MARNICH_STORAGE_KEY)
+    if (raw) {
+      const saved = JSON.parse(raw)
+      const secret = saved?.settings?.marnichSecret
+      if (secret) return String(secret)
+    }
+  } catch {
+    /* ignore — fall back to the default */
+  }
+  return MARNICH_DEFAULT_SECRET
+}
+
 // Fall back to the known Railway backend if the build env var is missing, so
 // real AI identification still works even when VITE_BIRD_API_URL wasn't set.
 const DEFAULT_BIRD_API_URL = 'https://marlieapp-proper-production.up.railway.app'
@@ -87,6 +129,36 @@ const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || DEFAULT_BIRD_AP
   /\/+$/,
   '',
 )
+
+// ---- Bird Battles backend (shared sessions + all-time leaderboard) ----------
+// Scores live on the server, keyed by the 4-digit code, so Pooks and Marnich can
+// play head-to-head from two different devices.
+const GAMES_API = `${BIRD_API_URL}/api/games`
+
+async function postGameResult({ code, game, player, score, timeMs }) {
+  const response = await fetch(`${GAMES_API}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, game, player, score, timeMs }),
+  })
+  if (!response.ok) throw new Error(`submit ${response.status}`)
+  return response.json()
+}
+
+async function fetchGameState(game, code) {
+  const response = await fetch(
+    `${GAMES_API}/state?code=${encodeURIComponent(code)}&game=${encodeURIComponent(game)}`,
+  )
+  if (!response.ok) throw new Error(`state ${response.status}`)
+  return response.json()
+}
+
+async function fetchGameLeaderboard() {
+  const response = await fetch(`${GAMES_API}/leaderboard`)
+  if (!response.ok) throw new Error(`leaderboard ${response.status}`)
+  return response.json()
+}
+
 const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
 // NOTE: import.meta.env.VITE_* is inlined at BUILD time, not read at runtime.
 // .trim() guards against a stray newline/space if the key was pasted in Vercel.
@@ -122,42 +194,52 @@ const SESSION_STORAGE_KEY = 'marlie-bird-session-v1'
 // QuotaExceededError and the flag would be lost — the cookie is immune to that,
 // so the intro reliably shows only once, ever.
 const INTRO_SEEN_KEY = 'pooks_intro_seen'
+const MARNICH_INTRO_SEEN_KEY = 'marnich_intro_seen'
 
-function readIntroSeen() {
+// Each account (Pooks and Marnich's test account) has its own intro-seen flag so
+// Marnich sees the exact same first-time intro Pooks saw, independently of her.
+function introSeenKey(account = 'pooks') {
+  return account === 'marnich' ? MARNICH_INTRO_SEEN_KEY : INTRO_SEEN_KEY
+}
+
+function readIntroSeen(account = 'pooks') {
+  const key = introSeenKey(account)
   try {
-    if (localStorage.getItem(INTRO_SEEN_KEY) === 'yes') return true
+    if (localStorage.getItem(key) === 'yes') return true
   } catch {
     /* localStorage may be unavailable */
   }
   try {
-    if (document.cookie.split('; ').some((c) => c === `${INTRO_SEEN_KEY}=yes`)) return true
+    if (document.cookie.split('; ').some((c) => c === `${key}=yes`)) return true
   } catch {
     /* cookies may be unavailable */
   }
   return false
 }
 
-function markIntroSeen() {
+function markIntroSeen(account = 'pooks') {
+  const key = introSeenKey(account)
   try {
-    localStorage.setItem(INTRO_SEEN_KEY, 'yes')
+    localStorage.setItem(key, 'yes')
   } catch {
     /* storage full — the cookie below still records it */
   }
   try {
-    document.cookie = `${INTRO_SEEN_KEY}=yes; max-age=${60 * 60 * 24 * 3650}; path=/; samesite=lax`
+    document.cookie = `${key}=yes; max-age=${60 * 60 * 24 * 3650}; path=/; samesite=lax`
   } catch {
     /* ignore */
   }
 }
 
-function clearIntroSeen() {
+function clearIntroSeen(account = 'pooks') {
+  const key = introSeenKey(account)
   try {
-    localStorage.removeItem(INTRO_SEEN_KEY)
+    localStorage.removeItem(key)
   } catch {
     /* ignore */
   }
   try {
-    document.cookie = `${INTRO_SEEN_KEY}=; max-age=0; path=/`
+    document.cookie = `${key}=; max-age=0; path=/`
   } catch {
     /* ignore */
   }
@@ -182,7 +264,8 @@ function ensureAppVersion() {
   }
   // The intro-seen flag also lives in a cookie (survives localStorage.clear),
   // so clear it too — a fresh start should replay the welcome intro.
-  clearIntroSeen()
+  clearIntroSeen('pooks')
+  clearIntroSeen('marnich')
 }
 
 ensureAppVersion()
@@ -197,19 +280,26 @@ const WELCOME_COINS_KEY = 'pooks_welcome_coins_given'
 // is set and the item never appears in the shop again.
 const MILKSHAKE_CLAIMED_KEY = 'pooks_milkshake_claimed'
 
-function applyWelcomeCoins(state) {
+// Per-account flag keys, so Marnich's test account has its own welcome coins and
+// its own milkshake-claim state without ever touching Pooks'.
+function accountFlagKey(baseKey, account = 'pooks') {
+  return account === 'marnich' ? `${baseKey}__marnich` : baseKey
+}
+
+function applyWelcomeCoins(state, account = 'pooks') {
+  const key = accountFlagKey(WELCOME_COINS_KEY, account)
   try {
-    if (localStorage.getItem(WELCOME_COINS_KEY) === 'true') return state
-    localStorage.setItem(WELCOME_COINS_KEY, 'true')
+    if (localStorage.getItem(key) === 'true') return state
+    localStorage.setItem(key, 'true')
     return { ...state, featherCoins: (state.featherCoins || 0) + WELCOME_COINS }
   } catch {
     return state
   }
 }
 
-function milkshakeClaimed() {
+function milkshakeClaimed(account = 'pooks') {
   try {
-    return localStorage.getItem(MILKSHAKE_CLAIMED_KEY) === 'true'
+    return localStorage.getItem(accountFlagKey(MILKSHAKE_CLAIMED_KEY, account)) === 'true'
   } catch {
     return false
   }
@@ -224,6 +314,49 @@ const COINS = {
   streakBonus: 15,
   tweetyCare: 5,
   tweetyStreak: 50,
+}
+
+// ---- Random wildlife encounters --------------------------------------------
+// Occasionally when the app opens or she visits Tweety's nest, a little critter
+// wanders by. One tap always keeps Tweety safe (never scary, never a loss) and
+// earns a small +5 coin "thank you" — Tweety feels like a real little life that
+// needs looking after now and then.
+const ENCOUNTER_REWARD = 5
+const ENCOUNTER_CHANCE = 0.1 // ~1 in 10 app opens / nest visits
+const ENCOUNTERS = [
+  {
+    id: 'lizard',
+    emoji: '🦎',
+    title: "A lizard is creeping toward Tweety's nest!",
+    action: 'Shoo it away 👋',
+    done: 'You gently shooed the lizard away. Tweety is safe! 💛',
+  },
+  {
+    id: 'snake',
+    emoji: '🐍',
+    title: 'Oh no, something slithered nearby!',
+    action: 'Chase it off 👟',
+    done: 'You chased it off. Tweety gives you a grateful chirp! 💛',
+  },
+  {
+    id: 'cat',
+    emoji: '🐱',
+    title: 'A neighbourhood cat is watching from the fence…',
+    action: 'Scare it away 🙌',
+    done: 'The cat slinks off. Tweety is safe and sound! 💛',
+  },
+  {
+    id: 'hawk',
+    emoji: '🦅',
+    title: 'A hawk circles overhead…',
+    action: 'Protect Tweety 🛡️',
+    done: 'You shielded the nest. The hawk flies on. Tweety is safe! 💛',
+  },
+]
+
+function rollEncounter() {
+  if (Math.random() >= ENCOUNTER_CHANCE) return null
+  return ENCOUNTERS[Math.floor(Math.random() * ENCOUNTERS.length)]
 }
 
 // Bonus coins when crossing a unique-species milestone.
@@ -791,6 +924,9 @@ function createId(prefix) {
 // or breaks the UI — failures are swallowed (e.g. offline or email unconfigured).
 function notifyMarnich(event, details = {}) {
   if (!BIRD_API_URL) return
+  // Don't fire "Pooks did X" notifications while Marnich is testing on his own
+  // separate account — those events aren't Pooks.
+  if (accountForSession(readStoredSession()) === 'marnich') return
   try {
     fetch(`${BIRD_API_URL}/api/notify`, {
       method: 'POST',
@@ -1436,6 +1572,9 @@ function buildDefaultState() {
       unlockedDateIdeas: [],
       tweetyLetter: 'Dear Tweety, please look after my Pooks for me. 💛 — Marnich',
       marnichCode: '1972',
+      // Password for Marnich's own separate test-player login (only meaningful in
+      // his own account save).
+      marnichSecret: MARNICH_DEFAULT_SECRET,
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -1494,14 +1633,15 @@ function normalizeTweety(tweety) {
 
 // loadState wraps the raw loader so the one-time welcome coins are applied to
 // whatever state we end up with (fresh default or restored save).
-function loadState() {
-  return applyWelcomeCoins(loadStateRaw())
+function loadState(account = 'pooks') {
+  return applyWelcomeCoins(loadStateRaw(account), account)
 }
 
-function loadStateRaw() {
+function loadStateRaw(account = 'pooks') {
+  const key = storageKeyForAccount(account)
   const base = buildDefaultState()
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(key)
     if (!raw) return base
     const saved = JSON.parse(raw)
     return recalculateState({
@@ -1589,8 +1729,8 @@ function loadStateRaw() {
     // Never silently destroy a save we couldn't parse — keep a backup copy so
     // it can be recovered instead of being overwritten by the empty default.
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) localStorage.setItem(`${STORAGE_KEY}-backup`, raw)
+      const raw = localStorage.getItem(key)
+      if (raw) localStorage.setItem(`${key}-backup`, raw)
     } catch {
       // ignore
     }
@@ -1802,20 +1942,25 @@ function addBirdToState(state, match, photo) {
 
 function App() {
   const [activePage, setActivePage] = useState('home')
-  const [data, setData] = useState(loadState)
+  const [session, setSession] = useState(readStoredSession)
+  // Which account's independent save is active, derived purely from the session.
+  const account = accountForSession(session)
+  const [data, setData] = useState(() => loadState(accountForSession(readStoredSession())))
   const [toast, setToast] = useState(null)
-  const [session, setSession] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || 'null')
-    } catch {
-      return null
-    }
-  })
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
-  // Has Pooks already seen the one-time cinematic intro? Read immediately on
-  // app load so a refresh/navigation never replays it.
-  const [introSeen, setIntroSeen] = useState(readIntroSeen)
+  // While waiting for the other player to finish a head-to-head game, poll the
+  // server: { game, who, code } or null.
+  const [pendingPoll, setPendingPoll] = useState(null)
+  // A random wildlife encounter currently on screen (null = none). Shown at most
+  // once per app session via encounterShownRef.
+  const [encounter, setEncounter] = useState(null)
+  const encounterShownRef = useRef(false)
+  // Has the active account already seen the one-time cinematic intro? Read
+  // immediately on app load so a refresh/navigation never replays it.
+  const [introSeen, setIntroSeen] = useState(() =>
+    readIntroSeen(accountForSession(readStoredSession())),
+  )
   const [reveal, setReveal] = useState(null)
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
@@ -1922,7 +2067,7 @@ function App() {
   // First app-open of the day: a warm new dispatch from the Bird Council lands
   // in the inbox, with a real SA bird fact she has not seen before.
   useEffect(() => {
-    if (!session || session.role !== 'pooks') return undefined
+    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
     const todayKey = tweetyTodayKey()
     if (data.messagesMeta?.lastCouncilDay === todayKey) return undefined
     let cancelled = false
@@ -1950,7 +2095,7 @@ function App() {
 
   // Celebrate whenever Tweety grows into a new life stage (real calendar days).
   useEffect(() => {
-    if (!session || session.role !== 'pooks') return undefined
+    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
     if (!data.tweety?.companion && !data.tweety?.bornAt) return undefined
     const idx = tweetyGrowthIndex(data.tweety)
     if (idx <= (data.tweetyGrowthSeen || 0)) return undefined
@@ -2018,7 +2163,7 @@ function App() {
 
   // If Marnich left a surprise treat, Tweety does a happy dance on open.
   useEffect(() => {
-    if (!session || session.role !== 'pooks') return undefined
+    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
     if (!data.tweety?.pendingTreat) return undefined
     let cancelled = false
     const start = window.setTimeout(() => {
@@ -2047,7 +2192,7 @@ function App() {
 
   // Daily aviary income: pay out once per day when birds live in the aviary.
   useEffect(() => {
-    if (!session || session.role !== 'pooks') return undefined
+    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
     const aviary = data.tweety?.aviary || []
     const key = tweetyTodayKey()
     if (!aviary.length || data.tweety?.lastAviaryPayout === key) return undefined
@@ -2123,7 +2268,7 @@ function App() {
 
   // On opening the app: a chance of a story event, or (rarely) an escape.
   useEffect(() => {
-    if (!session || session.role !== 'pooks') return undefined
+    if (!session || (session.role !== 'pooks' && session.role !== 'marnich')) return undefined
     let cancelled = false
     const timer = window.setTimeout(() => {
       if (cancelled) return
@@ -2204,7 +2349,9 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      // Always save under the active account's key, so Marnich's test save and
+      // Pooks' real save never overwrite one another.
+      localStorage.setItem(storageKeyForAccount(account), JSON.stringify(data))
     } catch (error) {
       // Storage is full — warn rather than silently losing the save.
       console.warn('Could not save app data (storage may be full)', error)
@@ -2216,7 +2363,7 @@ function App() {
         })
       }, 0)
     }
-  }, [data])
+  }, [data, account])
 
   // Stamp this visit so the "Tweety missed you" nudge only shows after a real gap.
   useEffect(() => {
@@ -2238,31 +2385,118 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [confetti])
 
-  // Pooks' normal login. Admin is intentionally NOT reachable from here.
+  // Load the all-time leaderboard from the server whenever the app opens, so it
+  // shows correctly every time either person opens the app.
+  useEffect(() => {
+    let cancelled = false
+    fetchGameLeaderboard()
+      .then((lb) => {
+        if (cancelled || !lb) return
+        setData((c) => ({ ...c, games: { ...c.games, leaderboard: lb } }))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Waiting for the other player: poll the server until the match resolves.
+  useEffect(() => {
+    if (!pendingPoll) return undefined
+    let cancelled = false
+    const id = window.setInterval(() => {
+      fetchGameState(pendingPoll.game, pendingPoll.code)
+        .then((state) => {
+          if (cancelled) return
+          if (state.status === 'done') {
+            setPendingPoll(null)
+            applyGameState(pendingPoll.game, pendingPoll.who, state)
+          } else if (state.leaderboard) {
+            setData((c) => ({ ...c, games: { ...c.games, leaderboard: state.leaderboard } }))
+          }
+        })
+        .catch(() => {})
+    }, 3000)
+    // Give up after 3 minutes so it never polls forever.
+    const stop = window.setTimeout(() => setPendingPoll(null), 180000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+      window.clearTimeout(stop)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPoll])
+
+  // Random wildlife encounters: when the app opens or she visits Tweety's nest,
+  // occasionally a critter wanders by. At most once per app session.
+  useEffect(() => {
+    const isPlayer = session?.role === 'pooks' || session?.role === 'marnich'
+    if (!isPlayer || !data.tweety?.companion) return undefined
+    if (encounterShownRef.current) return undefined
+    if (activePage !== 'home' && activePage !== 'tweety') return undefined
+    const t = window.setTimeout(() => {
+      if (encounterShownRef.current) return
+      const rolled = rollEncounter()
+      if (rolled) {
+        encounterShownRef.current = true
+        setEncounter(rolled)
+      }
+    }, 1400)
+    return () => window.clearTimeout(t)
+  }, [activePage, session, data.tweety?.companion])
+
+  // One tap kept Tweety safe — close the encounter and pay the small reward.
+  function resolveEncounter() {
+    setData((c) => ({ ...c, featherCoins: (c.featherCoins || 0) + ENCOUNTER_REWARD }))
+    setEncounter(null)
+    setToast({
+      title: 'Tweety is safe! 💛',
+      body: `+${ENCOUNTER_REWARD} Feather Coins for protecting the nest.`,
+      tone: 'success',
+    })
+  }
+
+  // Flip to a different account, loading that account's own independent save and
+  // intro state in the same batch so the next render reads the right data and
+  // nothing leaks between Pooks and Marnich.
+  function switchAccount(nextSession, page = 'home') {
+    const nextAccount = accountForSession(nextSession)
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+    setData(loadState(nextAccount))
+    setIntroSeen(readIntroSeen(nextAccount))
+    setSession(nextSession)
+    setActivePage(page)
+    setMenuOpen(false)
+  }
+
+  // Login screen: Pooks' own login, plus Marnich's separate test-player login.
+  // Admin is intentionally NOT reachable from here.
   function login(name, secret) {
     const cleanName = String(name || '').trim().toLowerCase()
     const cleanSecret = String(secret || '').trim()
     if (cleanName === 'pooks' || cleanName === 'marlie') {
       if (cleanSecret && cleanSecret === data.settings.pooksSecret) {
-        const next = { role: 'pooks', name: 'Pooks' }
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next))
-        setSession(next)
-        setActivePage('home')
+        switchAccount({ role: 'pooks', name: 'Pooks' })
+        return true
+      }
+    }
+    // Marnich's own fully separate player account — never touches Pooks' save.
+    if (cleanName === MARNICH_LOGIN_NAME) {
+      if (cleanSecret && cleanSecret === marnichLoginSecret()) {
+        switchAccount({ role: 'marnich', name: 'Marnich' })
         return true
       }
     }
     return false
   }
 
-  // Separate, hidden admin login reached only via /admin or the secret tap.
+  // Separate, hidden admin login reached only via /admin or the secret tap. The
+  // admin panel always manages Pooks' real account.
   function adminLogin(secret) {
     const cleanSecret = String(secret || '').trim()
     if (cleanSecret && cleanSecret === data.settings.adminSecret) {
-      const next = { role: 'admin', name: 'Marnich' }
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next))
-      setSession(next)
+      switchAccount({ role: 'admin', name: 'Marnich' }, 'admin')
       setAdminGate(false)
-      setActivePage('admin')
       try {
         window.history.replaceState(null, '', '/')
       } catch {
@@ -2275,6 +2509,9 @@ function App() {
 
   function logout() {
     localStorage.removeItem(SESSION_STORAGE_KEY)
+    // Return to the logged-out Pooks account view.
+    setData(loadState('pooks'))
+    setIntroSeen(readIntroSeen('pooks'))
     setSession(null)
     setMenuOpen(false)
     setActivePage('home')
@@ -2285,7 +2522,7 @@ function App() {
   // she can rewatch her Bird Council dossier as many times as she likes.
   function replayIntro() {
     setMenuOpen(false)
-    clearIntroSeen()
+    clearIntroSeen(account)
     setIntroSeen(false)
   }
 
@@ -2395,12 +2632,15 @@ function App() {
       }
     }
 
-    const celebrate = kind === 'play' || Boolean(bonusNote)
-    if (celebrate) {
-      setTweetyDancing(true)
-      if (bonusNote) setConfetti(Date.now())
-      window.setTimeout(() => setTweetyDancing(false), bonusNote ? 2800 : 1800)
-    }
+    // Every care action gives Tweety a happy little animation; play and streak
+    // bonuses get a longer celebration dance.
+    const bigCelebrate = kind === 'play' || Boolean(bonusNote)
+    setTweetyDancing(true)
+    if (bonusNote) setConfetti(Date.now())
+    window.setTimeout(
+      () => setTweetyDancing(false),
+      bonusNote ? 2800 : bigCelebrate ? 1800 : 1100,
+    )
 
     commit(
       { ...data, tweety: nextTweety, featherCoins: data.featherCoins + coins },
@@ -3111,6 +3351,66 @@ function App() {
     })
   }
 
+  // Fast Forward ⏩ — Marnich's own testing tool (his account only). Advances HIS
+  // account by one day so he can test the whole Tweety lifecycle in minutes:
+  // ages Tweety / warms the first egg, advances incubation, and resets today's
+  // care windows + daily challenge. It never runs on, or affects, Pooks' data.
+  function fastForwardDay() {
+    const tw = data.tweety || {}
+    const nextTweety = { ...tw }
+    let note = ''
+
+    if (tw.companion && tw.bornAt) {
+      // Age the companion by a day.
+      const born = new Date(tw.bornAt)
+      born.setDate(born.getDate() - 1)
+      nextTweety.bornAt = born.toISOString()
+      note = `${tw.name || 'Tweety'} aged 1 day.`
+    } else if (tw.firstEgg) {
+      // Warm the first egg one day, hatching it once fully warmed.
+      const warms = (tw.firstEgg.warms || 0) + 1
+      if (warms >= FIRST_EGG_WARMS) {
+        const companion = tw.firstEgg.companion
+        nextTweety.companion = companion
+        nextTweety.firstEgg = null
+        nextTweety.bornAt = new Date().toISOString()
+        note = `The egg hatched into ${getCompanion(companion).name}! 🐣`
+        setConfetti(Date.now())
+      } else {
+        nextTweety.firstEgg = { ...tw.firstEgg, warms, lastWarmDay: '' }
+        note = `Egg warmed — ${warms}/${FIRST_EGG_WARMS} days.`
+      }
+    }
+
+    // Advance an incubating basket egg by a day.
+    if (nextTweety.incubating) {
+      const inc = nextTweety.incubating
+      nextTweety.incubating = { ...inc, progress: (inc.progress || 0) + 1, lastWarmDay: '' }
+    }
+
+    // Reset today's care windows so all three can be tested again, fresh.
+    const careKey = tweetyTodayKey()
+    const nextCare = { ...(nextTweety.care || {}) }
+    delete nextCare[careKey]
+    nextTweety.care = nextCare
+    nextTweety.careAt = { fed: null, watered: null, played: null }
+
+    // Reset today's daily challenge.
+    const nextCompletions = { ...(data.dailyChallengeCompletions || {}) }
+    delete nextCompletions[todayValue()]
+
+    setData((c) => ({
+      ...c,
+      tweety: nextTweety,
+      dailyChallengeCompletions: nextCompletions,
+    }))
+    setToast({
+      title: 'Fast-forwarded 1 day ⏩',
+      body: `${note} Care windows + daily challenge reset.`.trim(),
+      tone: 'success',
+    })
+  }
+
   function sendFlockTreat() {
     const flock = data.tweety?.aviary || []
     if (flock.length === 0) {
@@ -3255,8 +3555,64 @@ function App() {
     })
   }
 
-  // ----- Competitive games (shared local state) -----
-  // Shared resolution for a head-to-head game once both players have played.
+  // ----- Competitive games (backend-synced sessions + all-time leaderboard) --
+  // Coins the local player earns for winning each game.
+  function gameWinCoins(gameKey) {
+    return gameKey === 'quiz' ? 150 : 100
+  }
+
+  // Apply a backend session state to the local UI. The leaderboard always comes
+  // from the server (single source of truth across both devices); the local
+  // player's own coin balance is adjusted for a win/loss on THIS device.
+  function applyGameState(gameKey, who, state) {
+    if (!state) return
+    const leaderboard = state.leaderboard || data.games.leaderboard
+    if (state.status !== 'done') {
+      setData((c) => ({
+        ...c,
+        games: {
+          ...c.games,
+          leaderboard,
+          lastResult: { game: gameKey, status: 'waiting', who, code: state.code },
+        },
+      }))
+      return
+    }
+    const winner = state.winner
+    const localWon = winner === who
+    const localLost = winner !== 'draw' && winner !== who
+    const coinDelta = localWon ? gameWinCoins(gameKey) : localLost ? -50 : 0
+    const text =
+      winner === 'draw'
+        ? 'A tie?! The Bird Council demands a rematch 🐦'
+        : localWon
+          ? 'You win! The Bird Council is delighted in you 🏆'
+          : 'They got you this time… the Council suspects Googling 🤨'
+    if (localWon) setConfetti(Date.now())
+    const lastResult = {
+      game: gameKey,
+      winner,
+      text,
+      status: 'done',
+      code: state.code,
+      pooks: state.pooks || { score: 0, timeMs: 0 },
+      marnich: state.marnich || { score: 0, timeMs: 0 },
+    }
+    commit(
+      {
+        ...data,
+        games: { ...data.games, leaderboard, lastResult },
+        featherCoins: Math.max(0, data.featherCoins + coinDelta),
+      },
+      {
+        title: winner === 'draw' ? "It's a tie 🤝" : localWon ? 'You win! 🏆' : 'They win 😏',
+        body: text,
+      },
+    )
+  }
+
+  // ----- Offline fallback: same-device two-player resolution (legacy) --------
+  // Used only if the server can't be reached, so a network blip never loses a game.
   function finishMatch(gameKey, winner, detail, extraPooksCoins = 0) {
     const g = data.games
     const coinDelta =
@@ -3309,9 +3665,8 @@ function App() {
     })
   }
 
-  // All three games (quiz, snap, bluff) are score-based: highest score wins,
-  // ties broken by who answered faster. One handler resolves them all.
-  function onGameDone(gameKey, who, result) {
+  // Same-device fallback resolution (used only when the server is unreachable).
+  function onGameDoneLocal(gameKey, who, result) {
     const g = data.games
     const prev =
       g[gameKey] && g[gameKey].code === result.code
@@ -3331,6 +3686,37 @@ function App() {
               : 'draw'
     finishMatch(gameKey, winner, { pooks: round.pooks, marnich: round.marnich })
     return undefined
+  }
+
+  // All three games (quiz, snap, bluff) are score-based: highest score wins,
+  // ties broken by who answered faster. Scores go to the server keyed by the
+  // shared session code; the second player to finish resolves the match, and the
+  // first player polls until the result arrives.
+  function onGameDone(gameKey, who, result) {
+    // Lock the score in immediately and show "waiting" while we reach the server.
+    setData((c) => ({
+      ...c,
+      games: {
+        ...c.games,
+        lastResult: { game: gameKey, status: 'waiting', who, code: result.code },
+      },
+    }))
+    postGameResult({
+      code: result.code,
+      game: gameKey,
+      player: who,
+      score: result.score,
+      timeMs: result.timeMs,
+    })
+      .then((state) => {
+        applyGameState(gameKey, who, state)
+        if (state.status !== 'done') {
+          setPendingPoll({ game: gameKey, who, code: result.code })
+        }
+      })
+      .catch(() => {
+        onGameDoneLocal(gameKey, who, result)
+      })
   }
 
   // Weekly magazine quiz: 25 coins for finishing, but only once per week.
@@ -3503,7 +3889,8 @@ function App() {
       return
     }
     const fresh = buildDefaultState()
-    localStorage.removeItem(STORAGE_KEY)
+    // Only ever clear the account that's actually active.
+    localStorage.removeItem(storageKeyForAccount(account))
     setData(fresh)
     setActivePage('home')
     setRewardUnlockQueue([])
@@ -4029,10 +4416,10 @@ function App() {
   // One-time "Claim your Milkshake Date 🥤". Sets a localStorage flag so the
   // item disappears from the shop forever once claimed.
   function buyMilkshakeDate() {
-    if (milkshakeClaimed()) return
+    if (milkshakeClaimed(account)) return
     if (data.featherCoins < SHOP.milkshakeDate) return notEnoughCoins()
     try {
-      localStorage.setItem(MILKSHAKE_CLAIMED_KEY, 'true')
+      localStorage.setItem(accountFlagKey(MILKSHAKE_CLAIMED_KEY, account), 'true')
     } catch {
       /* storage unavailable — the coin deduction below still records intent */
     }
@@ -4278,15 +4665,15 @@ function App() {
     return <LoginScreen data={data} onLogin={login} />
   }
 
-  // The very first time Pooks opens the app after login, play the one-time
-  // cinematic "evidence dossier" intro. Stored forever in localStorage so it
-  // never shows again. Admin/preview sessions skip it entirely.
-  if (session.role === 'pooks' && !introSeen) {
+  // The very first time Pooks (or Marnich, on his own test account) opens the
+  // app after login, play the one-time cinematic "evidence dossier" intro.
+  // Stored per-account so it never shows again. The admin panel skips it.
+  if ((session.role === 'pooks' || session.role === 'marnich') && !introSeen) {
     return (
       <IntroSequence
-        onAccept={markIntroSeen}
+        onAccept={() => markIntroSeen(account)}
         onComplete={() => {
-          markIntroSeen()
+          markIntroSeen(account)
           setActivePage('home')
           setIntroSeen(true)
         }}
@@ -4294,8 +4681,13 @@ function App() {
     )
   }
 
-  // First-login: Pooks chooses her first mystery egg. It hatches into her Tweety.
-  if (session.role === 'pooks' && !data.tweety?.companion && !data.tweety?.firstEgg) {
+  // First-login: choose a first mystery egg that hatches into a personal Tweety.
+  // Marnich gets his own egg/Tweety on his own account, exactly like Pooks.
+  if (
+    (session.role === 'pooks' || session.role === 'marnich') &&
+    !data.tweety?.companion &&
+    !data.tweety?.firstEgg
+  ) {
     return <FirstEggSelect onPick={chooseFirstEgg} />
   }
 
@@ -4309,6 +4701,16 @@ function App() {
         <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} overlay />
       )}
       {confetti ? <Confetti seed={confetti} /> : null}
+      {session.role === 'marnich' && (
+        <button
+          className="marnich-ff-btn"
+          type="button"
+          onClick={fastForwardDay}
+          title="Advance your test account by one day"
+        >
+          ⏩ Fast Forward
+        </button>
+      )}
       <RewardUnlockModal
         reward={activeRewardUnlock}
         markRewardPaid={markRewardPaid}
@@ -4316,6 +4718,7 @@ function App() {
         onClose={() => setRewardUnlockQueue((current) => current.slice(1))}
       />
       <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
+      <EncounterModal encounter={encounter} onResolve={resolveEncounter} />
 
       <header className="app-header">
         <div className="brand-wrap">
@@ -4366,7 +4769,9 @@ function App() {
           }}
           onLogout={logout}
           onClose={() => setMenuOpen(false)}
-          onReplayIntro={session.role === 'pooks' ? replayIntro : null}
+          onReplayIntro={
+            session.role === 'pooks' || session.role === 'marnich' ? replayIntro : null
+          }
         />
       )}
 
@@ -4435,7 +4840,11 @@ function App() {
           />
         )}
         {activePage === 'games' && (
-          <GamesHub data={data} who="pooks" onGameDone={onGameDone} />
+          <GamesHub
+            data={data}
+            who={account === 'marnich' ? 'marnich' : 'pooks'}
+            onGameDone={onGameDone}
+          />
         )}
         {activePage === 'add' && (
           <AddBirdPage addBird={addBird} birdLibrary={data.birdLibrary} />
@@ -4468,6 +4877,7 @@ function App() {
             claimReward={claimReward}
             markRewardPaid={markRewardPaid}
             isAdmin={session.role === 'admin'}
+            account={account}
             buyMysteryBox={buyMysteryBox}
             buyHiddenNote={buyHiddenNote}
             buyDateIdea={buyDateIdea}
@@ -4530,7 +4940,9 @@ function App() {
             data={data}
             stats={stats}
             goTo={setActivePage}
-            onReplayIntro={session.role === 'pooks' ? replayIntro : null}
+            onReplayIntro={
+            session.role === 'pooks' || session.role === 'marnich' ? replayIntro : null
+          }
           />
         )}
         {activePage === 'admin' && session.role === 'admin' && (
@@ -4788,6 +5200,49 @@ function RevealModal({ reveal, onClose }) {
         <button className="primary-btn wide big-btn" type="button" onClick={onClose}>
           Yay 💛
         </button>
+      </article>
+    </div>
+  )
+}
+
+// A quick, cute wildlife encounter: one tap shoos the critter and keeps Tweety
+// safe. Always resolves positively — never scary, never a loss.
+function EncounterModal({ encounter, onResolve }) {
+  const [resolved, setResolved] = useState(false)
+  if (!encounter) return null
+  return (
+    <div className="reward-modal-backdrop encounter-backdrop" role="presentation">
+      <article
+        className="reveal-card encounter-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="encounter-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={`encounter-emoji${resolved ? ' safe' : ''}`} aria-hidden="true">
+          {resolved ? '💛' : encounter.emoji}
+        </div>
+        {resolved ? (
+          <>
+            <h2 id="encounter-title">{encounter.done}</h2>
+            <p className="encounter-reward">+{ENCOUNTER_REWARD} Feather Coins 🪙</p>
+            <button className="primary-btn wide big-btn" type="button" onClick={onResolve}>
+              Yay! 🐦
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 id="encounter-title">{encounter.title}</h2>
+            <p>Quick — keep Tweety safe!</p>
+            <button
+              className="primary-btn wide big-btn"
+              type="button"
+              onClick={() => setResolved(true)}
+            >
+              {encounter.action}
+            </button>
+          </>
+        )}
       </article>
     </div>
   )
@@ -7111,12 +7566,14 @@ function RewardsPage({
   claimReward,
   markRewardPaid,
   isAdmin,
+  account = 'pooks',
   buyMysteryBox,
   buyHiddenNote,
   buyDateIdea,
   buyMilkshakeDate,
   buyFeaturedBirdProfile,
 }) {
+  const isMarnich = account === 'marnich'
   const revealedRewards = data.rewards.filter((reward) => reward.status !== 'Locked')
   const claimedRewards = revealedRewards.filter((reward) =>
     ['Claimed', 'Paid'].includes(reward.status),
@@ -7128,7 +7585,7 @@ function RewardsPage({
   const coins = data.featherCoins
   const shopItems = [
     // One-time milkshake date — only while it hasn't been claimed yet.
-    ...(milkshakeClaimed()
+    ...(milkshakeClaimed(account)
       ? []
       : [{ id: 'milkshakeDate', name: 'Claim your Milkshake Date 🥤', emoji: '🥤', cost: SHOP.milkshakeDate, action: buyMilkshakeDate, hint: 'A real milkshake date with Marnich' }]),
     { id: 'mysteryBox', name: 'Mystery gift box', emoji: '🎁', cost: SHOP.mysteryBox, action: buyMysteryBox, hint: 'A surprise from Marnich' },
@@ -7136,12 +7593,15 @@ function RewardsPage({
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
     { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
-  // For now the Gifts page shows ONLY the Milkshake Date. Every other shop item
-  // and gift section is kept in code but hidden. To bring them back later, add
-  // their ids to visibleShopIds and/or flip showOtherGiftSections to true.
-  const visibleShopIds = ['milkshakeDate']
+  // Pooks' Gifts page shows ONLY the Milkshake Date for now (other items kept in
+  // code but hidden). Marnich's test account sees every item and gift section so
+  // he can verify the full purchase → reveal → claim flow before any of it goes
+  // live for Pooks.
+  const visibleShopIds = isMarnich
+    ? ['milkshakeDate', 'mysteryBox', 'hiddenNote', 'birdProfile', 'dateIdea']
+    : ['milkshakeDate']
   const visibleShopItems = shopItems.filter((item) => visibleShopIds.includes(item.id))
-  const showOtherGiftSections = false
+  const showOtherGiftSections = isMarnich
 
   return (
     <div className="page-grid surprises-page">

@@ -452,7 +452,7 @@ export function GamesHub({ data, who, onGameDone }) {
             <>
               <h2>Share this code with Marnich on WhatsApp 📲</h2>
               <div className="session-code">{code}</div>
-              <p className="fine-print">He enters it in Admin → Play Date Game. Same questions, same order — no Googling! 🐦</p>
+              <p className="fine-print">He enters it on his own Games screen. Same questions, same order — no Googling! 🐦</p>
             </>
           ) : (
             <>

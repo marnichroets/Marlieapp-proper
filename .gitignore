@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Backend game database (created at runtime)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -2,8 +2,11 @@ import asyncio
 import base64
 import json
 import os
+import sqlite3
+import threading
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -69,6 +72,247 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# ---- Bird Battles: shared game sessions + all-time leaderboard ---------------
+# Pooks and Marnich play on different devices, so scores and the leaderboard
+# must live on the server, keyed by the 4-digit session code they both enter.
+# A tiny SQLite database keeps it persistent across reloads. Point GAMES_DB_PATH
+# at a Railway volume to keep it across redeploys too.
+GAMES_DB_PATH = os.getenv(
+    "GAMES_DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "marlie_games.db"),
+)
+_db_lock = threading.Lock()
+
+VALID_PLAYERS = {"pooks", "marnich"}
+VALID_GAMES = {"quiz", "snap", "bluff"}
+
+
+def _db_connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(GAMES_DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_games_db() -> None:
+    with _db_lock, _db_connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS leaderboard (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                pooks_wins INTEGER NOT NULL DEFAULT 0,
+                marnich_wins INTEGER NOT NULL DEFAULT 0,
+                draws INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO leaderboard (id, pooks_wins, marnich_wins, draws)"
+            " VALUES (1, 0, 0, 0)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS game_submissions (
+                code TEXT NOT NULL,
+                game TEXT NOT NULL,
+                player TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                time_ms INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (code, game, player)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS game_results (
+                code TEXT NOT NULL,
+                game TEXT NOT NULL,
+                winner TEXT NOT NULL,
+                resolved_at TEXT NOT NULL,
+                PRIMARY KEY (code, game)
+            )
+            """
+        )
+        conn.commit()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _read_leaderboard(conn: sqlite3.Connection) -> dict[str, int]:
+    row = conn.execute(
+        "SELECT pooks_wins, marnich_wins, draws FROM leaderboard WHERE id = 1"
+    ).fetchone()
+    if not row:
+        return {"pooksWins": 0, "marnichWins": 0, "draws": 0}
+    return {
+        "pooksWins": row["pooks_wins"],
+        "marnichWins": row["marnich_wins"],
+        "draws": row["draws"],
+    }
+
+
+def _decide_winner(pooks: sqlite3.Row, marnich: sqlite3.Row) -> str:
+    """Higher score wins; ties broken by the faster total time; else a draw."""
+    if pooks["score"] > marnich["score"]:
+        return "pooks"
+    if marnich["score"] > pooks["score"]:
+        return "marnich"
+    if pooks["time_ms"] < marnich["time_ms"]:
+        return "pooks"
+    if marnich["time_ms"] < pooks["time_ms"]:
+        return "marnich"
+    return "draw"
+
+
+def _player_payload(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {"score": row["score"], "timeMs": row["time_ms"]}
+
+
+def _session_state(conn: sqlite3.Connection, code: str, game: str) -> dict[str, Any]:
+    """Current state of one (code, game): waiting or done, plus the leaderboard.
+
+    Resolution is idempotent — the winner is computed and the leaderboard bumped
+    exactly once, the first time both players have submitted.
+    """
+    subs = {
+        row["player"]: row
+        for row in conn.execute(
+            "SELECT player, score, time_ms FROM game_submissions"
+            " WHERE code = ? AND game = ?",
+            (code, game),
+        ).fetchall()
+    }
+    pooks = subs.get("pooks")
+    marnich = subs.get("marnich")
+
+    result = conn.execute(
+        "SELECT winner FROM game_results WHERE code = ? AND game = ?",
+        (code, game),
+    ).fetchone()
+
+    if result is None and pooks is not None and marnich is not None:
+        winner = _decide_winner(pooks, marnich)
+        # Insert the result first; only bump the leaderboard if THIS call is the
+        # one that actually created it (guards against a double-count race).
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO game_results (code, game, winner, resolved_at)"
+            " VALUES (?, ?, ?, ?)",
+            (code, game, winner, _now_iso()),
+        )
+        if cursor.rowcount == 1:
+            column = {
+                "pooks": "pooks_wins",
+                "marnich": "marnich_wins",
+                "draws": "draws",
+            }["draws" if winner == "draw" else winner]
+            conn.execute(
+                f"UPDATE leaderboard SET {column} = {column} + 1 WHERE id = 1"
+            )
+        conn.commit()
+        result = conn.execute(
+            "SELECT winner FROM game_results WHERE code = ? AND game = ?",
+            (code, game),
+        ).fetchone()
+
+    leaderboard = _read_leaderboard(conn)
+    if result is not None:
+        return {
+            "status": "done",
+            "code": code,
+            "game": game,
+            "winner": result["winner"],
+            "pooks": _player_payload(pooks),
+            "marnich": _player_payload(marnich),
+            "leaderboard": leaderboard,
+        }
+    return {
+        "status": "waiting",
+        "code": code,
+        "game": game,
+        "pooks": _player_payload(pooks),
+        "marnich": _player_payload(marnich),
+        "leaderboard": leaderboard,
+    }
+
+
+class GameSubmission(BaseModel):
+    code: str = ""
+    game: str = ""
+    player: str = ""
+    score: int = 0
+    timeMs: int = 0
+
+
+def _normalize_code(code: str) -> str:
+    cleaned = "".join(ch for ch in str(code or "") if ch.isdigit())[:4]
+    if len(cleaned) != 4:
+        raise HTTPException(status_code=400, detail="A 4-digit session code is required.")
+    return cleaned
+
+
+def _submit_game(payload: GameSubmission) -> dict[str, Any]:
+    code = _normalize_code(payload.code)
+    game = str(payload.game or "").strip().lower()
+    player = str(payload.player or "").strip().lower()
+    if game not in VALID_GAMES:
+        raise HTTPException(status_code=400, detail="Unknown game.")
+    if player not in VALID_PLAYERS:
+        raise HTTPException(status_code=400, detail="Unknown player.")
+
+    score = max(0, int(payload.score or 0))
+    time_ms = max(0, int(payload.timeMs or 0))
+
+    with _db_lock, _db_connect() as conn:
+        # First submission for this (code, game, player) wins — never overwrite,
+        # so a replayed request can't change a locked-in score.
+        conn.execute(
+            "INSERT OR IGNORE INTO game_submissions"
+            " (code, game, player, score, time_ms, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (code, game, player, score, time_ms, _now_iso()),
+        )
+        conn.commit()
+        return _session_state(conn, code, game)
+
+
+def _get_state(code: str, game: str) -> dict[str, Any]:
+    norm_code = _normalize_code(code)
+    norm_game = str(game or "").strip().lower()
+    if norm_game not in VALID_GAMES:
+        raise HTTPException(status_code=400, detail="Unknown game.")
+    with _db_lock, _db_connect() as conn:
+        return _session_state(conn, norm_code, norm_game)
+
+
+def _get_leaderboard() -> dict[str, int]:
+    with _db_lock, _db_connect() as conn:
+        return _read_leaderboard(conn)
+
+
+# Create the tables at import time so the database is ready before the first
+# request, regardless of startup-event handling.
+init_games_db()
+
+
+@app.post("/api/games/submit")
+async def games_submit(payload: GameSubmission) -> dict[str, Any]:
+    return await asyncio.to_thread(_submit_game, payload)
+
+
+@app.get("/api/games/state")
+async def games_state(code: str, game: str) -> dict[str, Any]:
+    return await asyncio.to_thread(_get_state, code, game)
+
+
+@app.get("/api/games/leaderboard")
+async def games_leaderboard() -> dict[str, int]:
+    return await asyncio.to_thread(_get_leaderboard)
 
 
 @app.get("/api/health")

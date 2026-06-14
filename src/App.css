@@ -5043,3 +5043,51 @@ textarea:focus {
   .spot-action-btn { padding: 18px 8px; }
   .spot-action-emoji { font-size: 2rem; }
 }
+
+/* Fast Forward ⏩ — small, unobtrusive corner button on Marnich's test account
+   only. Lets him advance his own account a day to test the Tweety lifecycle. */
+.marnich-ff-btn {
+  position: fixed;
+  right: 12px;
+  bottom: 84px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 11px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #3b2a1a;
+  background: rgba(255, 233, 186, 0.92);
+  border: 1px solid rgba(180, 140, 70, 0.6);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(80, 60, 20, 0.22);
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.marnich-ff-btn:hover { opacity: 1; transform: translateY(-1px); }
+.marnich-ff-btn:active { transform: translateY(0); }
+
+/* Random wildlife encounter modal — light, cute, never scary. */
+.encounter-backdrop { z-index: 80; }
+.encounter-card { text-align: center; }
+.encounter-emoji {
+  font-size: 4.2rem;
+  line-height: 1;
+  margin-bottom: 6px;
+  animation: encounter-wiggle 0.9s ease-in-out infinite;
+}
+.encounter-emoji.safe { animation: encounter-pop 0.4s ease-out; }
+.encounter-reward { font-weight: 700; color: #b06a00; margin-top: 2px; }
+@keyframes encounter-wiggle {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-4px) rotate(-6deg); }
+  75% { transform: translateX(4px) rotate(6deg); }
+}
+@keyframes encounter-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
