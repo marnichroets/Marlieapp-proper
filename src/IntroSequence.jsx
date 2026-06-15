@@ -104,7 +104,7 @@ const VOTES = [
 
 const FIELD_KIT = [
   ['🐦', 'A personal bird collection to fill — hundreds of SA species waiting to be found'],
-  ['🥚', 'Every new species you spot → a mystery egg appears in your nest'],
+  ['🐤', 'Care for Tweety every day → watch her grow from chick to crowned adult'],
   ['🎁', 'Reach milestones → unlock real surprises from Marnich Bank'],
   ['💌', 'Earn enough coins → unlock hidden notes from Marnich'],
   ['🏆', 'Complete daily challenges → earn coins → make the Council proud'],
