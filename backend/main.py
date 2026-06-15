@@ -383,6 +383,18 @@ def _save_player_state(payload: StateSave) -> dict[str, Any]:
     return {"ok": True, "version": new_version, "updatedAt": now}
 
 
+def _delete_player_state(account: str) -> dict[str, Any]:
+    """Remove an account's saved state entirely so GET /api/state returns a null
+    state again (not an empty object). Needed to undo a bad/test save before a
+    real first sync, since clients treat any present state as authoritative."""
+    acct = _normalize_account(account)
+    with _db_lock, _db_connect() as conn:
+        cur = conn.execute("DELETE FROM player_state WHERE account = ?", (acct,))
+        conn.commit()
+        removed = cur.rowcount
+    return {"ok": True, "account": acct, "removed": removed}
+
+
 class StateImport(BaseModel):
     accounts: dict[str, Any] = {}
 
@@ -446,6 +458,11 @@ async def get_state(account: str) -> dict[str, Any]:
 @app.post("/api/state")
 async def post_state(payload: StateSave) -> dict[str, Any]:
     return await asyncio.to_thread(_save_player_state, payload)
+
+
+@app.delete("/api/state")
+async def delete_state(account: str) -> dict[str, Any]:
+    return await asyncio.to_thread(_delete_player_state, account)
 
 
 @app.get("/api/state/export")
