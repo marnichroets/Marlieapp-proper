@@ -12,14 +12,7 @@ import {
   birdsNearPotchThisWeek,
   locationThought,
 } from './birdExplore'
-import {
-  TweetyHomeCard,
-  TweetyStatsPage,
-  TweetyFamilyCard,
-  AviaryCard,
-  FirstEggSelect,
-  FirstEggCard,
-} from './Tweety'
+import { TweetyHomeCard, TweetyStatsPage, AviaryCard } from './Tweety'
 import {
   defaultTweety,
   tweetyToday,
@@ -29,17 +22,12 @@ import {
   tweetyTodayKey,
   playChirp,
   babyStage,
-  releaseCoins,
   AVIARY_MAX,
-  RARE_EGG_BIRDS,
+  DEFAULT_COMPANION,
   roomSound,
-  FIRST_EGGS,
-  FIRST_EGG_WARMS,
-  firstEggCompanionFor,
   tweetyCareState,
   currentCareWindow,
   CARE_WINDOWS,
-  getCompanion,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
@@ -48,9 +36,6 @@ import { TweetyWorldCard, SanctuaryPage, BirdRoomPage } from './TweetyWorldUI'
 import { WardrobePage } from './MarketUI'
 import { defaultWardrobe, ownsWearable, wearableById, rotationIndex } from './market'
 import {
-  MAX_EGGS,
-  HATCH_TAPS,
-  readyToHatch,
   dayKeyW,
   WORLD_EVENTS,
   eventById,
@@ -68,7 +53,7 @@ import {
   marnichMessage,
   milestoneSystemMessage,
   tweetyGrowthSystemMessage,
-  hatchSystemMessage,
+  crownedAdultKeepsakeMessage,
 } from './messages'
 import { tweetyGrowthIndex, tweetyGrowth, tweetyGrowthProgress } from './tweetyData'
 
@@ -393,6 +378,9 @@ const COINS = {
   tweetyCare: 5, // per completed Tweety care window (3 windows = 15/day)
   tweetyStreak: 50, // 7-day Tweety care streak bonus
 }
+
+// One-time reward when Tweety reaches the final "crowned adult" growth stage.
+const CROWN_ADULT_REWARD = 1500
 
 // ---- Random wildlife encounters --------------------------------------------
 // Occasionally when the app opens or she visits Tweety's nest, a little critter
@@ -1722,16 +1710,31 @@ function mergeBirdLibrary(defaultItems, savedItems) {
   return [...merged, ...saved.filter((item) => !defaultKeys.has(item.id))]
 }
 
-// Backfill bornAt for existing Tweety pets (real-day growth) so they don't
-// reset to "tiny chick" after the simplified-Tweety update.
+// Migrate any existing Tweety onto the simplified, egg-free model. Eggs,
+// incubation, mystery eggs and babies are gone: Tweety is simply her companion
+// from the start and grows through the five stages via daily care. We preserve
+// whatever stage she has already reached (her bornAt) and never reset her.
 function normalizeTweety(tweety) {
   const next = { ...tweety }
-  if (next.companion && !next.bornAt) {
+  // She is always her companion now. If a save predates a hatch (only an egg was
+  // chosen), adopt the companion that egg was hiding so her look is preserved.
+  if (!next.companion) {
+    next.companion = next.firstEgg?.companion || DEFAULT_COMPANION
+  }
+  // Backfill bornAt (drives real-day growth) so she keeps her current stage
+  // instead of snapping back to a chick.
+  if (!next.bornAt) {
     const careKeys = Object.keys(next.care || {}).sort()
     next.bornAt = careKeys[0]
       ? new Date(`${careKeys[0]}T00:00:00`).toISOString()
       : new Date().toISOString()
   }
+  // Clear every removed egg/baby mechanic so none of that UI can ever surface.
+  next.firstEgg = null
+  next.egg = null
+  next.eggs = []
+  next.incubating = null
+  next.baby = null
   return next
 }
 
@@ -2052,17 +2055,12 @@ function addBirdToState(state, match, photo) {
     aiMatch,
   }
   const sightings = [...state.sightings, sighting]
-  let eggs = state.tweety?.eggs || []
-  if (isNewSpecies && eggs.length < MAX_EGGS) {
-    eggs = [...eggs, { id: createId('egg'), species: birdName, kind: 'normal' }]
-  }
   return {
     ...state,
     sightings,
     birds: buildBirdRecords(sightings),
     birdLibrary: upsertBirdLibraryFromSighting(state.birdLibrary, sighting),
     featherCoins: state.featherCoins + sighting.coinsEarned,
-    tweety: { ...state.tweety, eggs },
   }
 }
 
@@ -2251,23 +2249,38 @@ function App() {
       if (cancelled) return
       const stage = tweetyGrowth(data.tweety)
       const name = data.tweety?.name || 'Tweety'
+      // The final stage is a one-time milestone: a special coin reward plus a
+      // permanent keepsake note from Marnich in her inbox.
+      const isCrown = stage.key === 'crowned'
       let celebrated = false
       setData((current) => {
         if ((current.tweetyGrowthSeen || 0) >= idx) return current
         celebrated = true
+        const message = isCrown
+          ? crownedAdultKeepsakeMessage(name)
+          : tweetyGrowthSystemMessage(name, stage.short)
         return {
           ...current,
           tweetyGrowthSeen: idx,
-          messages: [tweetyGrowthSystemMessage(name, stage.short), ...(current.messages || [])],
+          featherCoins: (current.featherCoins || 0) + (isCrown ? CROWN_ADULT_REWARD : 0),
+          messages: [message, ...(current.messages || [])],
         }
       })
       if (!celebrated) return
       setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: `${name} is growing! 🎉`,
-        body: `${name} just became a ${stage.label}. Each day of love helps them grow a little bigger. 💛`,
-      })
+      setReveal(
+        isCrown
+          ? {
+              tone: 'bird',
+              title: `${name} is a Crowned Adult! 👑`,
+              body: `${name} reached the final stage — all grown up from your daily care! A keepsake note from Marnich is waiting in your inbox, and +${CROWN_ADULT_REWARD} Feather Coins have landed. 💛`,
+            }
+          : {
+              tone: 'bird',
+              title: `${name} is growing! 🎉`,
+              body: `${name} just became a ${stage.label}. Each day of love helps them grow a little bigger. 💛`,
+            },
+      )
     }, 0)
     return () => {
       cancelled = true
@@ -2997,158 +3010,6 @@ function App() {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
   }
 
-  // First-time experience: pick a coloured egg. The bird inside is a secret
-  // until it hatches after 3 days of warming.
-  function chooseFirstEgg(index) {
-    const egg = FIRST_EGGS[index]
-    if (!egg) return
-    setData((current) => ({
-      ...current,
-      tweety: {
-        ...current.tweety,
-        companion: null,
-        firstEgg: {
-          companion: firstEggCompanionFor(index),
-          color: egg.color,
-          name: egg.name,
-          warms: 0,
-          lastWarmDay: '',
-          startedAt: new Date().toISOString(),
-        },
-      },
-    }))
-    setToast({
-      title: 'Your egg is yours! 🥚',
-      body: `Warm your ${egg.name} egg each day — it hatches after ${FIRST_EGG_WARMS} days. 💛`,
-      tone: 'success',
-    })
-  }
-
-  // Warm the first egg once a day; on the 3rd warm it hatches into Tweety.
-  function warmFirstEgg() {
-    const egg = data.tweety?.firstEgg
-    if (!egg) return
-    const todayKey = tweetyTodayKey()
-    if (egg.lastWarmDay === todayKey) {
-      setToast({
-        title: 'Already warm today 💛',
-        body: 'Come back tomorrow to warm your egg again.',
-        tone: 'calm',
-      })
-      return
-    }
-    playChirp('feed')
-    const warms = (egg.warms || 0) + 1
-    if (warms >= FIRST_EGG_WARMS) {
-      const companion = egg.companion
-      setData((current) => ({
-        ...current,
-        tweety: {
-          ...current.tweety,
-          companion,
-          firstEgg: null,
-          bornAt: new Date().toISOString(),
-          careAt: { fed: null, watered: null, played: null },
-        },
-      }))
-      setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: 'Your egg hatched! 🐣',
-        body: `Meet ${getCompanion(companion).name}! Your very own Tweety has arrived. 💛`,
-      })
-    } else {
-      setData((current) => ({
-        ...current,
-        tweety: { ...current.tweety, firstEgg: { ...egg, warms, lastWarmDay: todayKey } },
-      }))
-      setToast({
-        title: 'Warmed! 🔥',
-        body: `So cosy. ${warms}/${FIRST_EGG_WARMS} days warmed — come back tomorrow!`,
-        tone: 'success',
-      })
-    }
-  }
-
-  // ----- Tweety World: incubation -----
-  function startIncubate(eggId) {
-    if (data.tweety?.incubating) {
-      setToast({ title: 'Already warming an egg', body: 'Finish this one first 🥚', tone: 'calm' })
-      return
-    }
-    const egg = (data.tweety?.eggs || []).find((e) => e.id === eggId)
-    if (!egg) return
-    setData((c) => ({
-      ...c,
-      tweety: {
-        ...c.tweety,
-        eggs: c.tweety.eggs.filter((e) => e.id !== eggId),
-        incubating: { species: egg.species, kind: egg.kind, progress: 0, lastWarmDay: '', extraDays: 0, rapidTaps: 0, cold: false },
-      },
-    }))
-    setToast({
-      title: 'Warming started 🥚',
-      body: `Warm this egg once a day for 3 cosy days. ${egg.species} is on the way! 💛`,
-      tone: 'success',
-    })
-  }
-
-  function warmEgg() {
-    const inc = data.tweety?.incubating
-    if (!inc) return
-    const today = dayKeyW(0)
-    if (inc.lastWarmDay === today || readyToHatch(inc)) return
-    playChirp('feed')
-    let extraDays = inc.extraDays || 0
-    let cold = false
-    if (inc.lastWarmDay) {
-      const gap = Math.round((new Date(today) - new Date(inc.lastWarmDay)) / 86400000)
-      if (gap > 1) {
-        extraDays += 1
-        cold = true
-      }
-    }
-    const progress = (inc.progress || 0) + 1
-    setConfetti(Date.now())
-    setData((c) => ({
-      ...c,
-      tweety: { ...c.tweety, incubating: { ...inc, progress, lastWarmDay: today, extraDays, cold } },
-    }))
-    setToast({
-      title: cold ? 'Brr — it got a little cold 🥶' : 'Warm and cosy 🔥',
-      body: cold
-        ? 'No worries — one extra warm day will set it right. The shivering stopped. 💛'
-        : 'Lovely and warm. Come back tomorrow to keep it going.',
-      tone: 'success',
-    })
-  }
-
-  function rapidTapEgg() {
-    const inc = data.tweety?.incubating
-    if (!inc || !readyToHatch(inc)) return
-    playChirp('play')
-    const taps = (inc.rapidTaps || 0) + 1
-    if (taps >= HATCH_TAPS) {
-      setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: 'It hatched! 🐣🎉',
-        body: `A baby ${inc.species} burst out in a shower of confetti with a triumphant chirp! Look after it while it grows. 💛`,
-      })
-      setData((c) => ({
-        ...c,
-        tweety: {
-          ...c.tweety,
-          incubating: null,
-          baby: { hatchedAt: new Date().toISOString(), species: inc.species, careLog: {} },
-        },
-        messages: [hatchSystemMessage(inc.species), ...(c.messages || [])],
-      }))
-    } else {
-      setData((c) => ({ ...c, tweety: { ...c.tweety, incubating: { ...inc, rapidTaps: taps } } }))
-    }
-  }
-
   // ----- Tweety World: story events -----
   function triggerWorldEvent(eventId) {
     if (data.tweety?.worldEvent) return
@@ -3372,82 +3233,6 @@ function App() {
     )
   }
 
-  // Feed / water the baby bird while it grows.
-  function careBaby(kind) {
-    const baby = data.tweety?.baby
-    if (!baby) return
-    const key = tweetyTodayKey()
-    const todayCare = baby.careLog?.[key] || { fed: false, watered: false }
-    const field = kind === 'water' ? 'watered' : 'fed'
-    if (todayCare[field]) return
-    playChirp(kind)
-    commit(
-      {
-        ...data,
-        tweety: {
-          ...data.tweety,
-          baby: { ...baby, careLog: { ...(baby.careLog || {}), [key]: { ...todayCare, [field]: true } } },
-        },
-        featherCoins: data.featherCoins + COINS.tweetyCare,
-      },
-      { title: 'Baby fed 🐣', body: `Your baby loved that. +${COINS.tweetyCare} Feather Coins.` },
-    )
-  }
-
-  function releaseBaby() {
-    const baby = data.tweety?.baby
-    if (!baby) return
-    const stage = babyStage(baby)
-    const coins = releaseCoins(stage)
-    const becameGuardian = stage === 'adult'
-    setConfetti(Date.now())
-    commit(
-      {
-        ...data,
-        tweety: {
-          ...data.tweety,
-          baby: null,
-          guardian: data.tweety.guardian || becameGuardian,
-          sanctuary: [addToSanctuary(baby.species, 'Released'), ...(data.tweety.sanctuary || [])],
-        },
-        featherCoins: data.featherCoins + coins,
-      },
-      {
-        title: 'Released into the wild 🌿',
-        body: `Your ${stage} ${baby.species} flew away free and joined the Sanctuary! +${coins} Feather Coins.${becameGuardian ? ' Bird Guardian badge earned 🛡️' : ''}`,
-      },
-    )
-  }
-
-  function keepBaby() {
-    const baby = data.tweety?.baby
-    if (!baby || babyStage(baby) !== 'adult') return
-    const aviary = data.tweety?.aviary || []
-    if (aviary.length >= AVIARY_MAX) {
-      setToast({
-        title: 'Aviary full 🏠',
-        body: 'Release one bird first to make room for another.',
-        tone: 'warning',
-      })
-      return
-    }
-    const idles = ['hop', 'preen', 'sleep']
-    const next = [
-      ...aviary,
-      {
-        id: createId('aviary'),
-        species: baby.species,
-        addedAt: new Date().toISOString(),
-        idle: idles[aviary.length % idles.length],
-      },
-    ]
-    setConfetti(Date.now())
-    commit(
-      { ...data, tweety: { ...data.tweety, baby: null, aviary: next } },
-      { title: 'Welcome to the aviary 🏠', body: `${baby.species} joined your flock!` },
-    )
-  }
-
   function releaseAviaryBird(id) {
     const aviary = data.tweety?.aviary || []
     const bird = aviary.find((b) => b.id === id)
@@ -3466,29 +3251,6 @@ function App() {
     )
   }
 
-  function sendMysteryEgg() {
-    if (data.tweety?.egg || data.tweety?.baby) {
-      setToast({
-        title: 'Tweety is busy 🥚',
-        body: 'She already has an egg or baby — try again once it grows up.',
-        tone: 'warning',
-      })
-      return
-    }
-    const species = RARE_EGG_BIRDS[Math.floor(Math.random() * RARE_EGG_BIRDS.length)]
-    setData((c) => ({
-      ...c,
-      tweety: {
-        ...c.tweety,
-        egg: { laidAt: new Date().toISOString(), careDays: 0, lastCareDay: '', kind: 'mystery', species },
-      },
-    }))
-    setToast({
-      title: 'Mystery egg sent 💛',
-      body: `A gold mystery egg is on its way to ${data.tweety?.name || 'Tweety'}! What could be inside?`,
-      tone: 'success',
-    })
-  }
 
   // ----- Admin Tweety time-skip controls (these change the REAL pet, for
   // testing growth / eggs / hatching without waiting real days) -----
@@ -3505,154 +3267,7 @@ function App() {
         body: `${tw.name || 'Tweety'} is a day older.`,
         tone: 'success',
       })
-      return
     }
-    if (tw.firstEgg) {
-      const warms = (tw.firstEgg.warms || 0) + 1
-      if (warms >= FIRST_EGG_WARMS) {
-        adminForceTweetyHatch()
-      } else {
-        setData((c) => ({
-          ...c,
-          tweety: { ...c.tweety, firstEgg: { ...c.tweety.firstEgg, warms, lastWarmDay: '' } },
-        }))
-        setToast({
-          title: 'Egg warmed a day ⏩',
-          body: `${warms}/${FIRST_EGG_WARMS} days warmed.`,
-          tone: 'success',
-        })
-      }
-      return
-    }
-    setToast({ title: 'No Tweety yet', body: 'Give Tweety an egg first.', tone: 'calm' })
-  }
-
-  function adminGiveTweetyEgg() {
-    const tw = data.tweety
-    if (!tw) return
-    // No companion yet → hand her a fresh first egg, ready to warm/hatch.
-    if (!tw.companion) {
-      const idx = Math.floor(Math.random() * FIRST_EGGS.length)
-      const egg = FIRST_EGGS[idx]
-      setData((c) => ({
-        ...c,
-        tweety: {
-          ...c.tweety,
-          companion: null,
-          firstEgg: {
-            companion: firstEggCompanionFor(idx),
-            color: egg.color,
-            name: egg.name,
-            warms: 0,
-            lastWarmDay: '',
-            startedAt: new Date().toISOString(),
-          },
-        },
-      }))
-      setToast({
-        title: 'First egg given 🥚',
-        body: `A ${egg.name} egg is ready — warm it or force it to hatch.`,
-        tone: 'success',
-      })
-      return
-    }
-    // Already grown → drop a mystery egg in the basket to incubate.
-    if (tw.incubating) {
-      setToast({
-        title: 'Already incubating 🥚',
-        body: 'Hatch or finish the current egg first.',
-        tone: 'calm',
-      })
-      return
-    }
-    const species = RARE_EGG_BIRDS[Math.floor(Math.random() * RARE_EGG_BIRDS.length)]
-    setData((c) => ({
-      ...c,
-      tweety: {
-        ...c.tweety,
-        eggs: [...(c.tweety.eggs || []), { id: createId('egg'), species, kind: 'mystery' }],
-      },
-    }))
-    setToast({
-      title: 'Mystery egg added 🥚',
-      body: `A ${species} egg is in the basket — tap it to incubate, or force-hatch it.`,
-      tone: 'success',
-    })
-  }
-
-  function adminForceTweetyHatch() {
-    const tw = data.tweety
-    if (!tw) return
-    // 1) First egg pending → hatch into the companion and begin real-day growth.
-    if (tw.firstEgg && !tw.companion) {
-      const companion = tw.firstEgg.companion
-      setData((c) => ({
-        ...c,
-        tweety: {
-          ...c.tweety,
-          companion,
-          firstEgg: null,
-          bornAt: new Date().toISOString(),
-          careAt: { fed: null, watered: null, played: null },
-        },
-      }))
-      setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: 'Egg hatched! 🐣',
-        body: `Meet ${getCompanion(companion).name}! Real-day growth has begun.`,
-      })
-      return
-    }
-    // 2) Currently incubating a basket egg → hatch straight into a baby.
-    if (tw.incubating) {
-      const species = tw.incubating.species
-      setData((c) => ({
-        ...c,
-        tweety: {
-          ...c.tweety,
-          incubating: null,
-          baby: { hatchedAt: new Date().toISOString(), species, careLog: {} },
-        },
-        messages: [hatchSystemMessage(species), ...(c.messages || [])],
-      }))
-      setConfetti(Date.now())
-      setReveal({ tone: 'bird', title: 'It hatched! 🐣🎉', body: `A baby ${species} burst out!` })
-      return
-    }
-    // 3) A basket egg waiting → hatch it straight into a baby.
-    if ((tw.eggs || []).length) {
-      const egg = tw.eggs[0]
-      setData((c) => ({
-        ...c,
-        tweety: {
-          ...c.tweety,
-          eggs: c.tweety.eggs.filter((e) => e.id !== egg.id),
-          baby: { hatchedAt: new Date().toISOString(), species: egg.species, careLog: {} },
-        },
-        messages: [hatchSystemMessage(egg.species), ...(c.messages || [])],
-      }))
-      setConfetti(Date.now())
-      setReveal({ tone: 'bird', title: 'It hatched! 🐣🎉', body: `A baby ${egg.species} burst out!` })
-      return
-    }
-    // 4) Legacy single mystery egg → hatch into a baby.
-    if (tw.egg) {
-      const species = tw.egg.species
-      setData((c) => ({
-        ...c,
-        tweety: {
-          ...c.tweety,
-          egg: null,
-          baby: { hatchedAt: new Date().toISOString(), species, careLog: {} },
-        },
-        messages: [hatchSystemMessage(species), ...(c.messages || [])],
-      }))
-      setConfetti(Date.now())
-      setReveal({ tone: 'bird', title: 'It hatched! 🐣🎉', body: `A baby ${species} burst out!` })
-      return
-    }
-    setToast({ title: 'No egg to hatch', body: 'Give Tweety an egg first.', tone: 'calm' })
   }
 
   function adminAdvanceTweetyStage() {
@@ -3689,9 +3304,8 @@ function App() {
   }
 
   // Fast Forward ⏩ — Marnich's own testing tool (his account only). Advances HIS
-  // account by one day so he can test the whole Tweety lifecycle in minutes:
-  // ages Tweety / warms the first egg, advances incubation, and resets today's
-  // care windows + daily challenge. It never runs on, or affects, Pooks' data.
+  // account by one day so he can test Tweety's growth in minutes: ages Tweety a
+  // day and resets today's care windows + daily challenge. Never touches Pooks.
   function fastForwardDay() {
     if (readOnly) return // sandbox-only tool; never touches Pooks' data
     const tw = data.tweety || {}
@@ -3704,26 +3318,6 @@ function App() {
       born.setDate(born.getDate() - 1)
       nextTweety.bornAt = born.toISOString()
       note = `${tw.name || 'Tweety'} aged 1 day.`
-    } else if (tw.firstEgg) {
-      // Warm the first egg one day, hatching it once fully warmed.
-      const warms = (tw.firstEgg.warms || 0) + 1
-      if (warms >= FIRST_EGG_WARMS) {
-        const companion = tw.firstEgg.companion
-        nextTweety.companion = companion
-        nextTweety.firstEgg = null
-        nextTweety.bornAt = new Date().toISOString()
-        note = `The egg hatched into ${getCompanion(companion).name}! 🐣`
-        setConfetti(Date.now())
-      } else {
-        nextTweety.firstEgg = { ...tw.firstEgg, warms, lastWarmDay: '' }
-        note = `Egg warmed — ${warms}/${FIRST_EGG_WARMS} days.`
-      }
-    }
-
-    // Advance an incubating basket egg by a day.
-    if (nextTweety.incubating) {
-      const inc = nextTweety.incubating
-      nextTweety.incubating = { ...inc, progress: (inc.progress || 0) + 1, lastWarmDay: '' }
     }
 
     // Reset today's care windows so all three can be tested again, fresh.
@@ -4342,27 +3936,10 @@ function App() {
           ]
         : data.discoveries
 
-    const spottedRare =
-      libraryMatchIndex >= 0 && data.birdLibrary[libraryMatchIndex].special
-
-    // Egg basket: a brand-new species drops a (mystery) egg into the basket.
-    const currentEggs = data.tweety?.eggs || []
-    let basketEggs = currentEggs
     let worldNote = ''
-    if (isNewSpecies) {
-      if (currentEggs.length < MAX_EGGS) {
-        basketEggs = [
-          ...currentEggs,
-          { id: createId('egg'), species: birdName, kind: spottedRare ? 'mystery' : 'normal' },
-        ]
-        worldNote = ' A new egg appeared in your basket! 🥚'
-      } else {
-        worldNote = ' Your egg basket is full — hatch one first! 🥚'
-      }
-    }
 
     // Photographing ANY real bird rescues a bird that escaped.
-    let nextTweety = { ...data.tweety, eggs: basketEggs }
+    let nextTweety = { ...data.tweety }
     let rescueCoins = 0
     if (data.tweety?.escape) {
       const escapedName = data.tweety.escape.birdName
@@ -5037,19 +4614,8 @@ function App() {
     )
   }
 
-  // First-login: choose a first mystery egg that hatches into a personal Tweety.
-  // Marnich gets his own egg/Tweety in his Test sandbox, exactly like Pooks. In
-  // his read-only "View Pooks" mirror we never show the egg picker (it would
-  // mirror her own unfinished setup and, worse, write to her data on tap) — the
-  // mirror always drops straight to her real, live screen.
-  if (
-    !readOnly &&
-    (session.role === 'pooks' || session.role === 'marnich') &&
-    !data.tweety?.companion &&
-    !data.tweety?.firstEgg
-  ) {
-    return <FirstEggSelect onPick={chooseFirstEgg} />
-  }
+  // No egg picker anymore: Tweety is the companion from the first login and
+  // grows through her five stages via daily care.
 
   return (
     <div className={`app-shell has-bottom-nav season-${season.key}${activePage === 'home' ? ' on-home' : ''}`}>
@@ -5168,14 +4734,7 @@ function App() {
             tweetyDancing={tweetyDancing}
             missedYou={missedYou}
             careTweety={careTweety}
-            careBaby={careBaby}
-            releaseBaby={releaseBaby}
-            keepBaby={keepBaby}
             releaseAviaryBird={releaseAviaryBird}
-            startIncubate={startIncubate}
-            warmFirstEgg={warmFirstEgg}
-            warmEgg={warmEgg}
-            rapidTapEgg={rapidTapEgg}
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
           />
@@ -5335,11 +4894,8 @@ function App() {
             markRewardPaid={markRewardPaid}
             sendSurpriseNote={sendSurpriseNote}
             sendTweetyTreat={sendTweetyTreat}
-            sendMysteryEgg={sendMysteryEgg}
             sendFlockTreat={sendFlockTreat}
             skipTweetyDay={adminSkipTweetyDay}
-            giveTweetyEgg={adminGiveTweetyEgg}
-            forceTweetyHatch={adminForceTweetyHatch}
             advanceTweetyStage={adminAdvanceTweetyStage}
             addDiscoveryToLibrary={addDiscoveryToLibrary}
             triggerWorldEvent={triggerWorldEvent}
@@ -5935,14 +5491,7 @@ function HomePage({
   tweetyDancing,
   missedYou,
   careTweety,
-  careBaby,
-  releaseBaby,
-  keepBaby,
   releaseAviaryBird,
-  startIncubate,
-  warmFirstEgg,
-  warmEgg,
-  rapidTapEgg,
   tapWorldEvent,
   resolveWorldEvent,
 }) {
@@ -5993,9 +5542,7 @@ function HomePage({
         </button>
       )}
 
-      {!data.tweety?.companion ? (
-        <FirstEggCard tweety={data.tweety} onWarm={warmFirstEgg} />
-      ) : (
+      {(
         <>
           <TweetyHomeCard
             tweety={data.tweety}
@@ -6024,21 +5571,11 @@ function HomePage({
             <TweetyWorldCard
               tweety={data.tweety}
               event={data.tweety?.worldEvent}
-              onStartIncubate={startIncubate}
-              onWarm={warmEgg}
-              onRapidTap={rapidTapEgg}
               onEventTap={tapWorldEvent}
               onEventResolve={() => resolveWorldEvent(true)}
               onOpenRoom={() => goTo('birdroom')}
               onOpenSanctuary={() => goTo('sanctuary')}
               hideLinks
-            />
-
-            <TweetyFamilyCard
-              tweety={data.tweety}
-              onCareBaby={careBaby}
-              onRelease={releaseBaby}
-              onKeep={keepBaby}
             />
 
             <AviaryCard
@@ -8920,11 +8457,8 @@ function AdminPage({
   markRewardPaid,
   sendSurpriseNote,
   sendTweetyTreat,
-  sendMysteryEgg,
   sendFlockTreat,
   skipTweetyDay,
-  giveTweetyEgg,
-  forceTweetyHatch,
   advanceTweetyStage,
   addDiscoveryToLibrary,
   triggerWorldEvent,
@@ -9322,12 +8856,6 @@ function AdminPage({
           <button className="secondary-btn" type="button" onClick={skipTweetyDay}>
             ⏩ Skip Tweety forward 1 day
           </button>
-          <button className="secondary-btn" type="button" onClick={giveTweetyEgg}>
-            🥚 Give Tweety an egg now
-          </button>
-          <button className="secondary-btn" type="button" onClick={forceTweetyHatch}>
-            🐣 Force egg to hatch now
-          </button>
           <button className="secondary-btn" type="button" onClick={advanceTweetyStage}>
             🌱 Advance Tweety to next growth stage
           </button>
@@ -9466,9 +8994,6 @@ function AdminPage({
         <div className="admin-actions">
           <button className="primary-btn" type="button" onClick={sendTweetyTreat}>
             Surprise treat 🎁
-          </button>
-          <button className="secondary-btn" type="button" onClick={sendMysteryEgg}>
-            Send a mystery egg 🥚
           </button>
           <button className="secondary-btn" type="button" onClick={sendFlockTreat}>
             Treat for the flock 🎉

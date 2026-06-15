@@ -3,12 +3,6 @@
 import { useEffect, useState } from 'react'
 import { TweetyBird } from './Tweety'
 import {
-  MAX_EGGS,
-  HATCH_TAPS,
-  neededWarms,
-  incubationStage,
-  warmedToday,
-  readyToHatch,
   SANCTUARY_SECTIONS,
   unlockedSanctuarySections,
   sanctuarySectionFor,
@@ -16,41 +10,16 @@ import {
   ownsFurniture,
 } from './tweetyWorld'
 
-// ---- little egg with a bird silhouette inside ------------------------------
-function EggGlyph({ size = 56, glow = true, cold = false, wobble = false }) {
-  return (
-    <span className={`egg-glyph${glow ? ' glow' : ''}${cold ? ' cold' : ''}${wobble ? ' wobble' : ''}`} style={{ width: size, height: size }} aria-hidden="true">
-      <svg viewBox="0 0 100 100">
-        <ellipse cx="50" cy="56" rx="30" ry="36" fill="#FBEFD6" />
-        <ellipse cx="42" cy="44" rx="7" ry="10" fill="#fff" opacity="0.5" />
-        {/* faint bird silhouette inside */}
-        <g fill="#caa46a" opacity="0.45">
-          <ellipse cx="52" cy="58" rx="13" ry="14" />
-          <ellipse cx="44" cy="50" rx="5" ry="6" />
-          <path d="M64 56 l7 3 l-7 3 z" />
-        </g>
-      </svg>
-    </span>
-  )
-}
-
 // ---- the Tweety's World home card -------------------------------------------
 export function TweetyWorldCard({
   tweety,
   event,
-  onStartIncubate,
-  onWarm,
-  onRapidTap,
   onEventTap,
   onEventResolve,
   onOpenRoom,
   onOpenSanctuary,
   hideLinks = false,
 }) {
-  const eggs = tweety?.eggs || []
-  const inc = tweety?.incubating
-  const stage = incubationStage(inc)
-  const need = neededWarms(inc)
   const sanctuaryCount = (tweety?.sanctuary || []).length
 
   return (
@@ -63,68 +32,6 @@ export function TweetyWorldCard({
       </div>
 
       {event && <EventAlert event={event} onTap={onEventTap} onResolve={onEventResolve} />}
-
-      {/* Incubation takes priority over the basket */}
-      {inc ? (
-        <div className={`incubation-box stage-${stage}${inc.cold ? ' cold' : ''}`}>
-          <p className="eyebrow">Warming an egg · Day {Math.min(stage, need)} of {need}</p>
-          <div className="incubation-egg">
-            <EggGlyph size={96} cold={inc.cold} wobble={readyToHatch(inc)} />
-          </div>
-          {readyToHatch(inc) && !warmedToday(inc) ? (
-            <>
-              <h4>It&apos;s wobbling! Tap rapidly to help it hatch! 🥚✨</h4>
-              <div className="hatch-progress">
-                <span style={{ width: `${((inc.rapidTaps || 0) / HATCH_TAPS) * 100}%` }}></span>
-              </div>
-              <button className="primary-btn wide big-btn" type="button" onClick={onRapidTap}>
-                Tap! ({inc.rapidTaps || 0}/{HATCH_TAPS})
-              </button>
-            </>
-          ) : warmedToday(inc) ? (
-            <p className="fine-print">
-              {readyToHatch(inc)
-                ? 'So warm and ready! Come back tomorrow to help it hatch 🐣'
-                : 'You warmed it today 💛 Come back tomorrow to keep it cosy.'}
-            </p>
-          ) : (
-            <>
-              <h4>
-                {stage === 1
-                  ? 'Give it a warm little tap to start its first day. 🥚'
-                  : stage === 2
-                    ? 'A tiny crack is showing… keep it warm. 🐣'
-                    : 'Almost there — one more warm day.'}
-              </h4>
-              <button className="primary-btn wide big-btn" type="button" onClick={onWarm}>
-                Warm this egg 🔥
-              </button>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="egg-basket">
-          <p className="eyebrow">Egg basket · {eggs.length}/{MAX_EGGS} 🧺</p>
-          {eggs.length === 0 ? (
-            <p className="fine-print">Spot a brand-new bird species and a mystery egg appears here. 🥚</p>
-          ) : (
-            <div className="basket-row">
-              {eggs.map((egg) => (
-                <button
-                  className="basket-egg"
-                  type="button"
-                  key={egg.id}
-                  onClick={() => onStartIncubate(egg.id)}
-                  title={`Start warming (${egg.species})`}
-                >
-                  <EggGlyph size={56} />
-                  <small>Warm this 🥚</small>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {!hideLinks && (
         <div className="world-links">

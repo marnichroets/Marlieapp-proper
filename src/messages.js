@@ -184,6 +184,20 @@ export function tweetyGrowthSystemMessage(name, stageLabel) {
   )
 }
 
+// One-time keepsake when Tweety reaches the final "crowned adult" stage. Carries
+// a personal note from Marnich and lives permanently in her inbox. Edit the note
+// text below to say whatever you'd like it to say. 💛
+export function crownedAdultKeepsakeMessage(name) {
+  const pet = name || 'Tweety'
+  return systemMessage(
+    'A keepsake for a Crowned Adult 👑',
+    `${pet} is all grown up — a crowned adult, thanks to every single day you showed up to care for them.\n\n` +
+      `I watched you do this a little at a time, never skipping, never giving up, and honestly it says everything about you. ` +
+      `Keep this note — it's proof of how gently and faithfully you love the things in your care.\n\n` +
+      `Proud of you, always. 💛\n— Marnich`,
+  )
+}
+
 export function hatchSystemMessage(species) {
   return systemMessage(
     'Birth Announcement 🥚',

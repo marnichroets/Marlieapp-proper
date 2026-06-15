@@ -191,12 +191,16 @@ export function tweetyGrowthProgress(tweety) {
   }
 }
 
+// Tweety's default look. She is her companion from day one (no egg to hatch), a
+// plain golden chick at stage 1 that grows through the five stages via daily care.
+export const DEFAULT_COMPANION = 'weaver'
+
 export function defaultTweety() {
   return {
     name: 'Tweety',
-    companion: null, // revealed when the first egg hatches
-    firstEgg: null, // { companion, color, name, warms, lastWarmDay, startedAt }
-    bornAt: null, // ISO timestamp the first egg hatched — drives real-day growth
+    companion: DEFAULT_COMPANION, // Tweety is the companion from the start
+    firstEgg: null, // deprecated (eggs removed) — kept null for back-compat
+    bornAt: new Date().toISOString(), // ISO she began — drives real-day growth
     care: {}, // legacy daily care (kept for back-compat)
     careAt: { fed: null, watered: null, played: null }, // ISO of last each action (8h reset)
     treatsReceived: 0,
