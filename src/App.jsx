@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
+import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
+import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -200,7 +202,9 @@ async function fetchRemoteState(account) {
     const data = await response.json()
     // { state: <obj>|null, version }. A null state means "no save yet".
     if (!data || typeof data !== 'object') return null
-    return { state: data.state || null, version: Number(data.version) || 0 }
+    // Expand any pooled photos back to inline base64 so callers see the normal
+    // state shape (older un-pooled saves pass through untouched).
+    return { state: data.state ? rehydratePhotos(data.state) : null, version: Number(data.version) || 0 }
   } catch {
     return null
   }
@@ -211,7 +215,7 @@ async function saveRemoteState(account, state, version = 0, { keepalive = false 
     const response = await fetch(STATE_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account, state, version }),
+      body: JSON.stringify({ account, state: dedupePhotosForStorage(state), version }),
       keepalive,
     })
     if (!response.ok) return null
@@ -997,14 +1001,6 @@ const libraryFilters = [
   'Noisy birds',
 ]
 
-function normalizeBirdName(name) {
-  return String(name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[’']/g, "'")
-    .replace(/\s+/g, ' ')
-}
-
 function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
@@ -1032,7 +1028,10 @@ function notifyMarnich(event, details = {}) {
 // localStorage quota, setItem throws, and the sighting silently fails to
 // persist. Downscale to a small JPEG (a few hundred KB at most) before storing
 // so every sighting saves reliably. Falls back to the raw file on any failure.
-function fileToStorablePhoto(file, maxDim = 1100, quality = 0.72) {
+// Photos are stored as base64 in the synced state, so keep them small: a 900px
+// longest edge at 0.6 JPEG quality stays clear for a phone screen while roughly
+// halving the byte size versus the old 1100px/0.72 defaults.
+function fileToStorablePhoto(file, maxDim = 900, quality = 0.6) {
   return new Promise((resolve, reject) => {
     if (!file) {
       reject(new Error('no file'))
@@ -1750,7 +1749,7 @@ function loadStateRaw(account = 'pooks') {
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return base
-    return normalizeLoadedState(JSON.parse(raw))
+    return normalizeLoadedState(rehydratePhotos(JSON.parse(raw)))
   } catch (error) {
     console.warn('Could not load Marlie Bird App data', error)
     // Never silently destroy a save we couldn't parse — keep a backup copy so
@@ -1977,6 +1976,10 @@ function buildBirdRecords(sightings) {
         seenWithMarnich: sighting.seenWithMarnich,
         notes: sighting.notes,
         photo: sighting.photo,
+        // Carry the scientific name so canonicalSpeciesKey() can match this
+        // species on later scans even if the AI varies the common name. Existing
+        // saves backfill it from each sighting's aiMatch on the next recalc.
+        scientificName: sighting.scientificName || sighting.aiMatch?.scientificName || '',
         featherCoinsEarned: sighting.coinsEarned,
         aiMatch: sighting.aiMatch || null,
       })
@@ -1999,6 +2002,8 @@ function buildBirdRecords(sightings) {
       seenWithMarnich: existing.seenWithMarnich || sighting.seenWithMarnich,
       notes: sighting.notes || existing.notes,
       photo: sighting.photo || existing.photo,
+      scientificName:
+        existing.scientificName || sighting.scientificName || sighting.aiMatch?.scientificName || '',
       featherCoinsEarned: existing.featherCoinsEarned + sighting.coinsEarned,
       aiMatch: sighting.aiMatch || existing.aiMatch || null,
     })
@@ -2032,14 +2037,15 @@ async function identifyTopMatch(photoFile) {
 // challenge-completion update in a single commit (no clobbering).
 function addBirdToState(state, match, photo) {
   const birdName = String(match.commonName || '').trim()
-  const speciesKey = normalizeBirdName(birdName)
+  const aiMatch = normalizeAiMatch(match)
+  const speciesKey = canonicalSpeciesKey(state, birdName, aiMatch?.scientificName)
   if (!speciesKey) return state
   const isNewSpecies = !state.birds.some((bird) => bird.id === speciesKey)
-  const aiMatch = normalizeAiMatch(match)
   const sighting = {
     id: createId('sighting'),
     speciesKey,
     birdName,
+    scientificName: aiMatch?.scientificName || '',
     nickname: nicknameIdeas[speciesKey] || 'Officially Cute Bird',
     dateSpotted: todayValue(),
     timeSpotted: '',
@@ -2516,7 +2522,10 @@ function App() {
     try {
       // Always save under the active account's key, so Marnich's test save and
       // Pooks' real save never overwrite one another.
-      localStorage.setItem(storageKeyForAccount(account), JSON.stringify(data))
+      localStorage.setItem(
+        storageKeyForAccount(account),
+        JSON.stringify(dedupePhotosForStorage(data)),
+      )
     } catch (error) {
       // Storage is full — warn rather than silently losing the save.
       console.warn('Could not save app data (storage may be full)', error)
@@ -2718,7 +2727,7 @@ function App() {
     const state = normalizeLoadedState(rawState)
     stateVersionRef.current = version || 0
     try {
-      localStorage.setItem(storageKeyForAccount(acct), JSON.stringify(state))
+      localStorage.setItem(storageKeyForAccount(acct), JSON.stringify(dedupePhotosForStorage(state)))
     } catch {
       /* cache may be full — backend remains the source of truth */
     }
@@ -3874,7 +3883,12 @@ function App() {
 
   function addBird(form, options = {}) {
     const birdName = String(form.birdName || '').trim()
-    const speciesKey = normalizeBirdName(birdName)
+    const aiMatch = form.aiMatch ? normalizeAiMatch(form.aiMatch) : null
+    // Canonicalise on the scientific name so a re-scan of the same species can't
+    // slip through as a new entry just because the AI worded the common name
+    // differently this time.
+    const speciesKey = canonicalSpeciesKey(data, birdName, aiMatch?.scientificName)
+    const sciKey = normalizeBirdName(aiMatch?.scientificName)
     if (!speciesKey) return
     const isNewSpecies = !data.birds.some((bird) => bird.id === speciesKey)
     const withMarnich = Boolean(form.seenWithMarnich)
@@ -3882,13 +3896,13 @@ function App() {
       COINS.spot +
       (isNewSpecies ? COINS.firstSpecies : 0) +
       (withMarnich ? COINS.withMarnich : 0)
-    const aiMatch = form.aiMatch ? normalizeAiMatch(form.aiMatch) : null
     const nickname =
       String(form.nickname || '').trim() || nicknameIdeas[speciesKey] || 'Officially Cute Bird'
     const sighting = {
       id: createId('sighting'),
       speciesKey,
       birdName,
+      scientificName: aiMatch?.scientificName || '',
       nickname,
       dateSpotted: form.dateSpotted || todayValue(),
       timeSpotted: form.timeSpotted || '',
@@ -3919,7 +3933,12 @@ function App() {
     const discoveryBonus = isDiscovery ? 50 : 0
     if (isDiscovery) sighting.discovery = true
     const nextDiscoveries =
-      isDiscovery && !data.discoveries.some((d) => d.speciesKey === speciesKey)
+      isDiscovery &&
+      !data.discoveries.some(
+        (d) =>
+          d.speciesKey === speciesKey ||
+          (sciKey && normalizeBirdName(d.scientificName) === sciKey),
+      )
         ? [
             {
               id: createId('discovery'),
