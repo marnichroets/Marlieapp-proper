@@ -4,6 +4,7 @@ import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
+import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -191,6 +192,22 @@ async function fetchGameLeaderboard() {
 // silently falls back to the local cache rather than breaking.
 const STATE_API = `${BIRD_API_URL}/api/state`
 
+// Ids the bundled catalog already ships, so we can drop unseen copies of them
+// from saved state and rebuild them from the bundle on load.
+const DEFAULT_LIBRARY_IDS = new Set(defaultBirdLibrary.map((bird) => bird.id))
+
+// Prepare state for any persistence boundary (localStorage or backend): slim the
+// bird library to just the user's own birds, then pool duplicated photos. Both
+// steps are lossless on load (mergeBirdLibrary rebuilds the catalog; rehydrate
+// restores photos), so the in-memory state shape is never affected.
+function prepareStateForStorage(state) {
+  if (!state || typeof state !== 'object') return state
+  const slim = Array.isArray(state.birdLibrary)
+    ? { ...state, birdLibrary: slimBirdLibrary(state.birdLibrary, DEFAULT_LIBRARY_IDS) }
+    : state
+  return dedupePhotosForStorage(slim)
+}
+
 async function fetchRemoteState(account) {
   try {
     // no-store: the live mirror and login must always see the latest state, never
@@ -215,7 +232,7 @@ async function saveRemoteState(account, state, version = 0, { keepalive = false 
     const response = await fetch(STATE_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account, state: dedupePhotosForStorage(state), version }),
+      body: JSON.stringify({ account, state: prepareStateForStorage(state), version }),
       keepalive,
     })
     if (!response.ok) return null
@@ -1696,19 +1713,6 @@ function mergeByKey(defaultItems, savedItems, key) {
 // imageUrl and soundUrl are static reference data that lives in code, so they
 // must always come from the latest defaults — never from stale saved state
 // (otherwise an old empty imageUrl in localStorage hides the real photo).
-function mergeBirdLibrary(defaultItems, savedItems) {
-  const saved = Array.isArray(savedItems) ? savedItems : []
-  const savedMap = new Map(saved.map((item) => [item.id, item]))
-  const merged = defaultItems.map((item) => ({
-    ...item,
-    ...(savedMap.get(item.id) || {}),
-    imageUrl: item.imageUrl,
-    soundUrl: item.soundUrl,
-  }))
-  const defaultKeys = new Set(defaultItems.map((item) => item.id))
-  return [...merged, ...saved.filter((item) => !defaultKeys.has(item.id))]
-}
-
 // Migrate any existing Tweety onto the simplified, egg-free model. Eggs,
 // incubation, mystery eggs and babies are gone: Tweety is simply her companion
 // from the start and grows through the five stages via daily care. We preserve
@@ -2524,7 +2528,7 @@ function App() {
       // Pooks' real save never overwrite one another.
       localStorage.setItem(
         storageKeyForAccount(account),
-        JSON.stringify(dedupePhotosForStorage(data)),
+        JSON.stringify(prepareStateForStorage(data)),
       )
     } catch (error) {
       // Storage is full — warn rather than silently losing the save.
@@ -2727,7 +2731,7 @@ function App() {
     const state = normalizeLoadedState(rawState)
     stateVersionRef.current = version || 0
     try {
-      localStorage.setItem(storageKeyForAccount(acct), JSON.stringify(dedupePhotosForStorage(state)))
+      localStorage.setItem(storageKeyForAccount(acct), JSON.stringify(prepareStateForStorage(state)))
     } catch {
       /* cache may be full — backend remains the source of truth */
     }
