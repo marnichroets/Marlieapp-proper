@@ -5,6 +5,7 @@ import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
+import { shouldAdoptRemote } from './syncReconcile'
 import { getSeasonInfo } from './seasons'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -2089,6 +2090,10 @@ function App() {
   // Always-current snapshot of data so a flush-on-exit save sends the latest.
   const dataRef = useRef(data)
   dataRef.current = data
+  // The exact state object we last synced to the backend (saved or adopted). If
+  // dataRef.current is a different object, there are unsaved local edits — used
+  // by the auto-adopt poll so it never overwrites her in-progress changes.
+  const lastSyncedRef = useRef(data)
   const [toast, setToast] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
@@ -2551,7 +2556,10 @@ function App() {
     if (account !== 'pooks' && account !== 'marnich') return undefined
     const timer = window.setTimeout(() => {
       saveRemoteState(account, data, stateVersionRef.current).then((res) => {
-        if (res) stateVersionRef.current = res.version
+        if (res) {
+          stateVersionRef.current = res.version
+          lastSyncedRef.current = data
+        }
       })
     }, 10000)
     return () => window.clearTimeout(timer)
@@ -2572,6 +2580,36 @@ function App() {
     return () => {
       window.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('beforeunload', flushNow)
+    }
+  }, [account, readOnly, session])
+
+  // Auto-adopt "fixed elsewhere" state. The backend is the source of truth, so if
+  // it has moved AHEAD of the version this session last wrote/adopted — another
+  // device, or an admin fix — pull it and adopt it instead of letting our stale
+  // copy overwrite it on the next save. Poll on a timer and the moment the tab
+  // becomes visible again. We never adopt over genuine unsaved local edits.
+  useEffect(() => {
+    if (readOnly || !session) return undefined
+    if (account !== 'pooks' && account !== 'marnich') return undefined
+    let cancelled = false
+    const check = () => {
+      fetchRemoteState(account).then((remote) => {
+        if (cancelled) return
+        const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
+        if (shouldAdoptRemote(remote, stateVersionRef.current, hasUnsavedLocalEdits)) {
+          adoptState(account, remote.state, remote.version)
+        }
+      })
+    }
+    const id = window.setInterval(check, 20000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [account, readOnly, session])
 
@@ -2736,6 +2774,7 @@ function App() {
       /* cache may be full — backend remains the source of truth */
     }
     setData(state)
+    lastSyncedRef.current = state
     setIntroSeen(Boolean(state.introSeen) || readIntroSeen(acct))
     if (state.introSeen) markIntroSeen(acct)
   }
