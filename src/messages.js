@@ -107,17 +107,23 @@ export function specialCouncilMessage(dayKey) {
   return SPECIAL_COUNCIL_MESSAGES[dayKey] || null
 }
 
-// Pick the next council message we have not shown yet. Once all 60+ have been
-// seen we gently start the cycle again (kept deterministic so it never repeats
-// two days running).
+// Pick the next council message we have not shown yet, and return the updated
+// "shown" log to store. Within a cycle we only ever pick an unshown message, so
+// no message repeats until all 60+ have been seen. Once the whole pool is seen
+// we start a FRESH cycle (resetting the log) but deliberately skip yesterday's
+// message, so she never gets the same dispatch two days running.
 export function nextCouncilMessage(shownIndices = []) {
   const shown = new Set(shownIndices)
-  let idx = COUNCIL_MESSAGES.findIndex((_, i) => !shown.has(i))
-  if (idx === -1) {
-    // Everything seen — restart the cycle from the least-recently shown.
-    idx = shownIndices.length ? shownIndices[0] : 0
+  const idx = COUNCIL_MESSAGES.findIndex((_, i) => !shown.has(i))
+  if (idx !== -1) {
+    return { index: idx, text: COUNCIL_MESSAGES[idx], shown: [...shownIndices, idx] }
   }
-  return { index: idx, text: COUNCIL_MESSAGES[idx] }
+  // Whole pool seen — begin a new cycle, avoiding an immediate repeat of the
+  // most recently shown message.
+  const last = shownIndices[shownIndices.length - 1]
+  let restart = COUNCIL_MESSAGES.findIndex((_, i) => i !== last)
+  if (restart === -1) restart = 0
+  return { index: restart, text: COUNCIL_MESSAGES[restart], shown: [restart] }
 }
 
 let messageSeq = 0

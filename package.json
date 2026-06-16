@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node scripts/test-species-match.mjs && node scripts/test-photo-pool.mjs && node scripts/test-library-slim.mjs && node scripts/test-sync-reconcile.mjs",
+    "test": "node scripts/test-species-match.mjs && node scripts/test-photo-pool.mjs && node scripts/test-library-slim.mjs && node scripts/test-sync-reconcile.mjs && node scripts/test-council-messages.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

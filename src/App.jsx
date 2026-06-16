@@ -2084,6 +2084,11 @@ function App() {
   // Which save is active + whether the screen is a read-only mirror of Pooks.
   const account = dataAccountFor(session, marnichMode)
   const readOnly = isReadOnlyView(session, marnichMode)
+  // The coin-shop gifts/rewards are hidden for Pooks for now (only Marnich's test
+  // account sees the full shop + gift flow — see visibleShopIds on the Gifts
+  // page). While they're hidden we also suppress milestone gift notifications, so
+  // nothing pops up about gifts she can't see yet.
+  const giftsEnabled = account === 'marnich'
   const [data, setData] = useState(() =>
     loadStateForSession(readStoredSession(), readMarnichMode()),
   )
@@ -2228,16 +2233,12 @@ function App() {
       // On the presentation-week days a one-off good-luck dispatch replaces the
       // normal rotation; the rotation log is left untouched so it resumes intact.
       const special = specialCouncilMessage(todayKey)
-      const rotation = special ? null : nextCouncilMessage(data.messagesMeta?.shownCouncil || [])
-      const text = special || rotation.text
       setData((current) => {
         if (current.messagesMeta?.lastCouncilDay === todayKey) return current
-        let shown = current.messagesMeta?.shownCouncil || []
-        if (!special) {
-          shown = [...shown, rotation.index]
-          // Keep the "shown" log from growing forever once we've cycled the pool.
-          if (shown.length > 80) shown = shown.slice(shown.length - 80)
-        }
+        const prevShown = current.messagesMeta?.shownCouncil || []
+        const rotation = special ? null : nextCouncilMessage(prevShown)
+        const text = special || rotation.text
+        const shown = special ? prevShown : rotation.shown
         return {
           ...current,
           messages: [councilDailyMessage(text), ...(current.messages || [])],
@@ -3743,8 +3744,12 @@ function App() {
       recalculated = { ...recalculated, featherCoins: recalculated.featherCoins + milestoneBonus }
       milestoneNote = ` Milestone bonus! +${milestoneBonus} Feather Coins 🏅`
     }
-    const unlockSummary = getUnlockSummary(data, recalculated)
-    const unlockedRewards = getNewlyUnlockedRewards(data, recalculated)
+    // While gifts are hidden for Pooks, the reward still unlocks silently in her
+    // state (so it's ready when gifts return) but we fire NO notification about
+    // it — no unlock popup, no "Snack from Marnich" achievement letter, no toast
+    // summary, no email to Marnich.
+    const unlockSummary = giftsEnabled ? getUnlockSummary(data, recalculated) : ''
+    const unlockedRewards = giftsEnabled ? getNewlyUnlockedRewards(data, recalculated) : []
     setData(recalculated)
     if (unlockedRewards.length) {
       setRewardUnlockQueue((current) => [...current, ...unlockedRewards])
@@ -6598,19 +6603,20 @@ function libraryBirdMatchesFilter(bird, filter) {
     .some((value) => value.toLowerCase() === filterKey)
 }
 
-// Aspirational Pokédex-style goal: collect all common SA birds.
-const TOTAL_SA_BIRDS = 150
+// Aspirational Pokédex-style goal: collect every bird in the library. The total
+// is the live library size, so it always reflects the real catalog as it grows.
 
 function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
   const seenCount = data.birdLibrary.filter((bird) => bird.seen).length
+  const totalBirds = data.birdLibrary.length
   const searchKey = searchTerm.trim().toLowerCase()
   const filteredBirds = data.birdLibrary
     .filter((bird) => libraryBirdMatchesFilter(bird, activeFilter))
     .filter((bird) => !searchKey || getBirdSearchText(bird).includes(searchKey))
     .sort((a, b) => a.commonName.localeCompare(b.commonName))
-  const progressValue = Math.min(100, Math.round((seenCount / TOTAL_SA_BIRDS) * 100))
+  const progressValue = totalBirds ? Math.min(100, Math.round((seenCount / totalBirds) * 100)) : 0
 
   const marnichSpecies = useMemo(() => {
     const set = new Set()
@@ -6627,7 +6633,7 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
     <div className="page-grid library-page">
       <section className="soft-card full-span checklist-hero scrapbook-hero">
         <p className="eyebrow">Your bird collection</p>
-        <h2 className="discovered-count">{seenCount} / {TOTAL_SA_BIRDS} birds found 🐦</h2>
+        <h2 className="discovered-count">{seenCount} / {totalBirds} birds found 🐦</h2>
         <p className="discovered-sub">Catch them all — snap a real photo to unlock each one</p>
         <div className="progress-track">
           <span style={{ width: `${progressValue}%` }}></span>
