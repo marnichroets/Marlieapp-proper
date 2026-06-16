@@ -7546,13 +7546,14 @@ function RewardsPage({
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
     { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
-  // Pooks' Gifts page shows ONLY the Milkshake Date for now (other items kept in
-  // code but hidden). Marnich's test account sees every item and gift section so
-  // he can verify the full purchase → reveal → claim flow before any of it goes
-  // live for Pooks.
+  // Pooks' Gifts page hides EVERY shop item for now (all items kept in code but
+  // hidden via this empty allowlist) so the core experience stays simple while
+  // Marnich gets it right. He adds gifts back manually through Admin when ready.
+  // Marnich's own test account still sees every item and gift section so he can
+  // verify the full purchase → reveal → claim flow before any of it goes live.
   const visibleShopIds = isMarnich
     ? ['milkshakeDate', 'mysteryBox', 'hiddenNote', 'birdProfile', 'dateIdea']
-    : ['milkshakeDate']
+    : []
   const visibleShopItems = shopItems.filter((item) => visibleShopIds.includes(item.id))
   const showOtherGiftSections = isMarnich
 
@@ -7579,7 +7580,7 @@ function RewardsPage({
         </div>
         <div className="shop-grid">
           {visibleShopItems.length === 0 ? (
-            <EmptyState text="The shop is resting for now. 🪶" />
+            <EmptyState text="New surprises coming soon 🪶" />
           ) : (
             visibleShopItems.map((item) => (
               <article className="shop-tile" key={item.id}>
