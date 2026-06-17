@@ -4870,7 +4870,6 @@ function App() {
             data={data}
             stats={stats}
             dailyChallenge={dailyChallenge}
-            dailyStreak={dailyStreak}
             completeDailyChallenge={completeDailyChallenge}
             goTo={setActivePage}
             openBirdProfile={openBirdProfile}
@@ -5632,7 +5631,6 @@ function daysUntilMarnichVisit(now = new Date()) {
 function HomePage({
   data,
   dailyChallenge,
-  dailyStreak,
   completeDailyChallenge,
   goTo,
   openBirdProfile,
@@ -5652,11 +5650,16 @@ function HomePage({
     ? Math.round((seenLibraryCount / data.birdLibrary.length) * 100)
     : 0
   const done = dailyChallenge.mainComplete
+  // The home streak reflects her real daily ritual — looking after Tweety —
+  // rather than the photo-mission completions (which she may skip on a given
+  // day). Caring for Tweety every day is her genuine consistent engagement, so
+  // this is the streak that should be celebrated front-and-centre.
+  const careStreak = tweetyStreak(data.tweety)
 
   return (
     <div className={`home-stack home-mood-${tweetyView.mood}`}>
       <div className="home-topline">
-        <span className="streak-chip">Day {dailyStreak} streak 🔥</span>
+        <span className="streak-chip">Day {careStreak} care streak 🔥</span>
         <span className="coin-chip">{data.featherCoins} 🪙</span>
       </div>
 
