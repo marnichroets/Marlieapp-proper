@@ -3339,6 +3339,17 @@ function App() {
     )
   }
 
+  // Sandbox testing helper: top up coins so everything can be bought freely.
+  // Guarded by readOnly (and the button only renders in sandbox mode), so it can
+  // never run against Pooks' real account.
+  function addSandboxCoins() {
+    if (readOnly) return
+    commit(
+      { ...data, featherCoins: (data.featherCoins || 0) + 10000 },
+      { title: 'Sandbox top-up 🪙', body: '+10,000 Feather Coins added to your test account.', tone: 'success' },
+    )
+  }
+
   function roomInteract(kind) {
     roomSound(kind)
     setData((c) => ({
@@ -4868,6 +4879,14 @@ function App() {
             title="Open the sandbox Bird Garden"
           >
             🌳 Bird Garden
+          </button>
+          <button
+            className="marnich-ff-btn sandbox-coins-btn"
+            type="button"
+            onClick={addSandboxCoins}
+            title="Add 10,000 coins to your test sandbox"
+          >
+            🪙 Add 10,000 coins
           </button>
         </div>
       )}

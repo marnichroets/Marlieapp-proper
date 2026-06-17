@@ -5242,6 +5242,11 @@ textarea:focus {
   border-color: rgba(90, 150, 90, 0.6);
   color: #244a2a;
 }
+.sandbox-coins-btn {
+  background: rgba(255, 224, 150, 0.95);
+  border-color: rgba(190, 150, 60, 0.6);
+  color: #6b4a00;
+}
 
 /* Random wildlife encounter modal — light, cute, never scary. */
 .encounter-backdrop { z-index: 80; }
