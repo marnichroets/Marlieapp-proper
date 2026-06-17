@@ -18,6 +18,8 @@ import {
   locationThought,
 } from './birdExplore'
 import { TweetyHomeCard, TweetyStatsPage, AviaryCard, CompanionGalleryPage } from './Tweety'
+import { GardenPage } from './Garden'
+import { defaultGarden, gardenItem, canWater } from './gardenData'
 import {
   defaultTweety,
   tweetyToday,
@@ -1691,6 +1693,7 @@ function buildDefaultState() {
     tweety: defaultTweety(),
     store: defaultStore(),
     games: defaultGames(),
+    garden: defaultGarden(),
     weeklyQuizClaimedWeek: null,
     discoveries: [],
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
@@ -1868,6 +1871,7 @@ function normalizeLoadedState(saved) {
       }),
       store: { ...base.store, ...(saved.store || {}) },
       games: { ...base.games, ...(saved.games || {}) },
+      garden: { ...base.garden, ...(saved.garden || {}) },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
@@ -3287,6 +3291,54 @@ function App() {
     )
   }
 
+  // ----- Bird Garden (sandbox-only; see gating on the page + menu) -----
+  // Buy a seed → it appears as a sprouting planting she waters daily to grow.
+  function buyGardenSeed(itemId) {
+    const item = gardenItem(itemId)
+    if (!item) return
+    if (data.featherCoins < item.cost) {
+      setToast({ title: 'Not enough coins yet', body: `That costs ${item.cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    const planting = {
+      id: createId('plant'),
+      type: itemId,
+      wateredDays: 0,
+      lastWaterDay: '',
+      plantedAt: new Date().toISOString(),
+    }
+    const garden = data.garden || defaultGarden()
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - item.cost,
+        garden: { ...garden, plantings: [...(garden.plantings || []), planting] },
+      },
+      { title: 'Planted 🌱', body: `${item.name} ${item.emoji} planted — water it each day to grow it.` },
+    )
+  }
+
+  // Water one planting (once per SA day); advances its growth stage.
+  function waterGardenPlant(plantingId) {
+    if (readOnly) return
+    const garden = data.garden || defaultGarden()
+    const plantings = garden.plantings || []
+    const planting = plantings.find((p) => p.id === plantingId)
+    if (!planting || !canWater(planting)) return
+    const item = gardenItem(planting.type)
+    const nextWatered = (planting.wateredDays || 0) + 1
+    const grown = nextWatered >= (item?.waterToGrow || Infinity)
+    const next = plantings.map((p) =>
+      p.id === plantingId ? { ...p, wateredDays: nextWatered, lastWaterDay: saDateKey() } : p,
+    )
+    commit(
+      { ...data, garden: { ...garden, plantings: next } },
+      grown
+        ? { title: 'Fully grown! 🌳', body: `Your ${item?.name || 'plant'} is all grown up — a permanent part of the garden.`, tone: 'success' }
+        : { title: 'Watered 💧', body: `You watered your ${item?.name || 'plant'}. Come back tomorrow for more growth.`, tone: 'calm' },
+    )
+  }
+
   function roomInteract(kind) {
     roomSound(kind)
     setData((c) => ({
@@ -3461,14 +3513,21 @@ function App() {
     const nextCompletions = { ...(data.dailyChallengeCompletions || {}) }
     delete nextCompletions[todayValue()]
 
+    // Let the garden advance too: clear each planting's daily water gate so it
+    // can be watered again immediately (speeds growth through "days" in testing).
+    const garden = data.garden
+      ? { ...data.garden, plantings: (data.garden.plantings || []).map((p) => ({ ...p, lastWaterDay: '' })) }
+      : data.garden
+
     setData((c) => ({
       ...c,
       tweety: nextTweety,
       dailyChallengeCompletions: nextCompletions,
+      garden,
     }))
     setToast({
       title: 'Fast-forwarded 1 day ⏩',
-      body: `${note} Care windows + daily challenge reset.`.trim(),
+      body: `${note} Care windows, daily challenge + garden watering reset.`.trim(),
       tone: 'success',
     })
   }
@@ -4729,7 +4788,7 @@ function App() {
     session?.role === 'admin'
       ? [...menuItems, ['admin', 'Admin', '🔒']]
       : account === 'marnich'
-        ? [['games', 'Bird Battles', '⚔️'], ['companiongallery', 'Companion Gallery', '🧪']]
+        ? [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳'], ['companiongallery', 'Companion Gallery', '🧪']]
         : [['games', 'Bird Battles', '⚔️']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
@@ -4887,6 +4946,15 @@ function App() {
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
           <CompanionGalleryPage onBack={goBack} />
+        )}
+        {activePage === 'garden' && account === 'marnich' && (
+          <GardenPage
+            garden={data.garden}
+            coins={data.featherCoins}
+            onBuy={buyGardenSeed}
+            onWater={waterGardenPlant}
+            onBack={goBack}
+          />
         )}
         {activePage === 'sanctuary' && (
           <SanctuaryPage

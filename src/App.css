@@ -4012,6 +4012,36 @@ textarea:focus {
   color: var(--muted);
 }
 
+/* Bird Garden (sandbox Phase 1): illustrated grow-from-seed scene. */
+.garden-scene-card { padding: 8px; overflow: hidden; }
+.garden-scene-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+}
+.garden-plant { cursor: pointer; }
+.garden-thirsty { animation: gentle-pulse 2.4s ease-in-out infinite; }
+.garden-empty-hint { fill: #6b7a5e; font-size: 12px; font-weight: 700; }
+.garden-progress { display: flex; gap: 6px; margin: 6px 0 10px; }
+.garden-progress span {
+  width: 22px; height: 8px; border-radius: 4px;
+  background: rgba(120, 132, 110, 0.25);
+}
+.garden-progress span.on { background: var(--leaf); }
+.garden-shop-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+.garden-shop-btn {
+  flex: 1 1 120px;
+  display: grid; justify-items: center; gap: 2px;
+  padding: 12px 8px;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: #fffdf7; color: var(--leaf-dark);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+.garden-shop-btn small { color: var(--muted); font-weight: 600; }
+.garden-shop-btn[disabled] { opacity: 0.45; cursor: default; }
+.garden-shop-emoji { font-size: 1.6rem; }
+
 /* Sandbox-only companion gallery: 6 species × 5 stages grid. */
 .companion-gallery-stages {
   display: flex;
