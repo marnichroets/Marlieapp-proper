@@ -4021,6 +4021,12 @@ textarea:focus {
   border-radius: 16px;
 }
 .garden-plant { cursor: pointer; }
+.garden-scene-svg.placing { cursor: crosshair; touch-action: none; }
+.garden-placing-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #e3f3e0; border: 1px solid #bcdcc0; color: #244a2a; font-weight: 700;
+}
+.garden-shop-btn.active { outline: 3px solid #7cc47c; outline-offset: -1px; }
 .garden-thirsty { animation: gentle-pulse 2.4s ease-in-out infinite; }
 .garden-empty-hint { fill: #6b7a5e; font-size: 12px; font-weight: 700; }
 .garden-progress { display: flex; gap: 6px; margin: 6px 0 10px; }

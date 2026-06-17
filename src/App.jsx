@@ -3298,8 +3298,9 @@ function App() {
   }
 
   // ----- Bird Garden (sandbox-only; see gating on the page + menu) -----
-  // Buy a seed → it appears as a sprouting planting she waters daily to grow.
-  function buyGardenSeed(itemId) {
+  // Place an item at the spot she tapped: charge on placement, store its {x,y}
+  // so each garden's layout is unique. Then she tends it daily to grow it.
+  function placeGardenItem(itemId, x, y) {
     const item = gardenItem(itemId)
     if (!item) return
     if (data.featherCoins < item.cost) {
@@ -3309,6 +3310,8 @@ function App() {
     const planting = {
       id: createId('plant'),
       type: itemId,
+      x,
+      y,
       wateredDays: 0,
       lastWaterDay: '',
       plantedAt: new Date().toISOString(),
@@ -3320,7 +3323,7 @@ function App() {
         featherCoins: data.featherCoins - item.cost,
         garden: { ...garden, plantings: [...(garden.plantings || []), planting] },
       },
-      { title: 'Planted 🌱', body: `${item.name} ${item.emoji} planted — water it each day to grow it.` },
+      { title: 'Planted 🌱', body: `${item.name} ${item.emoji} placed — tend it each day to grow it.` },
     )
   }
 
@@ -4990,7 +4993,7 @@ function App() {
           <GardenPage
             garden={data.garden}
             coins={data.featherCoins}
-            onBuy={buyGardenSeed}
+            onPlace={placeGardenItem}
             onWater={waterGardenPlant}
             onBack={goBack}
           />
