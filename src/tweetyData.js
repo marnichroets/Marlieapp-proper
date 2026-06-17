@@ -191,6 +191,30 @@ export function tweetyGrowthProgress(tweety) {
   }
 }
 
+// A short, warm "what kind of day Tweety is having" line for the World card:
+// her current life stage + day number, coloured by today's care/mood. This is
+// pure storybook flavour — a tiny daily story beat, never an instruction (the
+// home-screen mood face already handles the "feed me / water me" nudges), so
+// these read gently even when she is a bit hungry.
+const STORYBOOK_MOOD_LINES = {
+  happy: 'happy and chirpy after a full day of care',
+  content: 'pottering about, content as can be',
+  hungry: 'getting peckish and dreaming of seeds',
+  thirsty: 'eyeing the water dish rather hopefully',
+  sad: 'a little mopey today and missing you',
+}
+
+export function tweetyStorybookLine(tweety, now = new Date()) {
+  if (!tweety?.companion || !tweety?.bornAt) {
+    return 'settling into her cosy little world'
+  }
+  const { stage, dayNumber } = tweetyGrowthProgress(tweety)
+  const emoji = stage.label.split(' ').pop() // each stage label ends with its emoji
+  const mood = tweetySimpleMood(tweety, now)
+  const flavour = STORYBOOK_MOOD_LINES[mood] || STORYBOOK_MOOD_LINES.content
+  return `Day ${dayNumber} · ${stage.short} ${emoji} — ${flavour}`
+}
+
 // Tweety's default look. She is her companion from day one (no egg to hatch), a
 // plain golden chick at stage 1 that grows through the five stages via daily care.
 export const DEFAULT_COMPANION = 'weaver'

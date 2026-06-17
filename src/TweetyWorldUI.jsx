@@ -2,6 +2,7 @@
 // gentle 3-day incubation, story-event alerts, the Sanctuary and the Bird Room.
 import { useEffect, useState } from 'react'
 import { TweetyBird } from './Tweety'
+import { tweetyStorybookLine } from './tweetyData'
 import {
   SANCTUARY_SECTIONS,
   unlockedSanctuarySections,
@@ -27,7 +28,7 @@ export function TweetyWorldCard({
       <div className="section-heading">
         <div>
           <p className="eyebrow">Tweety&apos;s World 🌍</p>
-          <h3>{tweety?.name || 'Tweety'}&apos;s little storybook day</h3>
+          <h3>{tweetyStorybookLine(tweety)}</h3>
         </div>
       </div>
 
