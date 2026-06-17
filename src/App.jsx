@@ -4852,14 +4852,24 @@ function App() {
         </div>
       )}
       {session.role === 'marnich' && marnichMode === 'sandbox' && (
-        <button
-          className="marnich-ff-btn"
-          type="button"
-          onClick={fastForwardDay}
-          title="Advance your test sandbox by one day"
-        >
-          ⏩ Fast Forward
-        </button>
+        <div className="sandbox-tools">
+          <button
+            className="marnich-ff-btn"
+            type="button"
+            onClick={fastForwardDay}
+            title="Advance your test sandbox by one day"
+          >
+            ⏩ Fast Forward
+          </button>
+          <button
+            className="marnich-ff-btn sandbox-garden-btn"
+            type="button"
+            onClick={() => setActivePage('garden')}
+            title="Open the sandbox Bird Garden"
+          >
+            🌳 Bird Garden
+          </button>
+        </div>
       )}
       <RewardUnlockModal
         reward={activeRewardUnlock}
