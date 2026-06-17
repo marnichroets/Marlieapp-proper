@@ -350,6 +350,24 @@ const STAGE_SHAPE = {
   crown: { rx: 29, wings: 3, scale: 1, crown: true },
 }
 
+// Per-stage Cape Robin-Chat plumage (used ONLY when the companion is the robin,
+// i.e. has a palette — every other companion keeps the golden-chick look). The
+// bird develops realistically with age: juveniles are buff-brown and spotted
+// with the orange breast only washing in and no clean eyebrow; the cooler
+// grey-brown back, bold white supercilium, dark face mask and rufous tail come
+// in with adulthood. Geometry (size/wings) still comes from STAGE_SHAPE above —
+// this only governs colour and which plumage features are drawn.
+const ROBIN_STAGE = {
+  chick: { back: '#A89A7E', wing: '#9B886C', breast: '#D98A5A', breastOpacity: 0.7, brow: 'none', tail: 'none', spots: true, beak: '#5A4A3A', mask: false },
+  fledgling: { back: '#A8957A', wing: '#9B886C', breast: '#D98A5A', breastOpacity: 0.85, brow: 'faint', tail: 'short', spots: true, beak: '#5A4A3A', mask: false },
+  young: { back: '#988A78', wing: '#84796A', breast: '#E07E45', breastOpacity: 0.92, brow: 'light', tail: 'med', spots: false, beak: '#43392F', mask: false },
+  adult: { back: '#8C8275', wing: '#7A7165', breast: '#E8743C', breastOpacity: 1, brow: 'bold', tail: 'full', spots: false, beak: '#34302A', mask: true },
+}
+// Legacy/at-size aliases mirror the adult plumage.
+ROBIN_STAGE.grown = ROBIN_STAGE.adult
+ROBIN_STAGE.crowned = ROBIN_STAGE.adult
+ROBIN_STAGE.crown = ROBIN_STAGE.adult
+
 export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null, worn = null, scale = null }) {
   const shape = STAGE_SHAPE[level] || STAGE_SHAPE.chick
   const showCrown = shape.crown || level === 'crown' || level === 'crowned'
@@ -361,11 +379,21 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
   // Overall silhouette scale: explicit prop wins, else the stage's own scale.
   const gScale = scale != null ? scale : shape.scale
   const sad = mood === 'sad'
-  // Permanently a golden chick; the companion only adds a signature accent.
-  const body = '#F6CE73'
-  const belly = '#FBE6A8'
-  const wing = '#EBB94E'
   const comp = companion ? getCompanion(companion) : null
+  // The Cape Robin-Chat has a species-accurate palette + plumage that develops
+  // with age; every other companion keeps the golden-chick body and only adds a
+  // signature chest/cap accent (so they are completely unchanged).
+  const robin = comp?.palette ? ROBIN_STAGE[level] || ROBIN_STAGE.adult : null
+  const body = robin ? robin.back : '#F6CE73'
+  const belly = robin ? comp.palette.belly : '#FBE6A8'
+  const wing = robin ? robin.wing : '#EBB94E'
+  const beakColor = robin ? robin.beak : '#F2A24E'
+  const feetColor = robin ? comp.palette.feet : '#E8915E'
+  // Robin eyebrow (supercilium) styling by stage: absent on a chick, a faint
+  // cream hint on juveniles, then the bold white adult brow.
+  const browColor = robin && robin.brow === 'bold' ? comp.palette.brow : '#EFE7D6'
+  const browWidth = robin ? (robin.brow === 'bold' ? 2.6 : robin.brow === 'light' ? 2 : 1.6) : 0
+  const browOpacity = robin ? (robin.brow === 'faint' ? 0.7 : robin.brow === 'light' ? 0.85 : 1) : 1
 
   return (
     <span
@@ -383,16 +411,50 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
               <path d="M50 28 l-3 -7 l6 0 Z" />
             </g>
           )}
+          {/* robin's rufous tail (flashes orange; grows in with age, sits behind the body) */}
+          {robin && robin.tail !== 'none' && (
+            <path
+              d={
+                robin.tail === 'full'
+                  ? 'M55 78 q14 6 11 14 q-7 -1 -15 -8 Z'
+                  : robin.tail === 'med'
+                    ? 'M55 78 q11 5 9 13 q-7 -1 -13 -8 Z'
+                    : 'M55 78 q8 4 6 11 q-5 -1 -10 -6 Z'
+              }
+              fill={comp.palette.tail}
+            />
+          )}
           {/* top curl/tuft */}
           <path d="M50 30 q-2 -12 6 -13 q-3 8 -2 13 Z" fill={wing} />
           {/* body */}
           <ellipse cx="50" cy={58} rx={rx} ry={ry} fill={body} />
-          <ellipse cx="50" cy={64} rx={rx * 0.62} ry={ry * 0.55} fill={belly} />
-          {/* companion signature: chest patch and/or head cap */}
-          {comp?.chest && (
-            <ellipse cx="50" cy="62" rx={rx * 0.5} ry={ry * 0.42} fill={comp.chest} opacity="0.92" />
+          {robin ? (
+            <>
+              {/* orange-rufous throat + breast, with a pale grey lower belly */}
+              <ellipse cx="50" cy="60" rx={rx * 0.5} ry={ry * 0.6} fill={robin.breast} opacity={robin.breastOpacity} />
+              <ellipse cx="50" cy={58 + ry * 0.5} rx={rx * 0.4} ry={ry * 0.28} fill={belly} />
+              {/* juvenile mottling/spotting */}
+              {robin.spots && (
+                <g fill="#7E6E55" opacity="0.5">
+                  <circle cx="44" cy="64" r="1.5" />
+                  <circle cx="52" cy="68" r="1.5" />
+                  <circle cx="58" cy="62" r="1.4" />
+                  <circle cx="41" cy="58" r="1.2" />
+                  <circle cx="60" cy="69" r="1.3" />
+                  <circle cx="48" cy="61" r="1.1" />
+                </g>
+              )}
+            </>
+          ) : (
+            <>
+              <ellipse cx="50" cy={64} rx={rx * 0.62} ry={ry * 0.55} fill={belly} />
+              {/* companion signature: chest patch and/or head cap */}
+              {comp?.chest && (
+                <ellipse cx="50" cy="62" rx={rx * 0.5} ry={ry * 0.42} fill={comp.chest} opacity="0.92" />
+              )}
+              {comp?.cap && <path d="M34 46 Q50 30 66 46 Z" fill={comp.cap} opacity="0.92" />}
+            </>
           )}
-          {comp?.cap && <path d="M34 46 Q50 30 66 46 Z" fill={comp.cap} opacity="0.92" />}
           {/* wings (appear and grow with each stage; flap) */}
           {mid && (
             <g className="tweety-wing">
@@ -401,11 +463,25 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           )}
           {mid && <ellipse cx={50 + rx - 2} cy="58" rx={big ? 8 : 6} ry={wingRy} fill={wing} />}
           {/* feet */}
-          <path d="M44 82 v6 M41 88 h6 M42 85 h4" stroke="#E8915E" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-          <path d="M56 82 v6 M53 88 h6 M54 85 h4" stroke="#E8915E" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-          {/* cheeks */}
-          <circle cx="38" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
-          <circle cx="62" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
+          <path d="M44 82 v6 M41 88 h6 M42 85 h4" stroke={feetColor} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          <path d="M56 82 v6 M53 88 h6 M54 85 h4" stroke={feetColor} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          {/* cheeks — soft pink only on the golden chick; robins have a dark face */}
+          {!robin && (
+            <>
+              <circle cx="38" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
+              <circle cx="62" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
+            </>
+          )}
+          {/* robin's dark face mask (adult) + white supercilium (staged in) */}
+          {robin?.mask && (
+            <path d="M33 47 Q50 39 67 47 Q67 54 50 54 Q33 54 33 47 Z" fill={comp.palette.face} opacity="0.5" />
+          )}
+          {robin && robin.brow !== 'none' && (
+            <g stroke={browColor} strokeWidth={browWidth} fill="none" strokeLinecap="round" opacity={browOpacity}>
+              <path d="M35 45 Q43 40 49 43" />
+              <path d="M65 45 Q57 40 51 43" />
+            </g>
+          )}
           {/* eyes — change with each mood */}
           {sad ? (
             <g stroke="#3E2F22" strokeWidth="2.6" fill="none" strokeLinecap="round">
@@ -431,8 +507,8 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
           )}
           {/* tear when sad */}
           {sad && <path d="M40 54 q-2 4 0 6 q2 -2 0 -6" fill="#9AD0F0" />}
-          {/* beak */}
-          <path d="M47 57 l6 0 l-3 5 z" fill="#F2A24E" />
+          {/* beak (fine dark bill for the robin; golden for the chick) */}
+          <path d="M47 57 l6 0 l-3 5 z" fill={beakColor} />
           {/* mouth varies by mood */}
           {mood === 'happy' && (
             <path d="M46 65 q4 3 8 0" stroke="#C8742E" strokeWidth="1.6" fill="none" strokeLinecap="round" />

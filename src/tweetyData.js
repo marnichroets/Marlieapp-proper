@@ -6,7 +6,18 @@
 // (a head cap and/or chest patch) so she "takes on that bird's appearance".
 export const TWEETY_COMPANIONS = [
   { id: 'weaver', name: 'Sunny the Weaver', cap: '', chest: '', blurb: 'A golden garden architect 🟡' },
-  { id: 'robin', name: 'Robin the Robin-Chat', cap: '', chest: '#E8743C', blurb: 'Warm orange-chested singer 🧡' },
+  {
+    id: 'robin',
+    name: 'Robin the Robin-Chat',
+    cap: '',
+    chest: '#E8743C',
+    blurb: 'Warm orange-chested singer 🧡',
+    // Species palette for the realistic Cape Robin-Chat rendering. Only this
+    // companion has a `palette`; TweetyBird falls back to the golden-chick look
+    // for every other companion, so nothing else changes. Per-stage plumage
+    // (juvenile spotting → adult breast/eyebrow) lives in ROBIN_STAGE in Tweety.jsx.
+    palette: { belly: '#CFCBC2', tail: '#D9742E', face: '#4A4742', brow: '#FFFFFF', feet: '#C08A6A' },
+  },
   { id: 'sunbird', name: 'Jewel the Sunbird', cap: '#3FA66A', chest: '', blurb: 'A glittering green sipper 💚' },
   { id: 'bishop', name: 'Blaze the Bishop', cap: '#E0463A', chest: '', blurb: 'A tiny scarlet flame 🔥' },
   { id: 'sparrow', name: 'Pip the Sparrow', cap: '#9A7B53', chest: '', blurb: 'A cheeky little seed-lover 🤎' },
