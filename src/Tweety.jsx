@@ -9,6 +9,7 @@ import {
   AVIARY_MAX,
   TWEETY_COMPANIONS,
   getCompanion,
+  companionSpecies,
   FIRST_EGGS,
   FIRST_EGG_WARMS,
   tweetyTodayKey,
@@ -350,23 +351,128 @@ const STAGE_SHAPE = {
   crown: { rx: 29, wings: 3, scale: 1, crown: true },
 }
 
-// Per-stage Cape Robin-Chat plumage (used ONLY when the companion is the robin,
-// i.e. has a palette — every other companion keeps the golden-chick look). The
-// bird develops realistically with age: juveniles are buff-brown and spotted
-// with the orange breast only washing in and no clean eyebrow; the cooler
-// grey-brown back, bold white supercilium, dark face mask and rufous tail come
-// in with adulthood. Geometry (size/wings) still comes from STAGE_SHAPE above —
-// this only governs colour and which plumage features are drawn.
-const ROBIN_STAGE = {
-  chick: { back: '#A89A7E', wing: '#9B886C', breast: '#D98A5A', breastOpacity: 0.7, brow: 'none', tail: 'none', spots: true, beak: '#5A4A3A', mask: false },
-  fledgling: { back: '#A8957A', wing: '#9B886C', breast: '#D98A5A', breastOpacity: 0.85, brow: 'faint', tail: 'short', spots: true, beak: '#5A4A3A', mask: false },
-  young: { back: '#988A78', wing: '#84796A', breast: '#E07E45', breastOpacity: 0.92, brow: 'light', tail: 'med', spots: false, beak: '#43392F', mask: false },
-  adult: { back: '#8C8275', wing: '#7A7165', breast: '#E8743C', breastOpacity: 1, brow: 'bold', tail: 'full', spots: false, beak: '#34302A', mask: true },
+// ============================================================================
+// Companion species visuals. Each of the six companions renders as its real SA
+// species with diagnostic features that DEVELOP across the five growth stages,
+// the same way the Cape Robin-Chat does: juveniles are duller/spotted with the
+// key markings only hinted, and the full distinctive plumage arrives at
+// adulthood (the crowned stage = adult plumage + the golden crown on top).
+//
+// Purely cosmetic — geometry/size still come from STAGE_SHAPE, and nothing here
+// touches growth, mood, care or saved state. Only `companion` ids listed here
+// get species art; an unknown/empty companion falls back to the golden chick.
+// Species names/labels live with TWEETY_COMPANIONS in tweetyData.js.
+//
+// Per species: `adult` (+ optional `young`) and `juv` palettes, plus a `feats`
+// descriptor of the distinguishing features. companionVisual() resolves these
+// into a flat `vis` object the SVG reads.
+// ============================================================================
+const SPECIES = {
+  // Cape Robin-Chat — grey-brown back, orange breast, white eyebrow, rufous tail.
+  robin: {
+    adult: { back: '#8C8275', wing: '#7A7165', beak: '#34302A', feet: '#C08A6A', eye: '#2C2620' },
+    young: { back: '#988A78', wing: '#84796A', beak: '#43392F', feet: '#C08A6A', eye: '#2C2620' },
+    juv: { back: '#A8957A', wing: '#9B886C', beak: '#5A4A3A', feet: '#C08A6A', eye: '#2C2620' },
+    breast: { adult: '#E8743C', young: '#E07E45', juv: '#D98A5A' },
+    greyBelly: '#CFCBC2',
+    feats: { brow: '#FFFFFF', faceMask: '#4A4742', tail: 'rufous', tailColor: '#D9742E', spotsJuv: true },
+  },
+  // Southern Masked Weaver — bright yellow, black face mask, red eye, olive back.
+  weaver: {
+    adult: { back: '#F2D21E', wing: '#AEA836', beak: '#2A2620', feet: '#C8A86A', eye: '#C0392B' },
+    juv: { back: '#D8CE7E', wing: '#B6AE72', beak: '#6A5E44', feet: '#C8A86A', eye: '#2C2620' },
+    feats: { mask: '#211E16', redEyeAdult: true, tail: 'short' },
+  },
+  // Malachite Sunbird — iridescent green, long down-curved bill, tail streamers.
+  sunbird: {
+    adult: { back: '#2FA85F', wing: '#1E7A45', beak: '#2A2620', feet: '#3A3A2A', eye: '#15301F' },
+    juv: { back: '#8FA37A', wing: '#7E946A', beak: '#5A4A3A', feet: '#5A5A40', eye: '#2C2620' },
+    feats: { bill: 'longCurved', streamers: '#1E7A45', tuft: '#F2D21E', sheen: '#5FD08A' },
+  },
+  // Southern Red Bishop — scarlet, black face + black belly, brown wings.
+  bishop: {
+    adult: { back: '#E8431E', wing: '#7A5A38', beak: '#2A2620', feet: '#C8A86A', eye: '#2C1010' },
+    juv: { back: '#B8A574', wing: '#A08A5A', beak: '#7A6A48', feet: '#C8A86A', eye: '#2C2620' },
+    feats: { mask: '#1E1B16', blackBelly: '#1E1B16', streaksJuv: true, tail: 'short' },
+  },
+  // Cape Sparrow — black head with white C-curl, chestnut back, grey underparts.
+  sparrow: {
+    adult: { back: '#9C5A2C', wing: '#8A4E26', beak: '#2A2620', feet: '#C88A5A', eye: '#2C2620' },
+    juv: { back: '#B79A78', wing: '#A98A66', beak: '#6A5A40', feet: '#C88A5A', eye: '#2C2620' },
+    greyUnder: '#BDB7AD', whiteBelly: '#EAE6DC',
+    feats: { capeHead: true, wingBar: true, tail: 'short' },
+  },
+  // Malachite Kingfisher — blue back + crest, orange underparts, long red bill.
+  kingfisher: {
+    adult: { back: '#1E78D2', wing: '#1660B0', beak: '#D83A2A', feet: '#D83A2A', eye: '#15233A' },
+    juv: { back: '#3E86C8', wing: '#2E6FB0', beak: '#2C2620', feet: '#9A6A5A', eye: '#15233A' },
+    orangeUnder: '#E8743C', juvOrange: '#E0915E',
+    feats: { bill: 'longStraight', crest: '#1660B0', whiteSpot: true },
+  },
 }
-// Legacy/at-size aliases mirror the adult plumage.
-ROBIN_STAGE.grown = ROBIN_STAGE.adult
-ROBIN_STAGE.crowned = ROBIN_STAGE.adult
-ROBIN_STAGE.crown = ROBIN_STAGE.adult
+
+// How "adult" a stage is: 0 = chick … 1 = adult. Features fade in along this.
+const STAGE_AGE = { chick: 0, fledgling: 0.34, young: 0.7, adult: 1, grown: 1, crowned: 1, crown: 1 }
+
+// Resolve a companion id + growth level into a flat visual spec the SVG renders.
+function companionVisual(id, level) {
+  const s = SPECIES[id]
+  if (!s) return null
+  const t = STAGE_AGE[level] ?? 0
+  const adult = t >= 1
+  const young = t >= 0.7 && t < 1
+  const juvenile = t < 0.7
+  const pal = adult ? s.adult : young ? s.young || s.adult : s.juv
+  const f = s.feats || {}
+  const vis = {
+    back: pal.back, wing: pal.wing, beak: pal.beak, feet: pal.feet, eye: pal.eye,
+    spots: Boolean(f.spotsJuv && juvenile),
+    streaks: Boolean(f.streaksJuv && juvenile),
+    redPupil: Boolean(f.redEyeAdult && adult),
+    bill: { type: f.bill || 'short', color: pal.beak },
+  }
+  // robin: orange breast patch (+ grey lower belly) that deepens with age
+  if (s.breast) {
+    vis.breast = {
+      color: adult ? s.breast.adult : young ? s.breast.young : s.breast.juv,
+      opacity: adult ? 1 : young ? 0.92 : t < 0.2 ? 0.7 : 0.85,
+    }
+    if (s.greyBelly) vis.belly = { color: s.greyBelly }
+  }
+  // sparrow: grey underparts + white belly centre
+  if (s.greyUnder) { vis.underparts = { color: s.greyUnder }; vis.belly = { color: s.whiteBelly } }
+  // kingfisher: orange underparts (paler on a juvenile)
+  if (s.orangeUnder) vis.underparts = { color: adult || young ? s.orangeUnder : s.juvOrange }
+  // weaver/bishop black face mask, scaling in with age
+  if (f.mask && t > 0.2) vis.mask = { color: f.mask, scale: t }
+  if (f.blackBelly && t > 0.3) vis.blackBelly = { color: f.blackBelly }
+  // robin white supercilium + dark face mask
+  if (f.brow) {
+    vis.brow = t < 0.2 ? null
+      : adult ? { color: f.brow, width: 2.6, opacity: 1 }
+        : young ? { color: '#EFE7D6', width: 2, opacity: 0.85 }
+          : { color: '#EFE7D6', width: 1.6, opacity: 0.7 }
+    if (f.faceMask && adult) vis.faceMask = { color: f.faceMask }
+  }
+  // sparrow black head + white C-curl, scaling in
+  if (f.capeHead && t > 0.1) vis.capeHead = { scale: t }
+  if (f.wingBar && t >= 0.7) vis.wingBar = true
+  // kingfisher crest (present even on a chick, just smaller)
+  if (f.crest) vis.crest = { color: f.crest, scale: 0.5 + 0.5 * t }
+  if (f.whiteSpot && t >= 0.5) vis.whiteSpot = true
+  // sunbird yellow pectoral tufts + iridescent sheen
+  if (f.tuft && adult) vis.tuft = { color: f.tuft }
+  if (f.sheen && t >= 0.7) vis.sheen = { color: f.sheen }
+  // tails: robin rufous (stages), sunbird streamers, others a short wing-coloured tail
+  if (f.tail === 'rufous') {
+    vis.tail = { kind: t < 0.2 ? null : t < 0.5 ? 'rufousShort' : t < 1 ? 'rufousMed' : 'rufousFull', color: f.tailColor }
+  } else if (f.streamers) {
+    vis.tail = { kind: t >= 0.7 ? 'streamers' : null, color: f.streamers }
+  } else if (f.tail === 'short') {
+    vis.tail = { kind: t >= 0.6 ? 'short' : null, color: pal.wing }
+  }
+  return vis
+}
 
 export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null, worn = null, scale = null }) {
   const shape = STAGE_SHAPE[level] || STAGE_SHAPE.chick
@@ -380,20 +486,18 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
   const gScale = scale != null ? scale : shape.scale
   const sad = mood === 'sad'
   const comp = companion ? getCompanion(companion) : null
-  // The Cape Robin-Chat has a species-accurate palette + plumage that develops
-  // with age; every other companion keeps the golden-chick body and only adds a
-  // signature chest/cap accent (so they are completely unchanged).
-  const robin = comp?.palette ? ROBIN_STAGE[level] || ROBIN_STAGE.adult : null
-  const body = robin ? robin.back : '#F6CE73'
-  const belly = robin ? comp.palette.belly : '#FBE6A8'
-  const wing = robin ? robin.wing : '#EBB94E'
-  const beakColor = robin ? robin.beak : '#F2A24E'
-  const feetColor = robin ? comp.palette.feet : '#E8915E'
-  // Robin eyebrow (supercilium) styling by stage: absent on a chick, a faint
-  // cream hint on juveniles, then the bold white adult brow.
-  const browColor = robin && robin.brow === 'bold' ? comp.palette.brow : '#EFE7D6'
-  const browWidth = robin ? (robin.brow === 'bold' ? 2.6 : robin.brow === 'light' ? 2 : 1.6) : 0
-  const browOpacity = robin ? (robin.brow === 'faint' ? 0.7 : robin.brow === 'light' ? 0.85 : 1) : 1
+  // Each of the six companions renders as its real SA species (vis != null);
+  // an unknown/empty companion falls back to the original golden chick.
+  const vis = comp ? companionVisual(comp.id, level) : null
+  const body = vis ? vis.back : '#F6CE73'
+  const belly = '#FBE6A8' // golden chick belly (species use vis.belly/underparts)
+  const wing = vis ? vis.wing : '#EBB94E'
+  const beakColor = vis ? vis.bill.color : '#F2A24E'
+  const feetColor = vis ? vis.feet : '#E8915E'
+  const eyeColor = vis ? vis.eye : '#3E2F22'
+  // Long-billed species (sunbird/kingfisher) skip the little mouth — the bill is
+  // the focal feature and a mouth would clutter under it.
+  const showMouth = !vis || vis.bill.type === 'short'
 
   return (
     <span
@@ -411,44 +515,72 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
               <path d="M50 28 l-3 -7 l6 0 Z" />
             </g>
           )}
-          {/* robin's rufous tail (flashes orange; grows in with age, sits behind the body) */}
-          {robin && robin.tail !== 'none' && (
-            <path
-              d={
-                robin.tail === 'full'
-                  ? 'M55 78 q14 6 11 14 q-7 -1 -15 -8 Z'
-                  : robin.tail === 'med'
-                    ? 'M55 78 q11 5 9 13 q-7 -1 -13 -8 Z'
-                    : 'M55 78 q8 4 6 11 q-5 -1 -10 -6 Z'
-              }
-              fill={comp.palette.tail}
-            />
+          {/* tail (species-specific): drawn behind the body */}
+          {vis?.tail?.kind && (
+            vis.tail.kind === 'streamers' ? (
+              <g stroke={vis.tail.color} strokeWidth="3" fill="none" strokeLinecap="round">
+                <path d="M48 80 q-2 12 -3 18" />
+                <path d="M52 80 q2 13 4 19" />
+              </g>
+            ) : (
+              <path
+                d={
+                  vis.tail.kind === 'rufousFull' ? 'M55 78 q14 6 11 14 q-7 -1 -15 -8 Z'
+                    : vis.tail.kind === 'rufousMed' ? 'M55 78 q11 5 9 13 q-7 -1 -13 -8 Z'
+                      : vis.tail.kind === 'rufousShort' ? 'M55 78 q8 4 6 11 q-5 -1 -10 -6 Z'
+                        : 'M55 78 q9 4 7 12 q-6 -1 -12 -7 Z'
+                }
+                fill={vis.tail.color}
+              />
+            )
           )}
-          {/* top curl/tuft */}
+          {/* top curl/tuft (recoloured to the wing colour for species) */}
           <path d="M50 30 q-2 -12 6 -13 q-3 8 -2 13 Z" fill={wing} />
           {/* body */}
           <ellipse cx="50" cy={58} rx={rx} ry={ry} fill={body} />
-          {robin ? (
+          {vis ? (
             <>
-              {/* orange-rufous throat + breast, with a pale grey lower belly */}
-              <ellipse cx="50" cy="60" rx={rx * 0.5} ry={ry * 0.6} fill={robin.breast} opacity={robin.breastOpacity} />
-              <ellipse cx="50" cy={58 + ry * 0.5} rx={rx * 0.4} ry={ry * 0.28} fill={belly} />
-              {/* juvenile mottling/spotting */}
-              {robin.spots && (
+              {/* large underparts wash (sparrow grey · kingfisher orange) */}
+              {vis.underparts && (
+                <ellipse cx="50" cy={62} rx={rx * 0.6} ry={ry * 0.62} fill={vis.underparts.color} />
+              )}
+              {/* breast patch (robin) */}
+              {vis.breast && (
+                <ellipse cx="50" cy="60" rx={rx * 0.5} ry={ry * 0.6} fill={vis.breast.color} opacity={vis.breast.opacity} />
+              )}
+              {/* lower belly patch (robin grey · sparrow white centre) */}
+              {vis.belly && (
+                <ellipse cx="50" cy={58 + ry * 0.5} rx={rx * 0.4} ry={ry * 0.28} fill={vis.belly.color} />
+              )}
+              {/* bishop black belly */}
+              {vis.blackBelly && (
+                <ellipse cx="50" cy={58 + ry * 0.52} rx={rx * 0.55} ry={ry * 0.4} fill={vis.blackBelly.color} />
+              )}
+              {/* sunbird iridescent sheen */}
+              {vis.sheen && <ellipse cx="46" cy="52" rx={rx * 0.45} ry={ry * 0.4} fill={vis.sheen.color} opacity="0.4" />}
+              {/* sunbird yellow pectoral tuft */}
+              {vis.tuft && <circle cx={50 - rx + 6} cy="60" r="3" fill={vis.tuft.color} />}
+              {/* juvenile mottling (robin) */}
+              {vis.spots && (
                 <g fill="#7E6E55" opacity="0.5">
-                  <circle cx="44" cy="64" r="1.5" />
-                  <circle cx="52" cy="68" r="1.5" />
-                  <circle cx="58" cy="62" r="1.4" />
-                  <circle cx="41" cy="58" r="1.2" />
-                  <circle cx="60" cy="69" r="1.3" />
-                  <circle cx="48" cy="61" r="1.1" />
+                  <circle cx="44" cy="64" r="1.5" /><circle cx="52" cy="68" r="1.5" />
+                  <circle cx="58" cy="62" r="1.4" /><circle cx="41" cy="58" r="1.2" />
+                  <circle cx="60" cy="69" r="1.3" /><circle cx="48" cy="61" r="1.1" />
+                </g>
+              )}
+              {/* juvenile streaking (bishop) */}
+              {vis.streaks && (
+                <g stroke="#8A7A50" strokeWidth="1.2" opacity="0.55" strokeLinecap="round">
+                  <line x1={50 - rx * 0.4} y1="56" x2={50 - rx * 0.4} y2="66" />
+                  <line x1="50" y1="58" x2="50" y2="69" />
+                  <line x1={50 + rx * 0.4} y1="56" x2={50 + rx * 0.4} y2="66" />
                 </g>
               )}
             </>
           ) : (
             <>
               <ellipse cx="50" cy={64} rx={rx * 0.62} ry={ry * 0.55} fill={belly} />
-              {/* companion signature: chest patch and/or head cap */}
+              {/* companion signature: chest patch and/or head cap (golden fallback) */}
               {comp?.chest && (
                 <ellipse cx="50" cy="62" rx={rx * 0.5} ry={ry * 0.42} fill={comp.chest} opacity="0.92" />
               )}
@@ -462,22 +594,44 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
             </g>
           )}
           {mid && <ellipse cx={50 + rx - 2} cy="58" rx={big ? 8 : 6} ry={wingRy} fill={wing} />}
+          {/* sparrow white wing bar */}
+          {vis?.wingBar && <path d="M26 56 q6 -1 9 2" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />}
           {/* feet */}
           <path d="M44 82 v6 M41 88 h6 M42 85 h4" stroke={feetColor} strokeWidth="2.2" strokeLinecap="round" fill="none" />
           <path d="M56 82 v6 M53 88 h6 M54 85 h4" stroke={feetColor} strokeWidth="2.2" strokeLinecap="round" fill="none" />
-          {/* cheeks — soft pink only on the golden chick; robins have a dark face */}
-          {!robin && (
+          {/* cheeks — soft pink only on the golden chick (species have their own faces) */}
+          {!vis && (
             <>
               <circle cx="38" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
               <circle cx="62" cy="58" r="4" fill="#F7A8B8" opacity="0.6" />
             </>
           )}
-          {/* robin's dark face mask (adult) + white supercilium (staged in) */}
-          {robin?.mask && (
-            <path d="M33 47 Q50 39 67 47 Q67 54 50 54 Q33 54 33 47 Z" fill={comp.palette.face} opacity="0.5" />
+          {/* weaver / bishop black face mask (fades in with age) */}
+          {vis?.mask && (
+            <path d="M50 39 Q37 40 35 53 Q41 62 50 62 Q59 62 65 53 Q63 40 50 39 Z" fill={vis.mask.color} opacity={vis.mask.scale} />
           )}
-          {robin && robin.brow !== 'none' && (
-            <g stroke={browColor} strokeWidth={browWidth} fill="none" strokeLinecap="round" opacity={browOpacity}>
+          {/* cape sparrow black head + bold white C-curl (fades in with age) */}
+          {vis?.capeHead && (
+            <g opacity={vis.capeHead.scale}>
+              <path d="M50 38 Q34 40 33 54 Q40 60 50 60 Q60 60 67 54 Q66 40 50 38 Z" fill="#211E18" />
+              <path d="M40 45 Q33 52 40 60 Q46 62 52 60" stroke="#FFFFFF" strokeWidth="3" fill="none" strokeLinecap="round" />
+            </g>
+          )}
+          {/* kingfisher shaggy blue crest (present even as a chick, just smaller) */}
+          {vis?.crest && (
+            <g transform={`translate(50 40) scale(${vis.crest.scale}) translate(-50 -40)`}>
+              <path d="M38 36 q12 -11 24 0 q-3 6 -12 6 q-9 0 -12 -6 Z" fill={vis.crest.color} />
+              <g stroke="#0E4A8C" strokeWidth="1.1"><line x1="44" y1="32" x2="44" y2="38" /><line x1="50" y1="30" x2="50" y2="37" /><line x1="56" y1="32" x2="56" y2="38" /></g>
+            </g>
+          )}
+          {/* kingfisher white throat/ear spot */}
+          {vis?.whiteSpot && <circle cx="36" cy="56" r="3.5" fill="#fff" />}
+          {/* robin dark face mask (adult) + white supercilium (staged in) */}
+          {vis?.faceMask && (
+            <path d="M33 47 Q50 39 67 47 Q67 54 50 54 Q33 54 33 47 Z" fill={vis.faceMask.color} opacity="0.5" />
+          )}
+          {vis?.brow && (
+            <g stroke={vis.brow.color} strokeWidth={vis.brow.width} fill="none" strokeLinecap="round" opacity={vis.brow.opacity}>
               <path d="M35 45 Q43 40 49 43" />
               <path d="M65 45 Q57 40 51 43" />
             </g>
@@ -498,26 +652,39 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
               <circle cx="58" cy="50" r="1" fill="#fff" />
             </g>
           ) : (
-            <g className="tweety-eyes" fill="#3E2F22">
+            <g className="tweety-eyes" fill={eyeColor}>
               <circle cx="43" cy="50" r="3.4" />
               <circle cx="57" cy="50" r="3.4" />
+              {/* weaver's dark pupil inside its red eye */}
+              {vis?.redPupil && (
+                <>
+                  <circle cx="43" cy="50" r="1.5" fill="#2C1010" />
+                  <circle cx="57" cy="50" r="1.5" fill="#2C1010" />
+                </>
+              )}
               <circle cx="44.2" cy="48.8" r="1.1" fill="#fff" />
               <circle cx="58.2" cy="48.8" r="1.1" fill="#fff" />
             </g>
           )}
           {/* tear when sad */}
           {sad && <path d="M40 54 q-2 4 0 6 q2 -2 0 -6" fill="#9AD0F0" />}
-          {/* beak (fine dark bill for the robin; golden for the chick) */}
-          <path d="M47 57 l6 0 l-3 5 z" fill={beakColor} />
-          {/* mouth varies by mood */}
-          {mood === 'happy' && (
+          {/* beak — short triangle, or a long curved/straight bill per species */}
+          {vis?.bill?.type === 'longCurved' ? (
+            <path d="M46 53 q-12 1 -17 9" stroke={beakColor} strokeWidth="2.4" fill="none" strokeLinecap="round" />
+          ) : vis?.bill?.type === 'longStraight' ? (
+            <path d="M50 53 l0 15" stroke={beakColor} strokeWidth="3.2" strokeLinecap="round" />
+          ) : (
+            <path d="M47 57 l6 0 l-3 5 z" fill={beakColor} />
+          )}
+          {/* mouth varies by mood (skipped for long-billed species) */}
+          {showMouth && mood === 'happy' && (
             <path d="M46 65 q4 3 8 0" stroke="#C8742E" strokeWidth="1.6" fill="none" strokeLinecap="round" />
           )}
-          {mood === 'content' && (
+          {showMouth && mood === 'content' && (
             <path d="M47 65 q3 2 6 0" stroke="#C8742E" strokeWidth="1.4" fill="none" strokeLinecap="round" />
           )}
-          {mood === 'hungry' && <ellipse cx="50" cy="66" rx="2.6" ry="2" fill="#9a4b2e" />}
-          {mood === 'thirsty' && <circle cx="50" cy="66" r="1.8" fill="#9a4b2e" />}
+          {showMouth && mood === 'hungry' && <ellipse cx="50" cy="66" rx="2.6" ry="2" fill="#9a4b2e" />}
+          {showMouth && mood === 'thirsty' && <circle cx="50" cy="66" r="1.8" fill="#9a4b2e" />}
           {/* crown at top level (hidden when wearing a hat so they don't clash) */}
           {showCrown && !worn?.hat && (
             <path d="M40 30 L42 18 L50 26 L54 15 L58 26 L66 18 L68 30 Z" fill="#F2C24E" stroke="#D9A036" strokeWidth="1" transform="translate(0 -2)" />
@@ -573,6 +740,7 @@ export function TweetyHomeCard({
   onOpenStats,
 }) {
   const name = tweety?.name || 'Tweety'
+  const species = companionSpecies(tweety?.companion)
   const care = tweetyCareState(tweety)
   const win = care.window
   const next = nextCareWindow()
@@ -590,6 +758,7 @@ export function TweetyHomeCard({
         <div>
           <p className="eyebrow">{name}&apos;s Home 🪺</p>
           <h3>{face.emoji} {name} {face.line}</h3>
+          {species && <p className="tweety-species-line">{name} ({species})</p>}
         </div>
         <button className="text-btn" type="button" onClick={onOpenStats}>
           Stats →
@@ -736,6 +905,7 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
   const growth = tweetyGrowth(tweety)
   const mood = tweetySimpleMood(tweety)
   const name = tweety?.name || 'Tweety'
+  const species = companionSpecies(tweety?.companion)
   return (
     <div className="page-grid">
       <section className="soft-card full-span">
@@ -746,7 +916,7 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
           <TweetyBird level={GROWTH_TO_LEVEL[growth.key] || 'chick'} mood={mood} size={120} companion={tweety?.companion} />
           <div>
             <p className="eyebrow">Your pet bird</p>
-            <h2>{name}</h2>
+            <h2>{name}{species && <span className="tweety-species"> ({species})</span>}</h2>
             <button
               className="secondary-btn"
               type="button"

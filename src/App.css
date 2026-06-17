@@ -4012,6 +4012,21 @@ textarea:focus {
   color: var(--muted);
 }
 
+/* Species label, e.g. "Tweety (Cape Robin-Chat)" — makes it clear which bird
+   she chose, on the home card and her stats profile. */
+.tweety-species-line {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.tweety-species {
+  font-size: 0.62em;
+  font-weight: 600;
+  color: var(--leaf-dark);
+  opacity: 0.85;
+}
+
 /* Tweety is resting between care windows — shown instead of the care buttons. */
 .tweety-resting {
   margin-top: 12px;
