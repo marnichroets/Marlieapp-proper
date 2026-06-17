@@ -3341,13 +3341,17 @@ function App() {
 
   // Sandbox testing helper: top up coins so everything can be bought freely.
   // Guarded by readOnly (and the button only renders in sandbox mode), so it can
-  // never run against Pooks' real account.
+  // never run against Pooks' real account. Uses a functional setData so it always
+  // applies to the latest state immediately (no stale-closure or commit-path
+  // surprises) — the regular save effect then persists it for the sandbox.
   function addSandboxCoins() {
     if (readOnly) return
-    commit(
-      { ...data, featherCoins: (data.featherCoins || 0) + 10000 },
-      { title: 'Sandbox top-up 🪙', body: '+10,000 Feather Coins added to your test account.', tone: 'success' },
-    )
+    setData((c) => ({ ...c, featherCoins: (c.featherCoins || 0) + 10000 }))
+    setToast({
+      title: 'Sandbox top-up 🪙',
+      body: '+10,000 Feather Coins added to your test account.',
+      tone: 'success',
+    })
   }
 
   function roomInteract(kind) {
