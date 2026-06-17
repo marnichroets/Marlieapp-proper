@@ -85,10 +85,11 @@ export const COUNCIL_MESSAGES = [
 ]
 
 // One-off good-luck dispatches for the week of Pooks' big presentation (Fri
-// 19 Jun 2026). Keyed by the same YYYY-MM-DD key tweetyTodayKey() produces, so
-// on these exact days they REPLACE the normal rotating council message. Any
-// other day this map has no match and the usual rotation runs unchanged — once
-// the week passes nothing here ever fires again, no cleanup needed.
+// 19 Jun 2026). Keyed by the SA-local (UTC+2) YYYY-MM-DD key (saDateKey, the
+// same key the challenges and theme use), so on these exact days they REPLACE
+// the normal rotating council message. Any other day this map has no match and
+// the usual rotation runs unchanged — once the week passes nothing here ever
+// fires again, no cleanup needed.
 export const SPECIAL_COUNCIL_MESSAGES = {
   '2026-06-15':
     'Good morning Pooks! The Council heard about your big presentation on Friday. Even the Secretary Bird is nervous for you, and he is never nervous. You’ve got this. 🪶',

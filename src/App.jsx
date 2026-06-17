@@ -7,6 +7,7 @@ import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
 import { getSeasonInfo } from './seasons'
+import { saDateKey, saDateKeyOffset } from './saDate'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
 import {
@@ -855,7 +856,7 @@ const defaultChallengeTexts = [
 ]
 
 // --- Cape Town Special Week daily challenges (Sat 20 Jun → Mon 29 Jun 2026) --
-// Keyed by the same local YYYY-MM-DD that todayValue() produces. On these days
+// Keyed by the SA-local (UTC+2) YYYY-MM-DD that todayValue() produces. On these days
 // the special challenge REPLACES the normal daily challenge and awards 40 coins
 // (bonus rate, up from the usual 20). As always, ANY sighting completes it — the
 // suggested bird is only a hint, never a gate, so she is never blocked. After
@@ -1135,12 +1136,11 @@ function readStorablePhoto(file, onReady, opts = {}) {
     })
 }
 
+// The app's canonical "today" — South African local date (UTC+2). All daily
+// keys (challenges, completions, streaks, discovery dates) flow through this so
+// they roll over together at SA midnight, matching the special messages/theme.
 function todayValue() {
-  const date = new Date()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return saDateKey()
 }
 
 function normalizeAiText(value) {
@@ -1616,13 +1616,10 @@ function getCompletionForDate(state, date = todayValue()) {
   return state.dailyChallengeCompletions?.[date] || {}
 }
 
+// SA-local (UTC+2) date key for N days ago, so daily-challenge streak reads line
+// up with the SA-keyed completions written by todayValue().
 function dateKeyOffset(days) {
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return saDateKeyOffset(days)
 }
 
 // Consecutive days (ending today or yesterday) with a completed daily mission.
@@ -2280,7 +2277,9 @@ function App() {
   useEffect(() => {
     if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
       return undefined
-    const todayKey = tweetyTodayKey()
+    // SA-local day key (UTC+2) so the daily dispatch — and the special date-gated
+    // messages — roll over together with the challenges and theme at SA midnight.
+    const todayKey = saDateKey()
     if (data.messagesMeta?.lastCouncilDay === todayKey) return undefined
     let cancelled = false
     const timer = window.setTimeout(() => {

@@ -1,6 +1,8 @@
 // Southern Hemisphere seasonal theming.
 // Summer: Dec-Feb, Autumn: Mar-May, Winter: Jun-Aug, Spring: Sep-Nov.
 
+import { saDateKey } from './saDate'
+
 export function getSeason(date = new Date()) {
   const month = date.getMonth() // 0 = Jan
   if (month === 11 || month === 0 || month === 1) return 'summer'
@@ -51,16 +53,13 @@ export const SEASONS = {
   },
 }
 
-// Cape Town Special Week visual theme: Sat 20 Jun → Mon 29 Jun 2026 (local
-// date, matching the special messages/challenges). During this window the Cape
-// Town theme overrides the normal season; after the 29th it simply stops
-// matching and the real season returns — zero manual cleanup, same as the other
-// date-gated features.
+// Cape Town Special Week visual theme: Sat 20 Jun → Mon 29 Jun 2026, keyed off
+// the SA-local date (UTC+2) via saDateKey — the same key the special messages
+// and challenges use — so all three switch on together at SA midnight. During
+// this window the Cape Town theme overrides the normal season; after the 29th it
+// simply stops matching and the real season returns — zero manual cleanup.
 function isCapeTownWeek(date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const key = `${y}-${m}-${d}`
+  const key = saDateKey(date)
   return key >= '2026-06-20' && key <= '2026-06-29'
 }
 
