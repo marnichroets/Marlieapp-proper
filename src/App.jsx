@@ -7621,7 +7621,7 @@ function RewardsPage({
   // verify the full purchase → reveal → claim flow before any of it goes live.
   const visibleShopIds = isMarnich
     ? ['milkshakeDate', 'mysteryBox', 'hiddenNote', 'birdProfile', 'dateIdea']
-    : []
+    : ['hiddenNote']
   const visibleShopItems = shopItems.filter((item) => visibleShopIds.includes(item.id))
   const showOtherGiftSections = isMarnich
 
