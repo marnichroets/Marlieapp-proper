@@ -3751,10 +3751,24 @@ textarea:focus {
     radial-gradient(circle at 16% 0%, rgba(242, 166, 192, 0.34), transparent 44%),
     radial-gradient(circle at 88% 8%, rgba(168, 213, 186, 0.32), transparent 42%);
 }
+/* Cape Town: ocean blues, a soft sunset-orange accent and a low fynbos-green
+   haze near the horizon. Temporary, date-gated (Sat 20 → Mon 29 Jun 2026). */
+.season-capetown .season-wash {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(64, 145, 190, 0.26), transparent 46%),
+    radial-gradient(circle at 90% 6%, rgba(255, 168, 92, 0.22), transparent 42%),
+    linear-gradient(180deg, rgba(206, 232, 240, 0.3), transparent 32%),
+    radial-gradient(circle at 50% 116%, rgba(96, 150, 104, 0.26), transparent 48%);
+}
 
 /* winter frost edge on cards */
 .season-winter .soft-card {
   box-shadow: var(--shadow), inset 0 0 0 1px rgba(190, 214, 235, 0.45);
+}
+
+/* Cape Town: a faint ocean-blue rim on cards to match the theme. */
+.season-capetown .soft-card {
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(64, 145, 190, 0.32);
 }
 
 .seasonal-ambient {
@@ -3790,6 +3804,37 @@ textarea:focus {
 .sp-6 { left: 78%; font-size: 1.1rem; animation-duration: 14s; animation-delay: -6s; }
 .sp-7 { left: 88%; font-size: 1.5rem; animation-duration: 20s; animation-delay: -14s; }
 .sp-8 { left: 96%; font-size: 1.2rem; animation-duration: 17s; animation-delay: -1s; }
+
+/* Cape Town particles: soft clouds/waves that drift gently DOWN without the
+   season spin, at a calmer opacity so they read as atmosphere, not confetti. */
+.season-particles-capetown .season-particle {
+  animation-name: cape-drift;
+  opacity: 0.5;
+}
+@keyframes cape-drift {
+  0% { transform: translateY(-10vh) translateX(0); opacity: 0; }
+  12% { opacity: 0.5; }
+  88% { opacity: 0.5; }
+  100% { transform: translateY(112vh) translateX(46px); opacity: 0; }
+}
+
+/* A subtle Table Mountain silhouette behind the home screen during the Cape
+   Town week — flat-topped plateau with Lion's Head (left) and Devil's Peak
+   (right). Sits above the bottom nav, well behind all content. */
+.season-capetown.on-home .season-wash::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 76px;
+  height: 188px;
+  background: linear-gradient(180deg, rgba(86, 102, 110, 0.2), rgba(74, 92, 80, 0.26));
+  clip-path: polygon(
+    0% 100%, 0% 82%, 12% 74%, 18% 52%, 24% 67%, 33% 42%, 38% 32%,
+    65% 32%, 73% 46%, 80% 36%, 89% 61%, 100% 75%, 100% 100%
+  );
+  pointer-events: none;
+}
 
 .season-greeting {
   text-align: center;
@@ -3845,6 +3890,7 @@ textarea:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .season-particle,
+  .season-particles-capetown .season-particle,
   .cute-bird-eye,
   .cute-bird-tail,
   .bird-leaf-a, .bird-leaf-b, .bird-leaf-c,

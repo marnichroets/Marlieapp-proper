@@ -39,8 +39,32 @@ export const SEASONS = {
     blurb: 'Fresh petals, pastel skies and new beginnings.',
     particles: ['🌸', '🌷', '🌺', '🌼', '💮'],
   },
+  // Temporary "on location" theme for Pooks' Cape Town trip. Not a real season —
+  // it only surfaces during the Cape Town Special Week (see getSeasonInfo).
+  capetown: {
+    key: 'capetown',
+    name: 'Cape Town',
+    greeting: 'Cape Town calling, Pooks 🌊',
+    blurb: 'Ocean air, fynbos green and Table Mountain under its cloud tablecloth. ⛰️',
+    // Soft drifting clouds (the mountain's "tablecloth"), gentle waves + a feather.
+    particles: ['☁️', '🌊', '☁️', '🪶'],
+  },
+}
+
+// Cape Town Special Week visual theme: Sat 20 Jun → Mon 29 Jun 2026 (local
+// date, matching the special messages/challenges). During this window the Cape
+// Town theme overrides the normal season; after the 29th it simply stops
+// matching and the real season returns — zero manual cleanup, same as the other
+// date-gated features.
+function isCapeTownWeek(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const key = `${y}-${m}-${d}`
+  return key >= '2026-06-20' && key <= '2026-06-29'
 }
 
 export function getSeasonInfo(date = new Date()) {
+  if (isCapeTownWeek(date)) return SEASONS.capetown
   return SEASONS[getSeason(date)]
 }
