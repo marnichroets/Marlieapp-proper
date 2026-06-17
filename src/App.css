@@ -4819,10 +4819,17 @@ textarea:focus {
   }
   .home-stack .tweety-care-btn .tweety-care-icon { font-size: 1rem; }
 
-  /* Spot a Bird → 40px full-width bar. */
+  /* Spot a Bird → 40px full-width bar. Use flex (not grid auto-flow:column) so
+     the emoji + label sit as ONE centered cluster: with the base grid's
+     justify-content:normal the two auto columns stretch apart to the bar's
+     edges, leaving the contents looking skewed/off-centre. Flex centres them
+     together and the inherited width:100% keeps it full-width within the stack's
+     side padding. */
   .home-stack .giant-spot-btn {
     min-height: 40px;
-    grid-auto-flow: column;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
     font-size: 1rem;
     border-radius: 14px;
