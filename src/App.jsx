@@ -2730,6 +2730,12 @@ function App() {
     let cancelled = false
     fetchRemoteState(acct).then((remote) => {
       if (cancelled || !remote || !remote.state) return
+      // Don't clobber edits the user made WHILE this fetch was in flight — e.g.
+      // tapping a button right after load. Without this guard the late-resolving
+      // adopt overwrites their just-made change (the coin top-up reverting to the
+      // old balance, and the same class of bug that froze the daily messages).
+      // Same protection the auto-adopt poll uses.
+      if (dataRef.current !== lastSyncedRef.current) return
       adoptState(acct, remote.state, remote.version)
     })
     return () => {
