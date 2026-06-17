@@ -1963,12 +1963,29 @@ function recalculateState(state) {
     return note
   })
 
+  // A "discovery" celebrates an OFF-BOOK bird — one the bundled catalog has never
+  // recorded. Once a species is added to the catalog (e.g. the Mandarin & Wood
+  // Ducks), it is no longer off-book, so any lingering discovery for it is stale
+  // and must go. This is the durable fix for the duck discoveries that kept
+  // reappearing: a device sitting on an old snapshot could re-upload a removed
+  // discovery (last-write-wins), but because this prune runs on EVERY load /
+  // adopt / remote-pull path (via normalizeLoadedState → recalculateState), the
+  // resurrection is pruned again on the very next normalize and can never stick.
+  const discoveries = (state.discoveries || []).filter(
+    (d) =>
+      getBirdLibraryMatchIndex(defaultBirdLibrary, {
+        commonName: d.birdName || d.speciesKey,
+        scientificName: d.scientificName,
+      }) < 0,
+  )
+
   return {
     ...state,
     rewards,
     badges: [...badgeIds],
     hiddenNotes,
     rewardCertificates: certificates,
+    discoveries,
   }
 }
 
