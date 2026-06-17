@@ -52,9 +52,7 @@ import { defaultGames } from './gamesData'
 import { InboxPage } from './Inbox'
 import { BirdMapPage } from './BirdMap'
 import {
-  nextCouncilMessage,
-  specialCouncilMessage,
-  councilDailyMessage,
+  councilDispatchForDay,
   marnichMessage,
   milestoneSystemMessage,
   tweetyGrowthSystemMessage,
@@ -2151,6 +2149,10 @@ function App() {
   // dataRef.current is a different object, there are unsaved local edits — used
   // by the auto-adopt poll so it never overwrites her in-progress changes.
   const lastSyncedRef = useRef(data)
+  // The current SA day key, re-read when the tab regains focus/visibility and on
+  // a slow interval, so the daily Council dispatch still fires if the app is left
+  // open across SA midnight (a backgrounded PWA never remounts on its own).
+  const [dayKey, setDayKey] = useState(saDateKey)
   const [toast, setToast] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confetti, setConfetti] = useState(0)
@@ -2274,29 +2276,29 @@ function App() {
 
   // First app-open of the day: a warm new dispatch from the Bird Council lands
   // in the inbox, with a real SA bird fact she has not seen before.
+  //
+  // The SA-local day key (UTC+2) keeps the daily dispatch — and the special
+  // date-gated presentation/Cape Town messages — rolling over together with the
+  // challenges and theme at SA midnight. We re-run this whenever `dayKey` ticks
+  // over OR the stored `lastCouncilDay` changes: the latter is essential because
+  // the cross-device sync adopts the backend copy shortly after launch and
+  // REPLACES local state, which would otherwise wipe a dispatch we'd just added.
+  // Keying off the synced value means we re-reconcile against whatever state
+  // actually won, so she reliably gets exactly one dispatch per day, no gaps.
   useEffect(() => {
     if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
       return undefined
-    // SA-local day key (UTC+2) so the daily dispatch — and the special date-gated
-    // messages — roll over together with the challenges and theme at SA midnight.
-    const todayKey = saDateKey()
-    if (data.messagesMeta?.lastCouncilDay === todayKey) return undefined
+    if (data.messagesMeta?.lastCouncilDay === dayKey) return undefined
     let cancelled = false
     const timer = window.setTimeout(() => {
       if (cancelled) return
-      // On the presentation-week days a one-off good-luck dispatch replaces the
-      // normal rotation; the rotation log is left untouched so it resumes intact.
-      const special = specialCouncilMessage(todayKey)
       setData((current) => {
-        if (current.messagesMeta?.lastCouncilDay === todayKey) return current
-        const prevShown = current.messagesMeta?.shownCouncil || []
-        const rotation = special ? null : nextCouncilMessage(prevShown)
-        const text = special || rotation.text
-        const shown = special ? prevShown : rotation.shown
+        const dispatch = councilDispatchForDay(current.messagesMeta, dayKey)
+        if (!dispatch) return current
         return {
           ...current,
-          messages: [councilDailyMessage(text), ...(current.messages || [])],
-          messagesMeta: { ...current.messagesMeta, lastCouncilDay: todayKey, shownCouncil: shown },
+          messages: [dispatch.message, ...(current.messages || [])],
+          messagesMeta: dispatch.meta,
         }
       })
     }, 0)
@@ -2305,7 +2307,26 @@ function App() {
       window.clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
+  }, [session, dayKey, data.messagesMeta?.lastCouncilDay])
+
+  // Keep `dayKey` current so the dispatch above fires after an SA-midnight
+  // rollover even if the app was never closed. Cheap re-checks on focus/visibility
+  // catch the common "left it open overnight, opened it in the morning" case; the
+  // slow interval is a backstop. setDayKey is a no-op when the key is unchanged.
+  useEffect(() => {
+    const refresh = () => setDayKey(saDateKey())
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', onVisible)
+    const id = window.setInterval(refresh, 60000)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(id)
+    }
+  }, [])
 
   // Celebrate whenever Tweety grows into a new life stage (real calendar days).
   useEffect(() => {

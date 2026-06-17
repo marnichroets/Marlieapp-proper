@@ -155,6 +155,29 @@ export function nextCouncilMessage(shownIndices = []) {
   return { index: restart, text: COUNCIL_MESSAGES[restart], shown: [restart] }
 }
 
+// Decide the daily Council dispatch for `todayKey` (an saDateKey YYYY-MM-DD)
+// given the current messagesMeta. Returns the new inbox message plus the updated
+// meta to store, or null when today's dispatch has already been delivered.
+//
+// This is the single source of truth the inbox effect applies, kept pure so it
+// can be reconciled idempotently — e.g. re-run after a cross-device sync adopt
+// replaces local state, or after the SA day rolls over while the app stays open
+// — and so consecutive-day behaviour can be unit-tested without React. A special
+// date-gated message (presentation / Cape Town week) replaces the rotation that
+// day and deliberately leaves the rotation log untouched so it resumes intact.
+export function councilDispatchForDay(messagesMeta = {}, todayKey) {
+  if (messagesMeta?.lastCouncilDay === todayKey) return null
+  const special = specialCouncilMessage(todayKey)
+  const prevShown = messagesMeta?.shownCouncil || []
+  const rotation = special ? null : nextCouncilMessage(prevShown)
+  const text = special || rotation.text
+  const shown = special ? prevShown : rotation.shown
+  return {
+    message: councilDailyMessage(text),
+    meta: { ...messagesMeta, lastCouncilDay: todayKey, shownCouncil: shown },
+  }
+}
+
 let messageSeq = 0
 export function createMessage({ type, sender, icon, title, body, date }) {
   messageSeq += 1
