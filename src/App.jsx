@@ -473,18 +473,20 @@ const SHOP = {
   milkshakeDate: 500,
 }
 
-// Bottom tab bar (5) + everything else tucked behind the settings menu.
+// Bottom tab bar (7) + everything else tucked behind the settings menu.
+// Inbox (📬) stays a prominent top-level tab with an unread badge; Magazine
+// (📖) lives on the bar too, right before Gifts.
 const bottomTabs = [
   ['home', 'Home', '🏡'],
   ['add', 'Spot', '📷'],
   ['explore', 'Explore', '🔍'],
   ['library', 'Collection', '🦜'],
   ['messages', 'Inbox', '📬'],
+  ['magazine', 'Magazine', '📖'],
   ['rewards', 'Gifts', '🎁'],
 ]
 
 const menuItems = [
-  ['messages', 'Messages', '📬'],
   ['birdmap', 'My Bird Map', '🗺️'],
   ['date', 'Date', '💕'],
   ['games', 'Date Games', '🎮'],
@@ -851,6 +853,42 @@ const defaultChallengeTexts = [
   'Find a bird building or sitting near a nest',
   'Spot a bird and give it a secret nickname',
 ]
+
+// --- Cape Town Special Week daily challenges (Sat 20 Jun → Mon 29 Jun 2026) --
+// Keyed by the same local YYYY-MM-DD that todayValue() produces. On these days
+// the special challenge REPLACES the normal daily challenge and awards 40 coins
+// (bonus rate, up from the usual 20). As always, ANY sighting completes it — the
+// suggested bird is only a hint, never a gate, so she is never blocked. After
+// 29 Jun nothing here matches and the normal rotation resumes automatically.
+const SPECIAL_DAILY_CHALLENGES = {
+  '2026-06-20': 'Welcome to the Cape! Spot any bird at all in your new surroundings.',
+  '2026-06-21': 'Find an African Penguin at Boulders Beach.',
+  // Mon 22 Jun — interview day. Lighter/optional so she is never pressured.
+  '2026-06-22':
+    'No pressure today, Agent — today is about your interview, not the birds. If you happen to spot one on the way, wonderful. If not, the Council understands completely. Good luck today. 💛',
+  '2026-06-23':
+    'Try to find a Cape Rockjumper — notoriously elusive, but a valiant effort still counts.',
+  '2026-06-24': 'Photograph any sunbird near Kirstenbosch Gardens or wherever you find yourself.',
+  '2026-06-25': 'Spot a gull or tern along the coast — any coastal species counts today.',
+  '2026-06-26':
+    'Find a Cape Bulbul — common, charming, and exactly the kind of bird the Council enjoys.',
+  '2026-06-27': 'Last full day in the Cape — spot ANY bird you have not yet logged this trip.',
+  '2026-06-28':
+    'You’re in Johannesburg tonight — rest day. The Council grants official leave from challenges.',
+  '2026-06-29': 'Welcome home to Potchefstroom! Spot a familiar local bird.',
+}
+
+// Coins awarded for a Cape Town special daily challenge (bonus rate).
+const CAPE_WEEK_CHALLENGE_COINS = 40
+
+// The special Cape Town challenge for a given local day key, or null on a normal
+// day. Returns a challenge-shaped object with a stable per-date id (so the
+// completion stamp reverts cleanly once the week passes) and a `cape` flag the
+// completion handler uses to award the 40-coin bonus rate.
+function getSpecialDailyChallenge(date = todayValue()) {
+  const text = SPECIAL_DAILY_CHALLENGES[date]
+  return text ? { id: `cape-${date}`, text, cape: true } : null
+}
 
 const defaultMagazineIssue = {
   monthlyChallenge: 'Try to spot one of this week’s birds.',
@@ -2512,7 +2550,9 @@ function App() {
   const dailyChallenge = useMemo(() => {
     const date = todayValue()
     const completion = data.dailyChallengeCompletions?.[date] || {}
-    const main = getDailyChallenge(data.challenges, date)
+    // During the Cape Town Special Week a date-gated challenge replaces the
+    // normal main one (and pays the 40-coin bonus rate); otherwise normal pick.
+    const main = getSpecialDailyChallenge(date) || getDailyChallenge(data.challenges, date)
     const firstBonus = getDailyChallenge(data.challenges, date, 7)
     const bonus =
       firstBonus.id === main.id ? getDailyChallenge(data.challenges, date, 11) : firstBonus
@@ -4162,7 +4202,8 @@ function App() {
       },
     }
 
-    let coins = bonus ? 20 : COINS.dailyChallenge
+    // Cape Town Special Week main challenges pay the 40-coin bonus rate.
+    let coins = bonus ? 20 : challenge.cape ? CAPE_WEEK_CHALLENGE_COINS : COINS.dailyChallenge
     let streakNote = ''
     if (!bonus) {
       const newStreak = getDailyStreak(nextCompletions)
@@ -4645,12 +4686,12 @@ function App() {
   // Pooks' menu is intentionally bare: just "My Story" (replay intro) and Log
   // out, both rendered by SettingsMenu itself. The feature pages still exist —
   // they're only hidden from her menu for now. Admin still sees everything.
-  // Explore now lives in the bottom nav, so the gear menu carries Magazine (which
-  // gave up its bottom-nav slot) plus the role-specific extras.
+  // Magazine and Inbox now live in the bottom nav, so the gear menu only carries
+  // the role-specific extras (Pooks: Bird Battles; Admin: full feature set).
   const fullMenu =
     session?.role === 'admin'
-      ? [...menuItems, ['magazine', 'Magazine', '📖'], ['admin', 'Admin', '🔒']]
-      : [['magazine', 'Magazine', '📖'], ['games', 'Bird Battles', '⚔️']]
+      ? [...menuItems, ['admin', 'Admin', '🔒']]
+      : [['games', 'Bird Battles', '⚔️']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
@@ -5400,11 +5441,16 @@ function ChallengeProof({ challenge, complete, onValidated, label = 'I completed
     if (!canSubmit) return
     setStatus('checking')
     setVerdict(null)
-    const result = await validateChallenge({
-      challengeText: challenge?.text || '',
-      description,
-      photoFile,
-    })
+    // Cape Town Special Week challenges never block her: the suggested bird is
+    // only a hint, so ANY photographed or written sighting counts — we skip the
+    // strict species check and accept her effort outright.
+    const result = challenge?.cape
+      ? { verdict: 'yes', reason: 'The Bird Council accepts your Cape Town sighting. 🪶', offline: false }
+      : await validateChallenge({
+          challengeText: challenge?.text || '',
+          description,
+          photoFile,
+        })
     setVerdict(result)
     if (result.verdict === 'yes') {
       setStatus('yes')

@@ -100,6 +100,34 @@ export const SPECIAL_COUNCIL_MESSAGES = {
     'Tomorrow is the big day. The whole Council — even the dramatic ones — believes in you. Sleep well, Field Agent.',
   '2026-06-19':
     'Today is the day, Pooks. Go show them what the Bird Council already knows: you are remarkable. Good luck. We are all rooting for you — Agent Marnich included, who is somehow more nervous than you are. 💛🪶',
+
+  // --- Cape Town Special Week (Sat 20 Jun → Mon 29 Jun 2026) ---------------
+  // Daily dispatches while Pooks is "deployed to the Cape Town Division".
+  // After 29 Jun this map has no match and the normal rotation resumes — no
+  // cleanup needed, same as the presentation week above.
+  '2026-06-20':
+    'Field Agent Pooks has been deployed to the Cape Town Division! The Western Cape field agents have been notified. Local specialty: keep your eyes open for the Cape Sugarbird — found nowhere else on Earth. 🪶',
+  '2026-06-21':
+    'Cape Town Division briefing: the African Penguin colony at Boulders Beach is mandatory viewing. They do not care about the Bird Council, but they are very cute and the Council insists you go anyway.',
+  // Mon 22 Jun — her job interview. This one REPLACES the funnier Cape Town
+  // dispatch with a sincere, warmer good-luck message; it is her dedicated
+  // moment for the day.
+  '2026-06-22':
+    'Good morning, Field Agent. Today is a big day — your interview. The Bird Council has reviewed your file thoroughly: dedicated, sharp-eyed, fearless around vultures, unbothered by eagle-owls staring her down. If that doesn’t qualify someone for anything, nothing does. Go show them what we already know. We are all rooting for you today — Agent Marnich most of all. 💛🪶',
+  '2026-06-23':
+    'Local intelligence suggests Cape Rockjumpers are notoriously difficult to find. If you do, the Council will personally double your Feather Coins for the week. Good luck, Agent.',
+  '2026-06-24':
+    'Table Mountain is famous for many things. Birds are one of them. The view is, allegedly, also nice.',
+  '2026-06-25':
+    'Halfway through your Cape Town deployment. The Potchefstroom Hadeda has been asking when you return. He will not admit he misses you. He absolutely misses you.',
+  '2026-06-26':
+    'Cape Town field agents report: Southern Double-collared Sunbirds are common in Kirstenbosch Gardens. Should you find yourself there, the Council insists you take a photo. For science.',
+  '2026-06-27':
+    'One day remaining in the Cape Town Division. Make it count, Agent. The Council will be reviewing your full field report upon return.',
+  '2026-06-28':
+    'Field Agent Pooks has touched down in Johannesburg — one more sleep before the Potchefstroom Division welcomes her home. The Council recommends rest, and possibly snacks.',
+  '2026-06-29':
+    'Welcome back to the Potchefstroom Division, Field Agent. The Council trusts the Cape Town deployment was a success. Debrief required immediately — or whenever you’ve unpacked. We are not unreasonable.',
 }
 
 // The special good-luck message for a given day key, or null on any normal day.

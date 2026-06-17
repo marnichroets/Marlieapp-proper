@@ -2417,7 +2417,7 @@ textarea:focus {
   transform: translateX(-50%);
   z-index: 40;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 2px;
   width: min(620px, 100%);
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
@@ -2918,9 +2918,9 @@ textarea:focus {
   bottom: 86px;
 }
 
-/* --- 5-tab bottom nav fits at 390px --- */
+/* --- 7-tab bottom nav fits at 390px --- */
 .bottom-tab {
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   padding: 6px 1px;
   gap: 1px;
 }
