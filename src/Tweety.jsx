@@ -980,6 +980,54 @@ export function CompanionSelect({ onPick }) {
   )
 }
 
+// ---- Sandbox-only companion gallery ----------------------------------------
+// A dev/preview grid showing every companion species across all five growth
+// stages, for a final visual check. Gated to Marnich's sandbox in App.jsx — it
+// is never shown to Pooks and reads no per-account state (pure rendering).
+const GALLERY_STAGES = [
+  ['chick', 'Chick'],
+  ['fledgling', 'Fledgling'],
+  ['young', 'Young'],
+  ['adult', 'Adult'],
+  ['crowned', 'Crowned'],
+]
+
+export function CompanionGalleryPage({ onBack }) {
+  return (
+    <div className="page-grid">
+      <section className="soft-card full-span">
+        <button className="text-btn back-btn" type="button" onClick={onBack}>
+          Back
+        </button>
+        <p className="eyebrow">Sandbox · dev preview 🧪</p>
+        <h2>Companion species gallery</h2>
+        <p className="fine-print">
+          All 6 companions across the 5 growth stages (chick → crowned). Sandbox-only — never shown to Pooks.
+        </p>
+      </section>
+
+      {TWEETY_COMPANIONS.map((c) => (
+        <section className="soft-card full-span companion-gallery-row" key={c.id}>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">{c.species}</p>
+              <h3>{c.name}</h3>
+            </div>
+          </div>
+          <div className="companion-gallery-stages">
+            {GALLERY_STAGES.map(([lvl, label]) => (
+              <figure className="companion-gallery-cell" key={lvl}>
+                <TweetyBird companion={c.id} level={lvl} size={84} mood="happy" />
+                <figcaption>{label}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
 // ---- Egg / baby / aviary SVGs ----------------------------------------------
 function EggSVG({ mystery = false }) {
   const shell = mystery ? '#F2D06A' : '#FBEFD6'

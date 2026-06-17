@@ -17,7 +17,7 @@ import {
   birdsNearPotchThisWeek,
   locationThought,
 } from './birdExplore'
-import { TweetyHomeCard, TweetyStatsPage, AviaryCard } from './Tweety'
+import { TweetyHomeCard, TweetyStatsPage, AviaryCard, CompanionGalleryPage } from './Tweety'
 import {
   defaultTweety,
   tweetyToday,
@@ -4728,7 +4728,9 @@ function App() {
   const fullMenu =
     session?.role === 'admin'
       ? [...menuItems, ['admin', 'Admin', '🔒']]
-      : [['games', 'Bird Battles', '⚔️']]
+      : account === 'marnich'
+        ? [['games', 'Bird Battles', '⚔️'], ['companiongallery', 'Companion Gallery', '🧪']]
+        : [['games', 'Bird Battles', '⚔️']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
@@ -4882,6 +4884,9 @@ function App() {
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
           />
+        )}
+        {activePage === 'companiongallery' && account === 'marnich' && (
+          <CompanionGalleryPage onBack={goBack} />
         )}
         {activePage === 'sanctuary' && (
           <SanctuaryPage

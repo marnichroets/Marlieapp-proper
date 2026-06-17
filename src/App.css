@@ -4012,6 +4012,29 @@ textarea:focus {
   color: var(--muted);
 }
 
+/* Sandbox-only companion gallery: 6 species × 5 stages grid. */
+.companion-gallery-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.companion-gallery-cell {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f3f7ef;
+}
+.companion-gallery-cell figcaption {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 /* Species label, e.g. "Tweety (Cape Robin-Chat)" — makes it clear which bird
    she chose, on the home card and her stats profile. */
 .tweety-species-line {
