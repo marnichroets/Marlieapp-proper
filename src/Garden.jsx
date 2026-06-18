@@ -16,6 +16,7 @@ import {
   canPlaceAt,
 } from './gardenData'
 import { saDateKey } from './saDate'
+import { TweetyBird } from './Tweety'
 
 // ---- per-item artwork (base at origin (0,0), growing upward; pond is flat) --
 function TreeArt({ stageKey }) {
@@ -195,6 +196,7 @@ function GardenVisitor({ visitor }) {
 // ---- the page --------------------------------------------------------------
 export function GardenPage({ garden, coins, collection = [], onPlace, onWater, onBack, onBuySanctuary }) {
   const plantings = useMemo(() => garden?.plantings || [], [garden])
+  const residents = garden?.residents || []
   const today = saDateKey()
   const unlocked = GARDEN_SHOP.filter((i) => (garden?.shopUnlocked || []).includes(i.id))
   const svgRef = useRef(null)
@@ -297,6 +299,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
       </section>
 
       <section className="soft-card full-span garden-scene-card">
+        <div className="garden-scene-wrap">
         <svg
           ref={svgRef}
           className={`garden-scene-svg${placingType ? ' placing' : ''}`}
@@ -383,6 +386,26 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
             </text>
           )}
         </svg>
+
+        {/* Graduated companions live here permanently, rendered as their real
+            species. HTML overlay positioned over the scene (TweetyBird is an
+            HTML/SVG widget, not a scene <g>); the scene keeps its 400×260 box so
+            scene coords map straight to percentages. */}
+        {residents.length > 0 && (
+          <div className="garden-residents" aria-hidden="true">
+            {residents.map((r) => (
+              <span
+                key={r.id}
+                className="garden-resident"
+                style={{ left: `${(r.x / 400) * 100}%`, top: `${(r.y / 260) * 100}%` }}
+                title={r.species}
+              >
+                <TweetyBird level="crowned" companion={r.companionId} size={44} />
+              </span>
+            ))}
+          </div>
+        )}
+        </div>
       </section>
 
       {placingType && (

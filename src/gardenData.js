@@ -198,6 +198,22 @@ export function snapToGarden(x, y) {
   return { x: sx, y: sy }
 }
 
+// Pick a free spot in the lawn for a graduated companion (P3 garden residents),
+// kept clear of other residents so crowned birds don't stack on each other.
+export function freeResidentSpot(residents = []) {
+  for (let tries = 0; tries < 40; tries += 1) {
+    const x = Math.round(GARDEN_REGION.x0 + Math.random() * (GARDEN_REGION.x1 - GARDEN_REGION.x0))
+    const y = Math.round(GARDEN_REGION.y0 + Math.random() * (GARDEN_REGION.y1 - GARDEN_REGION.y0))
+    if (residents.every((r) => Math.hypot((r.x ?? -999) - x, (r.y ?? -999) - y) >= 36)) {
+      return { x, y }
+    }
+  }
+  return {
+    x: Math.round(GARDEN_REGION.x0 + Math.random() * (GARDEN_REGION.x1 - GARDEN_REGION.x0)),
+    y: GARDEN_REGION.y0 + 18,
+  }
+}
+
 // Can `type` be placed at (x,y) given existing plantings? In-region + not closer
 // than ~0.7×(rA+rB) to any other item (prevents total overlap, keeps spacing).
 export function canPlaceAt(type, x, y, plantings = []) {

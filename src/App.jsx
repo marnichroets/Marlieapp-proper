@@ -17,9 +17,9 @@ import {
   birdsNearPotchThisWeek,
   locationThought,
 } from './birdExplore'
-import { TweetyHomeCard, TweetyStatsPage, AviaryCard, CompanionGalleryPage } from './Tweety'
+import { TweetyHomeCard, TweetyStatsPage, AviaryCard, CompanionGalleryPage, CompanionSelect } from './Tweety'
 import { GardenPage } from './Garden'
-import { defaultGarden, gardenItem, canWater } from './gardenData'
+import { defaultGarden, gardenItem, canWater, freeResidentSpot } from './gardenData'
 import {
   defaultTweety,
   tweetyToday,
@@ -35,6 +35,8 @@ import {
   tweetyCareState,
   currentCareWindow,
   CARE_WINDOWS,
+  companionSpecies,
+  getCompanion,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
@@ -2193,6 +2195,9 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
+  // P3: when true (sandbox only), the companion-pick overlay is shown so a
+  // crowned companion can graduate to the garden and a new one is chosen.
+  const [releasingCompanion, setReleasingCompanion] = useState(false)
   // True if Tweety hasn't been visited in over 24h (captured once on load).
   const [missedYou] = useState(() => {
     const lv = data.tweety?.lastVisit
@@ -3379,6 +3384,57 @@ function App() {
       },
       { title: 'Sanctuary Fence up! 🛡️', body: 'The garden is now a protected little sanctuary.', tone: 'success' },
     )
+  }
+
+  // P3: graduate the current crowned companion into the garden (sandbox only),
+  // then adopt the newly-chosen companion. Atomic: the old companion is added to
+  // garden.residents (permanent, rendered as its real species) and Tweety is
+  // reborn as the new pick with a fresh growth clock — never a null companion,
+  // which normalizeLoadedState would otherwise reset to the default.
+  function confirmReleaseToGarden(newCompanionId) {
+    if (readOnly || account !== 'marnich') {
+      setReleasingCompanion(false)
+      return
+    }
+    const tw = data.tweety || defaultTweety()
+    const oldId = tw.companion
+    if (!oldId || !newCompanionId) {
+      setReleasingCompanion(false)
+      return
+    }
+    const garden = data.garden || defaultGarden()
+    const residents = garden.residents || []
+    const spot = freeResidentSpot(residents)
+    const resident = {
+      id: createId('resident'),
+      companionId: oldId,
+      species: companionSpecies(oldId),
+      name: getCompanion(oldId)?.name || tw.name || 'Tweety',
+      x: spot.x,
+      y: spot.y,
+      releasedAt: new Date().toISOString(),
+    }
+    commit(
+      {
+        ...data,
+        garden: { ...garden, residents: [...residents, resident] },
+        tweety: {
+          ...tw,
+          companion: newCompanionId,
+          bornAt: new Date().toISOString(),
+          careAt: { fed: null, watered: null, played: null },
+          treatsReceived: 0,
+          pendingTreat: false,
+        },
+        tweetyGrowthSeen: 0,
+      },
+      {
+        title: 'Graduated to the garden 🌳👑',
+        body: `${resident.species || 'Your companion'} now lives in the garden forever. Time to raise ${getCompanion(newCompanionId)?.name || 'a new friend'}!`,
+        tone: 'success',
+      },
+    )
+    setReleasingCompanion(false)
   }
 
   // Water one planting (once per SA day); advances its growth stage.
@@ -4901,6 +4957,19 @@ function App() {
   // No egg picker anymore: Tweety is the companion from the first login and
   // grows through her five stages via daily care.
 
+  // P3 (sandbox only): graduating a crowned companion takes over the screen with
+  // the companion picker to choose who she raises next. Mirrors the login/intro
+  // early-return pattern, so it never affects Pooks.
+  if (releasingCompanion && account === 'marnich' && data.tweety?.companion) {
+    return (
+      <CompanionSelect
+        title="A companion graduates 🌳👑"
+        sub={`${getCompanion(data.tweety.companion)?.name || 'Your crowned bird'} is ready to live in the garden forever. Choose the next companion you'll raise.`}
+        onPick={confirmReleaseToGarden}
+      />
+    )
+  }
+
   return (
     <div className={`app-shell has-bottom-nav season-${season.key}${activePage === 'home' ? ' on-home' : ''}`}>
       <div className="season-wash" aria-hidden="true" />
@@ -5038,6 +5107,7 @@ function App() {
             releaseAviaryBird={releaseAviaryBird}
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
+            onReleaseToGarden={account === 'marnich' ? () => setReleasingCompanion(true) : undefined}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -5813,6 +5883,7 @@ function HomePage({
   releaseAviaryBird,
   tapWorldEvent,
   resolveWorldEvent,
+  onReleaseToGarden,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -5878,6 +5949,7 @@ function HomePage({
             onWater={() => careTweety('water')}
             onPlay={() => careTweety('play')}
             onOpenStats={() => goTo('tweety')}
+            onReleaseToGarden={onReleaseToGarden}
           />
 
           {/* On mobile these three cards are hidden to keep the home screen

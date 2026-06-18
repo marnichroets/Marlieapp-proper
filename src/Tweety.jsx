@@ -738,6 +738,7 @@ export function TweetyHomeCard({
   onWater,
   onPlay,
   onOpenStats,
+  onReleaseToGarden,
 }) {
   const name = tweety?.name || 'Tweety'
   const species = companionSpecies(tweety?.companion)
@@ -839,6 +840,15 @@ export function TweetyHomeCard({
             <p className="tweety-resting-sub">{windowsDone}/3 care windows done today 💛</p>
           )}
         </div>
+      )}
+
+      {/* P3 (sandbox only — prop only passed for Marnich): a crowned companion
+          can graduate to live permanently in the Bird Garden, freeing Tweety to
+          raise a brand-new companion. */}
+      {onReleaseToGarden && growth.key === 'crowned' && (
+        <button className="secondary-btn tweety-release-btn" type="button" onClick={onReleaseToGarden}>
+          🌳 Release {name} to the Garden
+        </button>
       )}
     </section>
   )
@@ -960,12 +970,12 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
 }
 
 // ---- First-login companion chooser -----------------------------------------
-export function CompanionSelect({ onPick }) {
+export function CompanionSelect({ onPick, title = 'Meet your Tweety 🐣', sub = 'Choose the bird your golden pet chick will take after.' }) {
   return (
     <main className="login-screen companion-screen">
       <section className="login-card companion-card" aria-labelledby="companion-title">
-        <p className="login-tag" id="companion-title">Meet your Tweety 🐣</p>
-        <p className="login-sub">Choose the bird your golden pet chick will take after.</p>
+        <p className="login-tag" id="companion-title">{title}</p>
+        <p className="login-sub">{sub}</p>
         <div className="companion-grid">
           {TWEETY_COMPANIONS.map((c) => (
             <button className="companion-option" type="button" key={c.id} onClick={() => onPick(c.id)}>

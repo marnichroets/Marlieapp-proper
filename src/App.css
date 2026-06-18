@@ -4068,6 +4068,17 @@ textarea:focus {
   42% { transform: translateY(0) rotate(4deg); }
 }
 
+/* P3: graduated companions living permanently in the garden. */
+.garden-scene-wrap { position: relative; line-height: 0; }
+.garden-residents { position: absolute; inset: 0; pointer-events: none; }
+.garden-resident {
+  position: absolute;
+  /* anchor the bird's feet (~78% down its box) at the scene point */
+  transform: translate(-50%, -78%);
+  filter: drop-shadow(0 3px 2px rgba(60, 90, 46, 0.18));
+}
+.tweety-release-btn { margin-top: 10px; width: 100%; }
+
 /* Sandbox-only companion gallery: 6 species × 5 stages grid. */
 .companion-gallery-stages {
   display: flex;
