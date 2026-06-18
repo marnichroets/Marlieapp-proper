@@ -67,6 +67,54 @@ function PondArt({ stageKey }) {
   return (<g><ellipse cx="0" cy="-2" rx="34" ry="14" fill="#6fb8d6" /><ellipse cx="-9" cy="-6" rx="13" ry="4" fill="#a9dcec" opacity="0.6" /><g stroke="#5a9e4e" strokeWidth="2.4" strokeLinecap="round"><line x1="-30" y1="-4" x2="-32" y2="-16" /><line x1="-24" y1="-2" x2="-22" y2="-14" /><line x1="30" y1="-4" x2="32" y2="-15" /></g></g>)
 }
 
+function StonePathArt({ stageKey }) {
+  if (stageKey === 'path-laying') return (<g><ellipse cx="-7" cy="0" rx="6" ry="3" fill="#9a9088" /><ellipse cx="7" cy="-2" rx="5" ry="2.6" fill="#b0a89e" /><ellipse cx="1" cy="2" rx="5" ry="2.2" fill="#8a6a46" opacity="0.5" /></g>)
+  return (<g>{[[-13, 2], [-4, -0.5], [5, -2.5], [13, -4.5]].map(([x, y], i) => (<g key={i}><ellipse cx={x} cy={y} rx="6" ry="3" fill="#9a9088" /><ellipse cx={x - 1.4} cy={y - 0.8} rx="3" ry="1.4" fill="#bdb6ac" opacity="0.8" /></g>))}</g>)
+}
+
+function RockGardenArt({ stageKey }) {
+  const rocks = (<g><ellipse cx="0" cy="0" rx="15" ry="5.5" fill="#8a8078" /><ellipse cx="-6" cy="-3" rx="6.5" ry="4.5" fill="#9a9088" /><ellipse cx="6" cy="-2.5" rx="5.5" ry="4" fill="#a8a096" /></g>)
+  if (stageKey === 'rock-bare') return rocks
+  const succ = (x, y, c) => (<g><circle cx={x} cy={y} r="3" fill={c} /><circle cx={x} cy={y} r="1.3" fill="#bfe6a0" /></g>)
+  return (<g>{rocks}{succ(-6, -6, '#5aa861')}{succ(6, -5, '#6cb86f')}{succ(0, -3.5, '#4f9a55')}</g>)
+}
+
+function VegPatchArt({ stageKey }) {
+  const soil = <g><ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" /><ellipse cx="0" cy="-2" rx="16" ry="4" fill="#8a6a46" /></g>
+  if (stageKey === 'veg-soil') return (<g>{soil}{[-10, 0, 10].map((x, i) => <line key={i} x1={x} y1="-4.5" x2={x} y2="0" stroke="#6b4f30" strokeWidth="1.5" />)}</g>)
+  if (stageKey === 'veg-sprouts') return (<g>{soil}{[-12, -4, 4, 12].map((x, i) => (<g key={i}><line x1={x} y1="-3" x2={x} y2="-10" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><ellipse cx={x - 2} cy="-10" rx="2.6" ry="1.3" fill="#6cb86f" transform={`rotate(-30 ${x - 2} -10)`} /></g>))}</g>)
+  return (<g>{soil}{[-12, -4, 4, 12].map((x, i) => (<g key={i}><path d={`M${x} -3 V-13`} stroke="#4f9a55" strokeWidth="2" strokeLinecap="round" /><path d={`M${x - 3} -11 L${x} -15 L${x + 3} -11`} fill="none" stroke="#5aa861" strokeWidth="1.6" strokeLinecap="round" /><path d={`M${x - 2} -3 L${x} 2 L${x + 2} -3 Z`} fill="#e8893a" /></g>))}</g>)
+}
+
+function ShrubArt({ stageKey }) {
+  if (stageKey === 'shrub-sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-12" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><circle cx="0" cy="-13" r="4" fill="#6cb86f" /></g>)
+  const bush = <g><ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" /><circle cx="0" cy="-16" r="14" fill="#4f9a55" /><circle cx="-8" cy="-12" r="9" fill="#5aa861" /><circle cx="8" cy="-13" r="8" fill="#46894c" /></g>
+  if (stageKey === 'shrub-bush') return bush
+  const f = [[-9, -20, '#f6a5c0'], [0, -26, '#ffd45e'], [9, -18, '#c9a8e8'], [-3, -12, '#f8b4d0'], [6, -24, '#fff0b3']]
+  return (<g>{bush}{f.map(([x, y, c], i) => <circle key={i} cx={x} cy={y} r="3" fill={c} />)}</g>)
+}
+
+function BenchArt({ stageKey }) {
+  if (stageKey === 'bench-frame') return (<g><rect x="-16" y="-6" width="3" height="6" fill="#a07a4e" /><rect x="13" y="-6" width="3" height="6" fill="#a07a4e" /><rect x="-17" y="-9" width="34" height="3" rx="1.5" fill="#b5854f" /></g>)
+  return (<g><rect x="-16" y="-8" width="3" height="8" fill="#9c6f44" /><rect x="13" y="-8" width="3" height="8" fill="#9c6f44" /><rect x="-18" y="-11" width="36" height="4" rx="2" fill="#caa46c" /><rect x="-16" y="-22" width="3" height="12" fill="#9c6f44" /><rect x="13" y="-22" width="3" height="12" fill="#9c6f44" /><rect x="-18" y="-22" width="36" height="3.5" rx="1.5" fill="#b5854f" /><rect x="-18" y="-16" width="36" height="3" rx="1.5" fill="#b5854f" /></g>)
+}
+
+function BirdBathArt({ stageKey }) {
+  const ped = <g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#b8b2a8" /><rect x="-3" y="-16" width="6" height="16" fill="#c8c2b8" /><rect x="-3.5" y="-16" width="7" height="3" fill="#b8b2a8" /></g>
+  if (stageKey === 'bath-base') return ped
+  if (stageKey === 'bath-bowl') return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="#c8c2b8" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="#a39c92" /></g>)
+  return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="#c8c2b8" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="#6fb8d6" /><ellipse cx="-3" cy="-20" rx="4" ry="1.4" fill="#a9dcec" opacity="0.7" /></g>)
+}
+
+function TrellisArt({ stageKey }) {
+  const frame = (<g fill="none" stroke="#b5854f" strokeWidth="2.6" strokeLinecap="round"><path d="M-14 0 V-30 q0 -14 14 -14 q14 0 14 14 V0" /><line x1="-14" y1="-20" x2="14" y2="-20" /><line x1="-7" y1="-2" x2="-7" y2="-40" stroke="#caa46c" strokeWidth="1.4" /><line x1="7" y1="-2" x2="7" y2="-40" stroke="#caa46c" strokeWidth="1.4" /></g>)
+  const vines = (<g>{[[-14, -8], [-12, -22], [-2, -40], [12, -24], [14, -10], [0, -44], [7, -34]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="4" fill={i % 2 ? '#5aa861' : '#4f9a55'} />)}</g>)
+  if (stageKey === 'trellis-bare') return frame
+  if (stageKey === 'trellis-vines') return (<g>{frame}{vines}</g>)
+  const blooms = [[-13, -14, '#f6a5c0'], [-6, -38, '#ffd45e'], [3, -42, '#c9a8e8'], [13, -18, '#f8b4d0'], [9, -30, '#fff0b3']]
+  return (<g>{frame}{vines}{blooms.map(([x, y, c], i) => <circle key={i} cx={x} cy={y} r="2.6" fill={c} />)}</g>)
+}
+
 function PlantArt({ type, stageKey }) {
   switch (type) {
     case 'tree-seed': return <TreeArt stageKey={stageKey} />
@@ -75,6 +123,13 @@ function PlantArt({ type, stageKey }) {
     case 'fence': return <FenceArt stageKey={stageKey} />
     case 'feeder': return <FeederArt stageKey={stageKey} />
     case 'pond': return <PondArt stageKey={stageKey} />
+    case 'stone-path': return <StonePathArt stageKey={stageKey} />
+    case 'rock-garden': return <RockGardenArt stageKey={stageKey} />
+    case 'veg-patch': return <VegPatchArt stageKey={stageKey} />
+    case 'shrub': return <ShrubArt stageKey={stageKey} />
+    case 'bench': return <BenchArt stageKey={stageKey} />
+    case 'bird-bath': return <BirdBathArt stageKey={stageKey} />
+    case 'trellis': return <TrellisArt stageKey={stageKey} />
     default: return <FlowerPatchArt stageKey={stageKey} />
   }
 }

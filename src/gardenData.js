@@ -21,46 +21,89 @@ import { saDateKey } from './saDate'
 // once grown (used by Sub-phase B birds). kind drives the care verb + art family.
 export const GARDEN_SHOP = [
   {
-    id: 'flower-patch', name: 'Flower patch', emoji: '🌼', cost: 20,
+    id: 'flower-patch', name: 'Flower patch', emoji: '🌼', cost: 40,
     kind: 'plant', verb: 'Water', zone: 'garden', r: 16, waterToGrow: 2,
     stages: ['sprout', 'budding', 'bloom'],
     blurb: 'A cheerful little patch of flowers.',
   },
   {
-    id: 'flower-bed', name: 'Flower bed', emoji: '🌸', cost: 40,
+    id: 'flower-bed', name: 'Flower bed', emoji: '🌸', cost: 80,
     kind: 'plant', verb: 'Water', zone: 'garden', r: 22, waterToGrow: 3,
     stages: ['bed-soil', 'bed-shoots', 'bed-full'],
     blurb: 'A bigger bed bursting with blooms.',
   },
   {
-    id: 'tree-seed', name: 'Tree seed', emoji: '🌳', cost: 50,
+    id: 'tree-seed', name: 'Tree seed', emoji: '🌳', cost: 100,
     kind: 'plant', verb: 'Water', zone: 'garden', r: 26, waterToGrow: 3,
     stages: ['seedling', 'sapling', 'young', 'tree'],
     blurb: 'Grows into a leafy tree for garden birds to perch in.',
   },
   {
-    id: 'pine-seed', name: 'Pine tree', emoji: '🌲', cost: 60,
+    id: 'pine-seed', name: 'Pine tree', emoji: '🌲', cost: 120,
     kind: 'plant', verb: 'Water', zone: 'forest', r: 24, waterToGrow: 3,
     stages: ['pine-sprout', 'pine-small', 'pine-tall'],
     blurb: 'A tall evergreen — forest birds love it.',
   },
   {
-    id: 'fence', name: 'Fence perch', emoji: '🪧', cost: 80,
+    id: 'fence', name: 'Fence perch', emoji: '🪧', cost: 160,
     kind: 'structure', verb: 'Build', zone: 'garden', r: 16, waterToGrow: 2,
     stages: ['fence-post', 'fence-rail', 'fence-panel'],
     blurb: 'A rustic fence for birds to line up on.',
   },
   {
-    id: 'feeder', name: 'Bird feeder', emoji: '🪵', cost: 100,
+    id: 'feeder', name: 'Bird feeder', emoji: '🪵', cost: 200,
     kind: 'structure', verb: 'Build', zone: 'garden', r: 18, waterToGrow: 2,
     stages: ['feeder-post', 'feeder-tray', 'feeder-stocked'],
     blurb: 'Keeps it stocked and the garden birds keep coming.',
   },
   {
-    id: 'pond', name: 'Pond', emoji: '💧', cost: 150,
+    id: 'pond', name: 'Pond', emoji: '💧', cost: 300,
     kind: 'water', verb: 'Fill', zone: 'water', r: 34, waterToGrow: 3,
     stages: ['pond-puddle', 'pond-small', 'pond-full'],
     blurb: 'A little pond that draws water birds.',
+  },
+  // --- decorative + extra-variety items -------------------------------------
+  {
+    id: 'stone-path', name: 'Stepping stones', emoji: '🪨', cost: 60,
+    kind: 'structure', verb: 'Lay', zone: null, r: 14, waterToGrow: 1,
+    stages: ['path-laying', 'path-done'],
+    blurb: 'A little stone path winding through the grass.',
+  },
+  {
+    id: 'rock-garden', name: 'Succulent patch', emoji: '🌵', cost: 90,
+    kind: 'plant', verb: 'Tend', zone: null, r: 16, waterToGrow: 1,
+    stages: ['rock-bare', 'rock-succulents'],
+    blurb: 'Hardy little succulents among the rocks — low fuss.',
+  },
+  {
+    id: 'veg-patch', name: 'Veggie patch', emoji: '🥕', cost: 70,
+    kind: 'plant', verb: 'Water', zone: 'garden', r: 20, waterToGrow: 3,
+    stages: ['veg-soil', 'veg-sprouts', 'veg-ripe'],
+    blurb: 'Rows of veggies — practical and pretty.',
+  },
+  {
+    id: 'shrub', name: 'Flowering shrub', emoji: '🌺', cost: 110,
+    kind: 'plant', verb: 'Water', zone: 'garden', r: 22, waterToGrow: 3,
+    stages: ['shrub-sprout', 'shrub-bush', 'shrub-bloom'],
+    blurb: 'A colourful mid-size bush.',
+  },
+  {
+    id: 'bench', name: 'Garden bench', emoji: '🪑', cost: 140,
+    kind: 'structure', verb: 'Build', zone: null, r: 18, waterToGrow: 1,
+    stages: ['bench-frame', 'bench-done'],
+    blurb: 'A peaceful spot to sit a while.',
+  },
+  {
+    id: 'bird-bath', name: 'Bird bath', emoji: '💦', cost: 180,
+    kind: 'water', verb: 'Fill', zone: 'water', r: 18, waterToGrow: 2,
+    stages: ['bath-base', 'bath-bowl', 'bath-full'],
+    blurb: 'A dainty bath that smaller birds adore.',
+  },
+  {
+    id: 'trellis', name: 'Trellis archway', emoji: '⛩️', cost: 240,
+    kind: 'structure', verb: 'Water', zone: 'garden', r: 24, waterToGrow: 3,
+    stages: ['trellis-bare', 'trellis-vines', 'trellis-bloom'],
+    blurb: 'An archway that climbing flowers slowly cover.',
   },
 ]
 
@@ -120,6 +163,13 @@ export const STAGE_LABELS = {
   'fence-post': 'Post', 'fence-rail': 'Rail', 'fence-panel': 'Full fence',
   'feeder-post': 'Post', 'feeder-tray': 'Tray', 'feeder-stocked': 'Stocked feeder',
   'pond-puddle': 'Puddle', 'pond-small': 'Small pond', 'pond-full': 'Full pond',
+  'path-laying': 'Being laid', 'path-done': 'Stone path',
+  'rock-bare': 'Bare rocks', 'rock-succulents': 'Succulents',
+  'veg-soil': 'Tilled rows', 'veg-sprouts': 'Sprouting', 'veg-ripe': 'Ripe veggies',
+  'shrub-sprout': 'Sprout', 'shrub-bush': 'Leafy bush', 'shrub-bloom': 'In flower',
+  'bench-frame': 'Frame', 'bench-done': 'Finished bench',
+  'bath-base': 'Pedestal', 'bath-bowl': 'Empty bowl', 'bath-full': 'Filled bath',
+  'trellis-bare': 'Bare archway', 'trellis-vines': 'Climbing vines', 'trellis-bloom': 'In bloom',
 }
 
 // Placeable lawn region (in the 0 0 400 260 scene) + snap grid. Shared by the
