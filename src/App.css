@@ -4123,17 +4123,74 @@ textarea:focus {
   90%, 100% { transform: translate(0, 0); }           /* back to start */
 }
 
-.garden-flight { animation: garden-fly-arc 1.6s ease-in-out forwards; }
-@keyframes garden-fly-arc {
-  0%   { transform: translate(var(--fx), var(--fy)); }
-  50%  { transform: translate(var(--mx), var(--my)); }
-  100% { transform: translate(var(--tx), var(--ty)); }
+/* A bird shuttling between two trees: inner group glides the (dx,dy) delta along
+   an arc and back (placement is on the outer group's transform attribute). */
+.g-flybird {
+  animation-name: g-fly-shuttle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  transform-box: fill-box;
 }
-.garden-fly-wing { transform-box: fill-box; }
-.garden-fly-wing-l { transform-origin: right center; animation: garden-flap-l 0.26s ease-in-out infinite; }
-.garden-fly-wing-r { transform-origin: left center; animation: garden-flap-r 0.26s ease-in-out infinite; }
-@keyframes garden-flap-l { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(16deg); } }
-@keyframes garden-flap-r { 0%, 100% { transform: rotate(22deg); } 50% { transform: rotate(-16deg); } }
+@keyframes g-fly-shuttle {
+  0%   { transform: translate(0, 0); }
+  50%  { transform: translate(calc(var(--dx) / 2), calc(var(--dy) / 2 - 34px)); }
+  100% { transform: translate(var(--dx), var(--dy)); }
+}
+
+/* Shared flapping wings (flybird, butterfly, moth): each wing rotates about its
+   inner edge so the pair beats together. */
+.g-wing { transform-box: fill-box; }
+.g-wing-l { transform-origin: right center; animation: g-flap-l 0.3s ease-in-out infinite; }
+.g-wing-r { transform-origin: left center; animation: g-flap-r 0.3s ease-in-out infinite; }
+@keyframes g-flap-l { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(18deg); } }
+@keyframes g-flap-r { 0%, 100% { transform: rotate(24deg); } 50% { transform: rotate(-18deg); } }
+
+/* Butterfly: gentle wandering drift (wings flap via .g-wing). */
+.g-flutter { animation: g-flutter-move 6s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-flutter-move {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(10px, -10px); }
+  50%  { transform: translate(-6px, -18px); }
+  75%  { transform: translate(-14px, -6px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Bee: quick erratic buzzing, with a blurring wing. */
+.g-bee { animation: g-bee-move 2.4s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-bee-move {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(8px, -5px); }
+  40% { transform: translate(-5px, -9px); }
+  60% { transform: translate(10px, -3px); }
+  80% { transform: translate(-7px, -7px); }
+  100% { transform: translate(0, 0); }
+}
+.g-bee-wing { transform-box: fill-box; transform-origin: center bottom; animation: g-bee-buzz 0.12s linear infinite; }
+@keyframes g-bee-buzz { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.4); } }
+
+/* Moth: erratic drift near the moonlight (wings flap via .g-wing). */
+.g-moth { animation: g-moth-move 5s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-moth-move {
+  0% { transform: translate(0, 0); }
+  30% { transform: translate(-12px, 6px); }
+  55% { transform: translate(8px, -8px); }
+  80% { transform: translate(14px, 5px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Bat: swoops all the way across the night sky; .g-bat-rev reverses direction. */
+.g-bat { animation: g-bat-cross 5.5s ease-in-out infinite; transform-box: fill-box; }
+.g-bat-rev { animation-direction: reverse; }
+@keyframes g-bat-cross {
+  0%   { transform: translate(-40px, 0); }
+  25%  { transform: translate(110px, 22px); }
+  50%  { transform: translate(220px, -10px); }
+  75%  { transform: translate(330px, 18px); }
+  100% { transform: translate(450px, 0); }
+}
+.g-bat-flap { transform-box: fill-box; transform-origin: center center; animation: g-bat-flap-k 0.2s ease-in-out infinite; }
+@keyframes g-bat-flap-k { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.5); } }
 
 .garden-demo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .garden-demo-btn { white-space: nowrap; }
