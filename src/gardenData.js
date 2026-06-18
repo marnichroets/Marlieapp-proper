@@ -105,6 +105,16 @@ export const GARDEN_SHOP = [
     stages: ['trellis-bare', 'trellis-vines', 'trellis-bloom'],
     blurb: 'An archway that climbing flowers slowly cover.',
   },
+  // --- enclosure: a one-off purchase that frames the whole scene -------------
+  // Not tap-placed and never grows; buying it flips garden.sanctuary, which the
+  // scene reads to draw a wooden boundary around the lawn. kind 'enclosure' is
+  // what the shop + handlers special-case (no placement, no watering).
+  {
+    id: 'sanctuary-fence', name: 'Sanctuary Fence', emoji: '🛡️', cost: 250,
+    kind: 'enclosure', verb: 'Build', zone: null, r: 0, waterToGrow: 0,
+    stages: [],
+    blurb: 'A wooden boundary around the whole garden — makes it a protected little sanctuary.',
+  },
 ]
 
 export function gardenItem(type) {
@@ -123,6 +133,8 @@ export function defaultGarden() {
     plantings: [],
     elements: [],
     residents: [],
+    // One-off enclosure (Sanctuary Fence): false until she buys it.
+    sanctuary: false,
   }
 }
 

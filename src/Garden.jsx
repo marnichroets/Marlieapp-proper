@@ -134,8 +134,43 @@ function PlantArt({ type, stageKey }) {
   }
 }
 
+// ---- sanctuary enclosure (scene-wide, drawn in absolute scene coords) -------
+// A tasteful wooden boundary that frames the whole lawn once she buys it. Drawn
+// behind the plantings so plants + visiting birds sit in front of the back fence.
+function SanctuaryFence() {
+  const pickets = []
+  for (let x = 14, i = 0; x <= 380; x += 11, i += 1) {
+    pickets.push(
+      <path
+        key={x}
+        d={`M${x} 151 V139 L${x + 3} 135 L${x + 6} 139 V151 Z`}
+        fill={i % 2 ? '#caa46c' : '#bd9656'}
+        stroke="#9c6f44"
+        strokeWidth="0.4"
+      />,
+    )
+  }
+  const post = (x) => (
+    <g>
+      <rect x={x - 2.5} y="198" width="5" height="30" rx="2" fill="#a87c46" />
+      <path d={`M${x - 3.5} 198 L${x} 192 L${x + 3.5} 198 Z`} fill="#9c6f44" />
+    </g>
+  )
+  return (
+    <g className="garden-fence" aria-hidden="true">
+      <rect x="10" y="146" width="380" height="3" rx="1.5" fill="#a87c46" opacity="0.9" />
+      {pickets}
+      {/* side rails sweeping forward to corner posts (a little perspective) */}
+      <path d="M15 141 L16 212" stroke="#b5854f" strokeWidth="3" strokeLinecap="round" />
+      <path d="M385 141 L384 212" stroke="#b5854f" strokeWidth="3" strokeLinecap="round" />
+      {post(16)}
+      {post(384)}
+    </g>
+  )
+}
+
 // ---- the page --------------------------------------------------------------
-export function GardenPage({ garden, coins, onPlace, onWater, onBack }) {
+export function GardenPage({ garden, coins, onPlace, onWater, onBack, onBuySanctuary }) {
   const plantings = garden?.plantings || []
   const today = saDateKey()
   const unlocked = GARDEN_SHOP.filter((i) => (garden?.shopUnlocked || []).includes(i.id))
@@ -223,6 +258,9 @@ export function GardenPage({ garden, coins, onPlace, onWater, onBack }) {
           <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="#8ccb6f" />
           {/* a soft meandering path for charm */}
           <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" stroke-width="13" stroke-linecap="round" opacity="0.7" />
+
+          {/* sanctuary enclosure (behind the plantings) */}
+          {garden?.sanctuary && <SanctuaryFence />}
 
           {/* faint placement grid while placing */}
           {placingType && (
@@ -325,6 +363,24 @@ export function GardenPage({ garden, coins, onPlace, onWater, onBack }) {
         <div className="garden-shop-row">
           {unlocked.map((item) => {
             const afford = coins >= item.cost
+            // The Sanctuary Fence is a one-off enclosure, not a placeable plant:
+            // buying it flips garden.sanctuary instead of starting placement.
+            if (item.kind === 'enclosure') {
+              const owned = !!garden?.sanctuary
+              return (
+                <button
+                  key={item.id}
+                  className={`garden-shop-btn${owned ? ' owned' : ''}`}
+                  type="button"
+                  disabled={owned || !afford}
+                  onClick={() => onBuySanctuary && onBuySanctuary()}
+                >
+                  <span className="garden-shop-emoji">{item.emoji}</span>
+                  <strong>{item.name}</strong>
+                  <small>{owned ? 'Owned ✓' : `${item.cost} 🪙`}</small>
+                </button>
+              )
+            }
             const active = placingType === item.id
             return (
               <button

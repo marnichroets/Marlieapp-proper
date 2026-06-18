@@ -3339,6 +3339,28 @@ function App() {
     )
   }
 
+  // Buy the one-off Sanctuary Fence: charge once and flip garden.sanctuary so
+  // the scene draws its wooden enclosure. Never grows, never needs tending.
+  function buySanctuaryFence() {
+    if (readOnly) return
+    const garden = data.garden || defaultGarden()
+    if (garden.sanctuary) return
+    const item = gardenItem('sanctuary-fence')
+    const cost = item?.cost || 250
+    if (data.featherCoins < cost) {
+      setToast({ title: 'Not enough coins yet', body: `The Sanctuary Fence costs ${cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - cost,
+        garden: { ...garden, sanctuary: true },
+      },
+      { title: 'Sanctuary Fence up! 🛡️', body: 'The garden is now a protected little sanctuary.', tone: 'success' },
+    )
+  }
+
   // Water one planting (once per SA day); advances its growth stage.
   function waterGardenPlant(plantingId) {
     if (readOnly) return
@@ -5007,6 +5029,7 @@ function App() {
             coins={data.featherCoins}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
+            onBuySanctuary={buySanctuaryFence}
             onBack={goBack}
           />
         )}
