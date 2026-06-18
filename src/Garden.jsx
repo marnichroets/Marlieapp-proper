@@ -345,9 +345,8 @@ function SanctuaryFence() {
 // (CSS). Disappears and rotates over time (scheduled by the page).
 function GardenVisitor({ visitor }) {
   const clip = `gv-clip-${visitor.perchId}`
-  return (
-    <g className="garden-visitor" transform={`translate(${visitor.x + 15} ${visitor.y - 1})`}>
-      <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.18" />
+  const portrait = (
+    <>
       <g className="garden-visitor-bob">
         <defs>
           <clipPath id={clip}><circle cx="0" cy="-9" r="9" /></clipPath>
@@ -359,6 +358,42 @@ function GardenVisitor({ visitor }) {
         <circle cx="0" cy="-9" r="9.6" fill="none" stroke="#9c6f44" strokeWidth="1.2" />
       </g>
       <text className="garden-visitor-name" x="0" y="-23" textAnchor="middle">{visitor.name}</text>
+    </>
+  )
+  return (
+    <g className="garden-visitor" transform={`translate(${visitor.x + 15} ${visitor.y - 1})`}>
+      {/* shadow stays on the ground; the bird hops above it around the canopy */}
+      <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.18" />
+      {visitor.hop ? <g className="garden-perch-hop">{portrait}</g> : portrait}
+    </g>
+  )
+}
+
+// A bird in transit between two grown elements: the same little portrait token,
+// now with flapping wings, gliding along a shallow arc (from → apex → to) set by
+// inline custom properties. Used for both ambient visits and the demo preview.
+function FlyingBird({ visitor }) {
+  const clip = 'gv-fly-clip'
+  const midX = (visitor.fromX + visitor.toX) / 2 + 15
+  const apexY = Math.min(visitor.fromY, visitor.toY) - 48
+  const style = {
+    '--fx': `${visitor.fromX + 15}px`, '--fy': `${visitor.fromY - 16}px`,
+    '--mx': `${midX}px`, '--my': `${apexY}px`,
+    '--tx': `${visitor.toX + 15}px`, '--ty': `${visitor.toY - 16}px`,
+  }
+  return (
+    <g className="garden-flight" style={style}>
+      <ellipse className="garden-fly-wing garden-fly-wing-l" cx="-11" cy="-9" rx="7.5" ry="3.6" fill="#7a5f3e" />
+      <ellipse className="garden-fly-wing garden-fly-wing-r" cx="11" cy="-9" rx="7.5" ry="3.6" fill="#7a5f3e" />
+      <defs>
+        <clipPath id={clip}><circle cx="0" cy="-9" r="9" /></clipPath>
+      </defs>
+      <circle cx="0" cy="-9" r="10.5" fill="#fff" />
+      {visitor.photo
+        ? <image href={visitor.photo} x="-11" y="-20" width="22" height="22" clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMid slice" />
+        : <circle cx="0" cy="-9" r="9" fill="#cde9b6" />}
+      <circle cx="0" cy="-9" r="9.6" fill="none" stroke="#9c6f44" strokeWidth="1.2" />
+      {visitor.name && <text className="garden-visitor-name" x="0" y="-23" textAnchor="middle">{visitor.name}</text>}
     </g>
   )
 }
@@ -408,24 +443,44 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
   // by night it's nocturnal wildlife — an owl perched on a grown element, or a
   // hedgehog ambling across the grass (fireflies drift independently, below).
   const [visitor, setVisitor] = useState(null)
+  const [demoActive, setDemoActive] = useState(false)
+
+  // Ambient visitors (random timing). Paused entirely while the demo plays.
   useEffect(() => {
+    if (demoActive) return undefined
     let alive = true
     const timers = []
     const landPerches = grownPerches.filter((p) => p.zone !== 'water')
 
-    const spawnDay = () => {
-      if (!alive || !grownPerches.length || !collection.length) return
-      const perch = grownPerches[Math.floor(Math.random() * grownPerches.length)]
-      const wantWater = perch.zone === 'water'
+    const pickBird = (wantWater) => {
       let pool = collection.filter((b) => (wantWater ? b.water : b.land))
       if (!pool.length) pool = collection
-      const bird = pool[Math.floor(Math.random() * pool.length)]
-      setVisitor({ kind: 'bird', perchId: perch.id, x: perch.x, y: perch.y, name: bird.name, photo: bird.photo })
+      return pool[Math.floor(Math.random() * pool.length)]
+    }
+
+    // Perch a bird: it bobs/hops in place, then after a while either takes a
+    // short flight to another grown land element or leaves (scheduling the next
+    // visit). Land perches hop around their canopy; water perches sit still.
+    function perchBird(perch, bird) {
+      setVisitor({ kind: 'bird', perchId: perch.id, x: perch.x, y: perch.y, name: bird.name, photo: bird.photo, hop: perch.zone !== 'water' })
       timers.push(setTimeout(() => {
         if (!alive) return
-        setVisitor(null)
-        timers.push(setTimeout(spawnDay, 2500 + Math.random() * 4000))
-      }, 6000 + Math.random() * 4000))
+        const others = landPerches.filter((p) => p.id !== perch.id)
+        if (perch.zone !== 'water' && others.length && Math.random() < 0.45) {
+          const dest = others[Math.floor(Math.random() * others.length)]
+          setVisitor({ kind: 'flight', fromX: perch.x, fromY: perch.y, toX: dest.x, toY: dest.y, name: bird.name, photo: bird.photo })
+          timers.push(setTimeout(() => { if (alive) perchBird(dest, bird) }, 1650))
+        } else {
+          setVisitor(null)
+          timers.push(setTimeout(spawnDay, 2500 + Math.random() * 4000))
+        }
+      }, 6000 + Math.random() * 3500))
+    }
+
+    function spawnDay() {
+      if (!alive || !grownPerches.length || !collection.length) return
+      const perch = grownPerches[Math.floor(Math.random() * grownPerches.length)]
+      perchBird(perch, pickBird(perch.zone === 'water'))
     }
 
     const spawnNight = () => {
@@ -460,7 +515,38 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
       timers.forEach(clearTimeout)
       setVisitor(null)
     }
-  }, [grownPerches, collection, isNight])
+  }, [grownPerches, collection, isNight, demoActive])
+
+  // Demo preview: a scripted hop → fly → hop → fly sequence she can trigger to
+  // see the new garden life immediately, without waiting for the random timer.
+  // Prefers her real grown land elements; synthesises a left/right pair (and a
+  // placeholder bird) if the garden is too sparse, so it always performs.
+  useEffect(() => {
+    if (!demoActive) return undefined
+    let alive = true
+    const timers = []
+    const at = (ms, fn) => timers.push(setTimeout(() => { if (alive) fn() }, ms))
+
+    const land = grownPerches.filter((p) => p.zone !== 'water')
+    const spots = land.slice(0, 2).map((p) => ({ id: p.id, x: p.x, y: p.y }))
+    while (spots.length < 2) {
+      spots.push(spots.length === 0 ? { id: 'demo-l', x: 120, y: 150 } : { id: 'demo-r', x: 280, y: 150 })
+    }
+    const withPhoto = collection.filter((b) => b.photo)
+    const b1 = withPhoto[0] || collection[0] || { name: 'Cape Robin', photo: null }
+    const b2 = withPhoto[1] || withPhoto[0] || collection[0] || { name: 'Sunbird', photo: null }
+    const perch = (i, b) => ({ kind: 'bird', perchId: spots[i].id, x: spots[i].x, y: spots[i].y, name: b.name, photo: b.photo, hop: true })
+    const fly = (i, j, b) => ({ kind: 'flight', fromX: spots[i].x, fromY: spots[i].y, toX: spots[j].x, toY: spots[j].y, name: b.name, photo: b.photo })
+
+    at(0, () => setVisitor(perch(0, b1)))       // perch + hop around the canopy
+    at(3200, () => setVisitor(fly(0, 1, b1)))   // fly across to the other tree
+    at(4900, () => setVisitor(perch(1, b1)))    // settle + hop there
+    at(8000, () => setVisitor(fly(1, 0, b2)))   // a second bird flies back
+    at(9700, () => setVisitor(perch(0, b2)))    // settle + hop
+    at(12800, () => { setVisitor(null); setDemoActive(false) })
+
+    return () => { alive = false; timers.forEach(clearTimeout); setVisitor(null) }
+  }, [demoActive, grownPerches, collection])
 
   function toScene(evt) {
     const svg = svgRef.current
@@ -591,8 +677,9 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
               by day, or nocturnal wildlife by night */}
           {visitor && !placingType && (
             visitor.kind === 'bird' ? <GardenVisitor visitor={visitor} />
-              : visitor.kind === 'owl' ? <OwlVisitor visitor={visitor} />
-                : <HedgehogVisitor />
+              : visitor.kind === 'flight' ? <FlyingBird visitor={visitor} />
+                : visitor.kind === 'owl' ? <OwlVisitor visitor={visitor} />
+                  : <HedgehogVisitor />
           )}
 
           {/* fireflies drift through the garden after dark */}
@@ -632,6 +719,17 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
             ))}
           </div>
         )}
+        </div>
+        <div className="garden-demo-row">
+          <button
+            className="secondary-btn garden-demo-btn"
+            type="button"
+            onClick={() => setDemoActive(true)}
+            disabled={demoActive || !!placingType}
+          >
+            {demoActive ? 'Previewing garden life… 🎬' : 'Preview Garden Life 🎬'}
+          </button>
+          <span className="fine-print">Sandbox preview — watch birds hop around a tree and fly between trees right now.</span>
         </div>
       </section>
 

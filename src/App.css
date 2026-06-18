@@ -4109,6 +4109,35 @@ textarea:focus {
   100% { transform: translate(-6px, -16px); opacity: 0; }
 }
 
+/* Garden life: a perched bird hops between a few canopy points (CSS loop), and
+   an in-transit bird glides along a shallow arc with flapping wings. The shadow
+   stays put on the ground while the bird above it hops/relocates. */
+.garden-perch-hop { animation: garden-canopy-hop 7.5s ease-in-out infinite; }
+@keyframes garden-canopy-hop {
+  0%, 14%   { transform: translate(0, 0); }
+  22%       { transform: translate(-5px, -10px); }
+  30%, 44%  { transform: translate(-10px, -16px); }  /* higher-left branch */
+  52%       { transform: translate(2px, -12px); }
+  60%, 74%  { transform: translate(11px, -7px); }     /* lower-right branch */
+  82%       { transform: translate(5px, -3px); }
+  90%, 100% { transform: translate(0, 0); }           /* back to start */
+}
+
+.garden-flight { animation: garden-fly-arc 1.6s ease-in-out forwards; }
+@keyframes garden-fly-arc {
+  0%   { transform: translate(var(--fx), var(--fy)); }
+  50%  { transform: translate(var(--mx), var(--my)); }
+  100% { transform: translate(var(--tx), var(--ty)); }
+}
+.garden-fly-wing { transform-box: fill-box; }
+.garden-fly-wing-l { transform-origin: right center; animation: garden-flap-l 0.26s ease-in-out infinite; }
+.garden-fly-wing-r { transform-origin: left center; animation: garden-flap-r 0.26s ease-in-out infinite; }
+@keyframes garden-flap-l { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(16deg); } }
+@keyframes garden-flap-r { 0%, 100% { transform: rotate(22deg); } 50% { transform: rotate(-16deg); } }
+
+.garden-demo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.garden-demo-btn { white-space: nowrap; }
+
 /* P3: graduated companions living permanently in the garden. */
 .garden-scene-wrap { position: relative; line-height: 0; }
 .garden-residents { position: absolute; inset: 0; pointer-events: none; }
