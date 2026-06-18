@@ -3,7 +3,7 @@
 // to an invisible grid, no overlap), so every garden is unique. Items grow via
 // the daily tap-to-tend care loop. Pure presentation + onPlace/onWater callbacks
 // operating on the `garden` slice only.
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GARDEN_SHOP,
   gardenItem,
@@ -169,9 +169,32 @@ function SanctuaryFence() {
   )
 }
 
+// A bird from her Collection visiting a grown element: a small circular photo
+// "portrait" standing on the grass beside the element, with a gentle idle hop
+// (CSS). Disappears and rotates over time (scheduled by the page).
+function GardenVisitor({ visitor }) {
+  const clip = `gv-clip-${visitor.perchId}`
+  return (
+    <g className="garden-visitor" transform={`translate(${visitor.x + 15} ${visitor.y - 1})`}>
+      <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.18" />
+      <g className="garden-visitor-bob">
+        <defs>
+          <clipPath id={clip}><circle cx="0" cy="-9" r="9" /></clipPath>
+        </defs>
+        <circle cx="0" cy="-9" r="10.5" fill="#fff" />
+        {visitor.photo
+          ? <image href={visitor.photo} x="-11" y="-20" width="22" height="22" clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMid slice" />
+          : <circle cx="0" cy="-9" r="9" fill="#cde9b6" />}
+        <circle cx="0" cy="-9" r="9.6" fill="none" stroke="#9c6f44" strokeWidth="1.2" />
+      </g>
+      <text className="garden-visitor-name" x="0" y="-23" textAnchor="middle">{visitor.name}</text>
+    </g>
+  )
+}
+
 // ---- the page --------------------------------------------------------------
-export function GardenPage({ garden, coins, onPlace, onWater, onBack, onBuySanctuary }) {
-  const plantings = garden?.plantings || []
+export function GardenPage({ garden, coins, collection = [], onPlace, onWater, onBack, onBuySanctuary }) {
+  const plantings = useMemo(() => garden?.plantings || [], [garden])
   const today = saDateKey()
   const unlocked = GARDEN_SHOP.filter((i) => (garden?.shopUnlocked || []).includes(i.id))
   const svgRef = useRef(null)
@@ -179,6 +202,49 @@ export function GardenPage({ garden, coins, onPlace, onWater, onBack, onBuySanct
   const [placingType, setPlacingType] = useState(null)
   const [ghost, setGhost] = useState(null) // { x, y, ok }
   const selected = plantings.find((p) => p.id === selectedId) || null
+
+  // Fully-grown elements with a habitat zone are perches birds can visit (P2).
+  const grownPerches = useMemo(
+    () =>
+      plantings
+        .map((p) => ({ p, item: gardenItem(p.type) }))
+        .filter(({ p, item }) => item && item.zone && isFullyGrown(p))
+        .map(({ p }) => ({ id: p.id, x: p.x ?? 0, y: p.y ?? 0, zone: gardenItem(p.type).zone })),
+    [plantings],
+  )
+
+  // Periodically a bird from her Collection drops in at a random matching perch,
+  // lingers (idle hop), leaves, then a (often different) bird visits later.
+  const [visitor, setVisitor] = useState(null)
+  useEffect(() => {
+    if (!grownPerches.length || !collection.length) return undefined
+    let alive = true
+    const timers = []
+    const spawn = () => {
+      if (!alive) return
+      const perch = grownPerches[Math.floor(Math.random() * grownPerches.length)]
+      const wantWater = perch.zone === 'water'
+      let pool = collection.filter((b) => (wantWater ? b.water : b.land))
+      if (!pool.length) pool = collection
+      const bird = pool[Math.floor(Math.random() * pool.length)]
+      setVisitor({ perchId: perch.id, x: perch.x, y: perch.y, name: bird.name, photo: bird.photo })
+      timers.push(
+        setTimeout(() => {
+          if (!alive) return
+          setVisitor(null)
+          timers.push(setTimeout(spawn, 2500 + Math.random() * 4000))
+        }, 6000 + Math.random() * 4000),
+      )
+    }
+    timers.push(setTimeout(spawn, 1200))
+    // Cleanup (runs on deps-change + unmount) clears any visitor without a
+    // synchronous setState in the effect body (avoids cascading renders).
+    return () => {
+      alive = false
+      timers.forEach(clearTimeout)
+      setVisitor(null)
+    }
+  }, [grownPerches, collection])
 
   function toScene(evt) {
     const svg = svgRef.current
@@ -298,6 +364,9 @@ export function GardenPage({ garden, coins, onPlace, onWater, onBack, onBuySanct
                 </g>
               )
             })}
+
+          {/* a visiting bird from her Collection (in front of the plantings) */}
+          {visitor && !placingType && <GardenVisitor visitor={visitor} />}
 
           {/* placement ghost */}
           {placingType && ghost && (

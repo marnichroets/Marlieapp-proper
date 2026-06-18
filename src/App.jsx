@@ -2266,6 +2266,26 @@ function App() {
 
   const season = useMemo(() => getSeasonInfo(), [])
   const weekly = useMemo(() => getWeeklyBird(), [])
+
+  // Birds from her real Collection (seen species) that can visit grown garden
+  // elements (P2). Shaped to the minimum the scene needs and bucketed by
+  // habitat: water birds for the pond/bird-bath, land songbirds for trees,
+  // feeders, etc. Memoised so the visitor scheduler isn't reset every render.
+  const gardenVisitors = useMemo(() => {
+    return (data.birdLibrary || [])
+      .filter((b) => b.seen && (b.imageUrl || b.commonName))
+      .map((b) => {
+        const tags = b.tags || []
+        const water = tags.includes('Water birds') || b.category === 'Water birds'
+        return {
+          id: b.id || b.commonName,
+          name: b.commonName,
+          photo: b.imageUrl || '',
+          water,
+          land: !water, // trees/feeders draw any non-water species she's collected
+        }
+      })
+  }, [data.birdLibrary])
   const tweetyView = useMemo(() => {
     const today = tweetyToday(data.tweety)
     return {
@@ -5027,6 +5047,7 @@ function App() {
           <GardenPage
             garden={data.garden}
             coins={data.featherCoins}
+            collection={gardenVisitors}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
             onBuySanctuary={buySanctuaryFence}

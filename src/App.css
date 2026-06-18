@@ -4047,6 +4047,26 @@ textarea:focus {
 .garden-shop-btn small { color: var(--muted); font-weight: 600; }
 .garden-shop-btn[disabled] { opacity: 0.45; cursor: default; }
 .garden-shop-emoji { font-size: 1.6rem; }
+.garden-shop-btn.owned { border-color: #bcdcc0; background: #eef7ec; opacity: 1; }
+.garden-shop-btn.owned small { color: #3c7a4a; }
+
+/* P2: a bird from her Collection visiting a grown element. */
+.garden-visitor { animation: garden-visitor-in 0.5s ease-out both; }
+.garden-visitor-bob {
+  animation: garden-visitor-hop 1.7s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.garden-visitor-name {
+  fill: #2f4a26; font-size: 9px; font-weight: 800;
+  paint-order: stroke; stroke: #ffffff; stroke-width: 2.4px; stroke-linejoin: round;
+}
+@keyframes garden-visitor-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes garden-visitor-hop {
+  0%, 55%, 100% { transform: translateY(0) rotate(0deg); }
+  28% { transform: translateY(-3px) rotate(-5deg); }
+  42% { transform: translateY(0) rotate(4deg); }
+}
 
 /* Sandbox-only companion gallery: 6 species × 5 stages grid. */
 .companion-gallery-stages {
