@@ -1871,7 +1871,19 @@ function normalizeLoadedState(saved) {
       }),
       store: { ...base.store, ...(saved.store || {}) },
       games: { ...base.games, ...(saved.games || {}) },
-      garden: { ...base.garden, ...(saved.garden || {}) },
+      garden: {
+        ...base.garden,
+        ...(saved.garden || {}),
+        // Reconcile the shop catalog on every load: items shipped after this
+        // garden was created must unlock for existing gardens too, so a stale
+        // saved shopUnlocked (e.g. an early 2-item starter set) can never hide
+        // newer items. Union keeps any already-unlocked ids and stays correct
+        // if progressive unlocking arrives (base would then hold the starters).
+        shopUnlocked: Array.from(new Set([
+          ...(base.garden.shopUnlocked || []),
+          ...(saved.garden?.shopUnlocked || []),
+        ])),
+      },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       magazineIssue: {
