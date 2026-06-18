@@ -4068,6 +4068,47 @@ textarea:focus {
   42% { transform: translateY(0) rotate(4deg); }
 }
 
+/* Day/night cycle: live SA time-of-day note + nocturnal touches. */
+.garden-time-note { margin-top: 2px; }
+.garden-stars circle { animation: star-twinkle 3s ease-in-out infinite; }
+@keyframes star-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+.garden-owl {
+  animation: garden-owl-sway 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes garden-owl-sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+
+.garden-hedgehog {
+  animation: hedgehog-walk 11.5s linear both;
+  transform-box: fill-box;
+}
+@keyframes hedgehog-walk { from { transform: translateX(-30px); } to { transform: translateX(430px); } }
+.garden-hedgehog-body {
+  animation: hedgehog-waddle 0.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes hedgehog-waddle {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-1px) rotate(1.5deg); }
+}
+
+.garden-firefly {
+  animation-name: firefly-drift;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  transform-box: fill-box;
+}
+@keyframes firefly-drift {
+  0% { transform: translate(0, 4px); opacity: 0; }
+  25% { opacity: 1; }
+  50% { transform: translate(10px, -8px); opacity: 0.9; }
+  75% { opacity: 1; }
+  100% { transform: translate(-6px, -16px); opacity: 0; }
+}
+
 /* P3: graduated companions living permanently in the garden. */
 .garden-scene-wrap { position: relative; line-height: 0; }
 .garden-residents { position: absolute; inset: 0; pointer-events: none; }

@@ -15,8 +15,178 @@ import {
   snapToGarden,
   canPlaceAt,
 } from './gardenData'
-import { saDateKey } from './saDate'
+import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
+
+// ---- day/night cycle (driven by real SA local time) ------------------------
+// Sky gradient stops per phase: golden morning, bright midday, warm sunset,
+// dark starry night. Drawn into the existing #gardenSky linearGradient.
+const SKY_STOPS = {
+  morning: [['0', '#fcd9a3'], ['0.55', '#fde9cf'], ['1', '#eef6da']],
+  midday: [['0', '#bfe6f2'], ['1', '#e8f5dc']],
+  evening: [['0', '#ff9663'], ['0.5', '#ffb487'], ['1', '#ffd9b0']],
+  night: [['0', '#162449'], ['0.6', '#243a63'], ['1', '#33507e']],
+}
+
+// A translucent lighting wash over the ground, so grass + plantings read as
+// lit by the same morning/sunset/moon light (midday = neutral, no wash).
+const GROUND_WASH = {
+  morning: { fill: '#ffce85', opacity: 0.14 },
+  midday: null,
+  evening: { fill: '#ff7a3c', opacity: 0.2 },
+  night: { fill: '#16233f', opacity: 0.4 },
+}
+
+const PHASE_META = {
+  morning: { label: 'Morning', icon: '🌅' },
+  midday: { label: 'Midday', icon: '☀️' },
+  evening: { label: 'Evening', icon: '🌇' },
+  night: { label: 'Night', icon: '🌙' },
+}
+
+// Deterministic little PRNG so star/firefly positions are stable across renders
+// (no jitter on every re-render) while still looking scattered.
+function seededPoints(seed, count, make) {
+  let s = seed
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280
+    return s / 233280
+  }
+  return Array.from({ length: count }, () => make(rnd))
+}
+
+const NIGHT_STARS = seededPoints(7, 26, (rnd) => ({
+  x: 12 + rnd() * 376,
+  y: 8 + rnd() * 112,
+  r: 0.6 + rnd() * 1.1,
+  delay: rnd() * 3,
+}))
+
+const FIREFLIES = seededPoints(42, 9, (rnd) => ({
+  x: 44 + rnd() * 312,
+  y: 150 + rnd() * 74,
+  delay: rnd() * 5,
+  dur: 5 + rnd() * 4,
+}))
+
+// The sky: celestial body + clouds/stars for the current phase. The gradient
+// itself is set on the scene's #gardenSky fill (stops mapped from SKY_STOPS).
+function GardenSky({ phase }) {
+  if (phase === 'night') {
+    return (
+      <g aria-hidden="true">
+        <g className="garden-stars">
+          {NIGHT_STARS.map((s, i) => (
+            <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#fdfbe8" style={{ animationDelay: `${s.delay}s` }} />
+          ))}
+        </g>
+        {/* moon with a soft halo + faint craters */}
+        <circle cx="320" cy="50" r="26" fill="#fff7d6" opacity="0.16" />
+        <circle cx="320" cy="50" r="16" fill="#f3efcf" />
+        <circle cx="314" cy="46" r="3" fill="#e4ddb2" opacity="0.6" />
+        <circle cx="325" cy="55" r="2.2" fill="#e4ddb2" opacity="0.55" />
+        <circle cx="326" cy="44" r="1.5" fill="#e4ddb2" opacity="0.5" />
+      </g>
+    )
+  }
+  if (phase === 'evening') {
+    return (
+      <g aria-hidden="true">
+        {/* a big warm sun sinking toward the horizon */}
+        <circle cx="316" cy="86" r="34" fill="#ff9a52" opacity="0.25" />
+        <circle cx="316" cy="86" r="24" fill="#ff7e3c" />
+        <g fill="#ffffff" opacity="0.5">
+          <ellipse cx="92" cy="50" rx="24" ry="11" />
+          <ellipse cx="116" cy="54" rx="16" ry="9" />
+        </g>
+      </g>
+    )
+  }
+  // morning + midday: a sun (lower + golden in the morning) and white clouds.
+  const morning = phase === 'morning'
+  return (
+    <g aria-hidden="true">
+      {morning && <circle cx="300" cy="66" r="30" fill="#ffe7a8" opacity="0.35" />}
+      <circle cx={morning ? 300 : 338} cy={morning ? 66 : 46} r="22" fill={morning ? '#ffcf6a' : '#ffe07a'} />
+      <g fill="#ffffff" opacity="0.9">
+        <ellipse cx="78" cy="42" rx="22" ry="11" />
+        <ellipse cx="100" cy="46" rx="16" ry="9" />
+      </g>
+    </g>
+  )
+}
+
+// ---- nocturnal wildlife (night-only, mirrors the daytime visitor pattern) --
+function OwlArt() {
+  return (
+    <g>
+      <ellipse cx="0" cy="-9" rx="8" ry="10" fill="#8a6f4e" />
+      <ellipse cx="0" cy="-6" rx="5.2" ry="7" fill="#cdb288" />
+      {/* ear tufts */}
+      <path d="M-7 -16 L-3.5 -19.5 L-2.5 -15 Z" fill="#6f5639" />
+      <path d="M7 -16 L3.5 -19.5 L2.5 -15 Z" fill="#6f5639" />
+      {/* big eyes */}
+      <circle cx="-3.4" cy="-13" r="3.1" fill="#fff" />
+      <circle cx="3.4" cy="-13" r="3.1" fill="#fff" />
+      <circle cx="-3.4" cy="-13" r="1.5" fill="#2a2a2a" />
+      <circle cx="3.4" cy="-13" r="1.5" fill="#2a2a2a" />
+      {/* beak + feet */}
+      <path d="M0 -11.5 L-1.4 -9.5 L1.4 -9.5 Z" fill="#e8a23a" />
+      <path d="M-3 0 l0 -2 M3 0 l0 -2" stroke="#e8a23a" strokeWidth="1.4" strokeLinecap="round" />
+    </g>
+  )
+}
+
+function HedgehogArt() {
+  const spike = (x, y, a) => <path key={`${x},${y}`} d={`M${x} ${y} l-1.6 -4`} stroke="#5e4528" strokeWidth="1.6" strokeLinecap="round" transform={`rotate(${a} ${x} ${y})`} />
+  return (
+    <g>
+      {/* spiky body */}
+      <path d="M-12 0 Q-13 -12 0 -13 Q12 -12 11 0 Z" fill="#7a5a3a" />
+      {[[-9, -7, -20], [-5, -11, -10], [0, -12.5, 0], [5, -11, 10], [9, -7, 22]].map(([x, y, a]) => spike(x, y, a))}
+      {/* face to the right */}
+      <ellipse cx="11" cy="-3.5" rx="4.2" ry="3.4" fill="#cdb288" />
+      <circle cx="11" cy="-5.2" r="0.9" fill="#2a2a2a" />
+      <circle cx="14.4" cy="-3.6" r="1.1" fill="#2a2a2a" />
+      {/* little feet */}
+      <path d="M-5 0 l0 1.6 M5 0 l0 1.6" stroke="#5e4528" strokeWidth="1.6" strokeLinecap="round" />
+    </g>
+  )
+}
+
+function OwlVisitor({ visitor }) {
+  return (
+    <g className="garden-visitor" transform={`translate(${visitor.x + 15} ${visitor.y - 1})`}>
+      <ellipse cx="0" cy="2" rx="8" ry="2.6" fill="#16233f" opacity="0.3" />
+      <g className="garden-owl"><OwlArt /></g>
+    </g>
+  )
+}
+
+function HedgehogVisitor() {
+  // Static baseline (front grass); the inner group walks across via CSS.
+  return (
+    <g className="garden-visitor" transform="translate(0 228)">
+      <g className="garden-hedgehog">
+        <ellipse cx="0" cy="2" rx="11" ry="2.6" fill="#16233f" opacity="0.3" />
+        <g className="garden-hedgehog-body"><HedgehogArt /></g>
+      </g>
+    </g>
+  )
+}
+
+function Fireflies() {
+  return (
+    <g aria-hidden="true">
+      {FIREFLIES.map((f, i) => (
+        <g key={i} className="garden-firefly" style={{ animationDelay: `${f.delay}s`, animationDuration: `${f.dur}s` }}>
+          <circle cx={f.x} cy={f.y} r="3.4" fill="#fff6a8" opacity="0.5" />
+          <circle cx={f.x} cy={f.y} r="1.4" fill="#fffde0" />
+        </g>
+      ))}
+    </g>
+  )
+}
 
 // ---- per-item artwork (base at origin (0,0), growing upward; pond is flat) --
 function TreeArt({ stageKey }) {
@@ -200,6 +370,24 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
   const today = saDateKey()
   const unlocked = GARDEN_SHOP.filter((i) => (garden?.shopUnlocked || []).includes(i.id))
   const svgRef = useRef(null)
+
+  // Time-of-day phase from real SA local time; refreshed on an interval and when
+  // the tab regains focus so it rolls over (e.g. into night) while the page is open.
+  const [phase, setPhase] = useState(() => saTimePhase())
+  useEffect(() => {
+    const tick = () => setPhase(saTimePhase())
+    const iv = window.setInterval(tick, 60000)
+    const onVis = () => { if (!document.hidden) tick() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
+    return () => {
+      window.clearInterval(iv)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
+    }
+  }, [])
+  const isNight = phase === 'night'
+
   const [selectedId, setSelectedId] = useState(null)
   const [placingType, setPlacingType] = useState(null)
   const [ghost, setGhost] = useState(null) // { x, y, ok }
@@ -215,30 +403,56 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
     [plantings],
   )
 
-  // Periodically a bird from her Collection drops in at a random matching perch,
-  // lingers (idle hop), leaves, then a (often different) bird visits later.
+  // An occasional visitor drops in, lingers, leaves, then (often a different one)
+  // comes by later. By day it's a bird from her Collection at a matching perch;
+  // by night it's nocturnal wildlife — an owl perched on a grown element, or a
+  // hedgehog ambling across the grass (fireflies drift independently, below).
   const [visitor, setVisitor] = useState(null)
   useEffect(() => {
-    if (!grownPerches.length || !collection.length) return undefined
     let alive = true
     const timers = []
-    const spawn = () => {
-      if (!alive) return
+    const landPerches = grownPerches.filter((p) => p.zone !== 'water')
+
+    const spawnDay = () => {
+      if (!alive || !grownPerches.length || !collection.length) return
       const perch = grownPerches[Math.floor(Math.random() * grownPerches.length)]
       const wantWater = perch.zone === 'water'
       let pool = collection.filter((b) => (wantWater ? b.water : b.land))
       if (!pool.length) pool = collection
       const bird = pool[Math.floor(Math.random() * pool.length)]
-      setVisitor({ perchId: perch.id, x: perch.x, y: perch.y, name: bird.name, photo: bird.photo })
-      timers.push(
-        setTimeout(() => {
-          if (!alive) return
-          setVisitor(null)
-          timers.push(setTimeout(spawn, 2500 + Math.random() * 4000))
-        }, 6000 + Math.random() * 4000),
-      )
+      setVisitor({ kind: 'bird', perchId: perch.id, x: perch.x, y: perch.y, name: bird.name, photo: bird.photo })
+      timers.push(setTimeout(() => {
+        if (!alive) return
+        setVisitor(null)
+        timers.push(setTimeout(spawnDay, 2500 + Math.random() * 4000))
+      }, 6000 + Math.random() * 4000))
     }
-    timers.push(setTimeout(spawn, 1200))
+
+    const spawnNight = () => {
+      if (!alive) return
+      const useOwl = landPerches.length && Math.random() < 0.5
+      let linger
+      if (useOwl) {
+        const perch = landPerches[Math.floor(Math.random() * landPerches.length)]
+        setVisitor({ kind: 'owl', perchId: perch.id, x: perch.x, y: perch.y })
+        linger = 6000 + Math.random() * 5000
+      } else {
+        setVisitor({ kind: 'hedgehog' })
+        linger = 11500 // matches the cross-scene walk animation
+      }
+      timers.push(setTimeout(() => {
+        if (!alive) return
+        setVisitor(null)
+        timers.push(setTimeout(spawnNight, 3000 + Math.random() * 4000))
+      }, linger))
+    }
+
+    if (isNight) {
+      timers.push(setTimeout(spawnNight, 1500))
+    } else if (grownPerches.length && collection.length) {
+      timers.push(setTimeout(spawnDay, 1200))
+    }
+
     // Cleanup (runs on deps-change + unmount) clears any visitor without a
     // synchronous setState in the effect body (avoids cascading renders).
     return () => {
@@ -246,7 +460,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
       timers.forEach(clearTimeout)
       setVisitor(null)
     }
-  }, [grownPerches, collection])
+  }, [grownPerches, collection, isNight])
 
   function toScene(evt) {
     const svg = svgRef.current
@@ -296,6 +510,9 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
         <p className="fine-print">
           Buy an item, then tap the grass to place it wherever you like. Tend it daily to grow it. Sandbox-only. · 🪙 {coins}
         </p>
+        <p className="fine-print garden-time-note">
+          Garden time: <strong>{PHASE_META[phase].label} {PHASE_META[phase].icon}</strong> · live South African time
+        </p>
       </section>
 
       <section className="soft-card full-span garden-scene-card">
@@ -313,16 +530,13 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
         >
           <defs>
             <linearGradient id="gardenSky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#bfe6f2" />
-              <stop offset="1" stopColor="#e8f5dc" />
+              {SKY_STOPS[phase].map(([offset, color]) => (
+                <stop key={offset} offset={offset} stopColor={color} />
+              ))}
             </linearGradient>
           </defs>
           <rect x="0" y="0" width="400" height="260" fill="url(#gardenSky)" />
-          <circle cx="338" cy="46" r="22" fill="#ffe07a" />
-          <g fill="#ffffff" opacity="0.9">
-            <ellipse cx="78" cy="42" rx="22" ry="11" />
-            <ellipse cx="100" cy="46" rx="16" ry="9" />
-          </g>
+          <GardenSky phase={phase} />
           <path d="M0 150 q70 -30 160 -12 q90 18 240 -8 V260 H0 Z" fill="#cfe9b6" />
           <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="#8ccb6f" />
           {/* a soft meandering path for charm */}
@@ -368,8 +582,21 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
               )
             })}
 
-          {/* a visiting bird from her Collection (in front of the plantings) */}
-          {visitor && !placingType && <GardenVisitor visitor={visitor} />}
+          {/* time-of-day lighting wash over the ground (plantings read as lit) */}
+          {GROUND_WASH[phase] && (
+            <rect x="0" y="120" width="400" height="140" fill={GROUND_WASH[phase].fill} opacity={GROUND_WASH[phase].opacity} style={{ pointerEvents: 'none' }} />
+          )}
+
+          {/* an occasional visitor in front of the plantings: a Collection bird
+              by day, or nocturnal wildlife by night */}
+          {visitor && !placingType && (
+            visitor.kind === 'bird' ? <GardenVisitor visitor={visitor} />
+              : visitor.kind === 'owl' ? <OwlVisitor visitor={visitor} />
+                : <HedgehogVisitor />
+          )}
+
+          {/* fireflies drift through the garden after dark */}
+          {isNight && !placingType && <Fireflies />}
 
           {/* placement ghost */}
           {placingType && ghost && (

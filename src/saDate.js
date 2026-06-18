@@ -22,3 +22,20 @@ export function saDateKey(date = new Date()) {
 export function saDateKeyOffset(days = 0) {
   return saDateKey(new Date(Date.now() - days * 86400000))
 }
+
+// SA local hour (0..23). Used by the Bird Garden's day/night scene so it
+// reflects the actual current South African time regardless of device timezone.
+export function saHour(date = new Date()) {
+  const sa = new Date(date.getTime() + SA_OFFSET_MS)
+  return sa.getUTCHours()
+}
+
+// Time-of-day phase for the garden scene, from SA local time:
+//   morning 06:00–10:00, midday 10:00–16:00, evening 16:00–19:00, night 19:00–06:00.
+export function saTimePhase(date = new Date()) {
+  const h = saHour(date)
+  if (h >= 6 && h < 10) return 'morning'
+  if (h >= 10 && h < 16) return 'midday'
+  if (h >= 16 && h < 19) return 'evening'
+  return 'night'
+}
