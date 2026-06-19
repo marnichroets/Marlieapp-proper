@@ -25,6 +25,14 @@ __pycache__/
 batch_input.json
 batch_photos.json
 
+# Local account state dumps/backups from one-off live-data edits (never commit)
+marnich_*.json
+*_state_raw.json
+*_backup_pre_*.json
+
+# Local preview/working output
+previews/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
