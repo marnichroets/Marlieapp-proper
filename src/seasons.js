@@ -58,7 +58,7 @@ export const SEASONS = {
 // and challenges use — so all three switch on together at SA midnight. During
 // this window the Cape Town theme overrides the normal season; after the 29th it
 // simply stops matching and the real season returns — zero manual cleanup.
-function isCapeTownWeek(date) {
+export function isCapeTownWeek(date = new Date()) {
   const key = saDateKey(date)
   return key >= '2026-06-20' && key <= '2026-06-29'
 }

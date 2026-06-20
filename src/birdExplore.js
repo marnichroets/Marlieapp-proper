@@ -36,6 +36,58 @@ export function nearPotchefstroom(bird) {
   return /(north west|potchefstroom|highveld|grassland)/.test(birdText(bird))
 }
 
+// Western Cape / Cape Town birds — for the "near you" card while Pooks is on her
+// Cape Town trip (see isCapeTownWeek). Many genuinely-Cape species in the library
+// predate region tagging and carry no regionTags, so a curated name list is the
+// reliable signal; the tag/text checks then catch the rest.
+const CAPE_TOWN_BIRDS = new Set(
+  [
+    'Cape Sugarbird',
+    'Orange-breasted Sunbird',
+    'Southern Double-collared Sunbird',
+    'Malachite Sunbird',
+    'Cape Bulbul',
+    'Cape Sparrow',
+    'Cape Spurfowl',
+    'Cape Robin-Chat',
+    'Cape White-eye',
+    'Cape Weaver',
+    'Cape Canary',
+    'Cape Batis',
+    'Cape Grassbird',
+    'Cape Bunting',
+    'Cape Siskin',
+    'Cape Rockjumper',
+    'Cape Longclaw',
+    'Cape Wagtail',
+    'Karoo Prinia',
+    'Karoo Scrub Robin',
+    'Bokmakierie',
+    'Southern Boubou',
+    'Sombre Greenbul',
+    'African Penguin',
+    'African Black Oystercatcher',
+    "Hartlaub's Gull",
+    'Kelp Gull',
+    'Cape Cormorant',
+    'Crowned Cormorant',
+    'White-breasted Cormorant',
+    'Cape Gannet',
+    'Cape Shoveler',
+    'Cape Teal',
+    'Egyptian Goose',
+    'Hadeda Ibis',
+    'Helmeted Guineafowl',
+  ].map(lc),
+)
+
+export function nearCapeTown(bird) {
+  if (CAPE_TOWN_BIRDS.has(lc(bird.commonName))) return true
+  const tags = tagsLc(bird)
+  if (tags.includes('western cape') || tags.includes('fynbos')) return true
+  return /(fynbos|western cape|cape peninsula|table mountain|cape town)/.test(birdText(bird))
+}
+
 // Lowveld / bushveld / savanna birds — the Kruger crowd.
 export function nearKruger(bird) {
   if (tagsLc(bird).includes('kruger')) return true
@@ -136,8 +188,7 @@ function weekSeed(date) {
 // A weekly watch-list of birds likely near Potchefstroom: the same set shows all
 // week, then a fresh set appears every Monday so it feels new without churning
 // day to day.
-export function birdsNearPotchThisWeek(library, date = new Date(), count = 7) {
-  const pool = (library || []).filter(nearPotchefstroom)
+function weeklyWatchList(pool, date, count) {
   if (!pool.length) return []
   const seed = weekSeed(date)
   return pool
@@ -145,6 +196,16 @@ export function birdsNearPotchThisWeek(library, date = new Date(), count = 7) {
     .sort((a, b) => a.k - b.k)
     .slice(0, Math.min(count, pool.length))
     .map((o) => o.bird)
+}
+
+export function birdsNearPotchThisWeek(library, date = new Date(), count = 7) {
+  return weeklyWatchList((library || []).filter(nearPotchefstroom), date, count)
+}
+
+// Same weekly watch-list, but with Western Cape / Cape Town species — used on the
+// home card during the Cape Town Special Week (see isCapeTownWeek).
+export function birdsNearCapeTownThisWeek(library, date = new Date(), count = 7) {
+  return weeklyWatchList((library || []).filter(nearCapeTown), date, count)
 }
 
 // Warm, evocative one-line "where you'll meet this bird" thoughts for the field

@@ -6,7 +6,7 @@ import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
-import { getSeasonInfo } from './seasons'
+import { getSeasonInfo, isCapeTownWeek } from './seasons'
 import { saDateKey, saDateKeyOffset } from './saDate'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -15,6 +15,7 @@ import {
   MONTHS,
   monthlyActivity,
   birdsNearPotchThisWeek,
+  birdsNearCapeTownThisWeek,
   locationThought,
 } from './birdExplore'
 import { TweetyHomeCard, TweetyStatsPage, AviaryCard, CompanionGalleryPage, CompanionSelect } from './Tweety'
@@ -6091,17 +6092,27 @@ function MonthlyActivityBar({ bird }) {
   )
 }
 
-// Home-screen card: a daily-rotating little watch-list of birds likely near
-// Potchefstroom, so there's always something new to look for. Tap one to read
-// its profile.
+// Home-screen card: a weekly-rotating little watch-list of birds likely near
+// Pooks right now, so there's always something new to look for. Tap one to read
+// its profile. During the Cape Town Special Week (see isCapeTownWeek) it follows
+// her to the Cape — Western Cape species and a Cape Town heading — then reverts
+// to the Potchefstroom list automatically after the 29th.
 function BirdsNearYouCard({ library, openBirdProfile }) {
-  const birds = useMemo(() => birdsNearPotchThisWeek(library, new Date(), 7), [library])
+  const capeWeek = isCapeTownWeek()
+  const birds = useMemo(
+    () =>
+      capeWeek
+        ? birdsNearCapeTownThisWeek(library, new Date(), 7)
+        : birdsNearPotchThisWeek(library, new Date(), 7),
+    [library, capeWeek],
+  )
   if (!birds.length) return null
+  const place = capeWeek ? 'Cape Town' : 'Potchefstroom'
   return (
     <section className="soft-card near-you-card">
       <div className="near-you-head">
         <p className="eyebrow">Out there right now</p>
-        <h3>Birds likely near Potchefstroom today 🐦</h3>
+        <h3>Birds likely near {place} today 🐦</h3>
         <p className="near-you-sub">A fresh little watch-list every day — tap one to read about it.</p>
       </div>
       <div className="near-you-scroll">
