@@ -223,21 +223,6 @@ export function marnichMessage(body, title = 'A note just for you') {
 // no manual removal needed, same self-expiring pattern as SPECIAL_COUNCIL_MESSAGES.
 // `make` is a lazy factory so each delivery is stamped with its real arrival time.
 export const SPECIAL_INBOX_DELIVERIES = [
-  // Mid-trip postcard nudge — playful Bird Council voice, encouraging her to log
-  // Cape Town sightings. Just once.
-  {
-    key: 'cape-postcard-nudge',
-    deliverOn: '2026-06-21',
-    until: '2026-06-29',
-    make: () =>
-      createMessage({
-        type: 'council',
-        sender: COUNCIL_SENDER.name,
-        icon: COUNCIL_SENDER.icon,
-        title: 'A nudge from the Cape Town Division',
-        body: 'The Council hears you’ve been seen near Boulders Beach... we’ll be expecting evidence soon, Agent. 🐧🪶',
-      }),
-  },
   // The morning after her interview — a personal note from Marnich, separate from
   // the Council's interview-day dispatch.
   {
@@ -256,22 +241,84 @@ export const SPECIAL_INBOX_DELIVERIES = [
   },
 ]
 
-// Which one-off deliveries are due for `todayKey` (an saDateKey YYYY-MM-DD) given
-// the current messagesMeta. Returns the new inbox messages plus updated meta to
-// store, or null when nothing is due. Pure + idempotent: a delivery already in
-// meta.specialDelivered is never produced again, so re-runs (SA-midnight rollover
-// while open, or a cross-device sync replacing local state) reconcile cleanly.
-export function specialInboxDeliveriesForDay(messagesMeta = {}, todayKey) {
+// The Boulders Beach "field mission" — a gentle, mission-framed Council nudge to
+// log a penguin sighting. Deliberately NOT locked to one day she might not be
+// there: it surfaces as a recurring reminder on a few spread days (each fires at
+// most once), and crucially STOPS the moment she's actually logged a
+// Boulders/penguin sighting (capeMissionComplete) — so it never nags after she's
+// been — and stops after the trip window. Copy varies per beat so the recurrence
+// stays light rather than repetitive.
+export const CAPE_MISSION_UNTIL = '2026-06-29'
+export const CAPE_MISSION_BEATS = {
+  '2026-06-21':
+    'Field mission, Agent: the African Penguin colony at Boulders Beach. Whenever your Cape Town travels take you down there, the Council will be expecting photographic evidence. No rush — the penguins aren’t going anywhere. 🐧🪶',
+  '2026-06-25':
+    'Mission still open, Agent: if Boulders Beach is on your itinerary, those penguins remain gloriously unphotographed. Log a sighting whenever you make it — no pressure. 🪶',
+  '2026-06-27':
+    'Last window on the Boulders Beach mission, Agent. If the penguins are still on your list, now’s the time — but either way, the Council is proud of your fieldwork. 🐧🪶',
+}
+
+// Has she already logged a sighting that completes the Boulders mission? True for
+// any sighting whose species is a penguin or whose location reads like Boulders /
+// Simon's Town, so the recurring reminder can switch itself off once she's been.
+export function isBouldersSighting(sighting) {
+  const loc = String(sighting?.location || '').toLowerCase()
+  const name = String(sighting?.birdName || '').toLowerCase()
+  return /boulders|simon.?s town/.test(loc) || /penguin/.test(name) || /penguin/.test(loc)
+}
+export function capeMissionComplete(sightings = []) {
+  return (sightings || []).some(isBouldersSighting)
+}
+
+// Which extra inbox deliveries are due for `todayKey` (an saDateKey YYYY-MM-DD)
+// given the current messagesMeta and her sightings log. Returns the new inbox
+// messages plus updated meta to store, or null when nothing is due. Pure +
+// idempotent: anything already in meta.specialDelivered is never produced again,
+// so re-runs (SA-midnight rollover while open, or a cross-device sync replacing
+// local state) reconcile cleanly.
+export function specialInboxDeliveriesForDay(messagesMeta = {}, todayKey, sightings = []) {
   const delivered = new Set(messagesMeta?.specialDelivered || [])
-  const due = SPECIAL_INBOX_DELIVERIES.filter(
-    (d) => !delivered.has(d.key) && todayKey >= d.deliverOn && todayKey <= d.until,
-  )
-  if (!due.length) return null
+  const out = []
+
+  // One-off personal notes.
+  SPECIAL_INBOX_DELIVERIES.forEach((d) => {
+    if (!delivered.has(d.key) && todayKey >= d.deliverOn && todayKey <= d.until) {
+      out.push({ key: d.key, message: d.make() })
+    }
+  })
+
+  // Recurring, completion-aware Boulders mission beat for today (if any). The
+  // legacy guard skips the first beat for anyone who already received the earlier
+  // fixed `cape-postcard-nudge` (delivered before this reframe shipped), so nobody
+  // gets two near-identical Boulders nudges.
+  const missionBeat = CAPE_MISSION_BEATS[todayKey]
+  const missionKey = `cape-mission:${todayKey}`
+  const legacyCovered = todayKey === '2026-06-21' && delivered.has('cape-postcard-nudge')
+  if (
+    missionBeat &&
+    todayKey <= CAPE_MISSION_UNTIL &&
+    !delivered.has(missionKey) &&
+    !legacyCovered &&
+    !capeMissionComplete(sightings)
+  ) {
+    out.push({
+      key: missionKey,
+      message: createMessage({
+        type: 'council',
+        sender: COUNCIL_SENDER.name,
+        icon: COUNCIL_SENDER.icon,
+        title: 'Cape Town field mission',
+        body: missionBeat,
+      }),
+    })
+  }
+
+  if (!out.length) return null
   return {
-    messages: due.map((d) => d.make()),
+    messages: out.map((o) => o.message),
     meta: {
       ...messagesMeta,
-      specialDelivered: [...(messagesMeta?.specialDelivered || []), ...due.map((d) => d.key)],
+      specialDelivered: [...(messagesMeta?.specialDelivered || []), ...out.map((o) => o.key)],
     },
   }
 }

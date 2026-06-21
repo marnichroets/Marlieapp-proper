@@ -2365,7 +2365,7 @@ function App() {
     const timer = window.setTimeout(() => {
       if (cancelled) return
       setData((current) => {
-        const drop = specialInboxDeliveriesForDay(current.messagesMeta, dayKey)
+        const drop = specialInboxDeliveriesForDay(current.messagesMeta, dayKey, current.sightings)
         if (!drop) return current
         return {
           ...current,
