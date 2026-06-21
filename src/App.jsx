@@ -162,14 +162,21 @@ const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || DEFAULT_BIRD_AP
   '',
 )
 
-// Bird SOUND identification (BirdNET) — built on the `sound-id` branch but kept
-// OFF by default so it stays completely dark on Pooks' live account until it's
-// deliberately enabled (after her Cape Town trip, once the backend model has had
-// a real accuracy pass). Turn on at build time with VITE_SOUND_ID=1, or to try it
-// on a preview build set localStorage.soundId = 'on' in devtools and reload.
+// Bird SOUND identification (BirdNET). Enabled by default now that it runs on its
+// own isolated Railway service and has been verified end-to-end. Kill-switch:
+// build with VITE_SOUND_ID=0 (or set localStorage.soundId='off') to hide it again
+// without a code change.
 const SOUND_ID_ENABLED =
-  String(import.meta.env.VITE_SOUND_ID || '') === '1' ||
-  (typeof window !== 'undefined' && window.localStorage?.getItem('soundId') === 'on')
+  String(import.meta.env.VITE_SOUND_ID ?? '1') !== '0' &&
+  !(typeof window !== 'undefined' && window.localStorage?.getItem('soundId') === 'off')
+
+// Sound ID runs on its OWN isolated Railway service — a separate container from
+// the main backend (state-sync, photo ID) — so a BirdNET crash/OOM there can
+// never take down her existing working features.
+const DEFAULT_BIRD_SOUND_API_URL = 'https://sound-id-production.up.railway.app'
+const BIRD_SOUND_API_URL = String(
+  import.meta.env.VITE_BIRD_SOUND_API_URL || DEFAULT_BIRD_SOUND_API_URL,
+).replace(/\/+$/, '')
 
 // ---- Bird Battles backend (shared sessions + all-time leaderboard) ----------
 // Scores live on the server, keyed by the 4-digit code, so Pooks and Marnich can
@@ -2124,7 +2131,7 @@ async function identifyBirdByAudio(file) {
   if (!file || !BIRD_API_URL) throw new Error('No recording or API URL')
   const body = new FormData()
   body.append('file', file)
-  const response = await fetch(`${BIRD_API_URL}/api/identify-bird-audio`, {
+  const response = await fetch(`${BIRD_SOUND_API_URL}/api/identify-bird-audio`, {
     method: 'POST',
     body,
   })
