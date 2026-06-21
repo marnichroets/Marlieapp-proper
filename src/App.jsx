@@ -38,6 +38,8 @@ import {
   CARE_WINDOWS,
   companionSpecies,
   getCompanion,
+  gardenCompanionFor,
+  gardenVisitorTint,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
@@ -2283,10 +2285,15 @@ function App() {
       .map((b) => {
         const tags = b.tags || []
         const water = tags.includes('Water birds') || b.category === 'Water birds'
+        // Each visitor is drawn as illustrated TweetyBird art (never a photo):
+        // its species maps to one of the six companion illustrations, or to the
+        // neutral "wild garden bird" fallback so the scene stays consistent.
+        const companion = gardenCompanionFor(b.commonName, b.scientificName)
         return {
           id: b.id || b.commonName,
           name: b.commonName,
-          photo: b.imageUrl || '',
+          companion,
+          tint: gardenVisitorTint(companion),
           water,
           land: !water, // trees/feeders draw any non-water species she's collected
         }

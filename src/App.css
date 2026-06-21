@@ -4134,15 +4134,16 @@ textarea:focus {
 }
 @keyframes g-fly-shuttle {
   0%   { transform: translate(0, 0); }
-  50%  { transform: translate(calc(var(--dx) / 2), calc(var(--dy) / 2 - 34px)); }
+  50%  { transform: translate(calc(var(--dx) / 2), calc(var(--dy) / 2 - var(--lift, 34px))); }
   100% { transform: translate(var(--dx), var(--dy)); }
 }
 
 /* Shared flapping wings (flybird, butterfly, moth): each wing rotates about its
-   inner edge so the pair beats together. */
+   inner edge so the pair beats together. Per-instance --flap-dur / --flap-delay
+   (set on the creature group) keep different individuals out of lockstep. */
 .g-wing { transform-box: fill-box; }
-.g-wing-l { transform-origin: right center; animation: g-flap-l 0.3s ease-in-out infinite; }
-.g-wing-r { transform-origin: left center; animation: g-flap-r 0.3s ease-in-out infinite; }
+.g-wing-l { transform-origin: right center; animation: g-flap-l var(--flap-dur, 0.3s) ease-in-out infinite; animation-delay: var(--flap-delay, 0s); }
+.g-wing-r { transform-origin: left center; animation: g-flap-r var(--flap-dur, 0.3s) ease-in-out infinite; animation-delay: var(--flap-delay, 0s); }
 @keyframes g-flap-l { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(18deg); } }
 @keyframes g-flap-r { 0%, 100% { transform: rotate(24deg); } 50% { transform: rotate(-18deg); } }
 

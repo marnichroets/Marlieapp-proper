@@ -9,12 +9,12 @@
 // growth stages — see SPECIES / companionVisual in Tweety.jsx. (cap/chest are
 // legacy accent fields kept only for the golden-chick fallback path.)
 export const TWEETY_COMPANIONS = [
-  { id: 'weaver', name: 'Sunny the Weaver', species: 'Southern Masked Weaver', cap: '', chest: '', blurb: 'A golden garden architect 🟡' },
-  { id: 'robin', name: 'Robin the Robin-Chat', species: 'Cape Robin-Chat', cap: '', chest: '#E8743C', blurb: 'Warm orange-chested singer 🧡' },
-  { id: 'sunbird', name: 'Jewel the Sunbird', species: 'Malachite Sunbird', cap: '#3FA66A', chest: '', blurb: 'A glittering green sipper 💚' },
-  { id: 'bishop', name: 'Blaze the Bishop', species: 'Southern Red Bishop', cap: '#E0463A', chest: '', blurb: 'A tiny scarlet flame 🔥' },
-  { id: 'sparrow', name: 'Pip the Sparrow', species: 'Cape Sparrow', cap: '#9A7B53', chest: '', blurb: 'A cheeky little seed-lover 🤎' },
-  { id: 'kingfisher', name: 'Splash the Kingfisher', species: 'Malachite Kingfisher', cap: '#3E78C8', chest: '#E8743C', blurb: 'A blue-and-orange water gem 💙' },
+  { id: 'weaver', name: 'Sunny the Weaver', species: 'Southern Masked Weaver', cap: '', chest: '', tint: '#F2D21E', blurb: 'A golden garden architect 🟡' },
+  { id: 'robin', name: 'Robin the Robin-Chat', species: 'Cape Robin-Chat', cap: '', chest: '#E8743C', tint: '#C77A45', blurb: 'Warm orange-chested singer 🧡' },
+  { id: 'sunbird', name: 'Jewel the Sunbird', species: 'Malachite Sunbird', cap: '#3FA66A', chest: '', tint: '#2FA85F', blurb: 'A glittering green sipper 💚' },
+  { id: 'bishop', name: 'Blaze the Bishop', species: 'Southern Red Bishop', cap: '#E0463A', chest: '', tint: '#E8431E', blurb: 'A tiny scarlet flame 🔥' },
+  { id: 'sparrow', name: 'Pip the Sparrow', species: 'Cape Sparrow', cap: '#9A7B53', chest: '', tint: '#9C5A2C', blurb: 'A cheeky little seed-lover 🤎' },
+  { id: 'kingfisher', name: 'Splash the Kingfisher', species: 'Malachite Kingfisher', cap: '#3E78C8', chest: '#E8743C', tint: '#1E78D2', blurb: 'A blue-and-orange water gem 💙' },
 ]
 
 // The species name for a companion id, e.g. 'Cape Robin-Chat'. Empty when no
@@ -26,6 +26,50 @@ export function companionSpecies(id) {
 
 export function getCompanion(id) {
   return TWEETY_COMPANIONS.find((c) => c.id === id) || TWEETY_COMPANIONS[0]
+}
+
+// ---- Garden visitor → illustrated-bird mapping -----------------------------
+// Birds visiting the Bird Garden are drawn with the same illustrated TweetyBird
+// art as her companion (never photos). A collection species that matches one of
+// the six companion species renders as that exact companion illustration; every
+// other species falls back to a neutral "wild garden bird" illustration so the
+// whole scene stays visually consistent. GARDEN_WILD_COMPANION is a cosmetic-only
+// visual id (it lives in SPECIES in Tweety.jsx but is NOT a selectable companion).
+export const GARDEN_WILD_COMPANION = 'wild'
+export const GARDEN_WILD_TINT = '#9A8867'
+
+// Scientific names are the robust key (common names vary), with the common name
+// as a friendly fallback — both normalised the same way.
+const COMPANION_SCI = {
+  'ploceus velatus': 'weaver',
+  'cossypha caffra': 'robin',
+  'nectarinia famosa': 'sunbird',
+  'euplectes orix': 'bishop',
+  'passer melanurus': 'sparrow',
+  'corythornis cristatus': 'kingfisher',
+  'alcedo cristata': 'kingfisher', // older synonym for the Malachite Kingfisher
+}
+
+function normName(value) {
+  return String(value || '').trim().toLowerCase().replace(/[’']/g, '').replace(/\s+/g, ' ')
+}
+
+// Resolve a collection species to the TweetyBird visual id used to draw it in
+// the garden: one of the six companions when it matches, else the wild fallback.
+export function gardenCompanionFor(commonName, scientificName) {
+  const sci = normName(scientificName)
+  if (sci && COMPANION_SCI[sci]) return COMPANION_SCI[sci]
+  const common = normName(commonName)
+  const byName = TWEETY_COMPANIONS.find((c) => normName(c.species) === common)
+  if (byName) return byName.id
+  return GARDEN_WILD_COMPANION
+}
+
+// Representative body colour for a garden visitor's companion id (used to tint
+// the in-flight shuttling bird). Falls back to the wild tint.
+export function gardenVisitorTint(companionId) {
+  const c = TWEETY_COMPANIONS.find((x) => x.id === companionId)
+  return c?.tint || GARDEN_WILD_TINT
 }
 
 // ---- First egg (first-time experience) -------------------------------------

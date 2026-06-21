@@ -167,7 +167,7 @@ function OwlPerch({ c }) {
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
       <ellipse cx="0" cy="2" rx="8" ry="2.6" fill="#16233f" opacity="0.3" />
-      <g className="garden-owl"><OwlArt /></g>
+      <g className="garden-owl" style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 3.2}s` }}><OwlArt /></g>
     </g>
   )
 }
@@ -177,7 +177,7 @@ function OwlPerch({ c }) {
 function Hedgehog({ c }) {
   return (
     <g className="garden-visitor" transform="translate(0 228)">
-      <g className="garden-hedgehog" style={{ animationDelay: `${c.delay}s` }}>
+      <g className="garden-hedgehog" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 11.5}s` }}>
         <ellipse cx="0" cy="2" rx="11" ry="2.6" fill="#16233f" opacity="0.3" />
         <g className="garden-hedgehog-body"><HedgehogArt /></g>
       </g>
@@ -201,7 +201,7 @@ function Firefly({ c }) {
 function Moth({ c }) {
   return (
     <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-moth" style={{ animationDelay: `${c.delay}s` }}>
+      <g className="g-moth" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 5}s`, '--flap-dur': `${c.flapDur || 0.3}s`, '--flap-delay': `${c.flapDelay || 0}s` }}>
         <ellipse className="g-wing g-wing-l" cx="-2.4" cy="0" rx="2.9" ry="3.5" fill="#d8d2c0" />
         <ellipse className="g-wing g-wing-r" cx="2.4" cy="0" rx="2.9" ry="3.5" fill="#d8d2c0" />
         <circle cx="0" cy="0" r="1.4" fill="#9a8f76" />
@@ -215,7 +215,7 @@ function Moth({ c }) {
 function Bat({ c }) {
   return (
     <g transform={`translate(0 ${c.y})`} aria-hidden="true">
-      <g className={`g-bat${c.dir < 0 ? ' g-bat-rev' : ''}`} style={{ animationDelay: `${c.delay}s` }}>
+      <g className={`g-bat${c.dir < 0 ? ' g-bat-rev' : ''}`} style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 5.5}s` }}>
         <g className="g-bat-flap">
           <path d="M0 0 Q-7 -6 -13 -2 Q-8 -1 -6 2 Q-3 0 0 0 Q3 0 6 2 Q8 -1 13 -2 Q7 -6 0 0 Z" fill="#2a2740" />
           <circle cx="0" cy="-1" r="2.2" fill="#2a2740" />
@@ -230,7 +230,7 @@ function Bat({ c }) {
 function Butterfly({ c }) {
   return (
     <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-flutter" style={{ animationDelay: `${c.delay}s` }}>
+      <g className="g-flutter" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 6}s`, '--flap-dur': `${c.flapDur || 0.3}s`, '--flap-delay': `${c.flapDelay || 0}s` }}>
         <ellipse className="g-wing g-wing-l" cx="-3.1" cy="0" rx="3.3" ry="4.3" fill={c.hue} />
         <ellipse className="g-wing g-wing-r" cx="3.1" cy="0" rx="3.3" ry="4.3" fill={c.hue} />
         <line x1="0" y1="-3.4" x2="0" y2="3.4" stroke="#5a4632" strokeWidth="1" />
@@ -243,7 +243,7 @@ function Butterfly({ c }) {
 function Bee({ c }) {
   return (
     <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-bee" style={{ animationDelay: `${c.delay}s` }}>
+      <g className="g-bee" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 2.4}s` }}>
         <ellipse className="g-bee-wing" cx="0" cy="-1.8" rx="2.2" ry="1.1" fill="#ffffff" opacity="0.75" />
         <ellipse cx="0" cy="0" rx="2.5" ry="1.9" fill="#e8b53a" />
         <rect x="-2.6" y="-1.9" width="1.5" height="3.8" fill="#3a2f24" />
@@ -405,22 +405,33 @@ function SanctuaryFence() {
   )
 }
 
-// A bird from her Collection perched beside a grown element: a small circular
-// photo "portrait" on the grass. On land elements it hops between a few canopy
-// points (CSS); the ground shadow stays put beneath it.
+// A bird from her Collection perched beside a grown element: a small illustrated
+// songbird (never a photo) tinted to its species' companion colour, so the scene
+// stays consistent with Tweety. On land elements it hops between a few canopy
+// points (CSS); the ground shadow stays put beneath it. `delay`/`dur` give each
+// bird its own hop timing so no two ever bob in lockstep.
 function PerchBird({ c }) {
-  const clip = `gv-${c.id}`
+  const tint = c.tint || '#9A8867'
   const portrait = (
     <>
-      <g className="garden-visitor-bob">
-        <defs>
-          <clipPath id={clip}><circle cx="0" cy="-9" r="9" /></clipPath>
-        </defs>
-        <circle cx="0" cy="-9" r="10.5" fill="#fff" />
-        {c.photo
-          ? <image href={c.photo} x="-11" y="-20" width="22" height="22" clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMid slice" />
-          : <circle cx="0" cy="-9" r="9" fill="#cde9b6" />}
-        <circle cx="0" cy="-9" r="9.6" fill="none" stroke="#9c6f44" strokeWidth="1.2" />
+      <g
+        className="garden-visitor-bob"
+        style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 1.7}s` }}
+      >
+        {/* tail (slightly darker than the body) */}
+        <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill={tint} />
+        <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill="#000" opacity="0.16" />
+        {/* body + soft pale belly */}
+        <ellipse cx="0" cy="-8" rx="7.5" ry="6" fill={tint} />
+        <ellipse cx="1.5" cy="-6" rx="4.4" ry="4" fill="#fff" opacity="0.26" />
+        {/* folded wing */}
+        <path d="M-3 -11 Q4 -10 2.5 -4 Q-2.5 -5 -3 -11 Z" fill="#000" opacity="0.15" />
+        {/* head, beak + eye (facing right) */}
+        <circle cx="5" cy="-13.5" r="4.3" fill={tint} />
+        <path d="M9 -13.5 L13.5 -12.4 L9 -11 Z" fill="#3a332a" />
+        <circle cx="6.3" cy="-14" r="1" fill="#241f18" />
+        {/* legs to the perch */}
+        <path d="M-1 -2 V1 M3 -2 V1" stroke="#3a332a" strokeWidth="1" strokeLinecap="round" />
       </g>
       {c.name && <text className="garden-visitor-name" x="0" y="-23" textAnchor="middle">{c.name}</text>}
     </>
@@ -428,31 +439,54 @@ function PerchBird({ c }) {
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
       <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.18" />
-      {c.hop ? <g className="garden-perch-hop">{portrait}</g> : portrait}
+      {c.hop
+        ? (
+          <g
+            className="garden-perch-hop"
+            style={{ animationDelay: `${c.hopDelay || 0}s`, animationDuration: `${c.hopDur || 7.5}s` }}
+          >
+            {portrait}
+          </g>
+        )
+        : portrait}
     </g>
   )
 }
 
 // A bird shuttling between two grown elements: outer <g> placed at the start via
-// the transform attribute; the inner <g> glides the delta (dx,dy) along a shallow
-// arc and back (CSS, alternating), wings flapping. Placement and motion live on
-// separate elements so neither overrides the other.
+// the transform attribute; the inner <g> glides the delta (dx,dy) along an arc
+// and back (CSS, alternating), wings flapping. Drawn as a small illustrated bird
+// (never a photo), tinted to its species, facing its direction of travel. Per
+// instance: glide `dur`/`delay`, arc height `--lift`, and wing-flap `--flap-dur`/
+// `--flap-delay` so no two birds fly or flap in sync.
 function FlyBird({ c }) {
-  const clip = `fb-${c.id}`
-  const style = { '--dx': `${c.toX - c.fromX}px`, '--dy': `${c.toY - c.fromY}px`, animationDuration: `${c.dur}s` }
+  const tint = c.tint || '#9A8867'
+  const dx = c.toX - c.fromX
+  const dy = c.toY - c.fromY
+  const style = {
+    '--dx': `${dx}px`,
+    '--dy': `${dy}px`,
+    '--lift': `${c.lift || 34}px`,
+    '--flap-dur': `${c.flapDur || 0.3}s`,
+    '--flap-delay': `${c.flapDelay || 0}s`,
+    animationDuration: `${c.dur}s`,
+    animationDelay: `${c.delay || 0}s`,
+  }
+  // mirror the silhouette so the bird faces the way it's heading
+  const facing = dx < 0 ? 'scale(-1 1)' : undefined
   return (
     <g transform={`translate(${c.fromX + 15} ${c.fromY - 14})`}>
       <g className="g-flybird" style={style}>
-        <ellipse className="g-wing g-wing-l" cx="-11" cy="0" rx="7.5" ry="3.6" fill="#7a5f3e" />
-        <ellipse className="g-wing g-wing-r" cx="11" cy="0" rx="7.5" ry="3.6" fill="#7a5f3e" />
-        <defs>
-          <clipPath id={clip}><circle cx="0" cy="0" r="9" /></clipPath>
-        </defs>
-        <circle cx="0" cy="0" r="10.5" fill="#fff" />
-        {c.photo
-          ? <image href={c.photo} x="-11" y="-11" width="22" height="22" clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMid slice" />
-          : <circle cx="0" cy="0" r="9" fill="#cde9b6" />}
-        <circle cx="0" cy="0" r="9.6" fill="none" stroke="#9c6f44" strokeWidth="1.2" />
+        <g transform={facing}>
+          <ellipse className="g-wing g-wing-l" cx="-9" cy="-1" rx="7" ry="3.4" fill={tint} />
+          <ellipse className="g-wing g-wing-r" cx="9" cy="-1" rx="7" ry="3.4" fill={tint} />
+          {/* body + head + beak + eye */}
+          <ellipse cx="0" cy="1" rx="6" ry="4.6" fill={tint} />
+          <ellipse cx="0.5" cy="2.4" rx="3.4" ry="2.6" fill="#fff" opacity="0.2" />
+          <circle cx="4.5" cy="-2.5" r="3.4" fill={tint} />
+          <path d="M7.6 -2.5 L11.5 -1.6 L7.6 -0.6 Z" fill="#3a332a" />
+          <circle cx="5.6" cy="-3" r="0.9" fill="#241f18" />
+        </g>
       </g>
     </g>
   )
@@ -477,6 +511,24 @@ function SceneCreature({ c }) {
 // ---- scene composers: pick a fresh, random mix of creatures each viewing -----
 // `showcase` (the Preview button) forces a busy scene and synthesises perches so
 // birds/owls always have somewhere to land even in a sparse garden.
+//
+// Every creature descriptor carries its OWN random timing (and, where relevant,
+// its own direction/arc) so instances never move in lockstep: independent
+// animation `delay` + slightly varied `dur`, plus per-bird flight direction,
+// arc height and wing-flap cadence.
+
+// A bird shuttling between two elements, with a random launch end (so direction
+// varies L→R / R→L), arc height, speed, start offset and wing-flap cadence.
+function makeFlyBird(a, b, bird) {
+  const [from, to] = Math.random() < 0.5 ? [a, b] : [b, a]
+  return {
+    id: nid(), type: 'flybird',
+    fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+    name: bird && bird.name, companion: bird && bird.companion, tint: bird && bird.tint,
+    dur: rand(4.5, 8), delay: rand(0, 2.5), lift: rand(24, 46),
+    flapDur: rand(0.26, 0.36), flapDelay: rand(0, 0.3),
+  }
+}
 
 function composeDay(perches, collection, showcase) {
   const list = []
@@ -487,29 +539,37 @@ function composeDay(perches, collection, showcase) {
     land = [...land, ...synth]
     all = [...perches, ...synth]
   }
-  // 1–4 birds perched at distinct elements
+  // 1–4 birds perched at distinct elements, each hopping on its own clock
   if (all.length) {
     const maxB = Math.min(showcase ? 4 : 3, all.length)
     const nB = showcase ? maxB : 1 + Math.floor(Math.random() * maxB)
     shuffle(all).slice(0, nB).forEach((p) => {
       const b = pickBird(collection, p.zone === 'water')
-      list.push({ id: nid(), type: 'bird', x: p.x, y: p.y, name: b && b.name, photo: b && b.photo, hop: p.zone !== 'water' })
+      list.push({
+        id: nid(), type: 'bird', x: p.x, y: p.y,
+        name: b && b.name, companion: b && b.companion, tint: b && b.tint,
+        hop: p.zone !== 'water',
+        delay: rand(0, 2.6), dur: rand(1.4, 2.1), // little bob
+        hopDelay: rand(0, 6), hopDur: rand(6.5, 9), // canopy relocation
+      })
     })
   }
-  // a bird shuttling between two trees
-  if (land.length >= 2 && (showcase || Math.random() < 0.6)) {
-    const [a, b] = shuffle(land).slice(0, 2)
-    const bird = pickBird(collection, false)
-    list.push({ id: nid(), type: 'flybird', fromX: a.x, fromY: a.y, toX: b.x, toY: b.y, name: bird && bird.name, photo: bird && bird.photo, dur: rand(4, 7) })
+  // birds shuttling between trees — each its own pair, direction, arc and speed
+  if (land.length >= 2) {
+    const nFly = showcase ? 1 + Math.floor(Math.random() * 2) : (Math.random() < 0.6 ? 1 : 0)
+    for (let i = 0; i < nFly; i += 1) {
+      const [a, b] = shuffle(land).slice(0, 2)
+      list.push(makeFlyBird(a, b, pickBird(collection, false)))
+    }
   }
   // butterflies near the flowers
   const nBfly = showcase ? 2 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
-  for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(50, 350), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 4) })
+  for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(50, 350), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 5), dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: rand(0, 0.35) })
   // bees near the beds
   const nBee = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
-  for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(60, 340), y: rand(166, 218), delay: rand(0, 3) })
+  for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(60, 340), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
   // never an empty daytime scene
-  if (!list.length) list.push({ id: nid(), type: 'butterfly', x: 200, y: 186, hue: pick(BFLY_HUES), delay: 0 })
+  if (!list.length) list.push({ id: nid(), type: 'butterfly', x: 200, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
   return list
 }
 
@@ -521,14 +581,14 @@ function composeNight(perches, showcase) {
   const nFly = showcase ? 8 + Math.floor(Math.random() * 6) : 3 + Math.floor(Math.random() * 10)
   for (let i = 0; i < nFly; i += 1) list.push({ id: nid(), type: 'firefly', x: rand(40, 360), y: rand(150, 225), delay: rand(0, 5), dur: rand(5, 9) })
   // an owl, sometimes
-  if (land.length && (showcase || Math.random() < 0.55)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y }) }
+  if (land.length && (showcase || Math.random() < 0.55)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y, delay: rand(0, 3), dur: rand(2.8, 3.8) }) }
   // a hedgehog, sometimes
-  if (showcase || Math.random() < 0.5) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2) })
+  if (showcase || Math.random() < 0.5) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2), dur: rand(10, 13) })
   // moths near the moonlight
   const nMoth = showcase ? 2 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
-  for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(60, 340), y: rand(55, 140), delay: rand(0, 4) })
+  for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(60, 340), y: rand(55, 140), delay: rand(0, 5), dur: rand(4.2, 6), flapDur: rand(0.28, 0.42), flapDelay: rand(0, 0.35) })
   // a bat swooping over, occasionally
-  if (showcase || Math.random() < 0.4) list.push({ id: nid(), type: 'bat', y: rand(40, 95), delay: rand(0, 2), dir: Math.random() < 0.5 ? 1 : -1 })
+  if (showcase || Math.random() < 0.4) list.push({ id: nid(), type: 'bat', y: rand(40, 95), delay: rand(0, 2.5), dur: rand(4.8, 6.8), dir: Math.random() < 0.5 ? 1 : -1 })
   return list
 }
 

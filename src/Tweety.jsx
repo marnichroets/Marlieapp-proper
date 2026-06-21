@@ -409,6 +409,18 @@ const SPECIES = {
     orangeUnder: '#E8743C', juvOrange: '#E0915E',
     feats: { bill: 'longStraight', crest: '#1660B0', whiteSpot: true },
   },
+  // Generic "wild garden bird" — NOT a selectable companion. Used to draw any
+  // collection species that isn't one of the six companions in the Bird Garden,
+  // so visitors are always illustrated (never photos) and visually consistent
+  // with Tweety. A neutral warm-brown songbird with a soft pale belly and a
+  // short tail; no special markings so it reads as "a little wild bird".
+  wild: {
+    adult: { back: '#9A8867', wing: '#857357', beak: '#3A332A', feet: '#B5895A', eye: '#2C2620' },
+    young: { back: '#A2906F', wing: '#8C7A5E', beak: '#473E33', feet: '#B5895A', eye: '#2C2620' },
+    juv: { back: '#B09A78', wing: '#9C8A6C', beak: '#5A4A3A', feet: '#B5895A', eye: '#2C2620' },
+    greyUnder: '#D8D0C0', whiteBelly: '#EFEADF',
+    feats: { tail: 'short' },
+  },
 }
 
 // How "adult" a stage is: 0 = chick … 1 = adult. Features fade in along this.
@@ -486,9 +498,12 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
   const gScale = scale != null ? scale : shape.scale
   const sad = mood === 'sad'
   const comp = companion ? getCompanion(companion) : null
-  // Each of the six companions renders as its real SA species (vis != null);
-  // an unknown/empty companion falls back to the original golden chick.
-  const vis = comp ? companionVisual(comp.id, level) : null
+  // Each of the six companions renders as its real SA species (vis != null), as
+  // does the cosmetic 'wild' garden-visitor visual; an unknown/empty companion
+  // falls back to the original golden chick. Resolve straight off the companion
+  // id so visual-only ids (e.g. 'wild', not in TWEETY_COMPANIONS) work too — the
+  // six real ids are unchanged since their id === their SPECIES key.
+  const vis = companion ? companionVisual(companion, level) : null
   const body = vis ? vis.back : '#F6CE73'
   const belly = '#FBE6A8' // golden chick belly (species use vis.belly/underparts)
   const wing = vis ? vis.wing : '#EBB94E'
