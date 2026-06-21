@@ -3,6 +3,7 @@ import base64
 import json
 import os
 import sqlite3
+import tempfile
 import threading
 import urllib.error
 import urllib.request
@@ -14,8 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI, OpenAIError
 
+from birdnet_audio import map_detections_to_matches
+
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+# Audio/video clips run a little larger than downscaled photos.
+AUDIO_MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 DEFAULT_MODEL = "gpt-4o-mini"
 
 MATCH_TEMPLATE: dict[str, Any] = {
@@ -599,6 +604,75 @@ async def identify_bird(file: UploadFile = File(...)) -> dict[str, Any]:
 
     image_data_url = build_image_data_url(image_bytes, file.content_type)
     return await asyncio.to_thread(identify_bird_with_openai, api_key, image_data_url)
+
+
+def _run_birdnet(audio_path: str, lat: float | None, lon: float | None, week: int | None) -> list[dict[str, Any]]:
+    """Run BirdNET over an audio file and return its raw detections.
+
+    Imports are LAZY and confined to this function so the heavy ML stack
+    (BirdNET + TensorFlow) can never affect import/startup of the rest of the
+    API (state-sync, photo ID, games). If the stack is missing or fails, the
+    caller turns that into a graceful "not sure" rather than a hard error.
+
+    lat/lon/week (BirdNET's 1-48 week index) are optional; when provided they
+    restrict results to locally-plausible species, which is a big accuracy win
+    for South Africa (e.g. pass Cape Town's coordinates during the trip).
+    """
+    from birdnetlib import Recording  # noqa: PLC0415 - intentional lazy import
+    from birdnetlib.analyzer import Analyzer  # noqa: PLC0415
+
+    analyzer = Analyzer()
+    kwargs: dict[str, Any] = {"min_conf": 0.25}
+    if lat is not None and lon is not None:
+        kwargs["lat"] = lat
+        kwargs["lon"] = lon
+        if week:
+            kwargs["week_48"] = week
+    recording = Recording(analyzer, audio_path, **kwargs)
+    recording.analyze()
+    return list(recording.detections or [])
+
+
+@app.post("/api/identify-bird-audio")
+async def identify_bird_audio(
+    file: UploadFile = File(...),
+    lat: float | None = Form(None),
+    lon: float | None = Form(None),
+    week: int | None = Form(None),
+) -> dict[str, Any]:
+    content_type = file.content_type or ""
+    if not (content_type.startswith("audio/") or content_type.startswith("video/")):
+        raise HTTPException(status_code=400, detail="Please upload an audio or video recording.")
+
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="The recording is empty.")
+    if len(audio_bytes) > AUDIO_MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Recording is too large. Keep it short (around 10-15 seconds).")
+
+    # birdnetlib reads from a path; ffmpeg-backed decoding handles the m4a/webm/
+    # mp4 that phones produce. Suffix helps the decoder pick the right reader.
+    suffix = os.path.splitext(file.filename or "")[1] or ".audio"
+    tmp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+        try:
+            detections = await asyncio.to_thread(_run_birdnet, tmp_path, lat, lon, week)
+        except Exception as exc:  # noqa: BLE001 - degrade gracefully, never 500 the app
+            print(f"[marlie] sound ID unavailable/failed: {exc}", flush=True)
+            # Graceful "not sure": the frontend shows the same warm fallback it
+            # already uses for low-confidence photo IDs. Nothing else breaks.
+            return {"uncertain": True, "topMatches": [], "soundIdUnavailable": True}
+    finally:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+    return map_detections_to_matches(detections)
 
 
 @app.post("/api/validate-challenge")

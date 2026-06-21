@@ -162,6 +162,15 @@ const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || DEFAULT_BIRD_AP
   '',
 )
 
+// Bird SOUND identification (BirdNET) — built on the `sound-id` branch but kept
+// OFF by default so it stays completely dark on Pooks' live account until it's
+// deliberately enabled (after her Cape Town trip, once the backend model has had
+// a real accuracy pass). Turn on at build time with VITE_SOUND_ID=1, or to try it
+// on a preview build set localStorage.soundId = 'on' in devtools and reload.
+const SOUND_ID_ENABLED =
+  String(import.meta.env.VITE_SOUND_ID || '') === '1' ||
+  (typeof window !== 'undefined' && window.localStorage?.getItem('soundId') === 'on')
+
 // ---- Bird Battles backend (shared sessions + all-time leaderboard) ----------
 // Scores live on the server, keyed by the 4-digit code, so Pooks and Marnich can
 // play head-to-head from two different devices.
@@ -2105,6 +2114,23 @@ async function identifyTopMatch(photoFile) {
     console.warn('Challenge bird identification skipped', error)
     return null
   }
+}
+
+// Identify a bird from an audio/video recording via the backend BirdNET endpoint.
+// Returns the SAME normalised {uncertain, matches} shape as the photo identifier,
+// so the existing results UI and confirm-to-collection flow handle it unchanged.
+// Throws on a network/API failure so the caller can show the warm fallback.
+async function identifyBirdByAudio(file) {
+  if (!file || !BIRD_API_URL) throw new Error('No recording or API URL')
+  const body = new FormData()
+  body.append('file', file)
+  const response = await fetch(`${BIRD_API_URL}/api/identify-bird-audio`, {
+    method: 'POST',
+    body,
+  })
+  if (!response.ok) throw new Error(`Audio API returned ${response.status}`)
+  const payload = await response.json()
+  return normalizeAiIdentificationResponse(payload)
 }
 
 // Pure: append a bird (from an AI match) to a state, rebuilding derived data.
@@ -6285,6 +6311,9 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   const [form, setForm] = useState(() => createEmptyForm())
   const [photoFile, setPhotoFile] = useState(null)
   const [photoInputKey, setPhotoInputKey] = useState(0)
+  const [audioFile, setAudioFile] = useState(null)
+  const [audioUrl, setAudioUrl] = useState('')
+  const [audioInputKey, setAudioInputKey] = useState(0)
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiMatches, setAiMatches] = useState([])
   const [aiUncertain, setAiUncertain] = useState(false)
@@ -6296,7 +6325,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   const speciesKey = normalizeBirdName(form.birdName)
   const nicknameSuggestion = nicknameIdeas[speciesKey]
   const personality = personalityComments[speciesKey]
-  const canAskCouncil = Boolean(photoFile) && aiStatus !== 'loading'
+  const canAskCouncil = (Boolean(photoFile) || Boolean(audioFile)) && aiStatus !== 'loading'
 
   useEffect(() => {
     if (aiStatus !== 'loading') return undefined
@@ -6346,10 +6375,50 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setForm(createEmptyForm())
     setPhotoFile(null)
     setPhotoInputKey((current) => current + 1)
+    clearAudio()
     clearAiState()
     if (!keepConfirmation) {
       setConfirmation(null)
     }
+  }
+
+  function clearAudio() {
+    setAudioFile(null)
+    setAudioInputKey((current) => current + 1)
+    setAudioUrl((current) => {
+      if (current) {
+        try {
+          URL.revokeObjectURL(current)
+        } catch {
+          /* ignore */
+        }
+      }
+      return ''
+    })
+  }
+
+  // A recording and a photo are mutually exclusive for a single "Ask the
+  // Council" — picking one clears the other so the request is unambiguous.
+  function handleAudio(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    updateField('photo', '')
+    setAudioFile(file)
+    setConfirmation(null)
+    setGuidance('')
+    clearAiState()
+    try {
+      setAudioUrl(URL.createObjectURL(file))
+    } catch {
+      setAudioUrl('')
+    }
+  }
+
+  function removeAudio() {
+    clearAudio()
+    clearAiState()
   }
 
   function handlePhoto(event) {
@@ -6374,7 +6443,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
 
   async function handleAskCouncil(event) {
     event.preventDefault()
-    if (!photoFile) return
+    if (!photoFile && !audioFile) return
 
     // Start each identification on a fresh random Council message.
     setLoadingIndex(Math.floor(Math.random() * loadingMessages.length))
@@ -6385,6 +6454,32 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setAiMatches([])
     setAiUncertain(false)
     setOfflineNotice('')
+
+    // Sound path: identify from the recording via BirdNET, then fall into the
+    // SAME results UI + confirm-to-collection flow as a photo. On low confidence
+    // or failure we show a warm, specific message rather than photo demo birds.
+    if (audioFile) {
+      try {
+        const result = await identifyBirdByAudio(audioFile)
+        if (!result.matches.length) {
+          clearAiState()
+          setGuidance(
+            "The Council listened closely but couldn’t be sure from that sound 🎧 — a clearer, closer recording helps, or you can add the bird manually below.",
+          )
+          return
+        }
+        setAiMatches(result.matches)
+        setAiUncertain(result.uncertain)
+        setAiStatus('results')
+      } catch (error) {
+        console.warn('[bird-id] audio identification failed', error?.message || error)
+        clearAiState()
+        setGuidance(
+          "The Council’s ears are resting just now 🎧 — sound ID couldn’t run. Try again shortly, or add the bird manually below.",
+        )
+      }
+      return
+    }
 
     const endpoint = `${BIRD_API_URL}/api/identify-bird`
     try {
@@ -6480,6 +6575,17 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 Choose a different photo
               </button>
             </div>
+          ) : audioFile ? (
+            <div className="spot-preview-card">
+              <span className="spot-action-emoji" aria-hidden="true">🎙️</span>
+              {audioUrl && <audio className="spot-audio-preview" src={audioUrl} controls />}
+              <p className="spot-preview-caption">
+                A recording for the Council&apos;s ears. 🎶 Ready when you are.
+              </p>
+              <button className="ghost-btn wide big-btn" type="button" onClick={removeAudio}>
+                Choose a different recording
+              </button>
+            </div>
           ) : (
             <>
             <div className="spot-actions">
@@ -6506,6 +6612,20 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 <span className="spot-action-emoji" aria-hidden="true">🖼️</span>
                 <span>Choose from gallery</span>
               </label>
+              {SOUND_ID_ENABLED && (
+                <label className="spot-action-btn">
+                  <input
+                    key={`snd-${audioInputKey}`}
+                    type="file"
+                    accept="audio/*,video/*"
+                    capture
+                    onChange={handleAudio}
+                    hidden
+                  />
+                  <span className="spot-action-emoji" aria-hidden="true">🎙️</span>
+                  <span>Record or upload a call</span>
+                </label>
+              )}
             </div>
             <p className="spot-sub">Take a fresh photo or pick one of your best bird photos from your gallery 💛</p>
             </>
