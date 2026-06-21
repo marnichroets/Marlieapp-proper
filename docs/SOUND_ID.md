@@ -42,12 +42,46 @@ after her Cape Town trip (per the agreed "build now, flip live later" plan).
   safety, BirdNET label parsing, top-3 cap).
 - ✅ Response-shape contract matches the photo flow (same normaliser handles both).
 
-## What is NOT yet verified (must happen before going live)
+## Local accuracy test — DONE (2026-06-21), zero production risk
 
-- ❌ **Real model accuracy on SA recordings.** It could not be run in the build
-  environment (Python 3.14 has no TensorFlow wheel; no ffmpeg; a branch's Python
-  backend doesn't deploy to a hittable preview). The recognizer's real-world
-  correctness is therefore **unproven by us** and must be tested on actual clips.
+Ran BirdNET locally in a Python 3.12 venv (TensorFlow CPU) against **labeled SA
+recordings** sourced keylessly from Wikimedia Commons (re-hosted xeno-canto
+clips), with SA location filtering. Result over the clips Commons had coverage
+for (genus-filtered to real recordings of the target species):
+
+| Species (clips) | BirdNET top-1 |
+|---|---|
+| Hadeda Ibis (2) | ✅ ✅  (1.00, 1.00) |
+| Cape Turtle Dove (2) | ✅ ✅  (1.00, 1.00) |
+| Cape Robin-Chat (2) | ✅ ✅  (0.94, 0.85) |
+| Speckled Mousebird (1) | ✅  (0.98) |
+| Fork-tailed Drongo (2) | ✅ (0.98) / ❌ no detection on one clip |
+| Cape White-eye (2) | ✅ (0.83) / ❌ confident wrong → Collared Sunbird (0.97) |
+
+**Top-1 = 9/11 (81%), top-3 = 9/11 (81%).** Correct hits were high-confidence
+(0.83–1.00). This validates the approach: BirdNET genuinely identifies common
+vocal SA species well.
+
+**Honest caveats on that number:**
+- Small sample (11 clips, 6 species). Commons lacked clips for many targets
+  (Bokmakierie, Cape Sugarbird, weavers, prinia, fiscal…), so they're untested.
+- Commons clips are clean/curated → this is closer to **best-case** than a real
+  phone recording in wind/traffic/distance, where accuracy will be lower.
+- One **confident-wrong** result (Cape White-eye → Collared Sunbird @ 0.97). The
+  confirm-to-collection step (she taps to accept a match) mitigates auto-adding
+  the wrong bird, but confident-wrong suggestions are the key risk to watch.
+
+A broader, field-realistic accuracy pass (more species, real phone clips) is
+worth doing with a free xeno-canto API key before wide use; tune
+`CONFIDENT_THRESHOLD` accordingly.
+
+## What is STILL NOT verified (must happen before going live)
+
+- ❌ **The endpoint running on a real server.** Local proof ≠ deployed proof:
+  the live backend needs the BirdNET deps + ffmpeg installed and **enough memory
+  to load the model without OOM-ing the shared container** (state-sync + photo
+  ID). This must NOT be done on the production backend before the Cape Town trip
+  / while unmonitored — deploy after the trip, or to a separate isolated service.
 
 ## To enable on the live backend (after the trip)
 
