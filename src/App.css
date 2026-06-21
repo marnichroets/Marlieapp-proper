@@ -3771,6 +3771,19 @@ textarea:focus {
   box-shadow: var(--shadow), inset 0 0 0 1px rgba(64, 145, 190, 0.32);
 }
 
+/* Cape Town trip sighting tally — a little ocean-tinted field-report card. */
+.trip-sightings-card {
+  background: linear-gradient(135deg, rgba(64, 145, 190, 0.12), rgba(120, 200, 210, 0.1));
+}
+.trip-sightings-card h3 {
+  margin: 0;
+}
+.trip-sightings-sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .seasonal-ambient {
   position: fixed;
   inset: 0;

@@ -215,6 +215,67 @@ export function marnichMessage(body, title = 'A note just for you') {
   })
 }
 
+// One-off, date-gated inbox deliveries layered ON TOP of the daily Council
+// dispatch (they do not replace or duplicate it). Each fires exactly once, the
+// first time the app is opened on or after `deliverOn` while still within its
+// `until` window, and is then recorded in messagesMeta.specialDelivered so it
+// never repeats. After `until` passes nothing here matches — automatic cleanup,
+// no manual removal needed, same self-expiring pattern as SPECIAL_COUNCIL_MESSAGES.
+// `make` is a lazy factory so each delivery is stamped with its real arrival time.
+export const SPECIAL_INBOX_DELIVERIES = [
+  // Mid-trip postcard nudge — playful Bird Council voice, encouraging her to log
+  // Cape Town sightings. Just once.
+  {
+    key: 'cape-postcard-nudge',
+    deliverOn: '2026-06-21',
+    until: '2026-06-29',
+    make: () =>
+      createMessage({
+        type: 'council',
+        sender: COUNCIL_SENDER.name,
+        icon: COUNCIL_SENDER.icon,
+        title: 'A nudge from the Cape Town Division',
+        body: 'The Council hears you’ve been seen near Boulders Beach... we’ll be expecting evidence soon, Agent. 🐧🪶',
+      }),
+  },
+  // The morning after her interview — a personal note from Marnich, separate from
+  // the Council's interview-day dispatch.
+  {
+    key: 'marnich-post-interview',
+    deliverOn: '2026-06-23',
+    until: '2026-06-29',
+    make: () => marnichMessage('However it went, I’m proud of you. Always. 💛', 'A note just for you'),
+  },
+  // Mid-trip personal check-in from Marnich.
+  {
+    key: 'marnich-mid-trip',
+    deliverOn: '2026-06-24',
+    until: '2026-06-29',
+    make: () =>
+      marnichMessage('Just checking in — hope Cape Town is treating you well. Miss you. 💛 — M', 'A note just for you'),
+  },
+]
+
+// Which one-off deliveries are due for `todayKey` (an saDateKey YYYY-MM-DD) given
+// the current messagesMeta. Returns the new inbox messages plus updated meta to
+// store, or null when nothing is due. Pure + idempotent: a delivery already in
+// meta.specialDelivered is never produced again, so re-runs (SA-midnight rollover
+// while open, or a cross-device sync replacing local state) reconcile cleanly.
+export function specialInboxDeliveriesForDay(messagesMeta = {}, todayKey) {
+  const delivered = new Set(messagesMeta?.specialDelivered || [])
+  const due = SPECIAL_INBOX_DELIVERIES.filter(
+    (d) => !delivered.has(d.key) && todayKey >= d.deliverOn && todayKey <= d.until,
+  )
+  if (!due.length) return null
+  return {
+    messages: due.map((d) => d.make()),
+    meta: {
+      ...messagesMeta,
+      specialDelivered: [...(messagesMeta?.specialDelivered || []), ...due.map((d) => d.key)],
+    },
+  }
+}
+
 export function systemMessage(title, body) {
   return createMessage({
     type: 'system',

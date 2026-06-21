@@ -6,7 +6,7 @@ import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
-import { getSeasonInfo, isCapeTownWeek } from './seasons'
+import { getSeasonInfo, isCapeTownWeek, capeTownTripSightingCount } from './seasons'
 import { saDateKey, saDateKeyOffset } from './saDate'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -58,6 +58,7 @@ import { InboxPage } from './Inbox'
 import { BirdMapPage } from './BirdMap'
 import {
   councilDispatchForDay,
+  specialInboxDeliveriesForDay,
   marnichMessage,
   milestoneSystemMessage,
   tweetyGrowthSystemMessage,
@@ -1727,7 +1728,7 @@ function buildDefaultState() {
     rewardCertificates: [],
     // Inbox: messages from the Council, Marnich and the system.
     messages: [],
-    messagesMeta: { lastCouncilDay: '', shownCouncil: [] },
+    messagesMeta: { lastCouncilDay: '', shownCouncil: [], specialDelivered: [] },
     // Last Tweety growth stage we have already celebrated (index into stages).
     tweetyGrowthSeen: 0,
     // Whether the one-time cinematic intro has been watched. Lives in the synced
@@ -2350,6 +2351,35 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, dayKey, data.messagesMeta?.lastCouncilDay])
+
+  // One-off, date-gated personal/Council touches (Cape Town postcard nudge, the
+  // two personal notes from Marnich) — layered on top of the daily dispatch
+  // above, never replacing it. Each fires once and is recorded so it never
+  // repeats; after its window passes nothing matches (auto-cleanup). Keyed off
+  // the stored specialDelivered log for the same sync-resilient reason as the
+  // council dispatch.
+  useEffect(() => {
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      setData((current) => {
+        const drop = specialInboxDeliveriesForDay(current.messagesMeta, dayKey)
+        if (!drop) return current
+        return {
+          ...current,
+          messages: [...drop.messages, ...(current.messages || [])],
+          messagesMeta: drop.meta,
+        }
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, dayKey, data.messagesMeta?.specialDelivered])
 
   // Keep `dayKey` current so the dispatch above fires after an SA-midnight
   // rollover even if the app was never closed. Cheap re-checks on focus/visibility
@@ -5928,6 +5958,8 @@ function HomePage({
 
       <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />
 
+      <TripSightingsCard sightings={data.sightings} />
+
       {missedYou && data.tweety?.companion && (
         <button className="tweety-nudge" type="button" onClick={() => goTo('tweety')}>
           <span className="tweety-nudge-bird" aria-hidden="true">🐤💛</span>
@@ -6097,6 +6129,27 @@ function MonthlyActivityBar({ bird }) {
 // its profile. During the Cape Town Special Week (see isCapeTownWeek) it follows
 // her to the Cape — Western Cape species and a Cape Town heading — then reverts
 // to the Potchefstroom list automatically after the 29th.
+// Home card shown ONLY during the Cape Town trip week, and only once she has
+// logged at least one sighting dated within the trip — a little running tally of
+// her Cape Town field work, separate from her lifetime collection count. Hidden
+// at zero (no empty "0 birds" state) and gone automatically after the trip.
+function TripSightingsCard({ sightings }) {
+  if (!isCapeTownWeek()) return null
+  const count = capeTownTripSightingCount(sightings)
+  if (count < 1) return null
+  return (
+    <section className="soft-card trip-sightings-card">
+      <p className="eyebrow">Cape Town field report</p>
+      <h3>
+        {count} {count === 1 ? 'bird' : 'birds'} spotted in Cape Town so far 🌊
+      </h3>
+      <p className="trip-sightings-sub">
+        Logged on your Cape Town deployment — keep them coming, Agent. 🪶
+      </p>
+    </section>
+  )
+}
+
 function BirdsNearYouCard({ library, openBirdProfile }) {
   const capeWeek = isCapeTownWeek()
   const birds = useMemo(
