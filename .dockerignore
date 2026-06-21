@@ -1,0 +1,9 @@
+# Keep the Docker build context (used only by the isolated sound-id service)
+# small. The main backend service builds via railpack and ignores this file.
+node_modules
+.git
+dist
+previews
+*.log
+.venv
+birdnet-test
