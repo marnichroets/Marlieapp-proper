@@ -6328,6 +6328,17 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   const [loadingIndex, setLoadingIndex] = useState(0)
   const [confirmation, setConfirmation] = useState(null)
   const [guidance, setGuidance] = useState('')
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordSeconds, setRecordSeconds] = useState(0)
+  const [recordError, setRecordError] = useState('')
+  const mediaRecorderRef = useRef(null)
+  const mediaStreamRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const recordTimerRef = useRef(null)
+
+  // Keep in-app recordings short: BirdNET only needs a few seconds, and this
+  // keeps the upload comfortably under the backend's 16MB limit.
+  const MAX_RECORD_SECONDS = 15
 
   const speciesKey = normalizeBirdName(form.birdName)
   const nicknameSuggestion = nicknameIdeas[speciesKey]
@@ -6343,6 +6354,17 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
 
     return () => window.clearInterval(intervalId)
   }, [aiStatus])
+
+  // Safety net: if she leaves the page while recording, stop the timer and free
+  // the microphone so the browser's "recording" indicator doesn't linger.
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) window.clearInterval(recordTimerRef.current)
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      }
+    }
+  }, [])
 
   function createEmptyForm() {
     return {
@@ -6389,6 +6411,12 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     }
   }
 
+  function formatRecordTime(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60)
+    const secs = totalSeconds % 60
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+
   function clearAudio() {
     setAudioFile(null)
     setAudioInputKey((current) => current + 1)
@@ -6426,6 +6454,129 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   function removeAudio() {
     clearAudio()
     clearAiState()
+    setRecordError('')
+  }
+
+  // Pick a recording format this browser actually supports. iOS Safari only does
+  // audio/mp4 (AAC); Chrome/Firefox/Android prefer webm/opus. The backend now
+  // transcodes any of these via ffmpeg, so all of them identify fine.
+  function pickRecorderMimeType() {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return ''
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ]
+    return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || ''
+  }
+
+  function stopRecordTimer() {
+    if (recordTimerRef.current) {
+      window.clearInterval(recordTimerRef.current)
+      recordTimerRef.current = null
+    }
+  }
+
+  function releaseMic() {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      mediaStreamRef.current = null
+    }
+  }
+
+  // Live in-app recording via the microphone — no leaving the app for the phone's
+  // native recorder. Works on mobile and desktop; on Stop it auto-submits to the
+  // Council just like an upload would.
+  async function startRecording() {
+    setRecordError('')
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setRecordError(
+        "This browser can’t record in-app — you can still upload a recording with the button below 🎤",
+      )
+      return
+    }
+
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (error) {
+      console.warn('[sound-id] microphone unavailable', error?.message || error)
+      setRecordError(
+        "I couldn’t reach the microphone — please allow mic access, or upload a recording instead 🎤",
+      )
+      return
+    }
+
+    // A recording, a photo and an upload are mutually exclusive for one ask.
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    updateField('photo', '')
+    clearAudio()
+    clearAiState()
+    setConfirmation(null)
+    setGuidance('')
+
+    mediaStreamRef.current = stream
+    audioChunksRef.current = []
+    const mimeType = pickRecorderMimeType()
+    const recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream)
+    mediaRecorderRef.current = recorder
+
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size > 0) audioChunksRef.current.push(event.data)
+    })
+    recorder.addEventListener('stop', () => {
+      stopRecordTimer()
+      releaseMic()
+      setIsRecording(false)
+      const type = recorder.mimeType || mimeType || 'audio/webm'
+      const blob = new Blob(audioChunksRef.current, { type })
+      audioChunksRef.current = []
+      if (!blob.size) {
+        setRecordError("That recording came through empty — give it another go 🎙️")
+        return
+      }
+      const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm'
+      const file = new File([blob], `bird-call.${ext}`, { type })
+      setAudioFile(file)
+      try {
+        setAudioUrl(URL.createObjectURL(file))
+      } catch {
+        setAudioUrl('')
+      }
+      // Auto-submit to the Council, exactly as uploading then asking would.
+      runAudioCouncil(file)
+    })
+
+    setRecordSeconds(0)
+    setIsRecording(true)
+    recorder.start()
+
+    const startedAt = Date.now()
+    recordTimerRef.current = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000)
+      setRecordSeconds(elapsed)
+      if (elapsed >= MAX_RECORD_SECONDS) stopRecording()
+    }, 250)
+  }
+
+  function stopRecording() {
+    const recorder = mediaRecorderRef.current
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop() // fires the 'stop' handler, which builds + submits the clip
+    } else {
+      stopRecordTimer()
+      releaseMic()
+      setIsRecording(false)
+    }
   }
 
   function handlePhoto(event) {
@@ -6448,9 +6599,51 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     clearAiState()
   }
 
+  // Sound path: identify from a recording via BirdNET, then fall into the SAME
+  // results UI + confirm-to-collection flow as a photo. On low confidence or
+  // failure we show a warm, specific message rather than photo demo birds.
+  // Takes the file directly so an auto-submitted in-app recording can reuse it
+  // without waiting for React state to settle.
+  async function runAudioCouncil(file) {
+    if (!file) return
+    setLoadingIndex(Math.floor(Math.random() * loadingMessages.length))
+    setAiStatus('loading')
+    setLoadingIndex(0)
+    setConfirmation(null)
+    setGuidance('')
+    setAiMatches([])
+    setAiUncertain(false)
+    setOfflineNotice('')
+    setRecordError('')
+    try {
+      const result = await identifyBirdByAudio(file)
+      if (!result.matches.length) {
+        clearAiState()
+        setGuidance(
+          "The Council listened closely but couldn’t be sure from that sound 🎧 — a clearer, closer recording helps, or you can add the bird manually below.",
+        )
+        return
+      }
+      setAiMatches(result.matches)
+      setAiUncertain(result.uncertain)
+      setAiStatus('results')
+    } catch (error) {
+      console.warn('[bird-id] audio identification failed', error?.message || error)
+      clearAiState()
+      setGuidance(
+        "The Council’s ears are resting just now 🎧 — sound ID couldn’t run. Try again shortly, or add the bird manually below.",
+      )
+    }
+  }
+
   async function handleAskCouncil(event) {
     event.preventDefault()
     if (!photoFile && !audioFile) return
+
+    if (audioFile) {
+      await runAudioCouncil(audioFile)
+      return
+    }
 
     // Start each identification on a fresh random Council message.
     setLoadingIndex(Math.floor(Math.random() * loadingMessages.length))
@@ -6461,32 +6654,6 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setAiMatches([])
     setAiUncertain(false)
     setOfflineNotice('')
-
-    // Sound path: identify from the recording via BirdNET, then fall into the
-    // SAME results UI + confirm-to-collection flow as a photo. On low confidence
-    // or failure we show a warm, specific message rather than photo demo birds.
-    if (audioFile) {
-      try {
-        const result = await identifyBirdByAudio(audioFile)
-        if (!result.matches.length) {
-          clearAiState()
-          setGuidance(
-            "The Council listened closely but couldn’t be sure from that sound 🎧 — a clearer, closer recording helps, or you can add the bird manually below.",
-          )
-          return
-        }
-        setAiMatches(result.matches)
-        setAiUncertain(result.uncertain)
-        setAiStatus('results')
-      } catch (error) {
-        console.warn('[bird-id] audio identification failed', error?.message || error)
-        clearAiState()
-        setGuidance(
-          "The Council’s ears are resting just now 🎧 — sound ID couldn’t run. Try again shortly, or add the bird manually below.",
-        )
-      }
-      return
-    }
 
     const endpoint = `${BIRD_API_URL}/api/identify-bird`
     try {
@@ -6593,6 +6760,18 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 Choose a different recording
               </button>
             </div>
+          ) : isRecording ? (
+            <div className="spot-preview-card recording-card">
+              <div className="recording-indicator" role="status" aria-live="polite">
+                <span className="recording-dot" aria-hidden="true" />
+                <span className="recording-timer">{formatRecordTime(recordSeconds)}</span>
+              </div>
+              <p className="spot-preview-caption">Listening for your bird… hold steady 🎶</p>
+              <button className="primary-btn wide big-btn" type="button" onClick={stopRecording}>
+                Stop &amp; ask the Council
+              </button>
+              <p className="spot-sub">Recording stops on its own after {MAX_RECORD_SECONDS} seconds.</p>
+            </div>
           ) : (
             <>
             <div className="spot-actions">
@@ -6620,20 +6799,30 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 <span>Choose from gallery</span>
               </label>
               {SOUND_ID_ENABLED && (
+                <button type="button" className="spot-action-btn" onClick={startRecording}>
+                  <span className="spot-action-emoji" aria-hidden="true">🎙️</span>
+                  <span>Record now</span>
+                </button>
+              )}
+              {SOUND_ID_ENABLED && (
                 <label className="spot-action-btn">
                   <input
                     key={`snd-${audioInputKey}`}
                     type="file"
                     accept="audio/*,video/*"
-                    capture
                     onChange={handleAudio}
                     hidden
                   />
-                  <span className="spot-action-emoji" aria-hidden="true">🎙️</span>
-                  <span>Record or upload a call</span>
+                  <span className="spot-action-emoji" aria-hidden="true">📁</span>
+                  <span>Upload a recording</span>
                 </label>
               )}
             </div>
+            {recordError && (
+              <div className="hint-panel ai-guidance-note">
+                <p>{recordError}</p>
+              </div>
+            )}
             <p className="spot-sub">Take a fresh photo or pick one of your best bird photos from your gallery 💛</p>
             </>
           )}

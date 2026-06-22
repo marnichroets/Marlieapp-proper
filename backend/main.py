@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI, OpenAIError
 
-from birdnet_audio import map_detections_to_matches
+from birdnet_audio import extract_audio_to_wav, map_detections_to_matches
 
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -650,27 +650,31 @@ async def identify_bird_audio(
     if len(audio_bytes) > AUDIO_MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Recording is too large. Keep it short (around 10-15 seconds).")
 
-    # birdnetlib reads from a path; ffmpeg-backed decoding handles the m4a/webm/
-    # mp4 that phones produce. Suffix helps the decoder pick the right reader.
     suffix = os.path.splitext(file.filename or "")[1] or ".audio"
     tmp_path = ""
+    wav_path = ""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(audio_bytes)
             tmp_path = tmp.name
         try:
-            detections = await asyncio.to_thread(_run_birdnet, tmp_path, lat, lon, week)
+            # Transcode through ffmpeg first so phone .m4a and any video upload
+            # become a clean mono 48kHz WAV BirdNET can read — not just the
+            # WAV/mp3 libsndfile handles natively.
+            wav_path = await asyncio.to_thread(extract_audio_to_wav, tmp_path)
+            detections = await asyncio.to_thread(_run_birdnet, wav_path, lat, lon, week)
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, never 500 the app
             print(f"[marlie] sound ID unavailable/failed: {exc}", flush=True)
             # Graceful "not sure": the frontend shows the same warm fallback it
             # already uses for low-confidence photo IDs. Nothing else breaks.
             return {"uncertain": True, "topMatches": [], "soundIdUnavailable": True}
     finally:
-        if tmp_path:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
+        for path in (tmp_path, wav_path):
+            if path:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
     return map_detections_to_matches(detections)
 

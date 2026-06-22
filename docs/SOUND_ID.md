@@ -1,27 +1,45 @@
 # Bird Sound ID — status (branch `sound-id`)
 
-A first working version of identifying a bird from a **recording** (audio or
-video), built as an alternative to photo ID in the *Spot a Bird* flow. Built on
-this branch and **kept OFF on Pooks' live account** until deliberately enabled
-after her Cape Town trip (per the agreed "build now, flip live later" plan).
+A working version of identifying a bird from a **recording** (audio or video),
+built as an alternative to photo ID in the *Spot a Bird* flow.
+
+> **Status update (2026-06-22): LIVE.** Sound ID runs on its own isolated Railway
+> service (`sound-service/`, separate container from the main backend) and is
+> enabled (`SOUND_ID_ENABLED` defaults ON). Two hardening additions this date:
+> 1. **Explicit ffmpeg extraction** — every upload/recording is transcoded to a
+>    mono 48 kHz WAV via the `ffmpeg` binary *before* BirdNET, so iPhone `.m4a`
+>    and any `.mp4`/video decode reliably (not just WAV/mp3). Verified end-to-end
+>    with real m4a + mp4 clips (`sound-service/test_ffmpeg_extract.py`).
+> 2. **In-app microphone recording** — a "Record now" button (MediaRecorder /
+>    getUserMedia) records live in the browser on mobile and desktop, with a
+>    timer + pulsing indicator, then auto-submits to the Council. No need to leave
+>    the app for the phone's native recorder.
 
 ## How it works
 
 - **Recognizer:** BirdNET (Cornell) — the open model that does what Merlin's
   Sound ID does. It runs server-side in the existing FastAPI backend.
-- **Frontend** (`src/App.jsx`): a 🎙️ "Record or upload a call" option in the
-  Spot-a-Bird actions (gated by `SOUND_ID_ENABLED`). It accepts `audio/*,video/*`
-  via the OS recorder/file picker, previews it, and on "Ask the Council" posts it
-  to the backend. Results flow into the **same** results UI, warm Council copy,
-  loading lines, and confirm-to-collection path as photo ID. Low confidence or
-  failure shows a warm, specific fallback (not photo demo birds).
-- **Backend** (`backend/main.py` → `POST /api/identify-bird-audio`): validates
-  and decodes the clip, runs BirdNET (optionally location/week-filtered for SA
-  accuracy), and returns the **identical** `{uncertain, topMatches[]}` payload the
-  photo identifier returns, so nothing downstream changes.
-- **Mapping** (`backend/birdnet_audio.py`): pure, dependency-free; turns raw
-  BirdNET detections into the match shape, keeps the best confidence per species,
-  returns the top 3, and flags `uncertain` below the confident threshold.
+- **Frontend** (`src/App.jsx`, gated by `SOUND_ID_ENABLED`): two options in the
+  Spot-a-Bird actions —
+  - 🎙️ **Record now**: live in-browser recording via MediaRecorder/getUserMedia
+    (timer + pulsing dot, auto-stops at 15s, auto-submits on Stop). Picks a
+    browser-supported mime (webm/opus, or mp4 on iOS Safari).
+  - 📁 **Upload a recording**: a file picker accepting `audio/*,video/*`.
+  Either way it previews the clip and posts it to the sound service. Results flow
+  into the **same** results UI, warm Council copy, loading lines, and
+  confirm-to-collection path as photo ID. Low confidence or failure shows a warm,
+  specific fallback (not photo demo birds).
+- **Backend** (`sound-service/app.py` and mirrored in `backend/main.py` →
+  `POST /api/identify-bird-audio`): validates the upload, **transcodes it to a
+  mono 48 kHz WAV with ffmpeg** (`extract_audio_to_wav`), runs BirdNET (optionally
+  location/week-filtered for SA accuracy), and returns the **identical**
+  `{uncertain, topMatches[]}` payload the photo identifier returns, so nothing
+  downstream changes. The live frontend calls the isolated `sound-service`.
+- **Mapping + decode** (`birdnet_audio.py`, mirrored in both services): pure,
+  dependency-free (stdlib only). Holds `extract_audio_to_wav` (the ffmpeg step)
+  and `map_detections_to_matches` — turns raw BirdNET detections into the match
+  shape, keeps the best confidence per species, returns the top 3, and flags
+  `uncertain` below the confident threshold.
 
 ## Safety posture (why this is safe to have on a branch)
 
@@ -107,4 +125,5 @@ rare-species clips — which is exactly why low confidence routes to the warm
 
 - The recording itself isn't stored on the sighting (the bird is still added with
   full data); storing a short clip is a later enhancement.
-- No live "listening" UI like Merlin yet; this is upload/record-then-identify.
+- In-app recording is record-then-identify (stop → identify), not a continuous
+  live "listening" stream like Merlin. Good enough and far simpler/robust.

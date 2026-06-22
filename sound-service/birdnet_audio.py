@@ -8,7 +8,62 @@ same payload the photo identifier returns ({"uncertain", "topMatches"]}), so the
 existing Bird Council flow, warm copy and collection-add work unchanged.
 """
 
+import os
+import shutil
+import subprocess
 from typing import Any
+
+# Target format BirdNET expects: mono PCM at 48 kHz (its internal sample rate).
+FFMPEG_TARGET_SAMPLE_RATE = 48000
+
+
+def extract_audio_to_wav(src_path: str) -> str:
+    """Decode any audio/video upload to a mono 48 kHz WAV via the ffmpeg binary.
+
+    Phones hand us containers that libsndfile (and therefore birdnetlib's default
+    reader) cannot open on its own — iPhone voice memos are `.m4a` (AAC) and any
+    video is `.mp4`/`.mov`/`.webm`. Rather than rely on librosa's *optional*
+    `audioread` fallback (not a pinned dependency, so its presence isn't
+    guaranteed), we shell out to ffmpeg EXPLICITLY and hand BirdNET a clean WAV.
+    The `-vn` flag drops any video track, so an uploaded video becomes just its
+    audio. Returns the path to a new `.wav` next to `src_path`.
+
+    Raises RuntimeError if ffmpeg is missing or the decode produced no audio, so
+    the caller's graceful "couldn't be sure" fallback handles it (never a 500).
+    """
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg binary not available on PATH")
+
+    wav_path = f"{src_path}.wav"
+    proc = subprocess.run(
+        [
+            ffmpeg,
+            "-nostdin",          # never block waiting for console input
+            "-y",                # overwrite wav_path if it somehow exists
+            "-loglevel", "error",
+            "-i", src_path,
+            "-vn",               # ignore any video stream — we only want audio
+            "-ac", "1",          # mono
+            "-ar", str(FFMPEG_TARGET_SAMPLE_RATE),
+            "-f", "wav",
+            wav_path,
+        ],
+        capture_output=True,
+        timeout=120,
+    )
+    if proc.returncode != 0 or not os.path.exists(wav_path) or os.path.getsize(wav_path) == 0:
+        detail = proc.stderr.decode("utf-8", "ignore").strip()[-400:]
+        # Clean up a partial/empty wav so the caller's finally-block has nothing
+        # half-written to trip over.
+        try:
+            os.remove(wav_path)
+        except OSError:
+            pass
+        raise RuntimeError(f"ffmpeg could not decode the recording: {detail or 'no audio stream'}")
+
+    return wav_path
+
 
 # Below this BirdNET confidence (0..1) we treat the result as "not sure" and let
 # the frontend show the same warm, non-frustrating fallback the photo flow uses.

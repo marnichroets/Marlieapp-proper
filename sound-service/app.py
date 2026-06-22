@@ -20,7 +20,7 @@ from typing import Any
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from birdnet_audio import map_detections_to_matches
+from birdnet_audio import extract_audio_to_wav, map_detections_to_matches
 
 AUDIO_MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 
@@ -108,20 +108,26 @@ async def identify_bird_audio(
 
     suffix = os.path.splitext(file.filename or "")[1] or ".audio"
     tmp_path = ""
+    wav_path = ""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(audio_bytes)
             tmp_path = tmp.name
         try:
-            detections = await asyncio.to_thread(_run_birdnet, tmp_path, lat, lon, week)
+            # Always transcode through ffmpeg first so phone .m4a and any video
+            # upload become a clean mono 48kHz WAV that BirdNET can read — not
+            # just the WAV/mp3 libsndfile handles natively.
+            wav_path = await asyncio.to_thread(extract_audio_to_wav, tmp_path)
+            detections = await asyncio.to_thread(_run_birdnet, wav_path, lat, lon, week)
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, never 500
             print(f"[sound-id] inference failed/unavailable: {exc}", flush=True)
             return {"uncertain": True, "topMatches": [], "soundIdUnavailable": True}
     finally:
-        if tmp_path:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
+        for path in (tmp_path, wav_path):
+            if path:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
     return map_detections_to_matches(detections)
