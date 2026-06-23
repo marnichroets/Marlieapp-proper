@@ -472,6 +472,10 @@ function rollEncounter() {
 const MILESTONE_COINS = {
   5: 50,
   10: 100,
+  // 20 birds: the "Coffee date" gift card unlocks here too, but that reward
+  // section is hidden for Pooks — so give her a real, visible reward (coins +
+  // confetti + toast) at this milestone instead of nothing.
+  20: 150,
   25: 200,
   50: 500,
   100: 1000,
@@ -8362,14 +8366,15 @@ function RewardsPage({
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
     { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
-  // Pooks' Gifts page hides EVERY shop item for now (all items kept in code but
-  // hidden via this empty allowlist) so the core experience stays simple while
-  // Marnich gets it right. He adds gifts back manually through Admin when ready.
+  // Pooks' Gifts page shows a deliberately small coin shop for now — just the
+  // Hidden note — plus the Tweety Store (rendered below, ungated) and her coin
+  // balance. The remaining shop items stay in code but hidden via this allowlist
+  // while Marnich gets them right; he can add more later through Admin.
   // Marnich's own test account still sees every item and gift section so he can
   // verify the full purchase → reveal → claim flow before any of it goes live.
   const visibleShopIds = isMarnich
     ? ['milkshakeDate', 'mysteryBox', 'hiddenNote', 'birdProfile', 'dateIdea']
-    : []
+    : ['hiddenNote']
   const visibleShopItems = shopItems.filter((item) => visibleShopIds.includes(item.id))
   const showOtherGiftSections = isMarnich
 
