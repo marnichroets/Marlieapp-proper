@@ -8366,15 +8366,15 @@ function RewardsPage({
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
     { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
-  // Pooks' Gifts page shows a deliberately small coin shop for now — just the
-  // Hidden note — plus the Tweety Store (rendered below, ungated) and her coin
-  // balance. The remaining shop items stay in code but hidden via this allowlist
-  // while Marnich gets them right; he can add more later through Admin.
+  // Pooks' coin shop is empty for now — the Hidden note is intentionally hidden
+  // until Marnich writes it properly, so she cannot see or buy it yet. Her Gifts
+  // page still shows the Tweety Store (rendered below, ungated) and her coin
+  // balance. All shop items stay in code, just gated off via this allowlist.
   // Marnich's own test account still sees every item and gift section so he can
   // verify the full purchase → reveal → claim flow before any of it goes live.
   const visibleShopIds = isMarnich
     ? ['milkshakeDate', 'mysteryBox', 'hiddenNote', 'birdProfile', 'dateIdea']
-    : ['hiddenNote']
+    : []
   const visibleShopItems = shopItems.filter((item) => visibleShopIds.includes(item.id))
   const showOtherGiftSections = isMarnich
 
