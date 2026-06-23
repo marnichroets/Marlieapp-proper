@@ -3995,6 +3995,37 @@ textarea:focus {
 .tweety-level-pill { background: rgba(231, 241, 223, 0.8); color: var(--leaf-dark); }
 .tweety-streak-pill { background: rgba(255, 224, 178, 0.85); color: #9a5a2a; }
 
+/* Gifts bought for Tweety in the Tweety Store — small chips under her nest. */
+.tweety-gifts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.tweety-gifts-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #9a5a2a;
+  letter-spacing: 0.02em;
+}
+.tweety-gifts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tweety-gift-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 224, 178, 0.55);
+  border: 1px solid rgba(231, 178, 116, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7a4a1e;
+}
+
 .tweety-care-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

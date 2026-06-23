@@ -6053,6 +6053,7 @@ function HomePage({
             nestTier={tweetyView.nestTier}
             rainbow={tweetyView.rainbow}
             loveLetter={tweetyView.loveLetter}
+            gifts={TWEETY_STORE_ITEMS.filter((it) => (data.tweetyStore || []).includes(it.id))}
             onFeed={() => careTweety('feed')}
             onWater={() => careTweety('water')}
             onPlay={() => careTweety('play')}
