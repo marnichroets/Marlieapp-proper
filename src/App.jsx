@@ -494,6 +494,18 @@ const SHOP = {
   milkshakeDate: 500,
 }
 
+// Tweety Store — little once-off treats Pooks can buy for Tweety with Feather
+// Coins, shown as a plain list on the Gifts page. Each item is purchasable
+// exactly once; the bought ids live in state.tweetyStore so the "Gifted ✓"
+// state persists across sessions and devices. Kept deliberately simple.
+const TWEETY_STORE_ITEMS = [
+  { id: 'treats', emoji: '🍓', name: 'Special Treats', cost: 80, hint: 'Gives Tweety a happy mood boost' },
+  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 150, hint: "Adds a branch decoration to Tweety's home" },
+  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 200, hint: "Adds a cozy visual to Tweety's nest" },
+  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 300, hint: 'Makes Tweety extra happy with a little tune' },
+  { id: 'nest', emoji: '🏠', name: 'Nest Upgrade', cost: 400, hint: "Upgrades Tweety's nest visually" },
+]
+
 // Bottom tab bar (7) + everything else tucked behind the settings menu.
 // Inbox (📬) stays a prominent top-level tab with an unread badge; Magazine
 // (📖) lives on the bar too, right before Gifts.
@@ -1681,6 +1693,8 @@ function buildDefaultState() {
       paidAt: null,
     })),
     shopRedemptions: [],
+    // Tweety Store: ids of items already gifted to Tweety (bought once each).
+    tweetyStore: [],
     challenges: defaultChallengeTexts.map((text, index) => ({
       id: `challenge-${index + 1}`,
       text,
@@ -1850,6 +1864,9 @@ function normalizeLoadedState(saved) {
       shopRedemptions: Array.isArray(saved.shopRedemptions)
         ? saved.shopRedemptions
         : base.shopRedemptions,
+      tweetyStore: Array.isArray(saved.tweetyStore)
+        ? saved.tweetyStore
+        : base.tweetyStore,
       missedSightings: Array.isArray(saved.missedSightings)
         ? saved.missedSightings
         : base.missedSightings,
@@ -4722,6 +4739,26 @@ function App() {
     )
   }
 
+  // Buy a one-off Tweety Store item: deduct coins once, record the id so it shows
+  // "Gifted ✓" forever, and pop a small celebration toast. Idempotent — a second
+  // click on an already-owned item is a no-op (and the button is disabled anyway).
+  function buyTweetyStoreItem(itemId) {
+    const item = TWEETY_STORE_ITEMS.find((entry) => entry.id === itemId)
+    if (!item) return
+    const owned = Array.isArray(data.tweetyStore) ? data.tweetyStore : []
+    if (owned.includes(item.id)) return
+    if (data.featherCoins < item.cost) return notEnoughCoins()
+    setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - item.cost,
+        tweetyStore: [...owned, item.id],
+      },
+      { title: `${item.emoji} ${item.name} gifted!`, body: `Tweety loves it. ${item.emoji}` },
+    )
+  }
+
   function buyDateIdea() {
     if (data.featherCoins < SHOP.dateIdea) return notEnoughCoins()
     const ideas = data.dateIdeas?.length ? data.dateIdeas : defaultDateIdeas
@@ -5266,6 +5303,7 @@ function App() {
             account={account}
             buyMysteryBox={buyMysteryBox}
             buyHiddenNote={buyHiddenNote}
+            buyTweetyStoreItem={buyTweetyStoreItem}
             buyDateIdea={buyDateIdea}
             buyMilkshakeDate={buyMilkshakeDate}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
@@ -8299,6 +8337,7 @@ function RewardsPage({
   account = 'pooks',
   buyMysteryBox,
   buyHiddenNote,
+  buyTweetyStoreItem,
   buyDateIdea,
   buyMilkshakeDate,
   buyFeaturedBirdProfile,
@@ -8375,6 +8414,35 @@ function RewardsPage({
               </article>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Tweety Store</p>
+            <h2>Little treats for Tweety</h2>
+          </div>
+        </div>
+        <div className="shop-grid">
+          {TWEETY_STORE_ITEMS.map((item) => {
+            const owned = (data.tweetyStore || []).includes(item.id)
+            return (
+              <article className="shop-tile" key={item.id}>
+                <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
+                <h3>{item.name}</h3>
+                <small>{item.hint}</small>
+                <button
+                  className="primary-btn wide big-btn"
+                  type="button"
+                  disabled={owned || coins < item.cost}
+                  onClick={() => buyTweetyStoreItem(item.id)}
+                >
+                  {owned ? 'Gifted ✓' : `${item.cost} 🪙`}
+                </button>
+              </article>
+            )
+          })}
         </div>
       </section>
 
