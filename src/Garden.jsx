@@ -71,6 +71,14 @@ const BFLY_HUES = ['#f6a5c0', '#ffd45e', '#c9a8e8', '#f8b4d0', '#9fd6f0']
 let _uid = 0
 const nid = () => `c${(_uid += 1)}`
 
+// Cheap deterministic string hash — used to give each garden resident its own
+// STABLE idle-sway timing (derived from her id, not re-rolled every render).
+function hashSeed(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i += 1) h = (h * 31 + str.charCodeAt(i)) >>> 0
+  return h
+}
+
 function pickBird(collection, wantWater) {
   if (!collection || !collection.length) return null
   let pool = collection.filter((b) => (wantWater ? b.water : b.land))
@@ -408,31 +416,45 @@ function SanctuaryFence() {
 
 // A bird from her Collection perched beside a grown element: a small illustrated
 // songbird (never a photo) tinted to its species' companion colour, so the scene
-// stays consistent with Tweety. On land elements it hops between a few canopy
-// points (CSS); the ground shadow stays put beneath it. `delay`/`dur` give each
-// bird its own hop timing so no two ever bob in lockstep.
+// stays consistent with Tweety. Three independent, always-running motions are
+// layered so she never looks frozen: a wander loop that hops between a few
+// random branch points and pauses at each one (per-instance waypoints, not
+// just a shared shape), a quick idle head-twitch, and the little breathing bob.
+// Every timing AND every waypoint is randomized per-instance so no two birds
+// ever move in lockstep, even when their `dur`s happen to be close.
 function PerchBird({ c }) {
   const tint = c.tint || '#9A8867'
+  const wanderStyle = {
+    '--bx1': `${c.bx1 ?? 10}px`, '--by1': `${c.by1 ?? -6}px`,
+    '--bx2': `${c.bx2 ?? -9}px`, '--by2': `${c.by2 ?? -3}px`,
+    animationDelay: `${c.hopDelay || 0}s`,
+    animationDuration: `${c.hopDur || 9}s`,
+  }
   const portrait = (
     <>
       <g
-        className="garden-visitor-bob"
-        style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 1.7}s` }}
+        className="garden-bird-idle"
+        style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.4}s` }}
       >
-        {/* tail (slightly darker than the body) */}
-        <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill={tint} />
-        <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill="#000" opacity="0.16" />
-        {/* body + soft pale belly */}
-        <ellipse cx="0" cy="-8" rx="7.5" ry="6" fill={tint} />
-        <ellipse cx="1.5" cy="-6" rx="4.4" ry="4" fill="#fff" opacity="0.26" />
-        {/* folded wing */}
-        <path d="M-3 -11 Q4 -10 2.5 -4 Q-2.5 -5 -3 -11 Z" fill="#000" opacity="0.15" />
-        {/* head, beak + eye (facing right) */}
-        <circle cx="5" cy="-13.5" r="4.3" fill={tint} />
-        <path d="M9 -13.5 L13.5 -12.4 L9 -11 Z" fill="#3a332a" />
-        <circle cx="6.3" cy="-14" r="1" fill="#241f18" />
-        {/* legs to the perch */}
-        <path d="M-1 -2 V1 M3 -2 V1" stroke="#3a332a" strokeWidth="1" strokeLinecap="round" />
+        <g
+          className="garden-visitor-bob"
+          style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 1.7}s` }}
+        >
+          {/* tail (slightly darker than the body) */}
+          <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill={tint} />
+          <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill="#000" opacity="0.16" />
+          {/* body + soft pale belly */}
+          <ellipse cx="0" cy="-8" rx="7.5" ry="6" fill={tint} />
+          <ellipse cx="1.5" cy="-6" rx="4.4" ry="4" fill="#fff" opacity="0.26" />
+          {/* folded wing */}
+          <path d="M-3 -11 Q4 -10 2.5 -4 Q-2.5 -5 -3 -11 Z" fill="#000" opacity="0.15" />
+          {/* head, beak + eye (facing right) */}
+          <circle cx="5" cy="-13.5" r="4.3" fill={tint} />
+          <path d="M9 -13.5 L13.5 -12.4 L9 -11 Z" fill="#3a332a" />
+          <circle cx="6.3" cy="-14" r="1" fill="#241f18" />
+          {/* legs to the perch */}
+          <path d="M-1 -2 V1 M3 -2 V1" stroke="#3a332a" strokeWidth="1" strokeLinecap="round" />
+        </g>
       </g>
       {c.name && <text className="garden-visitor-name" x="0" y="-23" textAnchor="middle">{c.name}</text>}
     </>
@@ -440,16 +462,43 @@ function PerchBird({ c }) {
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
       <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.18" />
-      {c.hop
-        ? (
-          <g
-            className="garden-perch-hop"
-            style={{ animationDelay: `${c.hopDelay || 0}s`, animationDuration: `${c.hopDur || 7.5}s` }}
-          >
-            {portrait}
-          </g>
-        )
-        : portrait}
+      <g className="garden-branch-wander" style={wanderStyle}>
+        {portrait}
+      </g>
+    </g>
+  )
+}
+
+// A water bird (duck, heron, …) sitting low on the pond, drifting gently side
+// to side with a slow bob instead of hopping/flying — a completely different
+// feel from the land birds. Per-instance drift range + timing, same as land.
+function SwimBird({ c }) {
+  const tint = c.tint || '#9A8867'
+  const style = {
+    '--sx': `${c.sx ?? 14}px`,
+    animationDelay: `${c.delay || 0}s`,
+    animationDuration: `${c.dur || 6}s`,
+  }
+  return (
+    <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
+      <g className="garden-swim-drift" style={style}>
+        <ellipse className="garden-visitor-shadow" cx="0" cy="2.4" rx="8" ry="2.4" fill="#1e4a63" opacity="0.18" />
+        <g
+          className="garden-bird-idle"
+          style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.8}s` }}
+        >
+          {/* body sitting low on the water + soft pale belly */}
+          <ellipse cx="0" cy="-2" rx="8.5" ry="5" fill={tint} />
+          <ellipse cx="1.5" cy="-0.5" rx="4.6" ry="2.8" fill="#fff" opacity="0.24" />
+          {/* folded wing */}
+          <path d="M-3 -4 Q4 -3.5 2 1 Q-3 0.2 -3 -4 Z" fill="#000" opacity="0.14" />
+          {/* head, beak + eye (facing right) */}
+          <circle cx="6" cy="-7" r="3.6" fill={tint} />
+          <path d="M9.4 -6.6 L13.4 -6 L9.4 -5 Z" fill="#3a332a" />
+          <circle cx="7" cy="-7.4" r="0.9" fill="#241f18" />
+        </g>
+      </g>
+      {c.name && <text className="garden-visitor-name" x="0" y="-13" textAnchor="middle">{c.name}</text>}
     </g>
   )
 }
@@ -497,6 +546,7 @@ function FlyBird({ c }) {
 function SceneCreature({ c }) {
   switch (c.type) {
     case 'bird': return <PerchBird c={c} />
+    case 'swim': return <SwimBird c={c} />
     case 'flybird': return <FlyBird c={c} />
     case 'butterfly': return <Butterfly c={c} />
     case 'bee': return <Bee c={c} />
@@ -540,18 +590,32 @@ function composeDay(perches, collection, showcase) {
     land = [...land, ...synth]
     all = [...perches, ...synth]
   }
-  // 1–4 birds perched at distinct elements, each hopping on its own clock
+  // 1–4 birds perched at distinct elements, each with its own independent
+  // wander waypoints/timing (land) or drift (water) — never in lockstep.
   if (all.length) {
     const maxB = Math.min(showcase ? 4 : 3, all.length)
     const nB = showcase ? maxB : 1 + Math.floor(Math.random() * maxB)
     shuffle(all).slice(0, nB).forEach((p) => {
-      const b = pickBird(collection, p.zone === 'water')
+      const isWater = p.zone === 'water'
+      const b = pickBird(collection, isWater)
+      if (isWater) {
+        list.push({
+          id: nid(), type: 'swim', x: p.x, y: p.y,
+          name: b && b.name, companion: b && b.companion, tint: b && b.tint,
+          sx: rand(9, 18), delay: rand(0, 3), dur: rand(5, 8),
+          idleDelay: rand(0, 4), idleDur: rand(3, 4.6),
+        })
+        return
+      }
       list.push({
         id: nid(), type: 'bird', x: p.x, y: p.y,
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
-        hop: p.zone !== 'water',
-        delay: rand(0, 2.6), dur: rand(1.4, 2.1), // little bob
-        hopDelay: rand(0, 6), hopDur: rand(6.5, 9), // canopy relocation
+        delay: rand(0, 2.6), dur: rand(1.4, 2.1), // little breathing bob
+        idleDelay: rand(0, 5), idleDur: rand(2.8, 4.2), // head/wing twitch
+        // wander: 2 random branch points within reach, each held briefly
+        bx1: rand(6, 15) * (Math.random() < 0.5 ? -1 : 1), by1: rand(-9, -2),
+        bx2: rand(6, 15) * (Math.random() < 0.5 ? -1 : 1), by2: rand(-9, -2),
+        hopDelay: rand(0, 6), hopDur: rand(9, 15),
       })
     })
   }
@@ -833,18 +897,29 @@ export function GardenPage({
             scene coords map straight to percentages. */}
         {residents.length > 0 && (
           <div className="garden-residents">
-            {residents.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                className="garden-resident"
-                style={{ left: `${(r.x / 400) * 100}%`, top: `${(r.y / 260) * 100}%` }}
-                title={r.species}
-                onClick={() => setSelectedResidentId(r.id)}
-              >
-                <TweetyBird level="crowned" companion={r.companionId} size={44} />
-              </button>
-            ))}
+            {residents.map((r) => {
+              // Stable per-resident timing (not re-randomized every render): a
+              // cheap hash of the id seeds delay/duration so she never looks
+              // frozen, and no two residents ever sway in lockstep.
+              const seed = hashSeed(r.id)
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  className="garden-resident"
+                  style={{ left: `${(r.x / 400) * 100}%`, top: `${(r.y / 260) * 100}%` }}
+                  title={r.species}
+                  onClick={() => setSelectedResidentId(r.id)}
+                >
+                  <span
+                    className="garden-resident-sway"
+                    style={{ animationDelay: `${seed % 4}s`, animationDuration: `${3.4 + (seed % 5) * 0.3}s` }}
+                  >
+                    <TweetyBird level="crowned" companion={r.companionId} size={44} />
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
         </div>
