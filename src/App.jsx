@@ -3478,13 +3478,13 @@ function App() {
     )
   }
 
-  // P3: graduate the current crowned companion into the garden (sandbox only),
-  // then adopt the newly-chosen companion. Atomic: the old companion is added to
+  // Graduate the current crowned companion into the garden, then adopt the
+  // newly-chosen companion. Atomic: the old companion is added to
   // garden.residents (permanent, rendered as its real species) and Tweety is
   // reborn as the new pick with a fresh growth clock — never a null companion,
   // which normalizeLoadedState would otherwise reset to the default.
   function confirmReleaseToGarden(newCompanionId) {
-    if (readOnly || account !== 'marnich') {
+    if (readOnly || (account !== 'pooks' && account !== 'marnich')) {
       setReleasingCompanion(false)
       return
     }
@@ -5035,7 +5035,7 @@ function App() {
       ? [...menuItems, ['admin', 'Admin', '🔒']]
       : account === 'marnich'
         ? [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳'], ['companiongallery', 'Companion Gallery', '🧪']]
-        : [['games', 'Bird Battles', '⚔️']]
+        : [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳']]
   const unreadMessages = (data.messages || []).filter((m) => !m.read).length
 
   if (!session) {
@@ -5069,10 +5069,11 @@ function App() {
   // No egg picker anymore: Tweety is the companion from the first login and
   // grows through her five stages via daily care.
 
-  // P3 (sandbox only): graduating a crowned companion takes over the screen with
-  // the companion picker to choose who she raises next. Mirrors the login/intro
-  // early-return pattern, so it never affects Pooks.
-  if (releasingCompanion && account === 'marnich' && data.tweety?.companion) {
+  // Graduating a crowned companion takes over the screen with the companion
+  // picker to choose who she raises next. Mirrors the login/intro early-return
+  // pattern. Gated on !readOnly so Marnich's read-only "View Pooks" mirror can
+  // never trigger it on her behalf.
+  if (releasingCompanion && !readOnly && data.tweety?.companion) {
     return (
       <CompanionSelect
         title="A companion graduates 🌳👑"
@@ -5219,13 +5220,13 @@ function App() {
             releaseAviaryBird={releaseAviaryBird}
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
-            onReleaseToGarden={account === 'marnich' ? () => setReleasingCompanion(true) : undefined}
+            onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
           <CompanionGalleryPage onBack={goBack} />
         )}
-        {activePage === 'garden' && account === 'marnich' && (
+        {activePage === 'garden' && (account === 'pooks' || account === 'marnich') && (
           <GardenPage
             garden={data.garden}
             coins={data.featherCoins}

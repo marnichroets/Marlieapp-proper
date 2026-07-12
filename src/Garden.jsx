@@ -1,4 +1,4 @@
-// Bird Garden — Sub-phase A UI (sandbox-only; gating + handlers in App.jsx).
+// Bird Garden — sub-phase A UI (gating + handlers live in App.jsx).
 // She buys an item, then TAPS the lawn to place it wherever she likes (snapped
 // to an invisible grid, no overlap), so every garden is unique. Items grow via
 // the daily tap-to-tend care loop. Pure presentation + onPlace/onWater callbacks
@@ -696,10 +696,10 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
     <div className="page-grid garden-page">
       <section className="soft-card full-span">
         <button className="text-btn back-btn" type="button" onClick={onBack}>Back</button>
-        <p className="eyebrow">Sandbox · Bird Garden 🌳🧪</p>
+        <p className="eyebrow">Bird Garden 🌳</p>
         <h2>Pooks&apos; Bird Garden</h2>
         <p className="fine-print">
-          Buy an item, then tap the grass to place it wherever you like. Tend it daily to grow it. Sandbox-only. · 🪙 {coins}
+          Buy an item, then tap the grass to place it wherever you like. Tend it daily to grow it. · 🪙 {coins}
         </p>
         <p className="fine-print garden-time-note">
           Garden time: <strong>{PHASE_META[phase].label} {PHASE_META[phase].icon}</strong> · live South African time
@@ -827,7 +827,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
           >
             Preview Garden Life 🎬
           </button>
-          <span className="fine-print">Sandbox preview — fills the scene with a busy, random mix of {isNight ? 'night' : 'day'} creatures. Tap again for a different combination.</span>
+          <span className="fine-print">Fills the scene with a busy, random mix of {isNight ? 'night' : 'day'} creatures. Tap again for a different combination.</span>
         </div>
       </section>
 

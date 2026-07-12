@@ -2,9 +2,8 @@
 //
 // Phase 1: a grow-from-seed care loop. She buys a seed; it sprouts in the
 // garden; she waters it once per SA day; it grows through visible stages into a
-// permanent garden element. Sandbox-only for now (gating lives in App.jsx) and
-// it only ever reads/writes the `garden` state slice, so it can never affect
-// Pooks' account, coins or Collection.
+// permanent garden element. It only ever reads/writes the `garden` state slice
+// (plus featherCoins for purchases), so it never touches Collection.
 //
 // The data model is intentionally growth-ready for the agreed later phases
 // (expanding shop, retired companions): `shopUnlocked` gates which catalog items
@@ -127,8 +126,8 @@ export function gardenItem(type) {
 export function defaultGarden() {
   return {
     version: 1,
-    // Sub-phase A: all items unlocked for sandbox testing (the progressive
-    // unlock gating comes with the zones work in Sub-phase C).
+    // Everything in the shop is buyable from the start; coins alone gate her
+    // pace through it.
     shopUnlocked: GARDEN_SHOP.map((i) => i.id),
     plantings: [],
     elements: [],
