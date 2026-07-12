@@ -435,6 +435,7 @@ const COINS = {
   streakBonus: 15, // occasional daily-challenge streak bonus (every 3 days)
   tweetyCare: 5, // per completed Tweety care window (3 windows = 15/day)
   tweetyStreak: 50, // 7-day Tweety care streak bonus
+  mysteryEgg: 50, // small bonus celebration when a mystery egg is earned
 }
 
 // One-time reward when Tweety reaches the final "crowned adult" growth stage.
@@ -4257,6 +4258,7 @@ function App() {
         recalculated = {
           ...recalculated,
           eggProgress,
+          featherCoins: recalculated.featherCoins + COINS.mysteryEgg,
           mysteryEgg: {
             id: createId('egg'),
             createdAt: new Date().toISOString(),
@@ -4291,7 +4293,7 @@ function App() {
       )
       setData((current) => ({ ...current, messages: [...letters, ...(current.messages || [])] }))
     }
-    const eggNote = awardedEgg ? ' A rare egg has been discovered in your honour! 🥚' : ''
+    const eggNote = awardedEgg ? ` A rare egg has been discovered in your honour! +${COINS.mysteryEgg} Feather Coins 🥚` : ''
     setToast({
       title: message.title,
       body: [message.body, milestoneNote, eggNote, unlockSummary].filter(Boolean).join(' '),
@@ -6202,6 +6204,39 @@ function HomePage({
         <span className="streak-chip">Day {careStreak} care streak 🔥</span>
         <span className="coin-chip">{data.featherCoins} 🪙</span>
       </div>
+
+      {(() => {
+        // Small, always-visible at-a-glance indicator for the mystery-egg
+        // system — "if I find more birds I get an egg". The MysteryEggCard
+        // further down handles the actual daily warm interaction; this is
+        // just the quick status chip.
+        if (data.mysteryEgg) {
+          const ready = (data.mysteryEgg.warms || 0) >= MYSTERY_EGG_WARMS
+          return (
+            <div className="egg-progress-chip" title={ready ? 'Your egg has hatched!' : 'Warm it once a day to hatch it'}>
+              {ready ? (
+                <span>🥚✨ Egg hatched — ready and waiting!</span>
+              ) : (
+                <span>🥚 Egg warming — day {data.mysteryEgg.warms || 0}/{MYSTERY_EGG_WARMS}</span>
+              )}
+            </div>
+          )
+        }
+        const lastAward = data.eggProgress?.lastAwardedAtCount || 0
+        const sinceLastAward = Math.max(0, (data.birds?.length || 0) - lastAward)
+        const untilNext = Math.max(1, 5 - sinceLastAward)
+        return (
+          <div className="egg-progress-chip" title="Every 5th new species earns a mystery egg">
+            <span className="egg-progress-dots">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <span key={i} className={`egg-progress-dot${i < sinceLastAward ? ' filled' : ''}`}>🐦</span>
+              ))}
+              <span className="egg-progress-dot egg-progress-goal">🥚</span>
+            </span>
+            <span>Next egg in {untilNext} {untilNext === 1 ? 'bird' : 'birds'}</span>
+          </div>
+        )
+      })()}
 
       {(() => {
         const days = daysUntilMarnichVisit()

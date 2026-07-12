@@ -2619,6 +2619,28 @@ textarea:focus {
   border: 1px solid rgba(71, 112, 77, 0.22);
 }
 
+/* At-a-glance mystery-egg status: dot progress toward the next egg, or a
+   quick "warming"/"hatched" note once one is banked. */
+.egg-progress-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 2px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 224, 178, 0.35);
+  border: 1px solid rgba(231, 178, 116, 0.4);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #7a4a1e;
+  text-align: center;
+}
+.egg-progress-dots { display: inline-flex; gap: 2px; }
+.egg-progress-dot { font-size: 0.9rem; opacity: 0.25; filter: grayscale(1); }
+.egg-progress-dot.filled { opacity: 1; filter: none; }
+.egg-progress-dot.egg-progress-goal { opacity: 1; filter: none; margin-left: 2px; }
+
 .mission-card {
   display: grid;
   gap: 12px;
