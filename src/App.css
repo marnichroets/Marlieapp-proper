@@ -5483,6 +5483,23 @@ textarea:focus {
 .tweety-nudge strong { display: block; color: var(--ink-strong); }
 .tweety-nudge small { color: var(--muted); font-weight: 600; }
 
+/* Prominent, inviting entry point to the Bird Garden — a real card on Home,
+   not buried in the settings menu. */
+.garden-home-card {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 14px 18px; border-radius: 18px; cursor: pointer;
+  background: linear-gradient(135deg, rgba(140, 203, 111, 0.28), rgba(111, 184, 214, 0.16));
+  border: 1px solid rgba(63, 122, 74, 0.28);
+  box-shadow: 0 2px 0 rgba(63, 122, 74, 0.12);
+  transition: transform 0.15s ease;
+}
+.garden-home-card:hover { transform: translateY(-1px); }
+.garden-home-emoji { font-size: 2rem; animation: av-hop 2.4s ease-in-out infinite; }
+.garden-home-text { flex: 1; }
+.garden-home-text strong { display: block; color: var(--ink-strong); font-size: 1.02rem; }
+.garden-home-text small { color: var(--muted); font-weight: 600; }
+.garden-home-arrow { font-size: 1.3rem; color: #3c7a4a; }
+
 /* --- Spot page: camera + gallery options --- */
 .spot-actions {
   display: grid;

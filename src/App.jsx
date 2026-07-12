@@ -6260,6 +6260,15 @@ function HomePage({
             <MysteryEggCard mysteryEgg={data.mysteryEgg} onWarm={onWarmMysteryEgg} />
           )}
 
+          <button className="garden-home-card" type="button" onClick={() => goTo('garden')}>
+            <span className="garden-home-emoji" aria-hidden="true">🌳</span>
+            <span className="garden-home-text">
+              <strong>My Garden</strong>
+              <small>Watch it grow — plant, tend, and visit the birds who call it home.</small>
+            </span>
+            <span className="garden-home-arrow" aria-hidden="true">→</span>
+          </button>
+
           {/* On mobile these three cards are hidden to keep the home screen
               above the fold; this link reveals them. On desktop the link is
               hidden and the cards show inline as usual. */}
