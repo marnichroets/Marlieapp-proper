@@ -4247,13 +4247,10 @@ function App() {
     // whether or not this crossing actually produced a new egg). Runs here so
     // every path that adds a species (photo AI, manual add, future paths)
     // triggers it for free, exactly like the milestone-coin bonus above.
-    // SANDBOX-ONLY while this feature is being built/tested (account ===
-    // 'marnich') — remove this gate only once the full loop is confirmed
-    // working end-to-end, per the release plan.
     let awardedEgg = false
     const prevEggProgress = data.eggProgress || { lastAwardedAtCount: 0 }
     const nextMultiple = Math.floor(recalculated.birds.length / 5) * 5
-    if (account === 'marnich' && nextMultiple > (prevEggProgress.lastAwardedAtCount || 0)) {
+    if (nextMultiple > (prevEggProgress.lastAwardedAtCount || 0)) {
       const eggProgress = { ...prevEggProgress, lastAwardedAtCount: nextMultiple }
       if (!recalculated.mysteryEgg) {
         awardedEgg = true
@@ -5400,12 +5397,7 @@ function App() {
             releaseAviaryBird={releaseAviaryBird}
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
-            // Temporarily sandbox-only (account === 'marnich'): a real accidental
-            // release happened on Pooks' live account via this single-tap,
-            // no-confirmation flow. Re-enable for her once the ceremonial
-            // release + mystery-egg succession flow ships, which replaces this
-            // with a proper multi-step, harder-to-trigger-by-accident sequence.
-            onReleaseToGarden={!readOnly && account === 'marnich' ? () => setReleasingCompanion(true) : undefined}
+            onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
             onWarmMysteryEgg={warmMysteryEgg}
           />
         )}
