@@ -225,3 +225,11 @@ export function canPlaceAt(type, x, y, plantings = []) {
     return Math.hypot((p.x ?? -999) - x, (p.y ?? -999) - y) >= minD
   })
 }
+
+// Can a graduating companion be placed at (x,y)? Same in-region check as
+// canPlaceAt, plus the ~36px resident spacing already used by freeResidentSpot,
+// so a tap-placed resident can never land on top of an existing one.
+export function canPlaceResidentAt(x, y, residents = []) {
+  if (x < GARDEN_REGION.x0 || x > GARDEN_REGION.x1 || y < GARDEN_REGION.y0 || y > GARDEN_REGION.y1) return false
+  return residents.every((r) => Math.hypot((r.x ?? -999) - x, (r.y ?? -999) - y) >= 36)
+}

@@ -24,8 +24,12 @@ export function companionSpecies(id) {
   return c?.species || ''
 }
 
+// Returns null (not a default companion) when `id` isn't one of the six —
+// e.g. the 'wild' visual id, or an unset companion. Every call site already
+// uses `?.` with its own fallback text, so a real "not found" here is safer
+// than silently pretending to be the Weaver.
 export function getCompanion(id) {
-  return TWEETY_COMPANIONS.find((c) => c.id === id) || TWEETY_COMPANIONS[0]
+  return TWEETY_COMPANIONS.find((c) => c.id === id) || null
 }
 
 // ---- Garden visitor → illustrated-bird mapping -----------------------------
@@ -88,6 +92,68 @@ export const FIRST_EGG_WARMS = 3
 
 export function firstEggCompanionFor(id) {
   return TWEETY_COMPANIONS[id % TWEETY_COMPANIONS.length]?.id || TWEETY_COMPANIONS[0].id
+}
+
+// ---- Mystery egg (earned through birding, hatches her next companion) -----
+// Distinct from FIRST_EGG_WARMS above — numerically the same today, but a
+// separate constant since the two mechanics are conceptually unrelated.
+export const MYSTERY_EGG_WARMS = 3
+
+// The egg's colour/pattern gives a subtle, non-giveaway hint about what's
+// inside, keyed off the same `category` field birdLibrary entries already
+// carry (see src/data/saBirdLibrary.js). Unknown/uncategorised species fall
+// back to a plain pastel egg.
+const EGG_HINT_CATEGORIES = {
+  'Birds of prey': { pattern: 'mottled', color: '#6B5B4A' },
+  'Colourful birds': { pattern: 'speckled', color: '#2FA8A0' },
+}
+const EGG_HINT_DEFAULT = { pattern: 'plain', color: '#F6A5C0' }
+
+function eggHintFor(commonName, scientificName, birdLibrary = []) {
+  const common = normName(commonName)
+  const sci = normName(scientificName)
+  const entry = birdLibrary.find(
+    (b) => (sci && normName(b.scientificName) === sci) || normName(b.commonName) === common,
+  )
+  return EGG_HINT_CATEGORIES[entry?.category] || EGG_HINT_DEFAULT
+}
+
+// The `n` most recently spotted UNIQUE species, newest first. `sightings` is
+// chronological append-order (oldest first) — read it backwards. Dedupes by
+// `speciesKey` (the same field sightings already use for identity elsewhere).
+export function mostRecentUniqueSpecies(sightings = [], n = 5) {
+  const seen = new Set()
+  const out = []
+  for (let i = sightings.length - 1; i >= 0 && out.length < n; i -= 1) {
+    const s = sightings[i]
+    const key = s.speciesKey || normName(s.birdName)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push({ birdName: s.birdName, scientificName: s.scientificName })
+  }
+  return out
+}
+
+// Secretly decide what a freshly-earned mystery egg is hiding: one of her
+// most-recently-spotted real species, resolved to a companion visual (one of
+// the six, or the 'wild' fallback) via the existing gardenCompanionFor, plus
+// a colour/pattern hint. Decided once, at egg-creation time, so the hint stays
+// consistent through the whole multi-day warm — never at hatch time.
+export function pickHatchCandidate(sightings = [], birdLibrary = []) {
+  const pool = mostRecentUniqueSpecies(sightings, 5)
+  if (!pool.length) {
+    return {
+      companionId: DEFAULT_COMPANION,
+      realSpecies: companionSpecies(DEFAULT_COMPANION),
+      ...EGG_HINT_DEFAULT,
+    }
+  }
+  const pick = pool[Math.floor(Math.random() * pool.length)]
+  return {
+    companionId: gardenCompanionFor(pick.birdName, pick.scientificName),
+    realSpecies: pick.birdName,
+    ...eggHintFor(pick.birdName, pick.scientificName, birdLibrary),
+  }
 }
 
 // ---- Three daily care windows (a natural routine, not a timer game) --------

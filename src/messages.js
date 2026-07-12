@@ -371,6 +371,24 @@ export function hatchSystemMessage(species) {
   )
 }
 
+// Delivered the moment a mystery egg is earned (every 5th new species logged).
+export function mysteryEggDiscoveredMessage() {
+  return systemMessage(
+    'A Rare Egg Discovered 🥚',
+    'The Council has detected extraordinary field work, Agent. A rare egg has been discovered in your honour. 🥚',
+  )
+}
+
+// Delivered the moment a crowned companion is released to the garden — a
+// permanent keepsake, in Tweety's own farewell voice.
+export function tweetyReleaseKeepsakeMessage(name) {
+  const pet = name || 'Tweety'
+  return systemMessage(
+    `${pet}'s farewell 🪶`,
+    `It is time, Agent. You raised me well. I will make my home in your garden now — visit me whenever you need reminding that good things grow slowly. 🪶\n\n— ${pet}`,
+  )
+}
+
 export const REACTIONS = ['❤️', '😂', '🐦']
 
 export function relativeMessageTime(iso) {

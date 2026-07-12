@@ -18,7 +18,15 @@ import {
   birdsNearCapeTownThisWeek,
   locationThought,
 } from './birdExplore'
-import { TweetyHomeCard, TweetyStatsPage, AviaryCard, CompanionGalleryPage, CompanionSelect } from './Tweety'
+import {
+  TweetyHomeCard,
+  TweetyStatsPage,
+  AviaryCard,
+  CompanionGalleryPage,
+  CompanionSelect,
+  MysteryEggCard,
+  AwaitingCompanionCard,
+} from './Tweety'
 import { GardenPage } from './Garden'
 import { defaultGarden, gardenItem, canWater, freeResidentSpot } from './gardenData'
 import {
@@ -40,6 +48,8 @@ import {
   getCompanion,
   gardenCompanionFor,
   gardenVisitorTint,
+  pickHatchCandidate,
+  MYSTERY_EGG_WARMS,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
@@ -65,6 +75,9 @@ import {
   milestoneSystemMessage,
   tweetyGrowthSystemMessage,
   crownedAdultKeepsakeMessage,
+  hatchSystemMessage,
+  mysteryEggDiscoveredMessage,
+  tweetyReleaseKeepsakeMessage,
 } from './messages'
 import { tweetyGrowthIndex, tweetyGrowth, tweetyGrowthProgress } from './tweetyData'
 
@@ -1770,6 +1783,11 @@ function buildDefaultState() {
     // Whether the one-time cinematic intro has been watched. Lives in the synced
     // state (not just a per-device flag) so a new device knows she is not new.
     introSeen: false,
+    // Mystery egg: earned every 5th new species logged (see commit()).
+    // lastAwardedAtCount is the highest multiple-of-5 species count already
+    // "used up" — advances even when a new egg isn't created (no stacking).
+    eggProgress: { lastAwardedAtCount: 0 },
+    mysteryEgg: null,
   }
 }
 
@@ -1790,15 +1808,20 @@ function mergeByKey(defaultItems, savedItems, key) {
 // imageUrl and soundUrl are static reference data that lives in code, so they
 // must always come from the latest defaults — never from stale saved state
 // (otherwise an old empty imageUrl in localStorage hides the real photo).
-// Migrate any existing Tweety onto the simplified, egg-free model. Eggs,
-// incubation, mystery eggs and babies are gone: Tweety is simply her companion
-// from the start and grows through the five stages via daily care. We preserve
-// whatever stage she has already reached (her bornAt) and never reset her.
+// Migrate any existing Tweety onto the simplified, egg-free model. The OLD
+// family-lifecycle eggs/incubation/babies are gone: Tweety is simply her
+// companion from the start and grows through the five stages via daily care.
+// We preserve whatever stage she has already reached (her bornAt) and never
+// reset her. (This predates and is unrelated to the NEW top-level mystery-egg
+// mechanic in data.mysteryEgg — that one intentionally leaves companion null
+// via awaitingNextCompanion below, in the brief gap after a release.)
 function normalizeTweety(tweety) {
   const next = { ...tweety }
-  // She is always her companion now. If a save predates a hatch (only an egg was
-  // chosen), adopt the companion that egg was hiding so her look is preserved.
-  if (!next.companion) {
+  // She is always her companion now — UNLESS she's in the brief gap between
+  // releasing her last companion and adopting the next one (awaitingNextCompanion).
+  // If a save predates a hatch (only an egg was chosen), adopt the companion
+  // that egg was hiding so her look is preserved.
+  if (!next.companion && !next.awaitingNextCompanion) {
     next.companion = next.firstEgg?.companion || DEFAULT_COMPANION
   }
   // Backfill bornAt (drives real-day growth) so she keeps her current stage
@@ -3279,6 +3302,74 @@ function App() {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
   }
 
+  // Daily tap-to-warm for the mystery egg (same once-per-real-day rhythm as
+  // Tweety's own care). On the final warm: if she's in the awaiting-gap after
+  // a release, adopt the hatched companion immediately; otherwise the egg just
+  // sits "ready" — her CURRENT companion's growth is completely untouched.
+  function warmMysteryEgg() {
+    if (readOnly) return
+    const egg = data.mysteryEgg
+    if (!egg) return
+    const today = tweetyTodayKey()
+    if (egg.lastWarmDay === today) return
+    const warms = (egg.warms || 0) + 1
+
+    if (warms < MYSTERY_EGG_WARMS) {
+      commit(
+        { ...data, mysteryEgg: { ...egg, warms, lastWarmDay: today } },
+        { title: 'So warm and cosy 💛', body: `${warms}/${MYSTERY_EGG_WARMS} days until it hatches.` },
+      )
+      return
+    }
+
+    // Hatching day.
+    const hatchMessage = hatchSystemMessage(egg.realSpecies)
+    if (data.tweety?.awaitingNextCompanion) {
+      const nextTweety = {
+        ...data.tweety,
+        companion: egg.companionId,
+        realSpecies: egg.realSpecies,
+        awaitingNextCompanion: false,
+        lastReleasedName: null,
+        bornAt: new Date().toISOString(),
+        careAt: { fed: null, watered: null, played: null },
+        treatsReceived: 0,
+        pendingTreat: false,
+      }
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: `A ${egg.realSpecies} hatched! 🐣`,
+        body: `Your mystery egg hatched into a ${egg.realSpecies} — meet your new companion. 🎉`,
+      })
+      commit(
+        {
+          ...data,
+          tweety: nextTweety,
+          mysteryEgg: null,
+          tweetyGrowthSeen: 0,
+          messages: [hatchMessage, ...(data.messages || [])],
+        },
+        { title: `${egg.realSpecies} hatched! 🐣`, body: 'Your new companion is here.' },
+      )
+    } else {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'bird',
+        title: `A ${egg.realSpecies} hatched! 🐣`,
+        body: `Your mystery egg hatched into a ${egg.realSpecies} — she's ready and waiting for when you release your current companion to the garden. 🎉`,
+      })
+      commit(
+        {
+          ...data,
+          mysteryEgg: { ...egg, warms, lastWarmDay: today },
+          messages: [hatchMessage, ...(data.messages || [])],
+        },
+        { title: `${egg.realSpecies} hatched! 🐣`, body: 'Ready and waiting for you.' },
+      )
+    }
+  }
+
   // ----- Tweety World: story events -----
   function triggerWorldEvent(eventId) {
     if (data.tweety?.worldEvent) return
@@ -3565,6 +3656,30 @@ function App() {
     })
   }
 
+  // Sandbox testing helper: instantly bank a mystery egg, bypassing the
+  // 5-species gate (and overwriting any existing one) so the hatch/release
+  // loop can be tested without birding through real milestones first.
+  function forceMysteryEgg() {
+    if (readOnly) return
+    setData((c) => ({
+      ...c,
+      mysteryEgg: {
+        id: createId('egg'),
+        createdAt: new Date().toISOString(),
+        warms: 0,
+        lastWarmDay: '',
+        ...pickHatchCandidate(c.sightings, c.birdLibrary),
+      },
+      messages: [mysteryEggDiscoveredMessage(), ...(c.messages || [])],
+    }))
+    setConfetti(Date.now())
+    setToast({
+      title: 'Sandbox: egg forced 🥚',
+      body: 'A mystery egg has been banked for testing.',
+      tone: 'success',
+    })
+  }
+
   function roomInteract(kind) {
     roomSound(kind)
     setData((c) => ({
@@ -3745,15 +3860,20 @@ function App() {
       ? { ...data.garden, plantings: (data.garden.plantings || []).map((p) => ({ ...p, lastWaterDay: '' })) }
       : data.garden
 
+    // Clear the mystery egg's daily warm gate too, so its 3-day cycle can be
+    // rapid-tested the same way.
+    const mysteryEgg = data.mysteryEgg ? { ...data.mysteryEgg, lastWarmDay: '' } : data.mysteryEgg
+
     setData((c) => ({
       ...c,
       tweety: nextTweety,
       dailyChallengeCompletions: nextCompletions,
       garden,
+      mysteryEgg,
     }))
     setToast({
       title: 'Fast-forwarded 1 day ⏩',
-      body: `${note} Care windows, daily challenge + garden watering reset.`.trim(),
+      body: `${note} Care windows, daily challenge, garden watering + mystery egg reset.`.trim(),
       tone: 'success',
     })
   }
@@ -4106,6 +4226,37 @@ function App() {
       recalculated = { ...recalculated, featherCoins: recalculated.featherCoins + milestoneBonus }
       milestoneNote = ` Milestone bonus! +${milestoneBonus} Feather Coins 🏅`
     }
+    // Mystery egg: every 5th new unique species banks one, provided she isn't
+    // already holding one (no stacking — lastAwardedAtCount always advances,
+    // whether or not this crossing actually produced a new egg). Runs here so
+    // every path that adds a species (photo AI, manual add, future paths)
+    // triggers it for free, exactly like the milestone-coin bonus above.
+    // SANDBOX-ONLY while this feature is being built/tested (account ===
+    // 'marnich') — remove this gate only once the full loop is confirmed
+    // working end-to-end, per the release plan.
+    let awardedEgg = false
+    const prevEggProgress = data.eggProgress || { lastAwardedAtCount: 0 }
+    const nextMultiple = Math.floor(recalculated.birds.length / 5) * 5
+    if (account === 'marnich' && nextMultiple > (prevEggProgress.lastAwardedAtCount || 0)) {
+      const eggProgress = { ...prevEggProgress, lastAwardedAtCount: nextMultiple }
+      if (!recalculated.mysteryEgg) {
+        awardedEgg = true
+        recalculated = {
+          ...recalculated,
+          eggProgress,
+          mysteryEgg: {
+            id: createId('egg'),
+            createdAt: new Date().toISOString(),
+            warms: 0,
+            lastWarmDay: '',
+            ...pickHatchCandidate(recalculated.sightings, recalculated.birdLibrary),
+          },
+          messages: [mysteryEggDiscoveredMessage(), ...(recalculated.messages || [])],
+        }
+      } else {
+        recalculated = { ...recalculated, eggProgress }
+      }
+    }
     // While gifts are hidden for Pooks, the reward still unlocks silently in her
     // state (so it's ready when gifts return) but we fire NO notification about
     // it — no unlock popup, no "Snack from Marnich" achievement letter, no toast
@@ -4118,7 +4269,7 @@ function App() {
       // Email Marnich about each freshly unlocked gift.
       unlockedRewards.forEach((reward) => notifyMarnich('gift', { giftName: reward.name }))
     }
-    if (milestoneBonus > 0) setConfetti(Date.now())
+    if (milestoneBonus > 0 || awardedEgg) setConfetti(Date.now())
     // Each freshly unlocked milestone reward also lands as an official Council
     // letter in the inbox.
     if (unlockedRewards.length) {
@@ -4127,9 +4278,10 @@ function App() {
       )
       setData((current) => ({ ...current, messages: [...letters, ...(current.messages || [])] }))
     }
+    const eggNote = awardedEgg ? ' A rare egg has been discovered in your honour! 🥚' : ''
     setToast({
       title: message.title,
-      body: [message.body, milestoneNote, unlockSummary].filter(Boolean).join(' '),
+      body: [message.body, milestoneNote, eggNote, unlockSummary].filter(Boolean).join(' '),
       tone: message.tone || 'success',
     })
   }
@@ -5137,6 +5289,14 @@ function App() {
           >
             🪙 Add 10,000 coins
           </button>
+          <button
+            className="marnich-ff-btn sandbox-egg-btn"
+            type="button"
+            onClick={forceMysteryEgg}
+            title="Bank a mystery egg instantly, bypassing the 5-species gate"
+          >
+            🥚 Force new egg
+          </button>
         </div>
       )}
       <RewardUnlockModal
@@ -5221,6 +5381,7 @@ function App() {
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
             onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
+            onWarmMysteryEgg={warmMysteryEgg}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -5998,6 +6159,7 @@ function HomePage({
   tapWorldEvent,
   resolveWorldEvent,
   onReleaseToGarden,
+  onWarmMysteryEgg,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -6055,19 +6217,27 @@ function HomePage({
 
       {(
         <>
-          <TweetyHomeCard
-            tweety={data.tweety}
-            dancing={tweetyDancing}
-            nestTier={tweetyView.nestTier}
-            rainbow={tweetyView.rainbow}
-            loveLetter={tweetyView.loveLetter}
-            gifts={TWEETY_STORE_ITEMS.filter((it) => (data.tweetyStore || []).includes(it.id))}
-            onFeed={() => careTweety('feed')}
-            onWater={() => careTweety('water')}
-            onPlay={() => careTweety('play')}
-            onOpenStats={() => goTo('tweety')}
-            onReleaseToGarden={onReleaseToGarden}
-          />
+          {data.tweety?.companion ? (
+            <TweetyHomeCard
+              tweety={data.tweety}
+              dancing={tweetyDancing}
+              nestTier={tweetyView.nestTier}
+              rainbow={tweetyView.rainbow}
+              loveLetter={tweetyView.loveLetter}
+              gifts={TWEETY_STORE_ITEMS.filter((it) => (data.tweetyStore || []).includes(it.id))}
+              onFeed={() => careTweety('feed')}
+              onWater={() => careTweety('water')}
+              onPlay={() => careTweety('play')}
+              onOpenStats={() => goTo('tweety')}
+              onReleaseToGarden={onReleaseToGarden}
+            />
+          ) : (
+            <AwaitingCompanionCard tweety={data.tweety} />
+          )}
+
+          {data.mysteryEgg && (
+            <MysteryEggCard mysteryEgg={data.mysteryEgg} onWarm={onWarmMysteryEgg} />
+          )}
 
           {/* On mobile these three cards are hidden to keep the home screen
               above the fold; this link reveals them. On desktop the link is

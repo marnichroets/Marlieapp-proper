@@ -14,6 +14,7 @@ import {
   GARDEN_REGION,
   snapToGarden,
   canPlaceAt,
+  canPlaceResidentAt,
 } from './gardenData'
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
@@ -593,7 +594,19 @@ function composeNight(perches, showcase) {
 }
 
 // ---- the page --------------------------------------------------------------
-export function GardenPage({ garden, coins, collection = [], onPlace, onWater, onBack, onBuySanctuary }) {
+export function GardenPage({
+  garden,
+  coins,
+  collection = [],
+  onPlace,
+  onWater,
+  onBack,
+  onBuySanctuary,
+  placingResident = false,
+  residentName = '',
+  residentCompanionId = null,
+  onPlaceResident,
+}) {
   const plantings = useMemo(() => garden?.plantings || [], [garden])
   const residents = garden?.residents || []
   const today = saDateKey()
@@ -618,9 +631,11 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
   const isNight = phase === 'night'
 
   const [selectedId, setSelectedId] = useState(null)
+  const [selectedResidentId, setSelectedResidentId] = useState(null)
   const [placingType, setPlacingType] = useState(null)
   const [ghost, setGhost] = useState(null) // { x, y, ok }
   const selected = plantings.find((p) => p.id === selectedId) || null
+  const selectedResident = residents.find((r) => r.id === selectedResidentId) || null
 
   // Fully-grown elements with a habitat zone are perches birds can visit (P2).
   const grownPerches = useMemo(
@@ -666,18 +681,27 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
   }
 
   function onScenePointerMove(evt) {
-    if (!placingType) return
+    if (!placingType && !placingResident) return
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y)
-    setGhost({ ...s, ok: canPlaceAt(placingType, s.x, s.y, plantings) })
+    const ok = placingResident
+      ? canPlaceResidentAt(s.x, s.y, residents)
+      : canPlaceAt(placingType, s.x, s.y, plantings)
+    setGhost({ ...s, ok })
   }
 
   function onSceneClick(evt) {
-    if (!placingType) return
+    if (!placingType && !placingResident) return
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y)
+    if (placingResident) {
+      if (!canPlaceResidentAt(s.x, s.y, residents)) return
+      onPlaceResident(s.x, s.y)
+      setGhost(null)
+      return
+    }
     if (!canPlaceAt(placingType, s.x, s.y, plantings)) return
     onPlace(placingType, s.x, s.y)
     setPlacingType(null)
@@ -691,6 +715,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
   }
 
   const placingItem = placingType ? gardenItem(placingType) : null
+  const placingAny = Boolean(placingType) || placingResident
 
   return (
     <div className="page-grid garden-page">
@@ -710,7 +735,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
         <div className="garden-scene-wrap">
         <svg
           ref={svgRef}
-          className={`garden-scene-svg${placingType ? ' placing' : ''}`}
+          className={`garden-scene-svg${placingAny ? ' placing' : ''}`}
           viewBox="0 0 400 260"
           preserveAspectRatio="xMidYMid meet"
           xmlns="http://www.w3.org/2000/svg"
@@ -737,7 +762,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
           {garden?.sanctuary && <SanctuaryFence />}
 
           {/* faint placement grid while placing */}
-          {placingType && (
+          {placingAny && (
             <g fill="#3c7a4a" opacity="0.22">
               {(() => {
                 const dots = []
@@ -763,12 +788,12 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
                   key={p.id}
                   className="garden-plant"
                   transform={`translate(${x} ${y})`}
-                  onClick={placingType ? undefined : (e) => { e.stopPropagation(); setSelectedId(p.id) }}
+                  onClick={placingAny ? undefined : (e) => { e.stopPropagation(); setSelectedId(p.id) }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
                   <PlantArt type={p.type} stageKey={plantStageKey(p)} />
-                  {thirsty && !placingType && <text className="garden-thirsty" x="0" y="-54" textAnchor="middle">💧</text>}
-                  {!placingType && <rect x="-24" y="-58" width="48" height="64" fill="transparent" />}
+                  {thirsty && !placingAny && <text className="garden-thirsty" x="0" y="-54" textAnchor="middle">💧</text>}
+                  {!placingAny && <rect x="-24" y="-58" width="48" height="64" fill="transparent" />}
                 </g>
               )
             })}
@@ -781,18 +806,21 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
           {/* the living scene: a random mix of creatures, all at once, layered
               in front of the plantings (birds, butterflies, bees by day;
               fireflies, owl, hedgehog, moths, a bat by night) */}
-          {!placingType && creatures.map((c) => <SceneCreature key={c.id} c={c} />)}
+          {!placingAny && creatures.map((c) => <SceneCreature key={c.id} c={c} />)}
 
-          {/* placement ghost */}
-          {placingType && ghost && (
+          {/* placement ghost: a garden item while placingType, or the
+              graduating companion's own portrait while placingResident */}
+          {placingAny && ghost && (
             <g transform={`translate(${ghost.x} ${ghost.y})`} opacity={ghost.ok ? 0.6 : 0.3} style={{ pointerEvents: 'none' }}>
               {ghost.ok
-                ? <PlantArt type={placingType} stageKey={placingItem.stages[0]} />
+                ? placingResident
+                  ? <foreignObject x="-22" y="-44" width="44" height="44"><TweetyBird level="crowned" companion={residentCompanionId} size={44} /></foreignObject>
+                  : <PlantArt type={placingType} stageKey={placingItem.stages[0]} />
                 : <text x="0" y="2" textAnchor="middle" fontSize="22" fill="#c0392b">⛔</text>}
             </g>
           )}
 
-          {plantings.length === 0 && !placingType && (
+          {plantings.length === 0 && !placingAny && (
             <text x="200" y="120" textAnchor="middle" className="garden-empty-hint">
               Your garden is empty — buy an item below, then tap the grass 🌱
             </text>
@@ -804,16 +832,18 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
             HTML/SVG widget, not a scene <g>); the scene keeps its 400×260 box so
             scene coords map straight to percentages. */}
         {residents.length > 0 && (
-          <div className="garden-residents" aria-hidden="true">
+          <div className="garden-residents">
             {residents.map((r) => (
-              <span
+              <button
                 key={r.id}
+                type="button"
                 className="garden-resident"
                 style={{ left: `${(r.x / 400) * 100}%`, top: `${(r.y / 260) * 100}%` }}
                 title={r.species}
+                onClick={() => setSelectedResidentId(r.id)}
               >
                 <TweetyBird level="crowned" companion={r.companionId} size={44} />
-              </span>
+              </button>
             ))}
           </div>
         )}
@@ -823,7 +853,7 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
             className="secondary-btn garden-demo-btn"
             type="button"
             onClick={() => rollRef.current(true)}
-            disabled={!!placingType}
+            disabled={placingAny}
           >
             Preview Garden Life 🎬
           </button>
@@ -838,7 +868,35 @@ export function GardenPage({ garden, coins, collection = [], onPlace, onWater, o
         </section>
       )}
 
-      {selected && !placingType && (() => {
+      {placingResident && (
+        <section className="soft-card full-span garden-placing-banner">
+          <span>Tap the grass to choose where <strong>{residentName || 'she'}</strong> will live 🌳</span>
+        </section>
+      )}
+
+      {selectedResident && !placingAny && (
+        <section className="soft-card full-span garden-detail garden-resident-detail">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">🪶 {selectedResident.name}</p>
+              <h3>{selectedResident.species}</h3>
+            </div>
+            <button className="text-btn" type="button" onClick={() => setSelectedResidentId(null)}>Close</button>
+          </div>
+          <p className="fine-print">
+            {selectedResident.name} · Raised from chick
+            {selectedResident.bornAt && selectedResident.releasedAt
+              ? ` for ${Math.max(1, Math.round((new Date(selectedResident.releasedAt) - new Date(selectedResident.bornAt)) / 86400000))} days`
+              : ''}
+            {' · '}
+            {selectedResident.releasedAt ? new Date(selectedResident.releasedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'released'}
+            {' · '}
+            {selectedResident.species}
+          </p>
+        </section>
+      )}
+
+      {selected && !placingAny && (() => {
         const item = gardenItem(selected.type)
         const grown = isFullyGrown(selected)
         const watered = wateredToday(selected, today)

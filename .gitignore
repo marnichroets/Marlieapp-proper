@@ -29,6 +29,7 @@ batch_photos.json
 marnich_*.json
 *_state_raw.json
 *_backup_pre_*.json
+backups/
 
 # Local preview/working output
 previews/

@@ -12,6 +12,7 @@ import {
   companionSpecies,
   FIRST_EGGS,
   FIRST_EGG_WARMS,
+  MYSTERY_EGG_WARMS,
   tweetyTodayKey,
   tweetyCareState,
   tweetySimpleMood,
@@ -937,6 +938,62 @@ export function FirstEggCard({ tweety, onWarm }) {
           Warm the egg 🔥 ({warms}/{FIRST_EGG_WARMS})
         </button>
       )}
+    </section>
+  )
+}
+
+// ---- Mystery egg (earned through birding, hatches her next companion) ------
+// Same tap-to-warm rhythm as FirstEggCard, reusing ColorEgg — but the colour/
+// pattern hint is subtle (never the real species) until it's actually ready.
+export function MysteryEggCard({ mysteryEgg, onWarm }) {
+  if (!mysteryEgg) return null
+  const warms = mysteryEgg.warms || 0
+  const ready = warms >= MYSTERY_EGG_WARMS
+  const warmedToday = mysteryEgg.lastWarmDay === tweetyTodayKey()
+  return (
+    <section className="soft-card full-span tweety-card first-egg-card mystery-egg-card">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">A rare egg 🥚</p>
+          <h3>
+            {ready
+              ? `It's hatched! A ${mysteryEgg.realSpecies} is waiting for you`
+              : `Warm your mystery egg every day — it hatches after ${MYSTERY_EGG_WARMS} days`}
+          </h3>
+        </div>
+      </div>
+      <div className="first-egg-stage">
+        <ColorEgg color={mysteryEgg.color} size={ready ? 96 : 140} glow={!ready} />
+      </div>
+      {ready ? (
+        <p className="fine-print">
+          Your next companion is ready and waiting — she&apos;ll join you the moment you release
+          your current one to the garden. 🪶
+        </p>
+      ) : warmedToday ? (
+        <p className="fine-print">
+          So warm and cosy 💛 Come back tomorrow to warm it again. ({warms}/{MYSTERY_EGG_WARMS} days)
+        </p>
+      ) : (
+        <button className="primary-btn wide big-btn" type="button" onClick={onWarm}>
+          Warm the egg 🔥 ({warms}/{MYSTERY_EGG_WARMS})
+        </button>
+      )}
+    </section>
+  )
+}
+
+// ---- The brief gap between releasing a companion and adopting the next ----
+export function AwaitingCompanionCard({ tweety }) {
+  const lastName = tweety?.lastReleasedName
+  return (
+    <section className="soft-card full-span tweety-card awaiting-companion-card">
+      <p className="eyebrow">Between companions 🪶</p>
+      <h3>{lastName ? `${lastName} is settling into the garden` : 'Your last companion is settling into the garden'}</h3>
+      <p className="fine-print">
+        Keep birding — your next companion is warming up in her mystery egg and will join you
+        very soon.
+      </p>
     </section>
   )
 }
