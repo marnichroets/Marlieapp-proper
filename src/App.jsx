@@ -23,12 +23,12 @@ import {
   TweetyStatsPage,
   AviaryCard,
   CompanionGalleryPage,
-  CompanionSelect,
   MysteryEggCard,
   AwaitingCompanionCard,
 } from './Tweety'
+import { ReleaseCeremony } from './ReleaseCeremony'
 import { GardenPage } from './Garden'
-import { defaultGarden, gardenItem, canWater, freeResidentSpot } from './gardenData'
+import { defaultGarden, gardenItem, canWater } from './gardenData'
 import {
   defaultTweety,
   tweetyToday,
@@ -2276,9 +2276,12 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
-  // P3: when true (sandbox only), the companion-pick overlay is shown so a
-  // crowned companion can graduate to the garden and a new one is chosen.
+  // When true, the release ceremony overlay is shown (farewell → placement
+  // prompt) for a crowned companion graduating to the garden.
   const [releasingCompanion, setReleasingCompanion] = useState(false)
+  // True once the ceremony finishes: the Garden opens in tap-to-place mode
+  // for the departing companion. No commit happens until she actually taps.
+  const [placingResident, setPlacingResident] = useState(false)
   // True if Tweety hasn't been visited in over 24h (captured once on load).
   const [missedYou] = useState(() => {
     const lv = data.tweety?.lastVisit
@@ -3569,55 +3572,68 @@ function App() {
     )
   }
 
-  // Graduate the current crowned companion into the garden, then adopt the
-  // newly-chosen companion. Atomic: the old companion is added to
-  // garden.residents (permanent, rendered as its real species) and Tweety is
-  // reborn as the new pick with a fresh growth clock — never a null companion,
-  // which normalizeLoadedState would otherwise reset to the default.
-  function confirmReleaseToGarden(newCompanionId) {
-    if (readOnly || (account !== 'pooks' && account !== 'marnich')) {
-      setReleasingCompanion(false)
-      return
-    }
+  // Graduate the current crowned companion into the garden at the spot she
+  // tapped. Atomic: the old companion is added to garden.residents (permanent,
+  // rendered as its real species, with bornAt/releasedAt for the memory-wall
+  // nameplate) and the next companion is resolved — adopted immediately if a
+  // mystery egg has already hatched and is waiting, otherwise she enters the
+  // brief awaitingNextCompanion gap until it does.
+  function confirmReleaseToGarden(x, y) {
+    setPlacingResident(false)
+    if (readOnly || (account !== 'pooks' && account !== 'marnich')) return
     const tw = data.tweety || defaultTweety()
     const oldId = tw.companion
-    if (!oldId || !newCompanionId) {
-      setReleasingCompanion(false)
-      return
-    }
+    if (!oldId) return
     const garden = data.garden || defaultGarden()
     const residents = garden.residents || []
-    const spot = freeResidentSpot(residents)
+    const name = tw.name || getCompanion(oldId)?.name || 'Tweety'
     const resident = {
       id: createId('resident'),
       companionId: oldId,
-      species: companionSpecies(oldId),
-      name: getCompanion(oldId)?.name || tw.name || 'Tweety',
-      x: spot.x,
-      y: spot.y,
+      species: tw.realSpecies || companionSpecies(oldId),
+      name,
+      x,
+      y,
+      bornAt: tw.bornAt,
       releasedAt: new Date().toISOString(),
     }
+
+    // Note: if a mystery egg is already hatched-and-ready, its hatch reveal +
+    // inbox message were already delivered back when the final daily warm
+    // completed (see warmMysteryEgg) — never re-announce it here.
+    const egg = data.mysteryEgg
+    const eggReady = egg && (egg.warms || 0) >= MYSTERY_EGG_WARMS
+    let nextTweety
+    let toastBody
+    if (eggReady) {
+      nextTweety = {
+        ...tw,
+        companion: egg.companionId,
+        realSpecies: egg.realSpecies,
+        awaitingNextCompanion: false,
+        lastReleasedName: null,
+        bornAt: new Date().toISOString(),
+        careAt: { fed: null, watered: null, played: null },
+        treatsReceived: 0,
+        pendingTreat: false,
+      }
+      toastBody = `${resident.species || 'Your companion'} now lives in the garden forever. Your already-hatched ${egg.realSpecies} is waiting — meet your new companion!`
+    } else {
+      nextTweety = { ...tw, companion: null, awaitingNextCompanion: true, lastReleasedName: name }
+      toastBody = `${resident.species || 'Your companion'} now lives in the garden forever. Your next companion is warming up in her mystery egg.`
+    }
+
     commit(
       {
         ...data,
         garden: { ...garden, residents: [...residents, resident] },
-        tweety: {
-          ...tw,
-          companion: newCompanionId,
-          bornAt: new Date().toISOString(),
-          careAt: { fed: null, watered: null, played: null },
-          treatsReceived: 0,
-          pendingTreat: false,
-        },
+        tweety: nextTweety,
+        mysteryEgg: eggReady ? null : data.mysteryEgg,
         tweetyGrowthSeen: 0,
+        messages: [tweetyReleaseKeepsakeMessage(name), ...(data.messages || [])],
       },
-      {
-        title: 'Graduated to the garden 🌳👑',
-        body: `${resident.species || 'Your companion'} now lives in the garden forever. Time to raise ${getCompanion(newCompanionId)?.name || 'a new friend'}!`,
-        tone: 'success',
-      },
+      { title: 'Graduated to the garden 🌳👑', body: toastBody, tone: 'success' },
     )
-    setReleasingCompanion(false)
   }
 
   // Water one planting (once per SA day); advances its growth stage.
@@ -5227,10 +5243,14 @@ function App() {
   // never trigger it on her behalf.
   if (releasingCompanion && !readOnly && data.tweety?.companion) {
     return (
-      <CompanionSelect
-        title="A companion graduates 🌳👑"
-        sub={`${getCompanion(data.tweety.companion)?.name || 'Your crowned bird'} is ready to live in the garden forever. Choose the next companion you'll raise.`}
-        onPick={confirmReleaseToGarden}
+      <ReleaseCeremony
+        tweety={data.tweety}
+        companionId={data.tweety.companion}
+        onDone={() => {
+          setReleasingCompanion(false)
+          setActivePage('garden')
+          setPlacingResident(true)
+        }}
       />
     )
   }
@@ -5401,6 +5421,10 @@ function App() {
             onWater={waterGardenPlant}
             onBuySanctuary={buySanctuaryFence}
             onBack={goBack}
+            placingResident={placingResident}
+            residentName={data.tweety?.name}
+            residentCompanionId={data.tweety?.companion}
+            onPlaceResident={(x, y) => confirmReleaseToGarden(x, y)}
           />
         )}
         {activePage === 'sanctuary' && (

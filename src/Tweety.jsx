@@ -1057,7 +1057,12 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
   )
 }
 
-// ---- First-login companion chooser -----------------------------------------
+// ---- Manual companion chooser (currently unused, kept for reuse) ----------
+// Previously used both at first login and for picking the next companion
+// after a garden release — both flows have since moved to automatic
+// selection (DEFAULT_COMPANION at signup; the mystery-egg hatch after a
+// release). Left defined rather than deleted in case a manual-pick flow is
+// wanted again later.
 export function CompanionSelect({ onPick, title = 'Meet your Tweety 🐣', sub = 'Choose the bird your golden pet chick will take after.' }) {
   return (
     <main className="login-screen companion-screen">
