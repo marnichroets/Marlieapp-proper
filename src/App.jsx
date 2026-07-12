@@ -5220,7 +5220,12 @@ function App() {
             releaseAviaryBird={releaseAviaryBird}
             tapWorldEvent={tapWorldEvent}
             resolveWorldEvent={resolveWorldEvent}
-            onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
+            // Temporarily sandbox-only (account === 'marnich'): a real accidental
+            // release happened on Pooks' live account via this single-tap,
+            // no-confirmation flow. Re-enable for her once the ceremonial
+            // release + mystery-egg succession flow ships, which replaces this
+            // with a proper multi-step, harder-to-trigger-by-accident sequence.
+            onReleaseToGarden={!readOnly && account === 'marnich' ? () => setReleasingCompanion(true) : undefined}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
