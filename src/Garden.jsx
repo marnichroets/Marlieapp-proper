@@ -18,6 +18,7 @@ import {
 } from './gardenData'
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
+import { tweetyGrowth } from './tweetyData'
 
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
@@ -79,9 +80,17 @@ function hashSeed(str) {
   return h
 }
 
-function pickBird(collection, wantWater) {
+// Small classic nest-box species — the Decorative Birdhouse specifically
+// draws these when she's collected any, rather than any random land bird.
+const NEST_BOX_COMPANIONS = ['weaver', 'sparrow', 'robin']
+
+function pickBird(collection, wantWater, preferNestBox = false) {
   if (!collection || !collection.length) return null
   let pool = collection.filter((b) => (wantWater ? b.water : b.land))
+  if (preferNestBox) {
+    const nesters = pool.filter((b) => NEST_BOX_COMPANIONS.includes(b.companion))
+    if (nesters.length) pool = nesters
+  }
   if (!pool.length) pool = collection
   return pool[Math.floor(Math.random() * pool.length)]
 }
@@ -360,6 +369,79 @@ function TrellisArt({ stageKey }) {
   return (<g>{frame}{vines}{blooms.map(([x, y, c], i) => <circle key={i} cx={x} cy={y} r="2.6" fill={c} />)}</g>)
 }
 
+// --- premium items -----------------------------------------------------------
+function WishingWellArt({ stageKey }) {
+  const base = <g><ellipse cx="0" cy="0" rx="16" ry="5" fill="#8a8078" /><ellipse cx="0" cy="-8" rx="14" ry="9" fill="#a8a096" /><ellipse cx="0" cy="-9" rx="11" ry="6.5" fill="#1e2a3a" /></g>
+  if (stageKey === 'well-base') return base
+  const roof = <g><rect x="-13" y="-30" width="2.6" height="20" fill="#9c6f44" /><rect x="10.4" y="-30" width="2.6" height="20" fill="#9c6f44" /><path d="M-16 -30 L0 -42 L16 -30 Z" fill="#b5854f" /><rect x="-3" y="-34" width="6" height="10" fill="#6b4a2a" /></g>
+  if (stageKey === 'well-built') return (<g>{base}{roof}</g>)
+  return (
+    <g className="garden-wishing-well-glow">
+      {base}{roof}
+      <ellipse cx="0" cy="-9" rx="10" ry="5.6" fill="#5fd0e8" opacity="0.55" />
+      {[[-5, -11], [3, -8], [0, -13], [6, -12]].map(([x, y], i) => (
+        <circle key={i} className="garden-wishing-sparkle" cx={x} cy={y} r="1" fill="#fff6c8" style={{ animationDelay: `${i * 0.4}s` }} />
+      ))}
+    </g>
+  )
+}
+
+function WaterfallArt({ stageKey }) {
+  const rocks = <g><ellipse cx="-10" cy="0" rx="9" ry="4" fill="#8a8078" /><ellipse cx="10" cy="1" rx="8" ry="3.6" fill="#9a9088" /></g>
+  if (stageKey === 'fall-trickle') return (<g>{rocks}<rect x="-3" y="-14" width="6" height="14" fill="#6fb8d6" opacity="0.7" /><ellipse cx="0" cy="-1" rx="7" ry="3" fill="#6fb8d6" /></g>)
+  const cascade = (opacityMul = 1) => (
+    <g className="garden-waterfall-flow" opacity={opacityMul}>
+      {[-9, -3, 3, 9].map((x, i) => (
+        <rect key={i} x={x - 1.6} y="-30" width="3.2" height="30" fill="#6fb8d6" style={{ animationDelay: `${i * 0.15}s` }} />
+      ))}
+    </g>
+  )
+  if (stageKey === 'fall-flowing') return (<g>{rocks}{cascade(0.85)}<ellipse cx="0" cy="-1" rx="14" ry="5" fill="#6fb8d6" /><ellipse cx="-4" cy="-3" rx="5" ry="1.8" fill="#a9dcec" opacity="0.7" /></g>)
+  return (
+    <g>
+      <ellipse cx="0" cy="-32" rx="16" ry="5" fill="#8a8078" opacity="0.9" />
+      {cascade(1)}
+      <ellipse cx="0" cy="-2" rx="20" ry="7" fill="#6fb8d6" />
+      <ellipse cx="-6" cy="-5" rx="8" ry="2.6" fill="#a9dcec" opacity="0.7" />
+      <ellipse cx="0" cy="-3" rx="12" ry="3" fill="#e8f6fa" opacity="0.5" />
+      {rocks}
+    </g>
+  )
+}
+
+function BirdhouseArt({ stageKey }) {
+  const post = <rect x="-2" y="-26" width="4" height="26" rx="1.5" fill="#a07a4e" />
+  if (stageKey === 'house-frame') return (<g>{post}<rect x="-9" y="-40" width="18" height="14" rx="2" fill="#c8a46c" /></g>)
+  const house = <g><rect x="-9" y="-40" width="18" height="14" rx="2" fill="#e8b96a" /><path d="M-11 -40 L0 -50 L11 -40 Z" fill="#c0392b" /><circle cx="0" cy="-33" r="2.6" fill="#5a3a22" /></g>
+  if (stageKey === 'house-painted') return (<g>{post}{house}</g>)
+  return (
+    <g>
+      {post}{house}
+      <g className="garden-visitor-bob" style={{ animationDuration: '2.1s' }}>
+        <circle cx="0" cy="-33" r="2.4" fill="#c98f12" />
+        <path d="M1.6 -33 L4 -32.4 L1.6 -31.8 Z" fill="#3a332a" />
+      </g>
+    </g>
+  )
+}
+
+function SunsetBenchArt({ stageKey }) {
+  if (stageKey === 'sunset-bench-frame') return (<g><rect x="-16" y="-6" width="3" height="6" fill="#a06a3e" /><rect x="13" y="-6" width="3" height="6" fill="#a06a3e" /><rect x="-17" y="-9" width="34" height="3" rx="1.5" fill="#c98650" /></g>)
+  return (
+    <g>
+      <rect x="-16" y="-8" width="3" height="8" fill="#8a5a34" />
+      <rect x="13" y="-8" width="3" height="8" fill="#8a5a34" />
+      <rect x="-18" y="-11" width="36" height="4" rx="2" fill="#d9954f" />
+      <rect x="-16" y="-22" width="3" height="12" fill="#8a5a34" />
+      <rect x="13" y="-22" width="3" height="12" fill="#8a5a34" />
+      <rect x="-18" y="-22" width="36" height="3.5" rx="1.5" fill="#e8a45c" />
+      <rect x="-18" y="-16" width="36" height="3" rx="1.5" fill="#e8a45c" />
+      {/* a warm little sunset glow behind it */}
+      <ellipse cx="0" cy="-26" rx="14" ry="8" fill="#ff9a52" opacity="0.22" />
+    </g>
+  )
+}
+
 function PlantArt({ type, stageKey }) {
   switch (type) {
     case 'tree-seed': return <TreeArt stageKey={stageKey} />
@@ -375,6 +457,10 @@ function PlantArt({ type, stageKey }) {
     case 'bench': return <BenchArt stageKey={stageKey} />
     case 'bird-bath': return <BirdBathArt stageKey={stageKey} />
     case 'trellis': return <TrellisArt stageKey={stageKey} />
+    case 'wishing-well': return <WishingWellArt stageKey={stageKey} />
+    case 'waterfall': return <WaterfallArt stageKey={stageKey} />
+    case 'birdhouse': return <BirdhouseArt stageKey={stageKey} />
+    case 'sunset-bench': return <SunsetBenchArt stageKey={stageKey} />
     default: return <FlowerPatchArt stageKey={stageKey} />
   }
 }
@@ -597,7 +683,7 @@ function composeDay(perches, collection, showcase) {
     const nB = showcase ? maxB : 1 + Math.floor(Math.random() * maxB)
     shuffle(all).slice(0, nB).forEach((p) => {
       const isWater = p.zone === 'water'
-      const b = pickBird(collection, isWater)
+      const b = pickBird(collection, isWater, p.zone === 'birdhouse')
       if (isWater) {
         list.push({
           id: nid(), type: 'swim', x: p.x, y: p.y,
@@ -670,6 +756,7 @@ export function GardenPage({
   residentName = '',
   residentCompanionId = null,
   onPlaceResident,
+  tweety = null,
 }) {
   const plantings = useMemo(() => garden?.plantings || [], [garden])
   const residents = garden?.residents || []
@@ -701,6 +788,15 @@ export function GardenPage({
   const selected = plantings.find((p) => p.id === selectedId) || null
   const selectedResident = residents.find((r) => r.id === selectedResidentId) || null
 
+  // Wishing Well: tapping it once fully grown plays a one-off sparkle burst,
+  // on top of the normal selection. Cleared automatically after it plays.
+  const [wishBurst, setWishBurst] = useState(null) // { id, x, y }
+  useEffect(() => {
+    if (!wishBurst) return undefined
+    const t = window.setTimeout(() => setWishBurst(null), 1400)
+    return () => window.clearTimeout(t)
+  }, [wishBurst])
+
   // Fully-grown elements with a habitat zone are perches birds can visit (P2).
   const grownPerches = useMemo(
     () =>
@@ -731,6 +827,23 @@ export function GardenPage({
     const iv = window.setInterval(() => roll(false), 16000) // keep it shifting
     return () => { alive = false; clearTimeout(t0); window.clearInterval(iv) }
   }, [grownPerches, collection, isNight])
+
+  // Sunset Bench: Tweety sometimes visits and sits a while — re-rolled on the
+  // same cadence as the rest of the living scene, so it isn't a fixed timer.
+  const sunsetBench = useMemo(
+    () => plantings.find((p) => p.type === 'sunset-bench' && isFullyGrown(p)) || null,
+    [plantings],
+  )
+  const [tweetyRolledAtBench, setTweetyRolledAtBench] = useState(false)
+  useEffect(() => {
+    if (!sunsetBench || !tweety?.companion) return undefined
+    let alive = true
+    const roll = () => { if (alive) setTweetyRolledAtBench(Math.random() < 0.4) }
+    const t0 = setTimeout(roll, 0)
+    const iv = window.setInterval(roll, 16000)
+    return () => { alive = false; clearTimeout(t0); window.clearInterval(iv) }
+  }, [sunsetBench, tweety?.companion])
+  const tweetyAtBench = Boolean(sunsetBench && tweety?.companion && tweetyRolledAtBench)
 
   function toScene(evt) {
     const svg = svgRef.current
@@ -852,7 +965,11 @@ export function GardenPage({
                   key={p.id}
                   className="garden-plant"
                   transform={`translate(${x} ${y})`}
-                  onClick={placingAny ? undefined : (e) => { e.stopPropagation(); setSelectedId(p.id) }}
+                  onClick={placingAny ? undefined : (e) => {
+                    e.stopPropagation()
+                    setSelectedId(p.id)
+                    if (p.type === 'wishing-well' && isFullyGrown(p)) setWishBurst({ id: p.id, x, y })
+                  }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
                   <PlantArt type={p.type} stageKey={plantStageKey(p)} />
@@ -861,6 +978,24 @@ export function GardenPage({
                 </g>
               )
             })}
+
+          {/* Wishing Well sparkle burst — a one-off flourish, not a loop */}
+          {wishBurst && (
+            <g transform={`translate(${wishBurst.x} ${wishBurst.y - 10})`} style={{ pointerEvents: 'none' }}>
+              {Array.from({ length: 8 }).map((_, i) => {
+                const angle = (i / 8) * Math.PI * 2
+                return (
+                  <circle
+                    key={i}
+                    className="garden-wish-burst-spark"
+                    cx="0" cy="0" r="2.4" fill="#fff6c8"
+                    style={{ '--wx': `${Math.cos(angle) * 30}px`, '--wy': `${Math.sin(angle) * 30 - 14}px`, animationDelay: `${i * 0.02}s` }}
+                  />
+                )
+              })}
+              <text x="0" y="-24" textAnchor="middle" fontSize="20" className="garden-wish-burst-heart">💫</text>
+            </g>
+          )}
 
           {/* time-of-day lighting wash over the ground (plantings read as lit) */}
           {GROUND_WASH[phase] && (
@@ -920,6 +1055,22 @@ export function GardenPage({
                 </button>
               )
             })}
+          </div>
+        )}
+
+        {/* Sunset Bench: Tweety herself, sometimes, sitting a while. Same HTML-
+            overlay approach as residents (TweetyBird isn't a scene <g>). */}
+        {tweetyAtBench && sunsetBench && (
+          <div className="garden-residents" aria-hidden="true">
+            <span
+              className="garden-resident"
+              style={{ left: `${(sunsetBench.x / 400) * 100}%`, top: `${((sunsetBench.y - 14) / 260) * 100}%` }}
+              title={`${tweety?.name || 'Tweety'} is enjoying the sunset`}
+            >
+              <span className="garden-resident-sway" style={{ animationDuration: '4.2s' }}>
+                <TweetyBird level={tweetyGrowth(tweety).key} companion={tweety.companion} size={38} />
+              </span>
+            </span>
           </div>
         )}
         </div>

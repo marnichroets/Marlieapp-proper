@@ -4320,6 +4320,38 @@ textarea:focus {
 }
 .tweety-release-btn { margin-top: 10px; width: 100%; }
 
+/* Premium items: Wishing Well (ambient glow once finished + a one-off wish
+   burst on tap), Waterfall (continuous falling water), Sunset Bench (Tweety's
+   sway reuses garden-resident-sway above). */
+.garden-wishing-well-glow { animation: wishing-well-pulse 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes wishing-well-pulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 1; filter: brightness(1.08); } }
+.garden-wishing-sparkle { animation: wishing-sparkle-twinkle 1.6s ease-in-out infinite; }
+@keyframes wishing-sparkle-twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+.garden-wish-burst-spark {
+  animation: garden-wish-burst-move 1s ease-out forwards;
+  transform-box: fill-box;
+}
+@keyframes garden-wish-burst-move {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--wx), var(--wy)) scale(0.2); opacity: 0; }
+}
+.garden-wish-burst-heart { animation: garden-wish-burst-heart-move 1.2s ease-out forwards; }
+@keyframes garden-wish-burst-heart-move {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  30% { opacity: 1; transform: translateY(-6px) scale(1.1); }
+  100% { transform: translateY(-20px) scale(1); opacity: 0; }
+}
+
+.garden-waterfall-flow rect {
+  animation: garden-waterfall-move 0.9s linear infinite;
+}
+@keyframes garden-waterfall-move {
+  0% { transform: translateY(-6px); opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { transform: translateY(6px); opacity: 0.7; }
+}
+
 /* A real farewell moment for releasing a crowned companion — full-bleed,
    tap-anywhere-to-continue, deliberately its own small style block rather
    than reusing the onboarding intro's CSS. */

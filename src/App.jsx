@@ -5417,6 +5417,7 @@ function App() {
             residentName={data.tweety?.name}
             residentCompanionId={data.tweety?.companion}
             onPlaceResident={(x, y) => confirmReleaseToGarden(x, y)}
+            tweety={data.tweety}
           />
         )}
         {activePage === 'sanctuary' && (
