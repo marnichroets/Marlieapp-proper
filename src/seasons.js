@@ -58,9 +58,21 @@ export const SEASONS = {
 // and challenges use — so all three switch on together at SA midnight. During
 // this window the Cape Town theme overrides the normal season; after the 29th it
 // simply stops matching and the real season returns — zero manual cleanup.
+export const CAPE_TOWN_TRIP_START = '2026-06-20'
+export const CAPE_TOWN_TRIP_END = '2026-06-29'
+
 export function isCapeTownWeek(date = new Date()) {
   const key = saDateKey(date)
-  return key >= '2026-06-20' && key <= '2026-06-29'
+  return key >= CAPE_TOWN_TRIP_START && key <= CAPE_TOWN_TRIP_END
+}
+
+// How many sightings she logged with a date inside the Cape Town trip window —
+// counted from the raw sightings log (dateSpotted is an saDateKey YYYY-MM-DD),
+// kept entirely separate from her lifetime collection total.
+export function capeTownTripSightingCount(sightings = []) {
+  return (sightings || []).filter(
+    (s) => s?.dateSpotted >= CAPE_TOWN_TRIP_START && s?.dateSpotted <= CAPE_TOWN_TRIP_END,
+  ).length
 }
 
 export function getSeasonInfo(date = new Date()) {

@@ -6,7 +6,7 @@ import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
-import { getSeasonInfo, isCapeTownWeek } from './seasons'
+import { getSeasonInfo, isCapeTownWeek, capeTownTripSightingCount } from './seasons'
 import { saDateKey, saDateKeyOffset } from './saDate'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -60,6 +60,7 @@ import { InboxPage } from './Inbox'
 import { BirdMapPage } from './BirdMap'
 import {
   councilDispatchForDay,
+  specialInboxDeliveriesForDay,
   marnichMessage,
   milestoneSystemMessage,
   tweetyGrowthSystemMessage,
@@ -162,6 +163,22 @@ const BIRD_API_URL = String(import.meta.env.VITE_BIRD_API_URL || DEFAULT_BIRD_AP
   /\/+$/,
   '',
 )
+
+// Bird SOUND identification (BirdNET). Enabled by default now that it runs on its
+// own isolated Railway service and has been verified end-to-end. Kill-switch:
+// build with VITE_SOUND_ID=0 (or set localStorage.soundId='off') to hide it again
+// without a code change.
+const SOUND_ID_ENABLED =
+  String(import.meta.env.VITE_SOUND_ID ?? '1') !== '0' &&
+  !(typeof window !== 'undefined' && window.localStorage?.getItem('soundId') === 'off')
+
+// Sound ID runs on its OWN isolated Railway service — a separate container from
+// the main backend (state-sync, photo ID) — so a BirdNET crash/OOM there can
+// never take down her existing working features.
+const DEFAULT_BIRD_SOUND_API_URL = 'https://sound-id-production.up.railway.app'
+const BIRD_SOUND_API_URL = String(
+  import.meta.env.VITE_BIRD_SOUND_API_URL || DEFAULT_BIRD_SOUND_API_URL,
+).replace(/\/+$/, '')
 
 // ---- Bird Battles backend (shared sessions + all-time leaderboard) ----------
 // Scores live on the server, keyed by the 4-digit code, so Pooks and Marnich can
@@ -457,6 +474,10 @@ function rollEncounter() {
 const MILESTONE_COINS = {
   5: 50,
   10: 100,
+  // 20 birds: the "Coffee date" gift card unlocks here too, but that reward
+  // section is hidden for Pooks — so give her a real, visible reward (coins +
+  // confetti + toast) at this milestone instead of nothing.
+  20: 150,
   25: 200,
   50: 500,
   100: 1000,
@@ -478,6 +499,18 @@ const SHOP = {
   // Matches the 500 welcome coins so her first treat can be the milkshake date.
   milkshakeDate: 500,
 }
+
+// Tweety Store — little once-off treats Pooks can buy for Tweety with Feather
+// Coins, shown as a plain list on the Gifts page. Each item is purchasable
+// exactly once; the bought ids live in state.tweetyStore so the "Gifted ✓"
+// state persists across sessions and devices. Kept deliberately simple.
+const TWEETY_STORE_ITEMS = [
+  { id: 'treats', emoji: '🍓', name: 'Special Treats', cost: 80, hint: 'Gives Tweety a happy mood boost' },
+  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 150, hint: "Adds a branch decoration to Tweety's home" },
+  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 200, hint: "Adds a cozy visual to Tweety's nest" },
+  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 300, hint: 'Makes Tweety extra happy with a little tune' },
+  { id: 'nest', emoji: '🏠', name: 'Nest Upgrade', cost: 400, hint: "Upgrades Tweety's nest visually" },
+]
 
 // Bottom tab bar (7) + everything else tucked behind the settings menu.
 // Inbox (📬) stays a prominent top-level tab with an unread badge; Magazine
@@ -1666,6 +1699,8 @@ function buildDefaultState() {
       paidAt: null,
     })),
     shopRedemptions: [],
+    // Tweety Store: ids of items already gifted to Tweety (bought once each).
+    tweetyStore: [],
     challenges: defaultChallengeTexts.map((text, index) => ({
       id: `challenge-${index + 1}`,
       text,
@@ -1729,7 +1764,7 @@ function buildDefaultState() {
     rewardCertificates: [],
     // Inbox: messages from the Council, Marnich and the system.
     messages: [],
-    messagesMeta: { lastCouncilDay: '', shownCouncil: [] },
+    messagesMeta: { lastCouncilDay: '', shownCouncil: [], specialDelivered: [] },
     // Last Tweety growth stage we have already celebrated (index into stages).
     tweetyGrowthSeen: 0,
     // Whether the one-time cinematic intro has been watched. Lives in the synced
@@ -1835,6 +1870,9 @@ function normalizeLoadedState(saved) {
       shopRedemptions: Array.isArray(saved.shopRedemptions)
         ? saved.shopRedemptions
         : base.shopRedemptions,
+      tweetyStore: Array.isArray(saved.tweetyStore)
+        ? saved.tweetyStore
+        : base.tweetyStore,
       missedSightings: Array.isArray(saved.missedSightings)
         ? saved.missedSightings
         : base.missedSightings,
@@ -2108,6 +2146,23 @@ async function identifyTopMatch(photoFile) {
   }
 }
 
+// Identify a bird from an audio/video recording via the backend BirdNET endpoint.
+// Returns the SAME normalised {uncertain, matches} shape as the photo identifier,
+// so the existing results UI and confirm-to-collection flow handle it unchanged.
+// Throws on a network/API failure so the caller can show the warm fallback.
+async function identifyBirdByAudio(file) {
+  if (!file || !BIRD_API_URL) throw new Error('No recording or API URL')
+  const body = new FormData()
+  body.append('file', file)
+  const response = await fetch(`${BIRD_SOUND_API_URL}/api/identify-bird-audio`, {
+    method: 'POST',
+    body,
+  })
+  if (!response.ok) throw new Error(`Audio API returned ${response.status}`)
+  const payload = await response.json()
+  return normalizeAiIdentificationResponse(payload)
+}
+
 // Pure: append a bird (from an AI match) to a state, rebuilding derived data.
 // Kept separate from addBird so the challenge flow can combine it with the
 // challenge-completion update in a single commit (no clobbering).
@@ -2357,6 +2412,35 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, dayKey, data.messagesMeta?.lastCouncilDay])
+
+  // One-off, date-gated personal/Council touches (Cape Town postcard nudge, the
+  // two personal notes from Marnich) — layered on top of the daily dispatch
+  // above, never replacing it. Each fires once and is recorded so it never
+  // repeats; after its window passes nothing matches (auto-cleanup). Keyed off
+  // the stored specialDelivered log for the same sync-resilient reason as the
+  // council dispatch.
+  useEffect(() => {
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      setData((current) => {
+        const drop = specialInboxDeliveriesForDay(current.messagesMeta, dayKey, current.sightings)
+        if (!drop) return current
+        return {
+          ...current,
+          messages: [...drop.messages, ...(current.messages || [])],
+          messagesMeta: drop.meta,
+        }
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, dayKey, data.messagesMeta?.specialDelivered])
 
   // Keep `dayKey` current so the dispatch above fires after an SA-midnight
   // rollover even if the app was never closed. Cheap re-checks on focus/visibility
@@ -4666,6 +4750,26 @@ function App() {
     )
   }
 
+  // Buy a one-off Tweety Store item: deduct coins once, record the id so it shows
+  // "Gifted ✓" forever, and pop a small celebration toast. Idempotent — a second
+  // click on an already-owned item is a no-op (and the button is disabled anyway).
+  function buyTweetyStoreItem(itemId) {
+    const item = TWEETY_STORE_ITEMS.find((entry) => entry.id === itemId)
+    if (!item) return
+    const owned = Array.isArray(data.tweetyStore) ? data.tweetyStore : []
+    if (owned.includes(item.id)) return
+    if (data.featherCoins < item.cost) return notEnoughCoins()
+    setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - item.cost,
+        tweetyStore: [...owned, item.id],
+      },
+      { title: `${item.emoji} ${item.name} gifted!`, body: `Tweety loves it. ${item.emoji}` },
+    )
+  }
+
   function buyDateIdea() {
     if (data.featherCoins < SHOP.dateIdea) return notEnoughCoins()
     const ideas = data.dateIdeas?.length ? data.dateIdeas : defaultDateIdeas
@@ -5210,6 +5314,7 @@ function App() {
             account={account}
             buyMysteryBox={buyMysteryBox}
             buyHiddenNote={buyHiddenNote}
+            buyTweetyStoreItem={buyTweetyStoreItem}
             buyDateIdea={buyDateIdea}
             buyMilkshakeDate={buyMilkshakeDate}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
@@ -5935,6 +6040,8 @@ function HomePage({
 
       <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />
 
+      <TripSightingsCard sightings={data.sightings} />
+
       {missedYou && data.tweety?.companion && (
         <button className="tweety-nudge" type="button" onClick={() => goTo('tweety')}>
           <span className="tweety-nudge-bird" aria-hidden="true">🐤💛</span>
@@ -5953,6 +6060,7 @@ function HomePage({
             nestTier={tweetyView.nestTier}
             rainbow={tweetyView.rainbow}
             loveLetter={tweetyView.loveLetter}
+            gifts={TWEETY_STORE_ITEMS.filter((it) => (data.tweetyStore || []).includes(it.id))}
             onFeed={() => careTweety('feed')}
             onWater={() => careTweety('water')}
             onPlay={() => careTweety('play')}
@@ -6104,6 +6212,27 @@ function MonthlyActivityBar({ bird }) {
 // its profile. During the Cape Town Special Week (see isCapeTownWeek) it follows
 // her to the Cape — Western Cape species and a Cape Town heading — then reverts
 // to the Potchefstroom list automatically after the 29th.
+// Home card shown ONLY during the Cape Town trip week, and only once she has
+// logged at least one sighting dated within the trip — a little running tally of
+// her Cape Town field work, separate from her lifetime collection count. Hidden
+// at zero (no empty "0 birds" state) and gone automatically after the trip.
+function TripSightingsCard({ sightings }) {
+  if (!isCapeTownWeek()) return null
+  const count = capeTownTripSightingCount(sightings)
+  if (count < 1) return null
+  return (
+    <section className="soft-card trip-sightings-card">
+      <p className="eyebrow">Cape Town field report</p>
+      <h3>
+        {count} {count === 1 ? 'bird' : 'birds'} spotted in Cape Town so far 🌊
+      </h3>
+      <p className="trip-sightings-sub">
+        Logged on your Cape Town deployment — keep them coming, Agent. 🪶
+      </p>
+    </section>
+  )
+}
+
 function BirdsNearYouCard({ library, openBirdProfile }) {
   const capeWeek = isCapeTownWeek()
   const birds = useMemo(
@@ -6239,6 +6368,9 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   const [form, setForm] = useState(() => createEmptyForm())
   const [photoFile, setPhotoFile] = useState(null)
   const [photoInputKey, setPhotoInputKey] = useState(0)
+  const [audioFile, setAudioFile] = useState(null)
+  const [audioUrl, setAudioUrl] = useState('')
+  const [audioInputKey, setAudioInputKey] = useState(0)
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiMatches, setAiMatches] = useState([])
   const [aiUncertain, setAiUncertain] = useState(false)
@@ -6246,11 +6378,22 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   const [loadingIndex, setLoadingIndex] = useState(0)
   const [confirmation, setConfirmation] = useState(null)
   const [guidance, setGuidance] = useState('')
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordSeconds, setRecordSeconds] = useState(0)
+  const [recordError, setRecordError] = useState('')
+  const mediaRecorderRef = useRef(null)
+  const mediaStreamRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const recordTimerRef = useRef(null)
+
+  // Keep in-app recordings short: BirdNET only needs a few seconds, and this
+  // keeps the upload comfortably under the backend's 16MB limit.
+  const MAX_RECORD_SECONDS = 15
 
   const speciesKey = normalizeBirdName(form.birdName)
   const nicknameSuggestion = nicknameIdeas[speciesKey]
   const personality = personalityComments[speciesKey]
-  const canAskCouncil = Boolean(photoFile) && aiStatus !== 'loading'
+  const canAskCouncil = (Boolean(photoFile) || Boolean(audioFile)) && aiStatus !== 'loading'
 
   useEffect(() => {
     if (aiStatus !== 'loading') return undefined
@@ -6261,6 +6404,17 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
 
     return () => window.clearInterval(intervalId)
   }, [aiStatus])
+
+  // Safety net: if she leaves the page while recording, stop the timer and free
+  // the microphone so the browser's "recording" indicator doesn't linger.
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) window.clearInterval(recordTimerRef.current)
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      }
+    }
+  }, [])
 
   function createEmptyForm() {
     return {
@@ -6300,9 +6454,178 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setForm(createEmptyForm())
     setPhotoFile(null)
     setPhotoInputKey((current) => current + 1)
+    clearAudio()
     clearAiState()
     if (!keepConfirmation) {
       setConfirmation(null)
+    }
+  }
+
+  function formatRecordTime(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60)
+    const secs = totalSeconds % 60
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+
+  function clearAudio() {
+    setAudioFile(null)
+    setAudioInputKey((current) => current + 1)
+    setAudioUrl((current) => {
+      if (current) {
+        try {
+          URL.revokeObjectURL(current)
+        } catch {
+          /* ignore */
+        }
+      }
+      return ''
+    })
+  }
+
+  // A recording and a photo are mutually exclusive for a single "Ask the
+  // Council" — picking one clears the other so the request is unambiguous.
+  function handleAudio(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    updateField('photo', '')
+    setAudioFile(file)
+    setConfirmation(null)
+    setGuidance('')
+    clearAiState()
+    try {
+      setAudioUrl(URL.createObjectURL(file))
+    } catch {
+      setAudioUrl('')
+    }
+  }
+
+  function removeAudio() {
+    clearAudio()
+    clearAiState()
+    setRecordError('')
+  }
+
+  // Pick a recording format this browser actually supports. iOS Safari only does
+  // audio/mp4 (AAC); Chrome/Firefox/Android prefer webm/opus. The backend now
+  // transcodes any of these via ffmpeg, so all of them identify fine.
+  function pickRecorderMimeType() {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return ''
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ]
+    return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || ''
+  }
+
+  function stopRecordTimer() {
+    if (recordTimerRef.current) {
+      window.clearInterval(recordTimerRef.current)
+      recordTimerRef.current = null
+    }
+  }
+
+  function releaseMic() {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      mediaStreamRef.current = null
+    }
+  }
+
+  // Live in-app recording via the microphone — no leaving the app for the phone's
+  // native recorder. Works on mobile and desktop; on Stop it auto-submits to the
+  // Council just like an upload would.
+  async function startRecording() {
+    setRecordError('')
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setRecordError(
+        "This browser can’t record in-app — you can still upload a recording with the button below 🎤",
+      )
+      return
+    }
+
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (error) {
+      console.warn('[sound-id] microphone unavailable', error?.message || error)
+      setRecordError(
+        "I couldn’t reach the microphone — please allow mic access, or upload a recording instead 🎤",
+      )
+      return
+    }
+
+    // A recording, a photo and an upload are mutually exclusive for one ask.
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    updateField('photo', '')
+    clearAudio()
+    clearAiState()
+    setConfirmation(null)
+    setGuidance('')
+
+    mediaStreamRef.current = stream
+    audioChunksRef.current = []
+    const mimeType = pickRecorderMimeType()
+    const recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream)
+    mediaRecorderRef.current = recorder
+
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size > 0) audioChunksRef.current.push(event.data)
+    })
+    recorder.addEventListener('stop', () => {
+      stopRecordTimer()
+      releaseMic()
+      setIsRecording(false)
+      const type = recorder.mimeType || mimeType || 'audio/webm'
+      const blob = new Blob(audioChunksRef.current, { type })
+      audioChunksRef.current = []
+      if (!blob.size) {
+        setRecordError("That recording came through empty — give it another go 🎙️")
+        return
+      }
+      const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm'
+      const file = new File([blob], `bird-call.${ext}`, { type })
+      setAudioFile(file)
+      try {
+        setAudioUrl(URL.createObjectURL(file))
+      } catch {
+        setAudioUrl('')
+      }
+      // Auto-submit to the Council, exactly as uploading then asking would.
+      runAudioCouncil(file)
+    })
+
+    setRecordSeconds(0)
+    setIsRecording(true)
+    recorder.start()
+
+    const startedAt = Date.now()
+    recordTimerRef.current = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000)
+      setRecordSeconds(elapsed)
+      if (elapsed >= MAX_RECORD_SECONDS) stopRecording()
+    }, 250)
+  }
+
+  function stopRecording() {
+    const recorder = mediaRecorderRef.current
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop() // fires the 'stop' handler, which builds + submits the clip
+    } else {
+      stopRecordTimer()
+      releaseMic()
+      setIsRecording(false)
     }
   }
 
@@ -6326,9 +6649,51 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     clearAiState()
   }
 
+  // Sound path: identify from a recording via BirdNET, then fall into the SAME
+  // results UI + confirm-to-collection flow as a photo. On low confidence or
+  // failure we show a warm, specific message rather than photo demo birds.
+  // Takes the file directly so an auto-submitted in-app recording can reuse it
+  // without waiting for React state to settle.
+  async function runAudioCouncil(file) {
+    if (!file) return
+    setLoadingIndex(Math.floor(Math.random() * loadingMessages.length))
+    setAiStatus('loading')
+    setLoadingIndex(0)
+    setConfirmation(null)
+    setGuidance('')
+    setAiMatches([])
+    setAiUncertain(false)
+    setOfflineNotice('')
+    setRecordError('')
+    try {
+      const result = await identifyBirdByAudio(file)
+      if (!result.matches.length) {
+        clearAiState()
+        setGuidance(
+          "The Council listened closely but couldn’t be sure from that sound 🎧 — a clearer, closer recording helps, or you can add the bird manually below.",
+        )
+        return
+      }
+      setAiMatches(result.matches)
+      setAiUncertain(result.uncertain)
+      setAiStatus('results')
+    } catch (error) {
+      console.warn('[bird-id] audio identification failed', error?.message || error)
+      clearAiState()
+      setGuidance(
+        "The Council’s ears are resting just now 🎧 — sound ID couldn’t run. Try again shortly, or add the bird manually below.",
+      )
+    }
+  }
+
   async function handleAskCouncil(event) {
     event.preventDefault()
-    if (!photoFile) return
+    if (!photoFile && !audioFile) return
+
+    if (audioFile) {
+      await runAudioCouncil(audioFile)
+      return
+    }
 
     // Start each identification on a fresh random Council message.
     setLoadingIndex(Math.floor(Math.random() * loadingMessages.length))
@@ -6434,6 +6799,29 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 Choose a different photo
               </button>
             </div>
+          ) : audioFile ? (
+            <div className="spot-preview-card">
+              <span className="spot-action-emoji" aria-hidden="true">🎙️</span>
+              {audioUrl && <audio className="spot-audio-preview" src={audioUrl} controls />}
+              <p className="spot-preview-caption">
+                A recording for the Council&apos;s ears. 🎶 Ready when you are.
+              </p>
+              <button className="ghost-btn wide big-btn" type="button" onClick={removeAudio}>
+                Choose a different recording
+              </button>
+            </div>
+          ) : isRecording ? (
+            <div className="spot-preview-card recording-card">
+              <div className="recording-indicator" role="status" aria-live="polite">
+                <span className="recording-dot" aria-hidden="true" />
+                <span className="recording-timer">{formatRecordTime(recordSeconds)}</span>
+              </div>
+              <p className="spot-preview-caption">Listening for your bird… hold steady 🎶</p>
+              <button className="primary-btn wide big-btn" type="button" onClick={stopRecording}>
+                Stop &amp; ask the Council
+              </button>
+              <p className="spot-sub">Recording stops on its own after {MAX_RECORD_SECONDS} seconds.</p>
+            </div>
           ) : (
             <>
             <div className="spot-actions">
@@ -6460,7 +6848,31 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 <span className="spot-action-emoji" aria-hidden="true">🖼️</span>
                 <span>Choose from gallery</span>
               </label>
+              {SOUND_ID_ENABLED && (
+                <button type="button" className="spot-action-btn" onClick={startRecording}>
+                  <span className="spot-action-emoji" aria-hidden="true">🎙️</span>
+                  <span>Record now</span>
+                </button>
+              )}
+              {SOUND_ID_ENABLED && (
+                <label className="spot-action-btn">
+                  <input
+                    key={`snd-${audioInputKey}`}
+                    type="file"
+                    accept="audio/*,video/*"
+                    onChange={handleAudio}
+                    hidden
+                  />
+                  <span className="spot-action-emoji" aria-hidden="true">📁</span>
+                  <span>Upload a recording</span>
+                </label>
+              )}
             </div>
+            {recordError && (
+              <div className="hint-panel ai-guidance-note">
+                <p>{recordError}</p>
+              </div>
+            )}
             <p className="spot-sub">Take a fresh photo or pick one of your best bird photos from your gallery 💛</p>
             </>
           )}
@@ -7937,6 +8349,7 @@ function RewardsPage({
   account = 'pooks',
   buyMysteryBox,
   buyHiddenNote,
+  buyTweetyStoreItem,
   buyDateIdea,
   buyMilkshakeDate,
   buyFeaturedBirdProfile,
@@ -7961,9 +8374,10 @@ function RewardsPage({
     { id: 'birdProfile', name: 'Rare bird unlock', emoji: '✨', cost: SHOP.birdProfile, action: buyFeaturedBirdProfile, hint: 'Reveal a rare bird profile' },
     { id: 'dateIdea', name: 'Date idea', emoji: '💕', cost: SHOP.dateIdea, action: buyDateIdea, hint: 'A real date plan from Marnich' },
   ]
-  // Pooks' Gifts page hides EVERY shop item for now (all items kept in code but
-  // hidden via this empty allowlist) so the core experience stays simple while
-  // Marnich gets it right. He adds gifts back manually through Admin when ready.
+  // Pooks' coin shop is empty for now — the Hidden note is intentionally hidden
+  // until Marnich writes it properly, so she cannot see or buy it yet. Her Gifts
+  // page still shows the Tweety Store (rendered below, ungated) and her coin
+  // balance. All shop items stay in code, just gated off via this allowlist.
   // Marnich's own test account still sees every item and gift section so he can
   // verify the full purchase → reveal → claim flow before any of it goes live.
   const visibleShopIds = isMarnich
@@ -8013,6 +8427,35 @@ function RewardsPage({
               </article>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Tweety Store</p>
+            <h2>Little treats for Tweety</h2>
+          </div>
+        </div>
+        <div className="shop-grid">
+          {TWEETY_STORE_ITEMS.map((item) => {
+            const owned = (data.tweetyStore || []).includes(item.id)
+            return (
+              <article className="shop-tile" key={item.id}>
+                <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
+                <h3>{item.name}</h3>
+                <small>{item.hint}</small>
+                <button
+                  className="primary-btn wide big-btn"
+                  type="button"
+                  disabled={owned || coins < item.cost}
+                  onClick={() => buyTweetyStoreItem(item.id)}
+                >
+                  {owned ? 'Gifted ✓' : `${item.cost} 🪙`}
+                </button>
+              </article>
+            )
+          })}
         </div>
       </section>
 

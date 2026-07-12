@@ -749,6 +749,7 @@ export function TweetyHomeCard({
   nestTier = 'basic',
   rainbow = false,
   loveLetter = '',
+  gifts = [],
   onFeed,
   onWater,
   onPlay,
@@ -793,6 +794,21 @@ export function TweetyHomeCard({
         <span className="tweety-level-pill">{growth.label}</span>
         <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
       </div>
+
+      {/* Gifts bought for Tweety in the Tweety Store — shown right under her nest
+          so a purchase is immediately visible near her. */}
+      {gifts.length > 0 && (
+        <div className="tweety-gifts">
+          <span className="tweety-gifts-label">🎁 {name}&apos;s gifts</span>
+          <div className="tweety-gifts-row">
+            {gifts.map((g) => (
+              <span className="tweety-gift-chip" key={g.id} title={g.hint || g.name}>
+                <span aria-hidden="true">{g.emoji}</span> {g.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Real-day growth tracker */}
       <div className="tweety-growth">

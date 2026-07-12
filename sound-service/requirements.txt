@@ -1,0 +1,14 @@
+fastapi>=0.115.6,<1.0.0
+uvicorn[standard]>=0.34.0,<1.0.0
+python-multipart>=0.0.20,<1.0.0
+# Lightweight BirdNET stack — tflite-runtime (not full TensorFlow) for a low
+# memory footprint. birdnetlib prefers tflite_runtime and only falls back to
+# tensorflow, so tflite-runtime alone is sufficient.
+birdnetlib>=0.18.0
+tflite-runtime>=2.14.0
+librosa>=0.10.0
+soundfile>=0.12.0
+resampy>=0.4.0
+# tflite-runtime 2.14 is built against NumPy 1.x — NumPy 2 breaks it
+# (_ARRAY_API not found). Pin <2; the rest of the stack is fine on 1.26.
+numpy>=1.24,<2.0

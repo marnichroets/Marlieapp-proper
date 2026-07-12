@@ -2,3 +2,20 @@ fastapi>=0.115.6,<1.0.0
 openai>=1.59.6,<2.0.0
 python-multipart>=0.0.20,<1.0.0
 uvicorn[standard]>=0.34.0,<1.0.0
+
+# --- Bird SOUND ID (BirdNET) — branch `sound-id`, NOT yet enabled in prod ------
+# These power /api/identify-bird-audio. They are heavy (TensorFlow Lite model +
+# audio decoding) and are intentionally NOT merged to the live `main` deploy yet.
+# Before enabling on Pooks' live backend (after the Cape Town trip):
+#   1. Confirm the Railway service has enough memory to load the model without
+#      OOM-ing the shared container (the model loads lazily on first audio call).
+#   2. Ensure ffmpeg is available in the image (Railway/nixpacks: add `ffmpeg`
+#      to aptPkgs / a nixpacks.toml) so phone m4a/webm/mp4 clips can be decoded.
+#   3. tflite-runtime is much lighter on memory than full tensorflow — prefer it
+#      if its wheel is available for the deploy's Python; otherwise tensorflow-cpu.
+#   4. Run a real accuracy pass on actual SA recordings before flipping the flag.
+# birdnetlib>=0.18.0
+# tflite-runtime>=2.14.0   ; platform suitable  (preferred — lower memory)
+# tensorflow-cpu>=2.15.0   ; fallback if tflite-runtime wheel unavailable
+# librosa>=0.10.0
+# resampy>=0.4.0
