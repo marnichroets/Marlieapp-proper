@@ -4158,22 +4158,64 @@ textarea:focus {
   100% { transform: translate(-6px, -16px); opacity: 0; }
 }
 
-/* Garden life: a perched bird hops between a few canopy points (CSS loop), and
-   an in-transit bird glides along a shallow arc with flapping wings. The shadow
-   stays put on the ground while the bird above it hops/relocates. */
-.garden-perch-hop { animation: garden-canopy-hop 7.5s ease-in-out infinite; }
-@keyframes garden-canopy-hop {
-  0%, 14%   { transform: translate(0, 0); }
-  22%       { transform: translate(-5px, -10px); }
-  30%, 44%  { transform: translate(-10px, -16px); }  /* higher-left branch */
-  52%       { transform: translate(2px, -12px); }
-  60%, 74%  { transform: translate(11px, -7px); }     /* lower-right branch */
-  82%       { transform: translate(5px, -3px); }
-  90%, 100% { transform: translate(0, 0); }           /* back to start */
+/* Garden life: a perched bird wanders between 2 random branch points and
+   PAUSES at each one (hop, hold, hop, hold, back to start) rather than
+   endlessly looping the same shape — the actual waypoints (--bx1/--by1,
+   --bx2/--by2) are randomized per-instance in JS, so no two birds ever trace
+   the same path even when their durations happen to land close together. An
+   in-transit bird glides along a shallow arc with flapping wings, landing and
+   staying a while at each end before flying back. The ground shadow stays put
+   while the bird above it wanders/relocates. */
+.garden-branch-wander {
+  animation-name: garden-branch-wander;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+}
+@keyframes garden-branch-wander {
+  0%, 10%   { transform: translate(0, 0); }                              /* holds at start */
+  20%       { transform: translate(var(--bx1), var(--by1)); }
+  28%, 44%  { transform: translate(var(--bx1), var(--by1)); }             /* holds at branch 1 */
+  54%       { transform: translate(var(--bx2), var(--by2)); }
+  62%, 80%  { transform: translate(var(--bx2), var(--by2)); }             /* holds at branch 2 */
+  90%       { transform: translate(0, 0); }
+  100%      { transform: translate(0, 0); }                              /* holds back at start */
+}
+
+/* A continuous, subtle head/wing twitch layered under everything else, so a
+   bird never reads as fully frozen even while "resting" between wanders. */
+.garden-bird-idle {
+  animation-name: garden-bird-idle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes garden-bird-idle {
+  0%, 78%, 100% { transform: rotate(0deg) scaleY(1); }
+  84% { transform: rotate(-3deg) scaleY(1.02); }
+  90% { transform: rotate(2deg) scaleY(0.99); }
+}
+
+/* Water birds sit low and drift side to side with a slow bob — never hop or
+   fly, a deliberately different feel from land birds. --sx is the per-instance
+   drift range (JS-randomized), so no two ducks glide the same distance. */
+.garden-swim-drift {
+  animation-name: garden-swim-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  transform-box: fill-box;
+}
+@keyframes garden-swim-drift {
+  0%   { transform: translate(0, 0); }
+  50%  { transform: translate(calc(var(--sx, 14px) * -1), -1px); }
+  100% { transform: translate(var(--sx, 14px), 0); }
 }
 
 /* A bird shuttling between two trees: inner group glides the (dx,dy) delta along
-   an arc and back (placement is on the outer group's transform attribute). */
+   an arc and back (placement is on the outer group's transform attribute),
+   landing and staying a while at each end (not a continuous back-and-forth). */
 .g-flybird {
   animation-name: g-fly-shuttle;
   animation-timing-function: ease-in-out;
@@ -4182,9 +4224,10 @@ textarea:focus {
   transform-box: fill-box;
 }
 @keyframes g-fly-shuttle {
-  0%   { transform: translate(0, 0); }
-  50%  { transform: translate(calc(var(--dx) / 2), calc(var(--dy) / 2 - var(--lift, 34px))); }
-  100% { transform: translate(var(--dx), var(--dy)); }
+  0%, 15%  { transform: translate(0, 0); }                                                    /* lands, stays a while */
+  35%      { transform: translate(calc(var(--dx) / 2), calc(var(--dy) / 2 - var(--lift, 34px))); }
+  55%, 85% { transform: translate(var(--dx), var(--dy)); }                                     /* lands, stays a while */
+  100%     { transform: translate(var(--dx), var(--dy)); }
 }
 
 /* Shared flapping wings (flybird, butterfly, moth): each wing rotates about its
@@ -4253,6 +4296,19 @@ textarea:focus {
   /* anchor the bird's feet (~78% down its box) at the scene point */
   transform: translate(-50%, -78%);
   filter: drop-shadow(0 3px 2px rgba(60, 90, 46, 0.18));
+}
+/* A gentle, always-on idle sway so a permanently-placed companion never reads
+   as a frozen statue — per-resident delay/duration (stable, hashed from her
+   id) keeps every resident swaying out of step with the others. */
+.garden-resident-sway {
+  display: inline-block;
+  animation-name: garden-resident-sway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes garden-resident-sway {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1.5px) rotate(-2deg); }
 }
 .tweety-release-btn { margin-top: 10px; width: 100%; }
 
