@@ -497,6 +497,18 @@ const MILESTONE_COINS = {
   100: 1000,
 }
 
+// Plant Collection milestone celebrations. Unlike birds' MILESTONE_COINS
+// (tied to real-world gifts from Marnich), these are just warm in-app
+// celebrations — a confetti + reveal-modal moment folded into the normal
+// "new plant discovered" reveal, no separate coin economy.
+const PLANT_MILESTONE_LINES = {
+  5: 'Five specimens catalogued — the Botanical Division is thoroughly impressed. 🌿✨',
+  10: 'Ten plants! Officially a promising young botanist. 🌱🏅',
+  20: 'Twenty species — the greenhouse archive is proud of you. 🌿🎉',
+  50: 'Fifty plants?! Legendary Field Botanist status unlocked. 🌳👑',
+}
+const PLANT_MILESTONES = Object.keys(PLANT_MILESTONE_LINES).map(Number)
+
 function milestoneCoinsBetween(prevCount, nextCount) {
   return Object.entries(MILESTONE_COINS).reduce((sum, [threshold, coins]) => {
     const t = Number(threshold)
@@ -4646,6 +4658,9 @@ function App() {
       createdAt: new Date().toISOString(),
     }
     const nextPlantLibrary = isNewSpecies ? [entry, ...data.plantLibrary] : data.plantLibrary
+    const crossedMilestone = isNewSpecies
+      ? PLANT_MILESTONES.find((m) => data.plantLibrary.length < m && nextPlantLibrary.length >= m)
+      : undefined
 
     commit(
       { ...data, plantLibrary: nextPlantLibrary, seeds: data.seeds + seedsEarned },
@@ -4661,15 +4676,20 @@ function App() {
       setConfetti(Date.now())
       setReveal({
         tone: 'plant',
-        title: 'New plant discovered! 🌿',
-        body: `The Council's Head Botanist has confirmed this specimen as the ${commonName}${
-          entry.afrikaansName ? ` (${entry.afrikaansName})` : ''
-        }. +1 seed for your pouch 🌱`,
+        title: crossedMilestone ? `${crossedMilestone} plants discovered! 🌿` : 'New plant discovered! 🌿',
+        body: [
+          `The Council's Head Botanist has confirmed this specimen as the ${commonName}${
+            entry.afrikaansName ? ` (${entry.afrikaansName})` : ''
+          }. +1 seed for your pouch 🌱`,
+          crossedMilestone ? PLANT_MILESTONE_LINES[crossedMilestone] : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
         photo: photo || entry.referenceImageUrl || '',
       })
     }
 
-    return { commonName, isNewSpecies, seedsEarned }
+    return { commonName, isNewSpecies, seedsEarned, milestone: crossedMilestone || null }
   }
 
   function logMissedSighting(draft = missedDraft) {
@@ -5526,7 +5546,7 @@ function App() {
           <BirdsPage data={data} openBirdProfile={openBirdProfile} />
         )}
         {activePage === 'library' && (
-          <SaBirdLibraryPage
+          <CollectionHubPage
             data={data}
             openBirdProfile={openBirdProfile}
             goToSpot={() => setActivePage('add')}
@@ -8281,6 +8301,92 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
         <button className="primary-btn wide big-btn" type="button" onClick={goToSpot}>
           I think I found it! → go spot it
         </button>
+      </div>
+    </article>
+  )
+}
+
+// Collection entry point: a mode switch between the original Bird Book and
+// the new Plant Collection, mirroring SpotHubPage's tab pattern exactly.
+// Plants stays hidden until she's unlocked plant scanning — same reveal
+// gate as the Spot page, so nothing spoilers the promotion letter.
+function CollectionHubPage({ data, openBirdProfile, goToSpot }) {
+  const [collectionMode, setCollectionMode] = useState('birds')
+  const plantScanningUnlocked = data.settings.plantScanningUnlocked
+  return (
+    <div className="collection-hub">
+      {plantScanningUnlocked && (
+        <nav className="tabs" aria-label="Collection mode">
+          <button
+            type="button"
+            className={`tab${collectionMode === 'birds' ? ' active' : ''}`}
+            onClick={() => setCollectionMode('birds')}
+          >
+            🐦 Birds
+          </button>
+          <button
+            type="button"
+            className={`tab${collectionMode === 'plants' ? ' active' : ''}`}
+            onClick={() => setCollectionMode('plants')}
+          >
+            🌿 Plants
+          </button>
+        </nav>
+      )}
+      {collectionMode === 'plants' && plantScanningUnlocked ? (
+        <PlantLibraryPage data={data} />
+      ) : (
+        <SaBirdLibraryPage data={data} openBirdProfile={openBirdProfile} goToSpot={goToSpot} />
+      )}
+    </div>
+  )
+}
+
+function PlantLibraryPage({ data }) {
+  const plants = data.plantLibrary
+  const count = plants.length
+
+  return (
+    <div className="page-grid library-page">
+      <section className="soft-card full-span checklist-hero scrapbook-hero">
+        <p className="eyebrow">Your plant collection</p>
+        <h2 className="discovered-count">
+          {count} plant{count === 1 ? '' : 's'} discovered 🌿
+        </h2>
+        <p className="discovered-sub">Snap a clear photo of a flower or leaves to catalogue a new specimen</p>
+      </section>
+
+      <section className="full-span library-grid" aria-live="polite">
+        {plants.length === 0 && (
+          <EmptyState text="No plants catalogued yet — tap Scan a Plant to file your first specimen report." />
+        )}
+        {plants.map((plant) => (
+          <PlantLibraryCard key={plant.id} plant={plant} />
+        ))}
+      </section>
+    </div>
+  )
+}
+
+function PlantLibraryCard({ plant }) {
+  const photo = plant.photo || plant.referenceImageUrl
+
+  return (
+    <article className="library-bird-card seen">
+      <div className="bird-card-photo-frame">
+        {photo ? (
+          <img className="bird-card-photo" src={photo} alt={plant.commonName} loading="lazy" />
+        ) : (
+          <div className="bird-card-photo placeholder-photo">
+            <span>🌿</span>
+          </div>
+        )}
+      </div>
+      <div className="bird-card-body">
+        <span className="status-pill paid">Catalogued 🌿</span>
+        <h3>{plant.commonName}</h3>
+        <p className="nickname">{plant.afrikaansName || plant.scientificName}</p>
+        {plant.funFact && <p className="memory-caption">{plant.funFact}</p>}
       </div>
     </article>
   )
