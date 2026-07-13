@@ -13,6 +13,7 @@
 export const COUNCIL_SENDER = { name: 'The Bird Council 🪶', icon: '🪶', type: 'council' }
 export const MARNICH_SENDER = { name: 'Agent Marnich 💛', icon: '💛', type: 'marnich' }
 export const SYSTEM_SENDER = { name: 'The Bird Council 🪶', icon: '📜', type: 'system' }
+export const BOTANICAL_SENDER = { name: 'The Botanical Division 🌿', icon: '🌿', type: 'council' }
 
 // 60+ unique daily greetings so two full months pass before any repeat.
 export const COUNCIL_MESSAGES = [
@@ -215,6 +216,30 @@ export function marnichMessage(body, title = 'A note just for you') {
   })
 }
 
+// The one-time reveal that unlocks plant scanning. Tagged with `special` so
+// markMessageRead() in App.jsx can detect the moment SHE reads it (not just
+// receives it) and flip settings.plantScanningUnlocked on as a side effect —
+// the feature stays hidden behind "Scan a Plant" until she's actually opened
+// this letter, exactly as requested.
+export function botanicalDispatchMessage() {
+  return {
+    ...createMessage({
+      type: 'council',
+      sender: BOTANICAL_SENDER.name,
+      icon: BOTANICAL_SENDER.icon,
+      title: 'URGENT DISPATCH — Botanical Division',
+      body:
+        'URGENT, Agent. The Bird Council convened an emergency session and voted, unanimously, ' +
+        'to open a brand-new division: Botanical Affairs. Your field record left them no choice — ' +
+        'effective immediately, you are promoted to Field Botanist, with full clearance to identify ' +
+        'and catalogue South African flora alongside your existing bird duties. Look for "🌿 Scan a ' +
+        'Plant" right next to Spot a Bird whenever you\'re ready to file your first specimen report. ' +
+        'The Council — and the Head Botanist personally — could not be prouder. 🌿🪶',
+    }),
+    special: 'botanical-promotion',
+  }
+}
+
 // One-off, date-gated inbox deliveries layered ON TOP of the daily Council
 // dispatch (they do not replace or duplicate it). Each fires exactly once, the
 // first time the app is opened on or after `deliverOn` while still within its
@@ -223,6 +248,16 @@ export function marnichMessage(body, title = 'A note just for you') {
 // no manual removal needed, same self-expiring pattern as SPECIAL_COUNCIL_MESSAGES.
 // `make` is a lazy factory so each delivery is stamped with its real arrival time.
 export const SPECIAL_INBOX_DELIVERIES = [
+  // Plant-feature launch: the one-time promotion letter that reveals and
+  // unlocks "Scan a Plant". Not date-sensitive like the Cape Town beats below —
+  // deliverOn is just the ship date, and `until` is a generous year-long window
+  // so it still lands correctly even if she doesn't open the app for a while.
+  {
+    key: 'botanical-division-promotion',
+    deliverOn: '2026-07-13',
+    until: '2027-07-13',
+    make: () => botanicalDispatchMessage(),
+  },
   // The morning after her interview — a personal note from Marnich, separate from
   // the Council's interview-day dispatch.
   {

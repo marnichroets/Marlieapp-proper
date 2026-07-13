@@ -1762,6 +1762,9 @@ function buildDefaultState() {
       currentDateMission: dateMissions[0],
       rareBeautyUnlocked: false,
       soundDetectiveUnlocked: false,
+      // Plant scanning stays hidden until she's actually read the Botanical
+      // Division promotion letter (see markMessageRead + botanicalDispatchMessage).
+      plantScanningUnlocked: false,
       secretCodesVisible: false,
       pinnedBirdOfWeekId: '',
       pooksSecret: 'feather',
@@ -1793,6 +1796,11 @@ function buildDefaultState() {
     // "used up" — advances even when a new egg isn't created (no stacking).
     eggProgress: { lastAwardedAtCount: 0 },
     mysteryEgg: null,
+    // Plant Collection: confirmed species (see addPlant()). Much simpler than
+    // birds — no coins, no mystery eggs, just the collection entry plus one
+    // seed per new species for the Seed Pouch / garden.
+    plantLibrary: [],
+    seeds: 0,
   }
 }
 
@@ -1957,6 +1965,8 @@ function normalizeLoadedState(saved) {
       },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
+      plantLibrary: Array.isArray(saved.plantLibrary) ? saved.plantLibrary : base.plantLibrary,
+      seeds: typeof saved.seeds === 'number' ? saved.seeds : base.seeds,
       magazineIssue: {
         ...base.magazineIssue,
         ...(saved.magazineIssue || {}),
@@ -4281,10 +4291,20 @@ function App() {
   }
 
   function markMessageRead(id) {
-    setData((current) => ({
-      ...current,
-      messages: (current.messages || []).map((m) => (m.id === id ? { ...m, read: true } : m)),
-    }))
+    setData((current) => {
+      const target = (current.messages || []).find((m) => m.id === id)
+      // Reading the Botanical Division promotion letter is what actually
+      // unlocks "Scan a Plant" — not just receiving it in the inbox.
+      const unlocksPlants =
+        target && !target.read && target.special === 'botanical-promotion'
+      return {
+        ...current,
+        messages: (current.messages || []).map((m) => (m.id === id ? { ...m, read: true } : m)),
+        settings: unlocksPlants
+          ? { ...current.settings, plantScanningUnlocked: true }
+          : current.settings,
+      }
+    })
   }
 
   function toggleMessageFavourite(id) {
@@ -4596,6 +4616,60 @@ function App() {
     }
 
     return { birdName, coinsEarned, isNewSpecies, unlockedMystery: Boolean(unlockedMysteryBird) }
+  }
+
+  // Plants: much simpler than addBird — no milestone coins, no mystery-egg
+  // machinery, no discovery drama. A confirmed species earns exactly one seed
+  // for the pouch the first time it's ever logged; repeat sightings of the
+  // same species are still saved as a memory but earn nothing extra.
+  function addPlant(match, photo) {
+    const commonName = String(match?.commonName || '').trim()
+    const scientificName = String(match?.scientificName || '').trim()
+    const speciesKey = normalizeBirdName(scientificName || commonName)
+    if (!speciesKey) return null
+
+    const isNewSpecies = !data.plantLibrary.some((plant) => plant.speciesKey === speciesKey)
+    const seedsEarned = isNewSpecies ? 1 : 0
+    const entry = {
+      id: createId('plant'),
+      speciesKey,
+      commonName,
+      afrikaansName: String(match?.afrikaansName || ''),
+      scientificName,
+      family: String(match?.family || ''),
+      confidence: match?.confidence || 0,
+      funFact: String(match?.funFact || ''),
+      careTips: String(match?.careTips || ''),
+      referenceImageUrl: String(match?.imageUrl || ''),
+      photo: photo || '',
+      dateSpotted: todayValue(),
+      createdAt: new Date().toISOString(),
+    }
+    const nextPlantLibrary = isNewSpecies ? [entry, ...data.plantLibrary] : data.plantLibrary
+
+    commit(
+      { ...data, plantLibrary: nextPlantLibrary, seeds: data.seeds + seedsEarned },
+      {
+        title: isNewSpecies ? 'New plant discovered! 🌿' : 'Logged again 🌱',
+        body: isNewSpecies
+          ? `The Head Botanist has confirmed the ${commonName}. +1 seed for your pouch 🌱`
+          : `The ${commonName} is already in your collection — logged again for the memory.`,
+      },
+    )
+
+    if (isNewSpecies) {
+      setConfetti(Date.now())
+      setReveal({
+        tone: 'plant',
+        title: 'New plant discovered! 🌿',
+        body: `The Council's Head Botanist has confirmed this specimen as the ${commonName}${
+          entry.afrikaansName ? ` (${entry.afrikaansName})` : ''
+        }. +1 seed for your pouch 🌱`,
+        photo: photo || entry.referenceImageUrl || '',
+      })
+    }
+
+    return { commonName, isNewSpecies, seedsEarned }
   }
 
   function logMissedSighting(draft = missedDraft) {
@@ -5441,7 +5515,12 @@ function App() {
           />
         )}
         {activePage === 'add' && (
-          <AddBirdPage addBird={addBird} birdLibrary={data.birdLibrary} />
+          <SpotHubPage
+            addBird={addBird}
+            birdLibrary={data.birdLibrary}
+            addPlant={addPlant}
+            plantScanningUnlocked={data.settings.plantScanningUnlocked}
+          />
         )}
         {activePage === 'birds' && (
           <BirdsPage data={data} openBirdProfile={openBirdProfile} />
@@ -5792,7 +5871,15 @@ function RevealModal({ reveal, onClose }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="reveal-emoji" aria-hidden="true">
-          {reveal.tone === 'note' ? '💌' : reveal.tone === 'date' ? '💕' : reveal.tone === 'bird' ? '✨' : '🎁'}
+          {reveal.tone === 'note'
+            ? '💌'
+            : reveal.tone === 'date'
+              ? '💕'
+              : reveal.tone === 'bird'
+                ? '✨'
+                : reveal.tone === 'plant'
+                  ? '🌿'
+                  : '🎁'}
         </div>
         <h2 id="reveal-title">{reveal.title}</h2>
         {reveal.photo && (
@@ -7447,6 +7534,405 @@ function AiList({ title, items }) {
         <p>Not sure yet</p>
       )}
     </div>
+  )
+}
+
+// Entry point for the 'add' tab: a small mode switch between the original
+// bird flow and the new plant flow, so "Scan a Plant" lives as a sibling
+// option right next to "Spot a Bird" rather than a separate hidden page.
+function SpotHubPage({ addBird, birdLibrary, addPlant, plantScanningUnlocked }) {
+  const [spotMode, setSpotMode] = useState('bird')
+  return (
+    <div className="spot-hub">
+      {plantScanningUnlocked && (
+        <nav className="tabs" aria-label="Spot mode">
+          <button
+            type="button"
+            className={`tab${spotMode === 'bird' ? ' active' : ''}`}
+            onClick={() => setSpotMode('bird')}
+          >
+            🐦 Spot a Bird
+          </button>
+          <button
+            type="button"
+            className={`tab${spotMode === 'plant' ? ' active' : ''}`}
+            onClick={() => setSpotMode('plant')}
+          >
+            🌿 Scan a Plant
+          </button>
+        </nav>
+      )}
+      {spotMode === 'bird' || !plantScanningUnlocked ? (
+        <AddBirdPage addBird={addBird} birdLibrary={birdLibrary} />
+      ) : (
+        <AddPlantPage addPlant={addPlant} />
+      )}
+    </div>
+  )
+}
+
+// A pool of warm Head Botanist loading lines, rotating while she waits.
+const plantLoadingMessages = [
+  'The Head Botanist is examining the leaves... 🔍',
+  'Consulting the official flora field guide... 📖',
+  'Checking petal shape and colour very carefully... 🌸',
+  'Cross-referencing with the herbarium archive... 🌿',
+  'The succulent division has been called in for a second opinion... 🌵',
+  'Measuring leaf veins very seriously... 📏',
+  'The greenhouse team is in a brief huddle... 🪴',
+  'Almost there, the Botanist is very thorough... 🌱',
+]
+
+function AddPlantPage({ addPlant }) {
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoInputKey, setPhotoInputKey] = useState(0)
+  const [photo, setPhoto] = useState('')
+  const [aiStatus, setAiStatus] = useState('idle')
+  const [primaryMatch, setPrimaryMatch] = useState(null)
+  const [candidates, setCandidates] = useState([])
+  const [enrichingKey, setEnrichingKey] = useState('')
+  const [guidance, setGuidance] = useState('')
+  const [confirmation, setConfirmation] = useState(null)
+  const [loadingIndex, setLoadingIndex] = useState(0)
+
+  useEffect(() => {
+    if (aiStatus !== 'loading') return undefined
+    const intervalId = window.setInterval(() => {
+      setLoadingIndex((current) => (current + 1) % plantLoadingMessages.length)
+    }, 1500)
+    return () => window.clearInterval(intervalId)
+  }, [aiStatus])
+
+  function clearAiState() {
+    setPrimaryMatch(null)
+    setCandidates([])
+    setGuidance('')
+    setAiStatus('idle')
+  }
+
+  function handlePhoto(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    setConfirmation(null)
+    clearAiState()
+    readStorablePhoto(file, (storedPhoto) => setPhoto(storedPhoto))
+  }
+
+  function removePhoto() {
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    setPhoto('')
+    clearAiState()
+  }
+
+  function resetSpotter({ keepConfirmation = false } = {}) {
+    setPhotoFile(null)
+    setPhotoInputKey((current) => current + 1)
+    setPhoto('')
+    clearAiState()
+    if (!keepConfirmation) setConfirmation(null)
+  }
+
+  function handleNoneMatch() {
+    clearAiState()
+    setConfirmation(null)
+    setGuidance(
+      'That’s okay — no plant forced. Try another, clearer photo of the flower or leaves.',
+    )
+  }
+
+  async function handleAskBotanist(event) {
+    event.preventDefault()
+    if (!photoFile) return
+    setLoadingIndex(0)
+    setAiStatus('loading')
+    setGuidance('')
+    setConfirmation(null)
+    setPrimaryMatch(null)
+    setCandidates([])
+
+    try {
+      const body = new FormData()
+      body.append('file', photoFile)
+      const response = await fetch(`${BIRD_API_URL}/api/identify-plant`, {
+        method: 'POST',
+        body,
+      })
+      if (!response.ok) throw new Error(`Plant API returned ${response.status}`)
+      const result = await response.json()
+
+      if (result.unavailable || !result.identified) {
+        setAiStatus('idle')
+        setGuidance(
+          result.message ||
+            'The Head Botanist couldn’t place this one 🌿 — try a clearer photo, or try again shortly.',
+        )
+        return
+      }
+
+      if (result.confident && result.primary) {
+        setPrimaryMatch(result.primary)
+      } else {
+        setCandidates(result.candidates || [])
+      }
+      setAiStatus('results')
+    } catch (error) {
+      console.warn('[plant-id] identification failed', error?.message || error)
+      setAiStatus('idle')
+      setGuidance('The greenhouse line is quiet right now 🌿 — please try again in a moment.')
+    }
+  }
+
+  function finishConfirm(match) {
+    const saved = addPlant(match, photo)
+    if (!saved) return
+    setConfirmation(saved)
+    resetSpotter({ keepConfirmation: true })
+  }
+
+  function handleConfirmPrimary() {
+    if (primaryMatch) finishConfirm(primaryMatch)
+  }
+
+  async function handleConfirmCandidate(candidate) {
+    setEnrichingKey(candidate.scientificName)
+    try {
+      const body = new FormData()
+      body.append('scientificName', candidate.scientificName)
+      body.append('commonName', candidate.commonName || '')
+      body.append('confidence', String(candidate.confidence || 0))
+      body.append('imageUrl', candidate.imageUrl || '')
+      body.append('family', candidate.family || '')
+      const response = await fetch(`${BIRD_API_URL}/api/enrich-plant`, {
+        method: 'POST',
+        body,
+      })
+      if (!response.ok) throw new Error(`Enrich API returned ${response.status}`)
+      const result = await response.json()
+      finishConfirm(result.primary || candidate)
+    } catch (error) {
+      console.warn('[plant-id] enrichment failed', error?.message || error)
+      // Enrichment is nice-to-have copy — still let her confirm with the bare facts.
+      finishConfirm(candidate)
+    } finally {
+      setEnrichingKey('')
+    }
+  }
+
+  return (
+    <div className="page-grid spot-page">
+      <section className="soft-card form-page spot-card full-span">
+        <div className="spot-intro">
+          <p className="spot-heading">Show the Head Botanist your plant 🌿</p>
+          <p className="spot-sub">Snap a close-up of a flower or leaves, and let the roots take hold.</p>
+        </div>
+
+        <form className="council-form" onSubmit={handleAskBotanist}>
+          {photo ? (
+            <div className="spot-preview-card">
+              <img className="spot-preview-photo" src={photo} alt="Plant preview" />
+              <p className="spot-preview-caption">Looking good! Ready for the Botanist. 🌱</p>
+              <button className="ghost-btn wide big-btn" type="button" onClick={removePhoto}>
+                Choose a different photo
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="spot-actions">
+                <label className="spot-action-btn">
+                  <input
+                    key={`plant-cam-${photoInputKey}`}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhoto}
+                    hidden
+                  />
+                  <span className="spot-action-emoji" aria-hidden="true">📷</span>
+                  <span>Take a photo</span>
+                </label>
+                <label className="spot-action-btn">
+                  <input
+                    key={`plant-gal-${photoInputKey}`}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhoto}
+                    hidden
+                  />
+                  <span className="spot-action-emoji" aria-hidden="true">🖼️</span>
+                  <span>Choose from gallery</span>
+                </label>
+              </div>
+              <p className="spot-sub">A clear close-up of the flower or leaves works best 🌸</p>
+            </>
+          )}
+
+          <button
+            className="primary-btn submit-btn council-main-btn"
+            type="submit"
+            disabled={!photoFile || aiStatus === 'loading'}
+          >
+            Ask the Head Botanist
+          </button>
+        </form>
+
+        {aiStatus === 'loading' && (
+          <div className="council-loading" role="status" aria-live="polite">
+            <span aria-hidden="true"></span>
+            <p>{plantLoadingMessages[loadingIndex]}</p>
+          </div>
+        )}
+
+        {guidance && (
+          <div className="hint-panel ai-guidance-note">
+            <p>{guidance}</p>
+          </div>
+        )}
+
+        {confirmation && (
+          <div className="checked-off-banner" role="status">
+            <div className="celebration-burst" aria-hidden="true">
+              <span>🌿</span>
+              <span>✨</span>
+              <span>🌸</span>
+              <span>🎉</span>
+              <span>🌿</span>
+              <span>✨</span>
+            </div>
+            <strong>New plant discovered! ✅</strong>
+            <p>
+              {confirmation.commonName} took root in Marlie&apos;s garden collection.
+              {confirmation.seedsEarned > 0
+                ? ` +${confirmation.seedsEarned} seed 🌱`
+                : ' Logged again for the memory.'}
+            </p>
+          </div>
+        )}
+
+        {primaryMatch && (
+          <section className="ai-results-panel" aria-live="polite">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Head Botanist's verdict</p>
+                <h3>The Council's Head Botanist has confirmed this specimen</h3>
+              </div>
+              <span className="status-pill">Confirmed</span>
+            </div>
+            <div className="ai-match-grid">
+              <PlantMatchCard match={primaryMatch} userPhoto={photo} onConfirm={handleConfirmPrimary} isBest />
+            </div>
+          </section>
+        )}
+
+        {candidates.length > 0 && (
+          <section className="ai-results-panel" aria-live="polite">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Head Botanist answers</p>
+                <h3>Which one looks right?</h3>
+              </div>
+              <span className="status-pill locked">Not fully sure</span>
+            </div>
+            <p className="ai-results-hint">
+              The photo was a little tricky, so these are gentle guesses. Tap the one that matches, or none at all.
+            </p>
+            <div className="ai-match-grid">
+              {candidates.map((candidate, index) => (
+                <PlantMatchCard
+                  key={`${candidate.scientificName}-${index}`}
+                  match={candidate}
+                  index={index}
+                  userPhoto={photo}
+                  onConfirm={() => handleConfirmCandidate(candidate)}
+                  busy={enrichingKey === candidate.scientificName}
+                />
+              ))}
+            </div>
+            <div className="ai-reject-row">
+              <button className="ghost-btn" type="button" onClick={handleNoneMatch}>
+                None of these look right
+              </button>
+            </div>
+          </section>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function PlantMatchCard({ match, index = 0, userPhoto, onConfirm, busy = false, isBest = false }) {
+  const confidence = match.confidence || 0
+  const unsure = confidence < 70
+  const hasEnrichment = Boolean(match.funFact || match.careTips || match.afrikaansName)
+
+  return (
+    <article className={`ai-match-card${isBest ? ' best-match' : ''}${unsure ? ' unsure' : ''}`}>
+      <div className="match-compare">
+        <figure className="compare-side">
+          {userPhoto ? (
+            <img className="compare-img" src={userPhoto} alt="Your photo" />
+          ) : (
+            <div className="compare-img placeholder-photo"><span>📷</span></div>
+          )}
+          <figcaption>Your photo</figcaption>
+        </figure>
+        <span className="compare-vs" aria-hidden="true">vs</span>
+        <figure className="compare-side">
+          {match.imageUrl ? (
+            <img className="compare-img" src={match.imageUrl} alt={match.commonName} loading="lazy" />
+          ) : (
+            <div className="compare-img placeholder-photo"><span>🌿</span></div>
+          )}
+          <figcaption>{match.commonName}</figcaption>
+        </figure>
+      </div>
+
+      <div className="ai-match-title">
+        <span className={unsure ? 'status-pill locked' : 'status-pill'}>
+          {isBest ? 'Best guess' : `Maybe #${index + 1}`}
+        </span>
+        <h3>{match.commonName}</h3>
+      </div>
+
+      {match.scientificName && (
+        <p className="why-this-bird">
+          <em>{match.scientificName}</em>
+          {match.family ? ` · ${match.family}` : ''}
+        </p>
+      )}
+
+      <div className="ai-confidence">
+        <div className="ai-confidence-head">
+          <span>{unsure ? 'Not fully sure' : 'Feeling confident'}</span>
+          <strong>{confidence ? `${confidence}%` : '—'}</strong>
+        </div>
+        <div className="confidence-bar" aria-hidden="true">
+          <span className={unsure ? 'low' : ''} style={{ width: `${confidence}%` }}></span>
+        </div>
+      </div>
+
+      {hasEnrichment && (
+        <details className="tiny-details" open={isBest}>
+          <summary>Peek at clues</summary>
+          <dl className="bird-meta ai-match-meta">
+            <div>
+              <dt>Afrikaans</dt>
+              <dd>{match.afrikaansName || 'Not sure yet'}</dd>
+            </div>
+            <div>
+              <dt>Care tips</dt>
+              <dd>{match.careTips || 'Not sure yet'}</dd>
+            </div>
+          </dl>
+          {match.funFact && <AiList title="Fun fact" items={[match.funFact]} />}
+        </details>
+      )}
+
+      <button className="primary-btn" type="button" onClick={onConfirm} disabled={busy}>
+        {busy ? 'Asking the Botanist…' : isBest ? 'Yes, this is my plant!' : 'This is the one'}
+      </button>
+    </article>
   )
 }
 
