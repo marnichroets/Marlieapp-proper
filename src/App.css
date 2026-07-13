@@ -217,7 +217,15 @@
 .memory-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.78);
+  /* A faint paper-grain texture (two tiny offset radial dots, tiled) under the
+     usual white wash — reads as a soft journal-page surface at normal zoom
+     without ever competing with real content or photos. */
+  background-image:
+    radial-gradient(rgba(71, 112, 77, 0.05) 1px, transparent 1px),
+    radial-gradient(rgba(71, 112, 77, 0.035) 1px, transparent 1px);
+  background-size: 15px 15px, 11px 11px;
+  background-position: 0 0, 6px 8px;
+  background-color: rgba(255, 255, 255, 0.78);
   box-shadow: var(--shadow);
   transition:
     transform 180ms ease,
@@ -2447,12 +2455,25 @@ textarea:focus {
 }
 
 .bottom-tab.active {
+  position: relative;
   background: var(--mint);
   color: var(--leaf-dark);
 }
 
 .bottom-tab.active .bottom-tab-icon {
   transform: translateY(-1px) scale(1.08);
+}
+
+.bottom-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--leaf);
+  transform: translateX(-50%);
 }
 
 /* --- Settings sheet --- */
