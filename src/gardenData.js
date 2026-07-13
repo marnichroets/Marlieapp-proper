@@ -145,7 +145,26 @@ export const GARDEN_SHOP = [
 ]
 
 export function gardenItem(type) {
+  if (isSpeciesPlanting(type)) return SPECIES_ITEM_SHAPE
   return GARDEN_SHOP.find((i) => i.id === type) || null
+}
+
+// A planting from the Seed Pouch (a real identified species, not a shop item)
+// carries its type as `species:<speciesKey>`. Its display info (commonName,
+// referenceImageUrl) is denormalized directly onto the planting record itself
+// at creation time (see App.jsx's placeGardenItem), since gardenItem() here is
+// a pure function of `type` alone and has no access to the plantLibrary.
+export function isSpeciesPlanting(type) {
+  return typeof type === 'string' && type.startsWith('species:')
+}
+
+// Every species planting shares the same generic growth shape — three stages,
+// three waterings to fully grow (matching the flower-patch pacing), habitat
+// zone so fully-grown ones can host garden-bird visitors like any other plant.
+const SPECIES_ITEM_SHAPE = {
+  name: 'Plant', emoji: '🌿',
+  kind: 'plant', verb: 'Water', zone: 'garden', r: 18, waterToGrow: 3,
+  stages: ['sprout', 'budding', 'bloom'],
 }
 
 // A fresh, empty garden. plantings = in-progress care instances; elements =

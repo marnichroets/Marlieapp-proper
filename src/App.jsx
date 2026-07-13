@@ -28,7 +28,7 @@ import {
 } from './Tweety'
 import { ReleaseCeremony } from './ReleaseCeremony'
 import { GardenPage } from './Garden'
-import { defaultGarden, gardenItem, canWater } from './gardenData'
+import { defaultGarden, gardenItem, canWater, isSpeciesPlanting } from './gardenData'
 import {
   defaultTweety,
   tweetyToday,
@@ -2407,6 +2407,18 @@ function App() {
         }
       })
   }, [data.birdLibrary])
+
+  // Discovered species not yet planted in the garden — what the Seed Pouch
+  // offers to plant. A species can only ever be planted once (no duplicates).
+  const plantableSpecies = useMemo(() => {
+    const plantedKeys = new Set(
+      (data.garden?.plantings || [])
+        .filter((p) => isSpeciesPlanting(p.type))
+        .map((p) => p.type.slice('species:'.length)),
+    )
+    return (data.plantLibrary || []).filter((p) => !plantedKeys.has(p.speciesKey))
+  }, [data.plantLibrary, data.garden?.plantings])
+
   const tweetyView = useMemo(() => {
     const today = tweetyToday(data.tweety)
     return {
@@ -3535,7 +3547,50 @@ function App() {
   // ----- Bird Garden (sandbox-only; see gating on the page + menu) -----
   // Place an item at the spot she tapped: charge on placement, store its {x,y}
   // so each garden's layout is unique. Then she tends it daily to grow it.
+  // A tap-to-place from the Seed Pouch: costs a seed instead of coins, and its
+  // final grown stage is the real species photo instead of hand-drawn art
+  // (denormalized here since gardenItem() only knows the generic growth shape,
+  // not which species this particular planting is).
+  function plantSpeciesSeed(speciesKey, x, y) {
+    if (data.seeds <= 0) {
+      setToast({ title: 'No seeds yet', body: 'Discover a new plant species to earn a seed 🌱', tone: 'warning' })
+      return
+    }
+    const species = data.plantLibrary.find((p) => p.speciesKey === speciesKey)
+    if (!species) return
+    const garden = data.garden || defaultGarden()
+    const plantings = garden.plantings || []
+    const type = `species:${speciesKey}`
+    if (plantings.some((p) => p.type === type)) return // already planted, nothing to do
+    const planting = {
+      id: createId('plant'),
+      type,
+      x,
+      y,
+      wateredDays: 0,
+      lastWaterDay: '',
+      plantedAt: new Date().toISOString(),
+      commonName: species.commonName,
+      referenceImageUrl: species.referenceImageUrl,
+    }
+    commit(
+      {
+        ...data,
+        seeds: data.seeds - 1,
+        garden: { ...garden, plantings: [...plantings, planting] },
+      },
+      {
+        title: 'Seed planted 🌱',
+        body: `Your ${species.commonName} seed is in the ground — water it each day to watch it grow into the real thing.`,
+      },
+    )
+  }
+
   function placeGardenItem(itemId, x, y) {
+    if (isSpeciesPlanting(itemId)) {
+      plantSpeciesSeed(itemId.slice('species:'.length), x, y)
+      return
+    }
     const item = gardenItem(itemId)
     if (!item) return
     if (data.featherCoins < item.cost) {
@@ -3641,6 +3696,7 @@ function App() {
     const planting = plantings.find((p) => p.id === plantingId)
     if (!planting || !canWater(planting)) return
     const item = gardenItem(planting.type)
+    const displayName = planting.commonName || item?.name || 'plant'
     const nextWatered = (planting.wateredDays || 0) + 1
     const grown = nextWatered >= (item?.waterToGrow || Infinity)
     const next = plantings.map((p) =>
@@ -3649,8 +3705,8 @@ function App() {
     commit(
       { ...data, garden: { ...garden, plantings: next } },
       grown
-        ? { title: 'Fully grown! 🌳', body: `Your ${item?.name || 'plant'} is all grown up — a permanent part of the garden.`, tone: 'success' }
-        : { title: 'Watered 💧', body: `You watered your ${item?.name || 'plant'}. Come back tomorrow for more growth.`, tone: 'calm' },
+        ? { title: 'Fully grown! 🌳', body: `Your ${displayName} is all grown up — a permanent part of the garden.`, tone: 'success' }
+        : { title: 'Watered 💧', body: `You watered your ${displayName}. Come back tomorrow for more growth.`, tone: 'calm' },
     )
   }
 
@@ -5488,6 +5544,8 @@ function App() {
             residentCompanionId={data.tweety?.companion}
             onPlaceResident={(x, y) => confirmReleaseToGarden(x, y)}
             tweety={data.tweety}
+            seeds={data.seeds}
+            plantableSpecies={plantableSpecies}
           />
         )}
         {activePage === 'sanctuary' && (
@@ -6466,6 +6524,15 @@ function HomePage({
           </span>
           <small>Open the coin shop</small>
         </button>
+        {data.settings.plantScanningUnlocked && (
+          <button className="mini-card" type="button" onClick={() => goTo('garden')}>
+            <span className="mini-card-top">
+              <span className="eyebrow">Seed Pouch</span>
+              <strong>{data.seeds} 🌱</strong>
+            </span>
+            <small>Plant a seed in your garden</small>
+          </button>
+        )}
       </div>
     </div>
   )

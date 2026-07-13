@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GARDEN_SHOP,
   gardenItem,
+  isSpeciesPlanting,
   plantStageKey,
   isFullyGrown,
   wateredToday,
@@ -442,7 +443,25 @@ function SunsetBenchArt({ stageKey }) {
   )
 }
 
-function PlantArt({ type, stageKey }) {
+// A real species planting (from the Seed Pouch) grows through the same
+// generic sprout/budding SVG art as every other flower while young — only its
+// FINAL stage swaps in the actual reference photo of the species she
+// identified, via <foreignObject>, the same mechanism already used for the
+// graduating-companion placement ghost below.
+function SpeciesPhotoArt({ referenceImageUrl }) {
+  return (
+    <foreignObject x="-26" y="-52" width="52" height="52">
+      <div className="garden-species-photo-frame">
+        <img className="garden-species-photo" src={referenceImageUrl} alt="" loading="lazy" />
+      </div>
+    </foreignObject>
+  )
+}
+
+function PlantArt({ type, stageKey, referenceImageUrl }) {
+  if (isSpeciesPlanting(type) && stageKey === 'bloom' && referenceImageUrl) {
+    return <SpeciesPhotoArt referenceImageUrl={referenceImageUrl} />
+  }
   switch (type) {
     case 'tree-seed': return <TreeArt stageKey={stageKey} />
     case 'pine-seed': return <PineArt stageKey={stageKey} />
@@ -757,6 +776,8 @@ export function GardenPage({
   residentCompanionId = null,
   onPlaceResident,
   tweety = null,
+  seeds = 0,
+  plantableSpecies = [],
 }) {
   const plantings = useMemo(() => garden?.plantings || [], [garden])
   const residents = garden?.residents || []
@@ -784,6 +805,10 @@ export function GardenPage({
   const [selectedId, setSelectedId] = useState(null)
   const [selectedResidentId, setSelectedResidentId] = useState(null)
   const [placingType, setPlacingType] = useState(null)
+  // Display-only info for a species placement (commonName/referenceImageUrl):
+  // gardenItem(type) can't know these from the type string alone, so they ride
+  // alongside placingType purely for the "tap the grass..." hint + ghost art.
+  const [placingSpeciesMeta, setPlacingSpeciesMeta] = useState(null)
   const [ghost, setGhost] = useState(null) // { x, y, ok }
   const selected = plantings.find((p) => p.id === selectedId) || null
   const selectedResident = residents.find((r) => r.id === selectedResidentId) || null
@@ -882,12 +907,21 @@ export function GardenPage({
     if (!canPlaceAt(placingType, s.x, s.y, plantings)) return
     onPlace(placingType, s.x, s.y)
     setPlacingType(null)
+    setPlacingSpeciesMeta(null)
     setGhost(null)
   }
 
   function startPlacing(itemId) {
     setSelectedId(null)
     setPlacingType(itemId)
+    setPlacingSpeciesMeta(null)
+    setGhost(null)
+  }
+
+  function startPlacingSpecies(speciesKey, commonName, referenceImageUrl) {
+    setSelectedId(null)
+    setPlacingType(`species:${speciesKey}`)
+    setPlacingSpeciesMeta({ commonName, referenceImageUrl })
     setGhost(null)
   }
 
@@ -972,7 +1006,7 @@ export function GardenPage({
                   }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
-                  <PlantArt type={p.type} stageKey={plantStageKey(p)} />
+                  <PlantArt type={p.type} stageKey={plantStageKey(p)} referenceImageUrl={p.referenceImageUrl} />
                   {thirsty && !placingAny && <text className="garden-thirsty" x="0" y="-54" textAnchor="middle">💧</text>}
                   {!placingAny && <rect x="-24" y="-58" width="48" height="64" fill="transparent" />}
                 </g>
@@ -1014,7 +1048,7 @@ export function GardenPage({
               {ghost.ok
                 ? placingResident
                   ? <foreignObject x="-22" y="-44" width="44" height="44"><TweetyBird level="crowned" companion={residentCompanionId} size={44} /></foreignObject>
-                  : <PlantArt type={placingType} stageKey={placingItem.stages[0]} />
+                  : <PlantArt type={placingType} stageKey={placingItem.stages[0]} referenceImageUrl={placingSpeciesMeta?.referenceImageUrl} />
                 : <text x="0" y="2" textAnchor="middle" fontSize="22" fill="#c0392b">⛔</text>}
             </g>
           )}
@@ -1089,8 +1123,20 @@ export function GardenPage({
 
       {placingType && (
         <section className="soft-card full-span garden-placing-banner">
-          <span>Tap the grass to place your <strong>{placingItem.name} {placingItem.emoji}</strong></span>
-          <button className="text-btn" type="button" onClick={() => { setPlacingType(null); setGhost(null) }}>Cancel</button>
+          <span>
+            Tap the grass to place your{' '}
+            <strong>
+              {placingSpeciesMeta?.commonName || placingItem.name}{' '}
+              {placingSpeciesMeta ? '🌱' : placingItem.emoji}
+            </strong>
+          </span>
+          <button
+            className="text-btn"
+            type="button"
+            onClick={() => { setPlacingType(null); setPlacingSpeciesMeta(null); setGhost(null) }}
+          >
+            Cancel
+          </button>
         </section>
       )}
 
@@ -1130,7 +1176,7 @@ export function GardenPage({
           <section className="soft-card full-span garden-detail">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">{item.emoji} {item.name}</p>
+                <p className="eyebrow">{item.emoji} {selected.commonName || item.name}</p>
                 <h3>{STAGE_LABELS[plantStageKey(selected)]}</h3>
               </div>
               <button className="text-btn" type="button" onClick={() => setSelectedId(null)}>Close</button>
@@ -1156,6 +1202,61 @@ export function GardenPage({
           </section>
         )
       })()}
+
+      <section className="soft-card full-span garden-seed-pouch">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Seed Pouch</p>
+            <h3>{seeds} seed{seeds === 1 ? '' : 's'} 🌱</h3>
+          </div>
+        </div>
+        {plantableSpecies.length === 0 ? (
+          <p className="fine-print">
+            {seeds > 0
+              ? 'All your discovered species are already planted — scan a new one to earn another seed.'
+              : 'Discover a new plant species to earn your first seed 🌿'}
+          </p>
+        ) : (
+          <>
+            <p className="fine-print">Tap a species below, then tap the grass to plant it — it grows into the real thing you photographed.</p>
+            <div className="garden-shop-row">
+              {plantableSpecies.map((species) => {
+                const active = placingType === `species:${species.speciesKey}`
+                const disabled = seeds <= 0 && !active
+                return (
+                  <button
+                    key={species.speciesKey}
+                    className={`garden-shop-btn${active ? ' active' : ''}`}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      if (active) {
+                        setPlacingType(null)
+                        setPlacingSpeciesMeta(null)
+                      } else {
+                        startPlacingSpecies(species.speciesKey, species.commonName, species.referenceImageUrl)
+                      }
+                    }}
+                  >
+                    {species.photo || species.referenceImageUrl ? (
+                      <img
+                        className="garden-shop-species-thumb"
+                        src={species.photo || species.referenceImageUrl}
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="garden-shop-emoji">🌿</span>
+                    )}
+                    <strong>{species.commonName}</strong>
+                    <small>1 seed 🌱</small>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="soft-card full-span garden-shop">
         <p className="eyebrow">Garden shop 🌱</p>
