@@ -248,16 +248,11 @@ export function botanicalDispatchMessage() {
 // no manual removal needed, same self-expiring pattern as SPECIAL_COUNCIL_MESSAGES.
 // `make` is a lazy factory so each delivery is stamped with its real arrival time.
 export const SPECIAL_INBOX_DELIVERIES = [
-  // Plant-feature launch: the one-time promotion letter that reveals and
-  // unlocks "Scan a Plant". Not date-sensitive like the Cape Town beats below —
-  // deliverOn is just the ship date, and `until` is a generous year-long window
-  // so it still lands correctly even if she doesn't open the app for a while.
-  {
-    key: 'botanical-division-promotion',
-    deliverOn: '2026-07-13',
-    until: '2027-07-13',
-    make: () => botanicalDispatchMessage(),
-  },
+  // NOTE: the Botanical Division promotion is no longer delivered here — it's
+  // now delivered as part of the full-screen BotanicalReveal cinematic
+  // (src/BotanicalReveal.jsx, triggered in App.jsx), which pushes the same
+  // botanicalDispatchMessage() as an already-read keepsake once she completes
+  // it. Keeping a second delivery path here would double-deliver the letter.
   // The morning after her interview — a personal note from Marnich, separate from
   // the Council's interview-day dispatch.
   {
@@ -376,6 +371,22 @@ export function milestoneSystemMessage(rewardName, milestone) {
       milestone ? `Logging ${milestone} species is no small feat. ` : ''
     }A gift has been authorised in your honour. The paperwork was, as always, excessive. 🪶`,
   )
+}
+
+// Botanical Division rank certificate, delivered to the inbox the moment a
+// plant-count level threshold is crossed. `level` is one shape from
+// PLANT_LEVELS in App.jsx: { name, threshold, certificate }.
+export function botanicalCertificateMessage(level) {
+  return {
+    ...createMessage({
+      type: 'system',
+      sender: BOTANICAL_SENDER.name,
+      icon: BOTANICAL_SENDER.icon,
+      title: `Official Certificate — ${level.name} 📜`,
+      body: level.certificate,
+    }),
+    special: 'botanical-certificate',
+  }
 }
 
 export function tweetyGrowthSystemMessage(name, stageLabel) {

@@ -78,7 +78,10 @@ import {
   hatchSystemMessage,
   mysteryEggDiscoveredMessage,
   tweetyReleaseKeepsakeMessage,
+  botanicalDispatchMessage,
+  botanicalCertificateMessage,
 } from './messages'
+import BotanicalReveal from './BotanicalReveal'
 import { tweetyGrowthIndex, tweetyGrowth, tweetyGrowthProgress } from './tweetyData'
 
 function bumpLeaderboard(lb, winner) {
@@ -497,17 +500,125 @@ const MILESTONE_COINS = {
   100: 1000,
 }
 
-// Plant Collection milestone celebrations. Unlike birds' MILESTONE_COINS
-// (tied to real-world gifts from Marnich), these are just warm in-app
-// celebrations — a confetti + reveal-modal moment folded into the normal
-// "new plant discovered" reveal, no separate coin economy.
-const PLANT_MILESTONE_LINES = {
-  5: 'Five specimens catalogued — the Botanical Division is thoroughly impressed. 🌿✨',
-  10: 'Ten plants! Officially a promising young botanist. 🌱🏅',
-  20: 'Twenty species — the greenhouse archive is proud of you. 🌿🎉',
-  50: 'Fifty plants?! Legendary Field Botanist status unlocked. 🌳👑',
+// Botanical Division rank progression — a long-term journey (months/years of
+// exploration), unlike birds' real-world-gift milestones. Crossing a
+// threshold awards coins AND delivers a certificate letter to the inbox (see
+// botanicalCertificateMessage), each written in the Council's voice with
+// steadily more dramatic (and jealous) energy as the ranks climb.
+const PLANT_LEVELS = [
+  {
+    level: 1,
+    threshold: 5,
+    name: 'Botanical Recruit',
+    coins: 500,
+    certificate:
+      'Having successfully identified five botanical specimens without poisoning herself or ' +
+      "damaging the Council's reputation, Agent Pooks is hereby confirmed as a Botanical " +
+      'Recruit. The Bird Council notes this is technically a demotion in feather-related ' +
+      'duties, but is prepared to allow it. 🌿',
+  },
+  {
+    level: 2,
+    threshold: 20,
+    name: 'Field Agent',
+    coins: 300,
+    certificate:
+      'Twenty specimens catalogued in the field, each correctly identified, none of them ' +
+      'poison ivy (that the Council is aware of). Agent Pooks is promoted to Field Agent, ' +
+      'Botanical Division. The Bird Council remains unbothered by this development. Mostly. 🌿',
+  },
+  {
+    level: 3,
+    threshold: 50,
+    name: 'Junior Botanist',
+    coins: 500,
+    certificate:
+      'Fifty species. FIFTY. The Botanical Division has run out of clipboard space. Agent ' +
+      'Pooks is promoted to Junior Botanist, effective immediately, with full clearance to ' +
+      "use the word \"inflorescence\" in casual conversation. The Bird Council would like it " +
+      'on record that they taught her everything she knows about paperwork. 🌿📋',
+  },
+  {
+    level: 4,
+    threshold: 100,
+    name: 'Field Botanist',
+    coins: 800,
+    certificate:
+      'One hundred plants identified. The Botanical Council convened a small ceremony ' +
+      '(attendance: three ferns, one very confused gecko). Agent Pooks is promoted to Field ' +
+      'Botanist. The Bird Council sent a card. It just says "fine, well done" in very small ' +
+      'handwriting. 🌿🎖️',
+  },
+  {
+    level: 5,
+    threshold: 200,
+    name: 'Senior Botanist',
+    coins: 1200,
+    certificate:
+      'Two hundred species, Agent. The Council double-checked the paperwork twice, mostly ' +
+      'out of disbelief. Agent Pooks is promoted to Senior Botanist. The Bird Council has ' +
+      'requested a meeting to discuss whether the Botanical Division is "getting too big for ' +
+      'its own good." They were overruled. 🌿🏅',
+  },
+  {
+    level: 6,
+    threshold: 350,
+    name: 'Master Botanist',
+    coins: 2000,
+    certificate:
+      'Three hundred and fifty specimens. The Botanical Archive has been expanded twice this ' +
+      'year alone. Agent Pooks is promoted to Master Botanist, a title previously held by ' +
+      'absolutely no one, because no one has ever done this before. The Bird Council is ' +
+      'quietly, begrudgingly, extremely proud. 🌿👑',
+  },
+  {
+    level: 7,
+    threshold: 500,
+    name: 'Chief Botanical Officer',
+    coins: 3500,
+    certificate:
+      'Five hundred botanical specimens. The Council has consulted its records. No field ' +
+      'agent in the history of the Botanical Division has achieved this. Agent Pooks is ' +
+      'hereby awarded the title of Chief Botanical Officer of the Southern Hemisphere — the ' +
+      'highest honour the Council can bestow. The Bird Council would like it noted that we ' +
+      'identified her potential first. 🌿👑',
+  },
+  {
+    level: 8,
+    threshold: 750,
+    name: 'Legendary Field Agent',
+    coins: 5000,
+    certificate:
+      'Seven hundred and fifty specimens, Agent. The Council has stopped pretending this is ' +
+      'normal. A Legendary Field Agent designation has been created specifically for this ' +
+      'occasion, because no existing title was dramatic enough. The Bird Council has begun ' +
+      'quietly citing her in their own official correspondence. This has never happened ' +
+      'before. 🌿⚡',
+  },
+  {
+    level: 9,
+    threshold: 1000,
+    name: 'Grand Master of the Botanical Council',
+    coins: 10000,
+    certificate:
+      'One thousand plants. ONE THOUSAND, Agent. The Botanical Council has run out of ' +
+      'superlatives, ceremonial titles, and, frankly, dignity. By unanimous vote — and ' +
+      "against the Bird Council's mild protest that birds are still, objectively, superior " +
+      '— Agent Pooks is hereby named Grand Master of the Botanical Council, a rank that did ' +
+      'not exist until eleven minutes ago and was invented purely so there would be ' +
+      'something left to give her. Southern Hemisphere flora will never fully recover from ' +
+      'being this thoroughly known. The Bird Council, for the first time in recorded ' +
+      'history, has nothing sarcastic to add. They are simply, entirely, unreservedly proud ' +
+      'of her. 🌿👑✨',
+  },
+]
+
+function nextPlantLevel(plantCount) {
+  return PLANT_LEVELS.find((lvl) => plantCount < lvl.threshold) || null
 }
-const PLANT_MILESTONES = Object.keys(PLANT_MILESTONE_LINES).map(Number)
+function currentPlantLevel(plantCount) {
+  return [...PLANT_LEVELS].reverse().find((lvl) => plantCount >= lvl.threshold) || null
+}
 
 function milestoneCoinsBetween(prevCount, nextCount) {
   return Object.entries(MILESTONE_COINS).reduce((sum, [threshold, coins]) => {
@@ -1774,9 +1885,11 @@ function buildDefaultState() {
       currentDateMission: dateMissions[0],
       rareBeautyUnlocked: false,
       soundDetectiveUnlocked: false,
-      // Plant scanning stays hidden until she's actually read the Botanical
-      // Division promotion letter (see markMessageRead + botanicalDispatchMessage).
+      // Plant scanning unlocks the moment she completes the Botanical Division
+      // cinematic reveal (see BotanicalReveal + botanicalRevealSeen below).
       plantScanningUnlocked: false,
+      // One-time cinematic reveal, gated the same way as introSeen.
+      botanicalRevealSeen: false,
       // Dev release gate for feature areas built ahead of time in sandbox.
       // account==='marnich' always bypasses this (see plantsReleased in App());
       // for Pooks' real account, nothing in a gated area appears until an
@@ -2512,23 +2625,10 @@ function App() {
       setData((current) => {
         const drop = specialInboxDeliveriesForDay(current.messagesMeta, dayKey, current.sightings)
         if (!drop) return current
-        let messages = drop.messages
-        let specialDelivered = drop.meta.specialDelivered
-        if (!plantsReleased) {
-          // The Botanical Division promotion never delivers to an account
-          // plants haven't been released to, even once its date window opens
-          // — held back (not marked delivered) so it fires correctly the
-          // moment releasePlantsToPooks runs.
-          messages = messages.filter((m) => m.special !== 'botanical-promotion')
-          specialDelivered = specialDelivered.filter((k) => k !== 'botanical-division-promotion')
-        }
-        if (!messages.length && specialDelivered.length === (current.messagesMeta?.specialDelivered || []).length) {
-          return current
-        }
         return {
           ...current,
-          messages: [...messages, ...(current.messages || [])],
-          messagesMeta: { ...drop.meta, specialDelivered },
+          messages: [...drop.messages, ...(current.messages || [])],
+          messagesMeta: drop.meta,
         }
       })
     }, 0)
@@ -2537,7 +2637,7 @@ function App() {
       window.clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, dayKey, data.messagesMeta?.specialDelivered, plantsReleased])
+  }, [session, dayKey, data.messagesMeta?.specialDelivered])
 
   // Keep `dayKey` current so the dispatch above fires after an SA-midnight
   // rollover even if the app was never closed. Cheap re-checks on focus/visibility
@@ -4391,20 +4491,10 @@ function App() {
   }
 
   function markMessageRead(id) {
-    setData((current) => {
-      const target = (current.messages || []).find((m) => m.id === id)
-      // Reading the Botanical Division promotion letter is what actually
-      // unlocks "Scan a Plant" — not just receiving it in the inbox.
-      const unlocksPlants =
-        target && !target.read && target.special === 'botanical-promotion'
-      return {
-        ...current,
-        messages: (current.messages || []).map((m) => (m.id === id ? { ...m, read: true } : m)),
-        settings: unlocksPlants
-          ? { ...current.settings, plantScanningUnlocked: true }
-          : current.settings,
-      }
-    })
+    setData((current) => ({
+      ...current,
+      messages: (current.messages || []).map((m) => (m.id === id ? { ...m, read: true } : m)),
+    }))
   }
 
   function toggleMessageFavourite(id) {
@@ -4746,17 +4836,33 @@ function App() {
       createdAt: new Date().toISOString(),
     }
     const nextPlantLibrary = isNewSpecies ? [entry, ...data.plantLibrary] : data.plantLibrary
-    const crossedMilestone = isNewSpecies
-      ? PLANT_MILESTONES.find((m) => data.plantLibrary.length < m && nextPlantLibrary.length >= m)
-      : undefined
+    const crossedLevel = isNewSpecies
+      ? PLANT_LEVELS.find(
+          (lvl) => data.plantLibrary.length < lvl.threshold && nextPlantLibrary.length >= lvl.threshold,
+        )
+      : null
+    const levelCoins = crossedLevel?.coins || 0
 
     commit(
-      { ...data, plantLibrary: nextPlantLibrary, seeds: data.seeds + seedsEarned },
+      {
+        ...data,
+        plantLibrary: nextPlantLibrary,
+        seeds: data.seeds + seedsEarned,
+        featherCoins: data.featherCoins + levelCoins,
+        messages: crossedLevel
+          ? [botanicalCertificateMessage(crossedLevel), ...(data.messages || [])]
+          : data.messages,
+      },
       {
         title: isNewSpecies ? 'New plant discovered! 🌿' : 'Logged again 🌱',
-        body: isNewSpecies
-          ? `The Head Botanist has confirmed the ${commonName}. +1 seed for your pouch 🌱`
-          : `The ${commonName} is already in your collection — logged again for the memory.`,
+        body: [
+          isNewSpecies
+            ? `The Head Botanist has confirmed the ${commonName}. +1 seed for your pouch 🌱`
+            : `The ${commonName} is already in your collection — logged again for the memory.`,
+          crossedLevel ? `Promoted to ${crossedLevel.name}! +${levelCoins} Feather Coins 🏅` : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       },
     )
 
@@ -4764,12 +4870,14 @@ function App() {
       setConfetti(Date.now())
       setReveal({
         tone: 'plant',
-        title: crossedMilestone ? `${crossedMilestone} plants discovered! 🌿` : 'New plant discovered! 🌿',
+        title: crossedLevel ? `Promoted: ${crossedLevel.name}! 🌿` : 'New plant discovered! 🌿',
         body: [
           `The Council's Head Botanist has confirmed this specimen as the ${commonName}${
             entry.afrikaansName ? ` (${entry.afrikaansName})` : ''
           }. +1 seed for your pouch 🌱`,
-          crossedMilestone ? PLANT_MILESTONE_LINES[crossedMilestone] : '',
+          crossedLevel
+            ? `You've been promoted to ${crossedLevel.name}! +${levelCoins} Feather Coins 🏅 A full certificate is waiting in your inbox.`
+            : '',
         ]
           .filter(Boolean)
           .join(' '),
@@ -4777,7 +4885,7 @@ function App() {
       })
     }
 
-    return { commonName, isNewSpecies, seedsEarned, milestone: crossedMilestone || null }
+    return { commonName, isNewSpecies, seedsEarned, level: crossedLevel || null }
   }
 
   function logMissedSighting(draft = missedDraft) {
@@ -5404,6 +5512,40 @@ function App() {
           setIntroSeen(true)
           // Persist into the synced state so other devices know she's not new.
           setData((current) => ({ ...current, introSeen: true }))
+        }}
+      />
+    )
+  }
+
+  // Botanical Division cinematic reveal — the plant-scanning equivalent of the
+  // intro above, shown once per account after the bird intro. Gated on
+  // plantsReleased so it can never surface to Pooks' real account ahead of an
+  // explicit release (see releasePlantsToPooks), while Marnich's sandbox
+  // always sees it once built, for testing. Completing it IS the unlock —
+  // plantScanningUnlocked flips here, not via a separately-read inbox letter.
+  if (
+    !readOnly &&
+    (session.role === 'pooks' || session.role === 'marnich') &&
+    plantsReleased &&
+    !data.settings.botanicalRevealSeen
+  ) {
+    return (
+      <BotanicalReveal
+        letterBody={botanicalDispatchMessage().body}
+        missionTarget={PLANT_LEVELS[0].threshold}
+        onComplete={() => {
+          setData((current) => ({
+            ...current,
+            settings: {
+              ...current.settings,
+              botanicalRevealSeen: true,
+              plantScanningUnlocked: true,
+            },
+            // The letter becomes a permanent, already-read keepsake in her
+            // inbox — she just experienced it, no need to re-read it there.
+            messages: [{ ...botanicalDispatchMessage(), read: true }, ...(current.messages || [])],
+          }))
+          setActivePage('home')
         }}
       />
     )
@@ -6590,6 +6732,35 @@ function HomePage({
           </button>
         )}
       </div>
+
+      {plantScannerVisible &&
+        (() => {
+          const count = data.plantLibrary.length
+          const target = nextPlantLevel(count)
+          const rank = currentPlantLevel(count)
+          if (!target) return null
+          const prevThreshold = rank?.threshold || 0
+          const progressPct = Math.min(
+            100,
+            Math.round(((count - prevThreshold) / (target.threshold - prevThreshold)) * 100),
+          )
+          return (
+            <button className="mini-card full-span" type="button" onClick={() => goTo('add')}>
+              <span className="mini-card-top">
+                <span className="eyebrow">{rank ? rank.name : 'Botanical Initiation'}</span>
+                <strong>
+                  {count}/{target.threshold} plants identified
+                </strong>
+              </span>
+              <div className="progress-track">
+                <span style={{ width: `${progressPct}%` }}></span>
+              </div>
+              <small>
+                {target.threshold - count} more to {target.name} 🌿
+              </small>
+            </button>
+          )
+        })()}
     </div>
   )
 }
