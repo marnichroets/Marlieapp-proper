@@ -1548,6 +1548,23 @@ textarea:focus {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+.admin-release-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-release-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
 .future-grid article {
   display: grid;
   gap: 8px;

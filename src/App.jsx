@@ -1777,6 +1777,11 @@ function buildDefaultState() {
       // Plant scanning stays hidden until she's actually read the Botanical
       // Division promotion letter (see markMessageRead + botanicalDispatchMessage).
       plantScanningUnlocked: false,
+      // Dev release gate for feature areas built ahead of time in sandbox.
+      // account==='marnich' always bypasses this (see plantsReleased in App());
+      // for Pooks' real account, nothing in a gated area appears until an
+      // admin explicitly flips it (see releasePlantsToPooks).
+      releaseFlags: { plants: false },
       secretCodesVisible: false,
       pinnedBirdOfWeekId: '',
       pooksSecret: 'feather',
@@ -1994,6 +1999,10 @@ function normalizeLoadedState(saved) {
       settings: {
         ...base.settings,
         ...(saved.settings || {}),
+        releaseFlags: {
+          ...base.settings.releaseFlags,
+          ...(saved.settings?.releaseFlags || {}),
+        },
       },
       monthlyReportData: {
         ...base.monthlyReportData,
@@ -2268,6 +2277,16 @@ function App() {
   const [data, setData] = useState(() =>
     loadStateForSession(readStoredSession(), readMarnichMode()),
   )
+  // Plant features (Scan a Plant, Plants Collection, Seed Pouch, etc.) stay
+  // fully hidden from Pooks' real account until an admin explicitly releases
+  // them (see releasePlantsToPooks) — Marnich's sandbox always sees them, same
+  // as giftsEnabled above, so it stays an exact mirror of what she'll get.
+  const plantsReleased = account === 'marnich' || Boolean(data.settings.releaseFlags?.plants)
+  // The single combined gate every plant-scanning UI checks: released for this
+  // account AND she's read the promotion letter. Passed down instead of raw
+  // settings.plantScanningUnlocked so no component can show the scanner to
+  // Pooks purely because her own in-narrative flag flipped pre-release.
+  const plantScannerVisible = plantsReleased && Boolean(data.settings.plantScanningUnlocked)
   // Always-current snapshot of data so a flush-on-exit save sends the latest.
   const dataRef = useRef(data)
   dataRef.current = data
@@ -2493,10 +2512,23 @@ function App() {
       setData((current) => {
         const drop = specialInboxDeliveriesForDay(current.messagesMeta, dayKey, current.sightings)
         if (!drop) return current
+        let messages = drop.messages
+        let specialDelivered = drop.meta.specialDelivered
+        if (!plantsReleased) {
+          // The Botanical Division promotion never delivers to an account
+          // plants haven't been released to, even once its date window opens
+          // — held back (not marked delivered) so it fires correctly the
+          // moment releasePlantsToPooks runs.
+          messages = messages.filter((m) => m.special !== 'botanical-promotion')
+          specialDelivered = specialDelivered.filter((k) => k !== 'botanical-division-promotion')
+        }
+        if (!messages.length && specialDelivered.length === (current.messagesMeta?.specialDelivered || []).length) {
+          return current
+        }
         return {
           ...current,
-          messages: [...drop.messages, ...(current.messages || [])],
-          messagesMeta: drop.meta,
+          messages: [...messages, ...(current.messages || [])],
+          messagesMeta: { ...drop.meta, specialDelivered },
         }
       })
     }, 0)
@@ -2505,7 +2537,7 @@ function App() {
       window.clearTimeout(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, dayKey, data.messagesMeta?.specialDelivered])
+  }, [session, dayKey, data.messagesMeta?.specialDelivered, plantsReleased])
 
   // Keep `dayKey` current so the dispatch above fires after an SA-midnight
   // rollover even if the app was never closed. Cheap re-checks on focus/visibility
@@ -5204,6 +5236,26 @@ function App() {
     })
   }
 
+  // Explicit "release to Pooks" gate for feature areas built ahead of time in
+  // Marnich's sandbox. Nothing gated on plantsReleased (see render below)
+  // reaches her real account until this runs — only reachable from the admin
+  // panel, which always operates on her live account (see adminLogin).
+  function releasePlantsToPooks() {
+    commit(
+      {
+        ...data,
+        settings: {
+          ...data.settings,
+          releaseFlags: { ...data.settings.releaseFlags, plants: true },
+        },
+      },
+      {
+        title: 'Plants released to Pooks 🌿',
+        body: "The plant features are now live on her real account — she'll see them the next time the Botanical Division reveal reaches her.",
+      },
+    )
+  }
+
   function addAdminReward(reward) {
     if (!reward.name.trim()) return
     const id = normalizeBirdName(reward.name).replaceAll(' ', '-')
@@ -5525,6 +5577,7 @@ function App() {
             resolveWorldEvent={resolveWorldEvent}
             onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
             onWarmMysteryEgg={warmMysteryEgg}
+            plantScannerVisible={plantScannerVisible}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -5597,7 +5650,7 @@ function App() {
             addBird={addBird}
             birdLibrary={data.birdLibrary}
             addPlant={addPlant}
-            plantScanningUnlocked={data.settings.plantScanningUnlocked}
+            plantScanningUnlocked={plantScannerVisible}
           />
         )}
         {activePage === 'birds' && (
@@ -5608,6 +5661,7 @@ function App() {
             data={data}
             openBirdProfile={openBirdProfile}
             goToSpot={() => setActivePage('add')}
+            plantScannerVisible={plantScannerVisible}
           />
         )}
         {activePage === 'explore' && (
@@ -5725,6 +5779,7 @@ function App() {
             sandbox={sandbox}
             onSendMessage={sendMarnichInboxMessage}
             setData={setData}
+            releasePlantsToPooks={releasePlantsToPooks}
           />
         )}
       </main>
@@ -6323,6 +6378,7 @@ function HomePage({
   resolveWorldEvent,
   onReleaseToGarden,
   onWarmMysteryEgg,
+  plantScannerVisible = false,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -6524,7 +6580,7 @@ function HomePage({
           </span>
           <small>Open the coin shop</small>
         </button>
-        {data.settings.plantScanningUnlocked && (
+        {plantScannerVisible && (
           <button className="mini-card" type="button" onClick={() => goTo('garden')}>
             <span className="mini-card-top">
               <span className="eyebrow">Seed Pouch</span>
@@ -8377,9 +8433,9 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
 // the new Plant Collection, mirroring SpotHubPage's tab pattern exactly.
 // Plants stays hidden until she's unlocked plant scanning — same reveal
 // gate as the Spot page, so nothing spoilers the promotion letter.
-function CollectionHubPage({ data, openBirdProfile, goToSpot }) {
+function CollectionHubPage({ data, openBirdProfile, goToSpot, plantScannerVisible = false }) {
   const [collectionMode, setCollectionMode] = useState('birds')
-  const plantScanningUnlocked = data.settings.plantScanningUnlocked
+  const plantScanningUnlocked = plantScannerVisible
   return (
     <div className="collection-hub">
       {plantScanningUnlocked && (
@@ -10203,6 +10259,7 @@ function AdminPage({
   sandbox,
   onSendMessage,
   setData,
+  releasePlantsToPooks,
 }) {
   const [surpriseNote, setSurpriseNote] = useState('')
   const [inboxDraft, setInboxDraft] = useState({ title: '', body: '' })
@@ -10528,6 +10585,37 @@ function AdminPage({
             detail="Completed challenge dates"
           />
           <StatCard label="Library" value={data.birdLibrary.length} detail="SA bird entries" />
+        </div>
+      </section>
+
+      <section className="soft-card full-span admin-release-controls">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Feature Release Controls 🚀</p>
+            <h2>Release gates</h2>
+          </div>
+        </div>
+        <p className="fine-print">
+          Features built ahead of time stay hidden from her real account until released here —
+          Marnich's Test Sandbox always sees them regardless, for testing. This writes to her
+          real, live account immediately.
+        </p>
+        <div className="admin-release-row">
+          <div className="admin-release-item">
+            <div>
+              <strong>Plant features 🌿</strong>
+              <p className="fine-print">
+                Scan a Plant, Plants Collection, Seed Pouch, garden species-growing.
+              </p>
+            </div>
+            {data.settings.releaseFlags?.plants ? (
+              <span className="status-pill paid">Released ✅</span>
+            ) : (
+              <button className="primary-btn" type="button" onClick={releasePlantsToPooks}>
+                Release to Pooks
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
