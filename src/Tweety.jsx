@@ -21,7 +21,9 @@ import {
   tweetyGrowth,
   tweetyGrowthProgress,
   MOOD_FACE,
+  playChirp,
 } from './tweetyData'
+import { useMemo, useState } from 'react'
 
 // ---- wearable layers (hats, accessories, outfits) --------------------------
 // Drawn inside Tweety's 100×100 viewBox. Head sits around y30–46, eyes at y50,
@@ -769,6 +771,22 @@ export function TweetyHomeCard({
   const progress = tweetyGrowthProgress(tweety)
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
   const worn = tweety?.wardrobe?.worn || null
+  const ownedGiftIds = useMemo(() => new Set(gifts.map((g) => g.id)), [gifts])
+
+  // Treats + Music Box are little tap-for-delight moments — purely a visual/
+  // audio flourish (no persisted state), so tapping them is always safe.
+  const [justTapped, setJustTapped] = useState(null)
+  function tapGift(id) {
+    setJustTapped(id)
+    window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
+    if (id === 'musicbox') {
+      playChirp('play')
+      setTimeout(() => playChirp('water'), 160)
+      setTimeout(() => playChirp('feed'), 320)
+    } else if (id === 'treats') {
+      playChirp('feed')
+    }
+  }
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -787,29 +805,53 @@ export function TweetyHomeCard({
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
         {nestTier === 'luxury' && <div className="nest-decor nest-lights" aria-hidden="true">✨🏮✨</div>}
         {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
+
+        {ownedGiftIds.has('window') && (
+          <div className="gift-window" title="A little window with a view" aria-hidden="true">
+            <span className="gift-window-view">🌤️</span>
+          </div>
+        )}
+
+        {ownedGiftIds.has('perch') && (
+          <div className="gift-perch" aria-hidden="true">
+            🌿
+            <span className="gift-perch-visitor">🐦</span>
+          </div>
+        )}
+
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          <TweetyBird level={birdLevel} mood={mood} dancing={dancing} size={132} companion={tweety?.companion} worn={worn} />
+          {ownedGiftIds.has('ribbon') && <span className="gift-ribbon" aria-hidden="true">🎀</span>}
+          {ownedGiftIds.has('flowers') && <span className="gift-flowers" aria-hidden="true">💐</span>}
+          <TweetyBird level={birdLevel} mood={mood} dancing={dancing || justTapped === 'musicbox'} size={132} companion={tweety?.companion} worn={worn} />
           {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
-          <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
+          <div
+            className={`tweety-nest-base nest-base-${nestTier}${ownedGiftIds.has('blanket') ? ' gift-blanket' : ''}${ownedGiftIds.has('nest') ? ' gift-nest-upgrade' : ''}`}
+            aria-hidden="true"
+          />
+          {ownedGiftIds.has('treats') && (
+            <button
+              type="button"
+              className={`gift-treats${justTapped === 'treats' ? ' tapped' : ''}`}
+              title="A treat bowl for Tweety — tap her a little happiness"
+              onClick={() => tapGift('treats')}
+            >
+              🍓
+            </button>
+          )}
+          {ownedGiftIds.has('musicbox') && (
+            <button
+              type="button"
+              className={`gift-musicbox${justTapped === 'musicbox' ? ' tapped' : ''}`}
+              title="Play a little tune"
+              onClick={() => tapGift('musicbox')}
+            >
+              🎵
+            </button>
+          )}
         </div>
         <span className="tweety-level-pill">{growth.label}</span>
         <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
       </div>
-
-      {/* Gifts bought for Tweety in the Tweety Store — shown right under her nest
-          so a purchase is immediately visible near her. */}
-      {gifts.length > 0 && (
-        <div className="tweety-gifts">
-          <span className="tweety-gifts-label">🎁 {name}&apos;s gifts</span>
-          <div className="tweety-gifts-row">
-            {gifts.map((g) => (
-              <span className="tweety-gift-chip" key={g.id} title={g.hint || g.name}>
-                <span aria-hidden="true">{g.emoji}</span> {g.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Real-day growth tracker */}
       <div className="tweety-growth">

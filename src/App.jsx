@@ -514,16 +514,20 @@ const SHOP = {
   milkshakeDate: 500,
 }
 
-// Tweety Store — little once-off treats Pooks can buy for Tweety with Feather
-// Coins, shown as a plain list on the Gifts page. Each item is purchasable
-// exactly once; the bought ids live in state.tweetyStore so the "Gifted ✓"
-// state persists across sessions and devices. Kept deliberately simple.
+// Tweety Store — little once-off gifts Pooks can buy for Tweety with Feather
+// Coins. Each item is purchasable exactly once; the bought ids live in
+// state.tweetyStore so the "Gifted ✓" state persists across sessions and
+// devices. Every item actually appears in the nest scene on Home (not just a
+// chip) — see TweetyHomeCard. Sorted cheapest-first for the shop display.
 const TWEETY_STORE_ITEMS = [
-  { id: 'treats', emoji: '🍓', name: 'Special Treats', cost: 80, hint: 'Gives Tweety a happy mood boost' },
-  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 150, hint: "Adds a branch decoration to Tweety's home" },
-  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 200, hint: "Adds a cozy visual to Tweety's nest" },
-  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 300, hint: 'Makes Tweety extra happy with a little tune' },
-  { id: 'nest', emoji: '🏠', name: 'Nest Upgrade', cost: 400, hint: "Upgrades Tweety's nest visually" },
+  { id: 'treats', emoji: '🍓', name: 'Special Treats', cost: 80, hint: 'A treat bowl by the nest — tap it for a happy little moment' },
+  { id: 'ribbon', emoji: '🎀', name: 'Ribbon Decoration', cost: 90, hint: 'A sweet ribbon tied onto the nest' },
+  { id: 'flowers', emoji: '🌸', name: 'Flower Bouquet', cost: 120, hint: 'A small bunch of flowers by the nest' },
+  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 150, hint: 'A branch beside the nest — she visits it now and then' },
+  { id: 'window', emoji: '🪟', name: 'Tiny Window', cost: 180, hint: "A little window with a view, right on Tweety's home card" },
+  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 200, hint: 'The nest gets a warm, cosy new look' },
+  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 300, hint: 'Tap it for a cheerful little tune and a happy dance' },
+  { id: 'nest', emoji: '🏠', name: 'Nest Upgrade', cost: 400, hint: 'A much bigger, more beautiful nest' },
 ]
 
 // Bottom tab bar (7) + everything else tucked behind the settings menu.
@@ -3307,11 +3311,14 @@ function App() {
   }
 
   // Daily tap-to-warm for the mystery egg (same once-per-real-day rhythm as
-  // Tweety's own care). On the final warm: if she's in the awaiting-gap after
-  // a release, adopt the hatched companion immediately; otherwise the egg just
-  // sits "ready" — her CURRENT companion's growth is completely untouched.
+  // Tweety's own care). The egg can be BANKED at any time through birding, but
+  // is only ever warmable/hatchable in the gap after releasing a companion —
+  // hatching is the reward for releasing, never something that runs alongside
+  // an active companion's growth. On the final warm, the hatched companion is
+  // adopted immediately.
   function warmMysteryEgg() {
     if (readOnly) return
+    if (!data.tweety?.awaitingNextCompanion) return // not hers to warm yet
     const egg = data.mysteryEgg
     if (!egg) return
     const today = tweetyTodayKey()
@@ -3326,52 +3333,34 @@ function App() {
       return
     }
 
-    // Hatching day.
-    const hatchMessage = hatchSystemMessage(egg.realSpecies)
-    if (data.tweety?.awaitingNextCompanion) {
-      const nextTweety = {
-        ...data.tweety,
-        companion: egg.companionId,
-        realSpecies: egg.realSpecies,
-        awaitingNextCompanion: false,
-        lastReleasedName: null,
-        bornAt: new Date().toISOString(),
-        careAt: { fed: null, watered: null, played: null },
-        treatsReceived: 0,
-        pendingTreat: false,
-      }
-      setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: `A ${egg.realSpecies} hatched! 🐣`,
-        body: `Your mystery egg hatched into a ${egg.realSpecies} — meet your new companion. 🎉`,
-      })
-      commit(
-        {
-          ...data,
-          tweety: nextTweety,
-          mysteryEgg: null,
-          tweetyGrowthSeen: 0,
-          messages: [hatchMessage, ...(data.messages || [])],
-        },
-        { title: `${egg.realSpecies} hatched! 🐣`, body: 'Your new companion is here.' },
-      )
-    } else {
-      setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: `A ${egg.realSpecies} hatched! 🐣`,
-        body: `Your mystery egg hatched into a ${egg.realSpecies} — she's ready and waiting for when you release your current companion to the garden. 🎉`,
-      })
-      commit(
-        {
-          ...data,
-          mysteryEgg: { ...egg, warms, lastWarmDay: today },
-          messages: [hatchMessage, ...(data.messages || [])],
-        },
-        { title: `${egg.realSpecies} hatched! 🐣`, body: 'Ready and waiting for you.' },
-      )
+    // Hatching day — adopt immediately.
+    const nextTweety = {
+      ...data.tweety,
+      companion: egg.companionId,
+      realSpecies: egg.realSpecies,
+      awaitingNextCompanion: false,
+      lastReleasedName: null,
+      bornAt: new Date().toISOString(),
+      careAt: { fed: null, watered: null, played: null },
+      treatsReceived: 0,
+      pendingTreat: false,
     }
+    setConfetti(Date.now())
+    setReveal({
+      tone: 'bird',
+      title: `A ${egg.realSpecies} hatched! 🐣`,
+      body: `Your mystery egg hatched into a ${egg.realSpecies} — meet your new companion. 🎉`,
+    })
+    commit(
+      {
+        ...data,
+        tweety: nextTweety,
+        mysteryEgg: null,
+        tweetyGrowthSeen: 0,
+        messages: [hatchSystemMessage(egg.realSpecies), ...(data.messages || [])],
+      },
+      { title: `${egg.realSpecies} hatched! 🐣`, body: 'Your new companion is here.' },
+    )
   }
 
   // ----- Tweety World: story events -----
@@ -3599,37 +3588,22 @@ function App() {
       releasedAt: new Date().toISOString(),
     }
 
-    // Note: if a mystery egg is already hatched-and-ready, its hatch reveal +
-    // inbox message were already delivered back when the final daily warm
-    // completed (see warmMysteryEgg) — never re-announce it here.
-    const egg = data.mysteryEgg
-    const eggReady = egg && (egg.warms || 0) >= MYSTERY_EGG_WARMS
-    let nextTweety
-    let toastBody
-    if (eggReady) {
-      nextTweety = {
-        ...tw,
-        companion: egg.companionId,
-        realSpecies: egg.realSpecies,
-        awaitingNextCompanion: false,
-        lastReleasedName: null,
-        bornAt: new Date().toISOString(),
-        careAt: { fed: null, watered: null, played: null },
-        treatsReceived: 0,
-        pendingTreat: false,
-      }
-      toastBody = `${resident.species || 'Your companion'} now lives in the garden forever. Your already-hatched ${egg.realSpecies} is waiting — meet your new companion!`
-    } else {
-      nextTweety = { ...tw, companion: null, awaitingNextCompanion: true, lastReleasedName: name }
-      toastBody = `${resident.species || 'Your companion'} now lives in the garden forever. Your next companion is warming up in her mystery egg.`
-    }
+    // The mystery egg is only ever warmable/hatchable AFTER a release — she
+    // can bank progress toward one while raising a companion, but hatching
+    // itself is the reward for releasing, never something that happens in
+    // parallel. So release ALWAYS enters the awaiting-gap; if she'd already
+    // banked an egg it just becomes warmable now (see warmMysteryEgg's
+    // awaitingNextCompanion guard), rather than being auto-adopted here.
+    const nextTweety = { ...tw, companion: null, awaitingNextCompanion: true, lastReleasedName: name }
+    const toastBody = data.mysteryEgg
+      ? `${resident.species || 'Your companion'} now lives in the garden forever. Your mystery egg is ready to warm — she's waiting to hatch!`
+      : `${resident.species || 'Your companion'} now lives in the garden forever. Keep birding — your next mystery egg is still on its way.`
 
     commit(
       {
         ...data,
         garden: { ...garden, residents: [...residents, resident] },
         tweety: nextTweety,
-        mysteryEgg: eggReady ? null : data.mysteryEgg,
         tweetyGrowthSeen: 0,
         messages: [tweetyReleaseKeepsakeMessage(name), ...(data.messages || [])],
       },
@@ -8667,28 +8641,29 @@ function RewardsPage({
         </div>
       </section>
 
-      <section className="soft-card full-span">
+      <section className="soft-card full-span tweety-store-section">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Tweety Store</p>
-            <h2>Little treats for Tweety</h2>
+            <p className="eyebrow">Tweety Store 🎁</p>
+            <h2>Spoil Tweety 💛</h2>
           </div>
         </div>
         <div className="shop-grid">
-          {TWEETY_STORE_ITEMS.map((item) => {
+          {[...TWEETY_STORE_ITEMS].sort((a, b) => a.cost - b.cost).map((item) => {
             const owned = (data.tweetyStore || []).includes(item.id)
+            const affordable = coins >= item.cost
             return (
-              <article className="shop-tile" key={item.id}>
+              <article className={`shop-tile${owned ? ' gifted' : ''}${!owned && !affordable ? ' unaffordable' : ''}`} key={item.id}>
                 <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
                 <h3>{item.name}</h3>
                 <small>{item.hint}</small>
                 <button
                   className="primary-btn wide big-btn"
                   type="button"
-                  disabled={owned || coins < item.cost}
+                  disabled={owned || !affordable}
                   onClick={() => buyTweetyStoreItem(item.id)}
                 >
-                  {owned ? 'Gifted ✓' : `${item.cost} 🪙`}
+                  {owned ? 'Gifted 💛' : `${item.cost} 🪙`}
                 </button>
               </article>
             )
