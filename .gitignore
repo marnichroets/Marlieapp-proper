@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Secrets
+.env
+backend/.env
+
 # Backend game database (created at runtime)
 *.db
 *.sqlite

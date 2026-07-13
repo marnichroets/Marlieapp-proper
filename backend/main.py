@@ -40,6 +40,34 @@ MATCH_TEMPLATE: dict[str, Any] = {
     "similarBirds": [],
 }
 
+# ---- Plant ID (PlantNet + GPT text enrichment) -------------------------------
+PLANTNET_API_URL = "https://my-api.plantnet.org/v2/identify/all"
+# Below this PlantNet confidence, we don't trust a single top guess — the
+# frontend instead offers the top 3 as tappable candidates ("Which one looks
+# right?") rather than silently committing to a possibly-wrong species.
+PLANT_CONFIDENCE_THRESHOLD = 40
+
+PLANT_MATCH_TEMPLATE: dict[str, Any] = {
+    "commonName": "",
+    "afrikaansName": "",
+    "scientificName": "",
+    "family": "",
+    "confidence": 0,
+    "funFact": "",
+    "careTips": "",
+    "imageUrl": "",
+}
+
+PLANT_UNAVAILABLE_MESSAGE = (
+    "The Council's Head Botanist wandered off to examine a peculiar fern and "
+    "couldn't get a good look this time \U0001f33f — try a clearer, closer "
+    "photo of the flower or leaves, or add it by hand."
+)
+PLANT_NO_MATCH_MESSAGE = (
+    "The Head Botanist studied it carefully but couldn't place this one \U0001f33f "
+    "— try a clearer photo of the flower or leaves, or add it by hand."
+)
+
 
 app = FastAPI(title="Marlie Bird API")
 
@@ -975,6 +1003,249 @@ def normalize_field(key: str, value: Any) -> Any:
         return ""
 
     return str(value)
+
+
+@app.post("/api/identify-plant")
+async def identify_plant(file: UploadFile = File(...)) -> dict[str, Any]:
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Please upload an image file.")
+
+    plantnet_key = os.getenv("PLANTNET_API_KEY")
+    if not plantnet_key:
+        raise HTTPException(
+            status_code=500,
+            detail="PLANTNET_API_KEY is not configured on the server.",
+        )
+
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is not configured on the server.",
+        )
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded image is empty.")
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Uploaded image is too large. Maximum size is 10 MB.",
+        )
+
+    candidates = await asyncio.to_thread(
+        identify_plant_with_plantnet,
+        plantnet_key,
+        image_bytes,
+        file.filename or "plant.jpg",
+        file.content_type,
+    )
+
+    if candidates is None:
+        # PlantNet itself was unreachable/erroring — graceful Council fallback
+        # rather than a hard error, same spirit as the sound-ID degrade path.
+        return {
+            "identified": False,
+            "unavailable": True,
+            "confident": False,
+            "primary": None,
+            "candidates": [],
+            "message": PLANT_UNAVAILABLE_MESSAGE,
+        }
+
+    if not candidates:
+        return {
+            "identified": False,
+            "unavailable": False,
+            "confident": False,
+            "primary": None,
+            "candidates": [],
+            "message": PLANT_NO_MATCH_MESSAGE,
+        }
+
+    top = candidates[0]
+    if top["confidence"] >= PLANT_CONFIDENCE_THRESHOLD:
+        enriched = await asyncio.to_thread(enrich_plant_with_openai, openai_key, top)
+        return {
+            "identified": True,
+            "unavailable": False,
+            "confident": True,
+            "primary": enriched,
+            "candidates": [],
+        }
+
+    return {
+        "identified": True,
+        "unavailable": False,
+        "confident": False,
+        "primary": None,
+        "candidates": candidates,
+    }
+
+
+@app.post("/api/enrich-plant")
+async def enrich_plant(
+    scientificName: str = Form(...),
+    commonName: str = Form(""),
+    confidence: float = Form(0),
+    imageUrl: str = Form(""),
+    family: str = Form(""),
+) -> dict[str, Any]:
+    """Enrich a species the user picked by hand from the low-confidence candidate
+    list (PlantNet gave us the name; this just writes the warm reference copy)."""
+    scientific = scientificName.strip()
+    if not scientific:
+        raise HTTPException(status_code=400, detail="scientificName is required.")
+
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is not configured on the server.",
+        )
+
+    candidate = {
+        "scientificName": scientific,
+        "commonName": commonName.strip(),
+        "confidence": max(0, min(100, round(confidence))),
+        "imageUrl": imageUrl.strip(),
+        "family": family.strip(),
+    }
+    enriched = await asyncio.to_thread(enrich_plant_with_openai, openai_key, candidate)
+    return {
+        "identified": True,
+        "unavailable": False,
+        "confident": True,
+        "primary": enriched,
+        "candidates": [],
+    }
+
+
+def identify_plant_with_plantnet(
+    api_key: str, image_bytes: bytes, filename: str, content_type: str
+) -> list[dict[str, Any]] | None:
+    """Call the PlantNet API and return up to 3 normalised raw candidates.
+
+    Returns None (never raises) when PlantNet itself is unreachable or erroring,
+    so the endpoint can turn that into a graceful Council fallback instead of a
+    500 — mirroring how sound ID degrades gracefully when BirdNET is unavailable.
+    An empty list (not None) means PlantNet answered but found no plant at all.
+    """
+    import httpx  # noqa: PLC0415 - only needed for this call
+
+    try:
+        response = httpx.post(
+            PLANTNET_API_URL,
+            params={"api-key": api_key, "include-related-images": "true"},
+            files={"images": (filename, image_bytes, content_type)},
+            data={"organs": "flower"},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        print(f"[marlie] PlantNet identification unavailable/failed: {exc}", flush=True)
+        return None
+
+    results = payload.get("results", [])
+    if not isinstance(results, list):
+        return []
+
+    candidates = []
+    for result in results[:3]:
+        if not isinstance(result, dict):
+            continue
+        species = result.get("species") or {}
+        common_names = species.get("commonNames") or []
+        scientific_name = species.get("scientificNameWithoutAuthor", "")
+        images = result.get("images") or []
+        image_url = ""
+        if images and isinstance(images[0], dict):
+            image_url = (images[0].get("url") or {}).get("m", "")
+
+        try:
+            score = float(result.get("score", 0))
+        except (TypeError, ValueError):
+            score = 0.0
+
+        candidates.append(
+            {
+                "scientificName": scientific_name,
+                "commonName": common_names[0] if common_names else scientific_name,
+                "family": (species.get("family") or {}).get("scientificNameWithoutAuthor", ""),
+                "confidence": max(0, min(100, round(score * 100))),
+                "imageUrl": image_url,
+            }
+        )
+
+    return candidates
+
+
+def enrich_plant_with_openai(api_key: str, candidate: dict[str, Any]) -> dict[str, Any]:
+    """Text-only GPT enrichment for a CONFIRMED species: common name, Afrikaans
+    name, a fun fact and care tips. No image is sent here — PlantNet already did
+    the visual identification; this call only writes the warm reference copy."""
+    client = OpenAI(api_key=api_key)
+    model = os.getenv("OPENAI_TEXT_MODEL", DEFAULT_MODEL)
+
+    scientific_name = candidate.get("scientificName", "")
+    plantnet_common = candidate.get("commonName", "")
+
+    instruction = (
+        "You are the warm, knowledgeable Head Botanist of the Bird Council for a "
+        "South African nature app for a young girl. A plant has already been "
+        f'identified by image recognition as "{scientific_name}"'
+        + (f' (commonly "{plantnet_common}")' if plantnet_common else "")
+        + ". Do not re-identify it or second-guess the species — just write warm, "
+        "accurate reference info about it, written for South Africa specifically. "
+        "Do not invent facts; if something is genuinely unknown, use an empty "
+        "string rather than guessing. Reply with ONLY valid JSON of exactly this "
+        "shape:\n\n"
+        "{\n"
+        '  "commonName": "",\n'
+        '  "afrikaansName": "",\n'
+        '  "funFact": "",\n'
+        '  "careTips": ""\n'
+        "}\n\n"
+        "commonName: the most familiar English common name. afrikaansName: the "
+        "Afrikaans common name if one is genuinely, commonly used — empty string "
+        "otherwise. funFact: one short, delightful fact a curious kid would love. "
+        "careTips: one or two short sentences on how to grow/care for it in a "
+        "South African garden (sun, water, hardiness)."
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": instruction}],
+            max_tokens=400,
+            temperature=0.4,
+        )
+        content = response.choices[0].message.content or ""
+        parsed = json.loads(content)
+        if not isinstance(parsed, dict):
+            parsed = {}
+    except (OpenAIError, json.JSONDecodeError) as exc:
+        # Enrichment is nice-to-have copy, not the identification itself —
+        # degrade to PlantNet's bare facts rather than failing the request.
+        print(f"[marlie] plant enrichment failed: {exc}", flush=True)
+        parsed = {}
+
+    match = PLANT_MATCH_TEMPLATE.copy()
+    match.update(
+        {
+            "scientificName": scientific_name,
+            "family": candidate.get("family", ""),
+            "confidence": candidate.get("confidence", 0),
+            "imageUrl": candidate.get("imageUrl", ""),
+            "commonName": str(parsed.get("commonName") or plantnet_common or ""),
+            "afrikaansName": str(parsed.get("afrikaansName") or ""),
+            "funFact": str(parsed.get("funFact") or ""),
+            "careTips": str(parsed.get("careTips") or ""),
+        }
+    )
+    return match
 
 
 if __name__ == "__main__":
