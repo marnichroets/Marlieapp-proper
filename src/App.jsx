@@ -2391,10 +2391,13 @@ function App() {
     loadStateForSession(readStoredSession(), readMarnichMode()),
   )
   // Plant features (Scan a Plant, Plants Collection, Seed Pouch, etc.) stay
-  // fully hidden from Pooks' real account until an admin explicitly releases
-  // them (see releasePlantsToPooks) — Marnich's sandbox always sees them, same
-  // as giftsEnabled above, so it stays an exact mirror of what she'll get.
-  const plantsReleased = account === 'marnich' || Boolean(data.settings.releaseFlags?.plants)
+  // fully hidden everywhere — including Marnich's own sandbox — until
+  // explicitly enabled. Two INDEPENDENT flags, one per account: Marnich flips
+  // his own account's flag from the sandbox toolbar to test (toggleSandboxPlantFeatures),
+  // and only releasePlantsToPooks flips HERS. Sandbox therefore matches
+  // exactly what Pooks sees by default, and never leaks anything ahead of an
+  // explicit toggle on either side.
+  const plantsReleased = Boolean(data.settings.releaseFlags?.plants)
   // The single combined gate every plant-scanning UI checks: released for this
   // account AND she's read the promotion letter. Passed down instead of raw
   // settings.plantScanningUnlocked so no component can show the scanner to
@@ -3855,6 +3858,22 @@ function App() {
       body: '+10,000 Feather Coins added to your test account.',
       tone: 'success',
     })
+  }
+
+  // Toggles plant-feature visibility on WHICHEVER account is currently
+  // active — only reachable from the sandbox toolbar, which only ever
+  // renders while viewing Marnich's own 'marnich' account (marnichMode ===
+  // 'sandbox'), so this can never touch Pooks' real releaseFlags. Completely
+  // independent from releasePlantsToPooks — flipping this never affects her.
+  function toggleSandboxPlantFeatures() {
+    if (readOnly) return
+    setData((c) => ({
+      ...c,
+      settings: {
+        ...c.settings,
+        releaseFlags: { ...c.settings.releaseFlags, plants: !c.settings.releaseFlags?.plants },
+      },
+    }))
   }
 
   // Sandbox testing helper: instantly bank a mystery egg, bypassing the
@@ -5633,6 +5652,14 @@ function App() {
             title="Bank a mystery egg instantly, bypassing the 5-species gate"
           >
             🥚 Force new egg
+          </button>
+          <button
+            className="marnich-ff-btn sandbox-plants-btn"
+            type="button"
+            onClick={toggleSandboxPlantFeatures}
+            title="Enable/disable plant features on THIS sandbox account only — never affects Pooks"
+          >
+            {plantsReleased ? '🌿 Plants: ON (sandbox)' : '🌿 Plants: OFF (sandbox)'}
           </button>
         </div>
       )}
@@ -10767,9 +10794,10 @@ function AdminPage({
           </div>
         </div>
         <p className="fine-print">
-          Features built ahead of time stay hidden from her real account until released here —
-          Marnich's Test Sandbox always sees them regardless, for testing. This writes to her
-          real, live account immediately.
+          Features built ahead of time stay hidden everywhere by default — including your own
+          Test Sandbox (toggle it there for yourself via the 🌿 button in the sandbox toolbar).
+          This button writes to her real, live account immediately — the only time anything
+          reaches her.
         </p>
         <div className="admin-release-row">
           <div className="admin-release-item">
