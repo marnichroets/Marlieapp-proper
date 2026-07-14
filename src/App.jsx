@@ -1728,6 +1728,16 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
   }
 }
 
+// Same 3-day issue cadence as the bird magazine, offset so the plant corner
+// doesn't just mirror whichever birds are already on the cover/feature pages.
+function getWeeklyMagazinePlants(date = new Date(), count = 4) {
+  const library = [...SA_PLANT_LIBRARY].sort((a, b) => a.commonName.localeCompare(b.commonName))
+  if (!library.length) return []
+  const issueIndex = getAbsoluteIssueIndex(date)
+  const startIndex = (issueIndex * 3) % library.length
+  return selectRotatingBirds(library, count, startIndex)
+}
+
 // ---- Weekly Bird Quiz (magazine) ----
 // 5 data-accurate multiple-choice questions about this week's featured birds.
 // Seeded by the week number so questions are stable to retake but change with
@@ -5974,6 +5984,11 @@ function App() {
             data={data}
             openBirdProfile={openBirdProfile}
             claimWeeklyQuiz={claimWeeklyQuiz}
+            plantScannerVisible={plantScannerVisible}
+            goToPlants={() => {
+              setExploreMode('plants')
+              setActivePage('explore')
+            }}
           />
         )}
         {activePage === 'messages' && (
@@ -10415,12 +10430,13 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
   )
 }
 
-function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz }) {
+function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz, plantScannerVisible, goToPlants }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
   const season = getSeasonInfo()
   const weekIndex = getAbsoluteWeekIndex()
   const quote = getWeeklyQuote(weekIndex)
   const coverBird = issue.birdOfWeek
+  const magazinePlants = getWeeklyMagazinePlants(new Date())
   // The featured bird is deliberately different from the cover bird.
   const featuredBird =
     issue.featuredBirds.find((bird) => bird.id !== coverBird?.id) || issue.featuredBirds[1] || null
@@ -10577,6 +10593,38 @@ function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz }) {
       </div>
     </div>,
   )
+
+  // Page 7 — Plant Corner, only once plant features are released for the account.
+  if (plantScannerVisible && magazinePlants.length) {
+    pages.push(
+      <div className="magazine-gallery-page" key="plants">
+        <p className="eyebrow">Plant corner 🌿</p>
+        <h2>What's blooming this issue</h2>
+        <div className="magazine-grid">
+          {magazinePlants.map((plant) => (
+            <article className="magazine-bird-card" key={plant.id}>
+              <div className="magazine-photo-placeholder">
+                <span>{plantCategoryEmoji(plant.category)}</span>
+              </div>
+              <div>
+                <h3>{plant.commonName}</h3>
+                <p className="nickname">{plant.afrikaansName}</p>
+                <p>{plant.funFact}</p>
+                {plant.careTips && (
+                  <p className="fine-print">🪴 {plant.careTips}</p>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+        {goToPlants && (
+          <button className="secondary-btn wide" type="button" onClick={goToPlants}>
+            Browse the plant field guide
+          </button>
+        )}
+      </div>,
+    )
+  }
 
   const total = pages.length
   const safePage = Math.min(page, total - 1)
