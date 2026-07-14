@@ -225,20 +225,32 @@ function missedAWindow(tweety, now = new Date()) {
   return CARE_WINDOWS.some((w) => h >= w.end && !day[w.key])
 }
 
+// Whether an active Special Treats Bag boost is still in effect. A plain
+// helper (rather than calling Date.now() inline inside a component) so it
+// stays a pure render — see rainbowActive in store.js for the same pattern.
+export function treatsBoostActive(tweety) {
+  return Boolean(tweety?.treatsBoostUntil) && tweety.treatsBoostUntil > Date.now()
+}
+
 // Five clear moods built from the window routine.
-export function tweetySimpleMood(tweety, now = new Date()) {
+// `neverSad` (Feeding Bowl / Water Tank / Herb Bundle from the Tweety Store)
+// softens a missed window from 'sad' down to a neutral mood — she still needs
+// care, she just isn't visibly upset about the occasional gap. `boosted`
+// (an active Special Treats Bag) overrides everything to 'happy' for the day.
+export function tweetySimpleMood(tweety, now = new Date(), { neverSad = false, boosted = false } = {}) {
+  if (boosted) return 'happy'
   if (windowsDoneToday(tweety) === 3) return 'happy'
   const care = tweetyCareState(tweety, now)
   const missed = missedAWindow(tweety, now)
   if (care.window) {
     if (care.fed && care.watered && care.played) return 'content'
-    if (!care.fed) return missed && !care.watered && !care.played ? 'sad' : 'hungry'
+    if (!care.fed) return missed && !care.watered && !care.played ? (neverSad ? 'hungry' : 'sad') : 'hungry'
     if (!care.watered) return 'thirsty'
     return 'content'
   }
   // Resting between windows.
   if (windowsDoneToday(tweety) > 0) return 'content'
-  return missed ? 'sad' : 'content'
+  return missed ? (neverSad ? 'content' : 'sad') : 'content'
 }
 
 export const MOOD_FACE = {
@@ -368,6 +380,7 @@ export function defaultTweety() {
     // Wardrobe: owned wearables, what Tweety is wearing, and the wishlist.
     wardrobe: { owned: [], worn: { hat: null, accessory: null, outfit: null }, wishlist: [] },
     lastVisit: null, // ISO of last home visit (for the 24h "miss you" nudge)
+    treatsBoostUntil: 0, // ms timestamp; Special Treats Bag forces mood 'happy' until then
   }
 }
 

@@ -57,6 +57,7 @@ import {
   gardenVisitorTint,
   pickHatchCandidate,
   MYSTERY_EGG_WARMS,
+  treatsBoostActive,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
@@ -653,20 +654,24 @@ const SHOP = {
   milkshakeDate: 500,
 }
 
-// Tweety Store — little once-off gifts Pooks can buy for Tweety with Feather
-// Coins. Each item is purchasable exactly once; the bought ids live in
-// state.tweetyStore so the "Gifted ✓" state persists across sessions and
-// devices. Every item actually appears in the nest scene on Home (not just a
-// chip) — see TweetyHomeCard. Sorted cheapest-first for the shop display.
+// Tweety Store — Tweety's Home upgrade system. Every item does something real:
+// nest-tier items change her whole home, comfort items soften the care
+// routine, decor items are visible additions to the nest scene, and the
+// treats bag is a repeatable consumable. One-off items (everything except
+// 'treats') live forever in state.tweetyStore so "Gifted ✓" persists across
+// sessions; 'treats' is bought fresh each time and just extends
+// tweety.treatsBoostUntil. The whole store resets to empty when a companion
+// hatches (see warmMysteryEgg) — a new companion starts with nothing bought.
+// Sorted cheapest-first for the shop display.
 const TWEETY_STORE_ITEMS = [
-  { id: 'treats', emoji: '🍓', name: 'Special Treats', cost: 80, hint: 'A treat bowl by the nest — tap it for a happy little moment' },
-  { id: 'ribbon', emoji: '🎀', name: 'Ribbon Decoration', cost: 90, hint: 'A sweet ribbon tied onto the nest' },
-  { id: 'flowers', emoji: '🌸', name: 'Flower Bouquet', cost: 120, hint: 'A small bunch of flowers by the nest' },
-  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 150, hint: 'A branch beside the nest — she visits it now and then' },
-  { id: 'window', emoji: '🪟', name: 'Tiny Window', cost: 180, hint: "A little window with a view, right on Tweety's home card" },
-  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 200, hint: 'The nest gets a warm, cosy new look' },
-  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 300, hint: 'Tap it for a cheerful little tune and a happy dance' },
-  { id: 'nest', emoji: '🏠', name: 'Nest Upgrade', cost: 400, hint: 'A much bigger, more beautiful nest' },
+  { id: 'mirror', emoji: '🪞', name: 'Small Mirror', cost: 120, kind: 'decor', hint: 'Propped by the nest — Tweety occasionally catches her reflection and preens' },
+  { id: 'treats', emoji: '🍓', name: 'Special Treats Bag', cost: 150, kind: 'consumable', hint: 'An instant happiness boost — Tweety stays happy for the rest of the day' },
+  { id: 'herbs', emoji: '🌿', name: 'Herb Bundle', cost: 180, kind: 'comfort', hint: 'Fresh herbs hang by the nest — Tweety looks (and feels) healthier' },
+  { id: 'feedingbowl', emoji: '🥣', name: 'Feeding Bowl', cost: 200, kind: 'comfort', hint: "A permanent bowl by the nest — missing an occasional feed won't upset her" },
+  { id: 'chimes', emoji: '🎐', name: 'Wind Chimes', cost: 220, kind: 'decor', hint: 'Tap them for a gentle jingle and a happy little dance' },
+  { id: 'watertank', emoji: '💧', name: 'Large Water Tank', cost: 250, kind: 'comfort', hint: "A water dispenser by the nest — missing an occasional water won't upset her" },
+  { id: 'cozynest', emoji: '🏡', name: 'Cozy Nest Upgrade', cost: 300, kind: 'nest', hint: 'The nest gets a warm, lined, lived-in look' },
+  { id: 'birdhouse', emoji: '🏰', name: 'Luxury Birdhouse', cost: 800, kind: 'nest', hint: "Replaces the nest entirely — Tweety's whole home changes" },
 ]
 
 // Bottom tab bar (7) + everything else tucked behind the settings menu.
@@ -3603,6 +3608,8 @@ function App() {
         tweety: nextTweety,
         mysteryEgg: null,
         tweetyGrowthSeen: 0,
+        // A new companion starts fresh — the Tweety Store resets completely.
+        tweetyStore: [],
         messages: [hatchSystemMessage(egg.realSpecies), ...(data.messages || [])],
       },
       { title: `${egg.realSpecies} hatched! 🐣`, body: 'Your new companion is here.' },
@@ -5351,15 +5358,37 @@ function App() {
     )
   }
 
-  // Buy a one-off Tweety Store item: deduct coins once, record the id so it shows
-  // "Gifted ✓" forever, and pop a small celebration toast. Idempotent — a second
-  // click on an already-owned item is a no-op (and the button is disabled anyway).
+  // Buy a Tweety Store item. Consumables ('treats') are always buyable and
+  // just extend tweety.treatsBoostUntil — everything else is a one-off: deduct
+  // coins once, record the id so it shows "Gifted ✓" forever (state.tweetyStore),
+  // and pop a small celebration toast. Idempotent for one-offs — a second click
+  // on an already-owned item is a no-op (the button is disabled anyway).
   function buyTweetyStoreItem(itemId) {
     const item = TWEETY_STORE_ITEMS.find((entry) => entry.id === itemId)
     if (!item) return
     const owned = Array.isArray(data.tweetyStore) ? data.tweetyStore : []
-    if (owned.includes(item.id)) return
+    if (item.kind !== 'consumable' && owned.includes(item.id)) return
     if (data.featherCoins < item.cost) return notEnoughCoins()
+
+    if (item.kind === 'consumable') {
+      // Boost lasts until the end of today (SA-local midnight), same "for the
+      // day" framing as her other daily mechanics.
+      const endOfToday = new Date()
+      endOfToday.setHours(23, 59, 59, 999)
+      setConfetti(Date.now())
+      setTweetyDancing(true)
+      window.setTimeout(() => setTweetyDancing(false), 2600)
+      commit(
+        {
+          ...data,
+          featherCoins: data.featherCoins - item.cost,
+          tweety: { ...data.tweety, treatsBoostUntil: endOfToday.getTime() },
+        },
+        { title: `${item.emoji} ${item.name}!`, body: `Tweety is thrilled — happy all day. ${item.emoji}` },
+      )
+      return
+    }
+
     setConfetti(Date.now())
     commit(
       {
@@ -6827,7 +6856,7 @@ function HomePage({
             <TweetyHomeCard
               tweety={data.tweety}
               dancing={tweetyDancing}
-              nestTier={tweetyView.nestTier}
+              legacyNestTier={tweetyView.nestTier}
               rainbow={tweetyView.rainbow}
               loveLetter={tweetyView.loveLetter}
               gifts={TWEETY_STORE_ITEMS.filter((it) => (data.tweetyStore || []).includes(it.id))}
@@ -9927,8 +9956,10 @@ function RewardsPage({
         </div>
         <div className="shop-grid">
           {[...TWEETY_STORE_ITEMS].sort((a, b) => a.cost - b.cost).map((item) => {
-            const owned = (data.tweetyStore || []).includes(item.id)
+            const consumable = item.kind === 'consumable'
+            const owned = !consumable && (data.tweetyStore || []).includes(item.id)
             const affordable = coins >= item.cost
+            const boostActive = consumable && treatsBoostActive(data.tweety)
             return (
               <article className={`shop-tile${owned ? ' gifted' : ''}${!owned && !affordable ? ' unaffordable' : ''}`} key={item.id}>
                 <div className="shop-emoji" aria-hidden="true">{item.emoji}</div>
@@ -9942,6 +9973,7 @@ function RewardsPage({
                 >
                   {owned ? 'Gifted 💛' : `${item.cost} 🪙`}
                 </button>
+                {boostActive && <small className="fine-print">✨ Active until midnight</small>}
               </article>
             )
           })}

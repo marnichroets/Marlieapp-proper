@@ -16,6 +16,7 @@ import {
   tweetyTodayKey,
   tweetyCareState,
   tweetySimpleMood,
+  treatsBoostActive,
   nextCareWindow,
   windowsDoneToday,
   tweetyGrowth,
@@ -23,7 +24,7 @@ import {
   MOOD_FACE,
   playChirp,
 } from './tweetyData'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 // ---- wearable layers (hats, accessories, outfits) --------------------------
 // Drawn inside Tweety's 100×100 viewBox. Head sits around y30–46, eyes at y50,
@@ -489,7 +490,7 @@ function companionVisual(id, level) {
   return vis
 }
 
-export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, size = 120, companion = null, worn = null, scale = null }) {
+export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, preening = false, size = 120, companion = null, worn = null, scale = null }) {
   const shape = STAGE_SHAPE[level] || STAGE_SHAPE.chick
   const showCrown = shape.crown || level === 'crown' || level === 'crowned'
   const mid = shape.wings >= 1 // any wings at all
@@ -519,7 +520,7 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, s
 
   return (
     <span
-      className={`tweety-bird${dancing ? ' tweety-dance' : ''}${sad ? ' tweety-sad' : ''}`}
+      className={`tweety-bird${dancing ? ' tweety-dance' : ''}${!dancing && preening ? ' tweety-preen' : ''}${sad ? ' tweety-sad' : ''}`}
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
@@ -749,7 +750,7 @@ const GROWTH_TO_LEVEL = {
 export function TweetyHomeCard({
   tweety,
   dancing = false,
-  nestTier = 'basic',
+  legacyNestTier = 'basic',
   rainbow = false,
   loveLetter = '',
   gifts = [],
@@ -765,28 +766,59 @@ export function TweetyHomeCard({
   const win = care.window
   const next = nextCareWindow()
   const windowsDone = windowsDoneToday(tweety)
-  const mood = tweetySimpleMood(tweety)
+  const worn = tweety?.wardrobe?.worn || null
+  const ownedGiftIds = useMemo(() => new Set(gifts.map((g) => g.id)), [gifts])
+
+  // Feeding Bowl / Large Water Tank / Herb Bundle soften an occasional missed
+  // window so she never reads as visibly upset over it; Special Treats Bag
+  // forces a happy mood for the rest of the day it was bought.
+  const neverSad = ownedGiftIds.has('feedingbowl') || ownedGiftIds.has('watertank') || ownedGiftIds.has('herbs')
+  const boosted = treatsBoostActive(tweety)
+  const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
   const growth = tweetyGrowth(tweety)
   const progress = tweetyGrowthProgress(tweety)
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
-  const worn = tweety?.wardrobe?.worn || null
-  const ownedGiftIds = useMemo(() => new Set(gifts.map((g) => g.id)), [gifts])
 
-  // Treats + Music Box are little tap-for-delight moments — purely a visual/
-  // audio flourish (no persisted state), so tapping them is always safe.
+  // Luxury Birdhouse fully replaces the nest; Cozy Nest Upgrade is the step
+  // below that; anything gifted from the admin-only legacy Bird Store (rare)
+  // still counts too, so nothing already gifted ever looks like it downgraded.
+  const nestTier = ownedGiftIds.has('birdhouse') || legacyNestTier === 'treehouse' || legacyNestTier === 'luxury'
+    ? 'treehouse'
+    : ownedGiftIds.has('cozynest') || legacyNestTier === 'cosy'
+      ? 'cosy'
+      : 'basic'
+
+  // Wind Chimes are a tap-for-delight moment (no persisted state, always safe).
   const [justTapped, setJustTapped] = useState(null)
   function tapGift(id) {
     setJustTapped(id)
     window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
-    if (id === 'musicbox') {
+    if (id === 'chimes') {
       playChirp('play')
       setTimeout(() => playChirp('water'), 160)
       setTimeout(() => playChirp('feed'), 320)
-    } else if (id === 'treats') {
-      playChirp('feed')
     }
   }
+
+  // Small Mirror: every so often Tweety catches her reflection and preens for
+  // a few seconds — a little bit of "alive" behaviour, not player-triggered.
+  const hasMirror = ownedGiftIds.has('mirror')
+  const [preening, setPreening] = useState(false)
+  useEffect(() => {
+    if (!hasMirror) return undefined
+    let preenTimer
+    const scheduleNext = () => {
+      const delay = 18000 + Math.random() * 22000
+      preenTimer = window.setTimeout(() => {
+        setPreening(true)
+        window.setTimeout(() => setPreening(false), 2200)
+        scheduleNext()
+      }, delay)
+    }
+    scheduleNext()
+    return () => window.clearTimeout(preenTimer)
+  }, [hasMirror])
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -803,49 +835,45 @@ export function TweetyHomeCard({
 
       <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
-        {nestTier === 'luxury' && <div className="nest-decor nest-lights" aria-hidden="true">✨🏮✨</div>}
         {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
+        {boosted && <div className="gift-boost-sparkle" title="Treats Bag boost — happy all day" aria-hidden="true">✨</div>}
 
-        {ownedGiftIds.has('window') && (
-          <div className="gift-window" title="A little window with a view" aria-hidden="true">
-            <span className="gift-window-view">🌤️</span>
+        {ownedGiftIds.has('feedingbowl') && (
+          <div className="gift-feedingbowl" title="Feeding Bowl — she always has something to nibble" aria-hidden="true">
+            🥣
           </div>
         )}
 
-        {ownedGiftIds.has('perch') && (
-          <div className="gift-perch" aria-hidden="true">
-            🌿
-            <span className="gift-perch-visitor">🐦</span>
+        {ownedGiftIds.has('watertank') && (
+          <div className="gift-watertank" title="Large Water Tank — never runs dry" aria-hidden="true">
+            💧
           </div>
         )}
 
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          {ownedGiftIds.has('ribbon') && <span className="gift-ribbon" aria-hidden="true">🎀</span>}
-          {ownedGiftIds.has('flowers') && <span className="gift-flowers" aria-hidden="true">💐</span>}
-          <TweetyBird level={birdLevel} mood={mood} dancing={dancing || justTapped === 'musicbox'} size={132} companion={tweety?.companion} worn={worn} />
-          {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
-          <div
-            className={`tweety-nest-base nest-base-${nestTier}${ownedGiftIds.has('blanket') ? ' gift-blanket' : ''}${ownedGiftIds.has('nest') ? ' gift-nest-upgrade' : ''}`}
-            aria-hidden="true"
-          />
-          {ownedGiftIds.has('treats') && (
-            <button
-              type="button"
-              className={`gift-treats${justTapped === 'treats' ? ' tapped' : ''}`}
-              title="A treat bowl for Tweety — tap her a little happiness"
-              onClick={() => tapGift('treats')}
-            >
-              🍓
-            </button>
+          {ownedGiftIds.has('herbs') && <span className="gift-herbs" aria-hidden="true">🌿</span>}
+          {ownedGiftIds.has('mirror') && (
+            <span className="gift-mirror" aria-hidden="true">🪞</span>
           )}
-          {ownedGiftIds.has('musicbox') && (
+          <TweetyBird
+            level={birdLevel}
+            mood={mood}
+            dancing={dancing || justTapped === 'chimes'}
+            preening={preening}
+            size={132}
+            companion={tweety?.companion}
+            worn={worn}
+          />
+          {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
+          <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
+          {ownedGiftIds.has('chimes') && (
             <button
               type="button"
-              className={`gift-musicbox${justTapped === 'musicbox' ? ' tapped' : ''}`}
-              title="Play a little tune"
-              onClick={() => tapGift('musicbox')}
+              className={`gift-chimes${justTapped === 'chimes' ? ' tapped' : ''}`}
+              title="Tap the wind chimes"
+              onClick={() => tapGift('chimes')}
             >
-              🎵
+              🎐
             </button>
           )}
         </div>
