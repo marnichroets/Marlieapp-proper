@@ -3953,6 +3953,80 @@ function App() {
     }))
   }
 
+  // Copies Pooks' current REAL account into Marnich's own sandbox account so
+  // he can test from her exact perspective. Only ever reachable from the
+  // sandbox toolbar (marnichMode === 'sandbox'), and only ever WRITES to the
+  // 'marnich' backend slot — her account is only ever read here, never saved.
+  // Her own login secret is preserved on the mirrored copy (not overwritten
+  // with Pooks') so this sandbox account keeps logging in the same way.
+  async function mirrorPooksToSandbox() {
+    if (readOnly || session.role !== 'marnich' || marnichMode !== 'sandbox') return
+    if (
+      !window.confirm(
+        "Copy Pooks' current real account into your test sandbox? This replaces your sandbox data — her real account is never touched.",
+      )
+    )
+      return
+    const [pooksRemote, marnichRemote] = await Promise.all([
+      fetchRemoteState('pooks'),
+      fetchRemoteState('marnich'),
+    ])
+    if (!pooksRemote || !pooksRemote.state) {
+      setToast({
+        title: 'Mirror failed',
+        body: "Couldn't fetch Pooks' live state — check your connection and try again.",
+        tone: 'warning',
+      })
+      return
+    }
+    const mirrored = {
+      ...pooksRemote.state,
+      settings: {
+        ...pooksRemote.state.settings,
+        marnichSecret: marnichRemote?.state?.settings?.marnichSecret || MARNICH_DEFAULT_SECRET,
+      },
+    }
+    const saveRes = await saveRemoteState('marnich', mirrored, marnichRemote?.version || 0)
+    if (!saveRes || saveRes.conflict) {
+      setToast({
+        title: 'Mirror failed',
+        body: 'Sandbox save conflicted — try again in a moment.',
+        tone: 'warning',
+      })
+      return
+    }
+    adoptState('marnich', mirrored, saveRes.version)
+    setActivePage('home')
+    setToast({
+      title: 'Sandbox mirrored 🔄',
+      body: "Your test sandbox now matches Pooks' real account exactly.",
+      tone: 'success',
+    })
+  }
+
+  // Wipes the sandbox back to a blank fresh account — local cache only, then
+  // lets the normal autosave effect persist that blank slate to the 'marnich'
+  // backend slot. Never touches Pooks' account (readOnly guard + only ever
+  // rendered from the sandbox toolbar).
+  function resetSandbox() {
+    if (readOnly || session.role !== 'marnich' || marnichMode !== 'sandbox') return
+    if (
+      !window.confirm(
+        'Reset your test sandbox to a blank account? This clears sandbox data only — Pooks’ real progress is never touched.',
+      )
+    )
+      return
+    const fresh = buildDefaultState()
+    localStorage.removeItem(storageKeyForAccount('marnich'))
+    setData(fresh)
+    setActivePage('home')
+    setToast({
+      title: 'Sandbox reset 🔄',
+      body: "Your test sandbox is back to a blank account. Pooks' real progress was never touched.",
+      tone: 'calm',
+    })
+  }
+
   // Sandbox testing helper: instantly bank a mystery egg, bypassing the
   // 5-species gate (and overwriting any existing one) so the hatch/release
   // loop can be tested without birding through real milestones first.
@@ -5737,6 +5811,22 @@ function App() {
             title="Enable/disable plant features on THIS sandbox account only — never affects Pooks"
           >
             {plantsReleased ? '🌿 Plants: ON (sandbox)' : '🌿 Plants: OFF (sandbox)'}
+          </button>
+          <button
+            className="marnich-ff-btn sandbox-mirror-btn"
+            type="button"
+            onClick={mirrorPooksToSandbox}
+            title="Copy Pooks' current real account into this sandbox, read-only from her side"
+          >
+            🔄 Mirror Pooks
+          </button>
+          <button
+            className="marnich-ff-btn sandbox-reset-btn"
+            type="button"
+            onClick={resetSandbox}
+            title="Wipe this sandbox back to a blank account — never touches Pooks' real data"
+          >
+            🔄 Reset Sandbox
           </button>
         </div>
       )}
