@@ -18,7 +18,13 @@ import {
   birdsNearCapeTownThisWeek,
   locationThought,
 } from './birdExplore'
-import { SA_PLANT_LIBRARY, PLANT_EXPLORE_FILTERS, plantCategoryEmoji } from './plantData'
+import {
+  SA_PLANT_LIBRARY,
+  PLANT_EXPLORE_FILTERS,
+  plantCategoryEmoji,
+  plantsNearPotchThisWeek,
+  plantsNearCapeTownThisWeek,
+} from './plantData'
 import {
   TweetyHomeCard,
   TweetyStatsPage,
@@ -2385,6 +2391,10 @@ function addBirdToState(state, match, photo) {
 
 function App() {
   const [activePage, setActivePage] = useState('home')
+  // Which side of the Explore tab (Birds/Plants) to land on — lifted out of
+  // ExploreHubPage so the "Plants near you" home card can jump straight to
+  // the plants side instead of always landing on Birds.
+  const [exploreMode, setExploreMode] = useState('birds')
   const [session, setSession] = useState(readStoredSession)
   // Marnich's view ('view' mirror of Pooks | 'sandbox' test data). Irrelevant
   // for Pooks/admin sessions.
@@ -5804,6 +5814,10 @@ function App() {
             onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
             onWarmMysteryEgg={warmMysteryEgg}
             plantScannerVisible={plantScannerVisible}
+            goToPlants={() => {
+              setExploreMode('plants')
+              setActivePage('explore')
+            }}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -5895,6 +5909,8 @@ function App() {
             data={data}
             openBirdProfile={openBirdProfile}
             plantScannerVisible={plantScannerVisible}
+            exploreMode={exploreMode}
+            setExploreMode={setExploreMode}
           />
         )}
         {activePage === 'birdProfile' && (
@@ -6609,6 +6625,7 @@ function HomePage({
   onReleaseToGarden,
   onWarmMysteryEgg,
   plantScannerVisible = false,
+  goToPlants,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -6684,6 +6701,8 @@ function HomePage({
       </section>
 
       <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />
+
+      {plantScannerVisible && <PlantsNearYouCard onOpenPlant={goToPlants} />}
 
       <TripSightingsCard sightings={data.sightings} />
 
@@ -6969,6 +6988,37 @@ function BirdsNearYouCard({ library, openBirdProfile }) {
   )
 }
 
+function PlantsNearYouCard({ onOpenPlant }) {
+  const capeWeek = isCapeTownWeek()
+  const plants = useMemo(
+    () =>
+      capeWeek ? plantsNearCapeTownThisWeek(new Date(), 7) : plantsNearPotchThisWeek(new Date(), 7),
+    [capeWeek],
+  )
+  if (!plants.length) return null
+  const place = capeWeek ? 'Cape Town' : 'Potchefstroom'
+  return (
+    <section className="soft-card near-you-card">
+      <div className="near-you-head">
+        <p className="eyebrow">Out there right now</p>
+        <h3>Plants likely near {place} today 🌿</h3>
+        <p className="near-you-sub">A fresh little watch-list every day — tap one to read about it.</p>
+      </div>
+      <div className="near-you-scroll">
+        {plants.map((plant) => (
+          <button key={plant.id} type="button" className="near-you-bird" onClick={onOpenPlant}>
+            <div className="field-guide-photo placeholder-photo near-you-photo" aria-hidden="true">
+              <span>{plantCategoryEmoji(plant.category)}</span>
+            </div>
+            <span className="near-you-name">{plant.commonName}</span>
+            {plant.afrikaansName && <span className="near-you-afr">{plant.afrikaansName}</span>}
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // One card in the Explore field guide: photo, names, monthly activity, habitat
 // and region. Purely for browsing — no coins, no game mechanics.
 function ExploreBirdCard({ bird, onOpen }) {
@@ -7173,8 +7223,16 @@ function ExplorePlantsPage() {
 // Toggle between the bird field guide and the plant field guide. The Plants
 // side only appears once plant features are visible for this account (mirrors
 // CollectionHubPage's Birds/Plants toggle).
-function ExploreHubPage({ data, openBirdProfile, plantScannerVisible = false }) {
-  const [exploreMode, setExploreMode] = useState('birds')
+function ExploreHubPage({
+  data,
+  openBirdProfile,
+  plantScannerVisible = false,
+  exploreMode: exploreModeProp,
+  setExploreMode: setExploreModeProp,
+}) {
+  const [exploreModeState, setExploreModeState] = useState('birds')
+  const exploreMode = exploreModeProp ?? exploreModeState
+  const setExploreMode = setExploreModeProp ?? setExploreModeState
   return (
     <div className="collection-hub">
       {plantScannerVisible && (
