@@ -18,6 +18,7 @@ import {
   birdsNearCapeTownThisWeek,
   locationThought,
 } from './birdExplore'
+import { SA_PLANT_LIBRARY, PLANT_EXPLORE_FILTERS, plantCategoryEmoji } from './plantData'
 import {
   TweetyHomeCard,
   TweetyStatsPage,
@@ -5834,7 +5835,11 @@ function App() {
           />
         )}
         {activePage === 'explore' && (
-          <ExploreBirdsPage data={data} openBirdProfile={openBirdProfile} />
+          <ExploreHubPage
+            data={data}
+            openBirdProfile={openBirdProfile}
+            plantScannerVisible={plantScannerVisible}
+          />
         )}
         {activePage === 'birdProfile' && (
           <BirdProfilePage
@@ -6999,6 +7004,146 @@ function ExploreBirdsPage({ data, openBirdProfile }) {
           />
         ))}
       </section>
+    </div>
+  )
+}
+
+function PlantFieldGuidePhoto({ plant, className = '' }) {
+  return (
+    <div className={`field-guide-photo placeholder-photo ${className}`.trim()} aria-hidden="true">
+      <span>{plantCategoryEmoji(plant.category)}</span>
+    </div>
+  )
+}
+
+function getPlantSearchText(plant) {
+  return [plant.commonName, plant.afrikaansName, plant.scientificName, plant.category, plant.whereFound]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+// One card in the plant field guide: category icon, names, bloom season,
+// where it's found and a care tip. Purely for browsing — no coins, no "caught".
+function ExplorePlantCard({ plant }) {
+  return (
+    <article className="explore-card">
+      <div className="explore-card-photo-frame">
+        <PlantFieldGuidePhoto plant={plant} className="explore-card-photo" />
+        {plant.category && <span className="explore-card-tag">{plant.category}</span>}
+      </div>
+      <div className="explore-card-body">
+        <h3>{plant.commonName}</h3>
+        {plant.afrikaansName && <p className="explore-afrikaans">{plant.afrikaansName}</p>}
+        <p className="explore-thought">{plant.funFact}</p>
+        <dl className="explore-meta">
+          <div>
+            <dt>Bloom season</dt>
+            <dd>{plant.bloomSeason || '—'}</dd>
+          </div>
+          <div>
+            <dt>Where found</dt>
+            <dd>{plant.whereFound || '—'}</dd>
+          </div>
+          <div>
+            <dt>Care</dt>
+            <dd>{plant.careTips || '—'}</dd>
+          </div>
+        </dl>
+      </div>
+    </article>
+  )
+}
+
+// A beautiful, browsable field guide to the SA Plant Library. Separate from the
+// personal plant collection (scanned specimens): no coins, no "catalogued" —
+// just reading and learning.
+function ExplorePlantsPage() {
+  const [search, setSearch] = useState('')
+  const [filterId, setFilterId] = useState('all')
+  const filter = PLANT_EXPLORE_FILTERS.find((f) => f.id === filterId) || PLANT_EXPLORE_FILTERS[0]
+  const searchKey = search.trim().toLowerCase()
+  const plants = SA_PLANT_LIBRARY.filter((plant) => filter.test(plant))
+    .filter((plant) => !searchKey || getPlantSearchText(plant).includes(searchKey))
+    .sort((a, b) => a.commonName.localeCompare(b.commonName))
+
+  return (
+    <div className="page-grid explore-page">
+      <section className="soft-card full-span explore-hero">
+        <p className="eyebrow">A field guide for quiet evenings</p>
+        <h2>Explore Plants 🌿</h2>
+        <p className="explore-hero-sub">
+          South Africa is full of remarkable plants. Here are some worth knowing. 🌸
+        </p>
+      </section>
+
+      <section className="soft-card full-span explore-controls">
+        <label className="explore-search">
+          <span>Search</span>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name…"
+            aria-label="Search plants by name"
+          />
+        </label>
+        <div className="filter-row" aria-label="Field guide filters">
+          {PLANT_EXPLORE_FILTERS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={filterId === option.id ? 'filter-chip active' : 'filter-chip'}
+              onClick={() => setFilterId(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="explore-count">
+          {plants.length} plant{plants.length === 1 ? '' : 's'}
+        </p>
+      </section>
+
+      <section className="full-span explore-grid" aria-live="polite">
+        {plants.length === 0 && <EmptyState text="No plants match that search yet." />}
+        {plants.map((plant) => (
+          <ExplorePlantCard key={plant.id} plant={plant} />
+        ))}
+      </section>
+    </div>
+  )
+}
+
+// Toggle between the bird field guide and the plant field guide. The Plants
+// side only appears once plant features are visible for this account (mirrors
+// CollectionHubPage's Birds/Plants toggle).
+function ExploreHubPage({ data, openBirdProfile, plantScannerVisible = false }) {
+  const [exploreMode, setExploreMode] = useState('birds')
+  return (
+    <div className="collection-hub">
+      {plantScannerVisible && (
+        <nav className="tabs" aria-label="Explore mode">
+          <button
+            type="button"
+            className={`tab${exploreMode === 'birds' ? ' active' : ''}`}
+            onClick={() => setExploreMode('birds')}
+          >
+            🐦 Birds
+          </button>
+          <button
+            type="button"
+            className={`tab${exploreMode === 'plants' ? ' active' : ''}`}
+            onClick={() => setExploreMode('plants')}
+          >
+            🌿 Plants
+          </button>
+        </nav>
+      )}
+      {exploreMode === 'plants' && plantScannerVisible ? (
+        <ExplorePlantsPage />
+      ) : (
+        <ExploreBirdsPage data={data} openBirdProfile={openBirdProfile} />
+      )}
     </div>
   )
 }
