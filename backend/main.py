@@ -354,6 +354,10 @@ class StateSave(BaseModel):
     account: str = ""
     state: dict[str, Any] = {}
     version: int = 0
+    # Escape hatch for disaster-recovery restores (_import_all_states), which
+    # must win regardless of the account's current version. Never set this
+    # from a normal client save.
+    force: bool = False
 
 
 def _normalize_account(account: str) -> str:
@@ -401,9 +405,27 @@ def _save_player_state(payload: StateSave) -> dict[str, Any]:
         row = conn.execute(
             "SELECT version FROM player_state WHERE account = ?", (acct,)
         ).fetchone()
-        # Last-write-wins: bump the version monotonically so other devices can
-        # tell their cached copy is stale on their next load.
-        new_version = (row["version"] if row else 0) + 1
+        current_version = row["version"] if row else 0
+        # Optimistic concurrency: reject a save built on a stale copy of the
+        # state instead of silently overwriting whatever's newer (another
+        # device, or a manual admin fix). Unconditional last-write-wins was the
+        # root cause of the mystery-egg/companion corruption on 2026-07-12/13 —
+        # a stale device kept re-saving its old in-memory copy over an admin
+        # fix with nothing stopping it. The client re-fetches and retries on a
+        # 409 (see saveRemoteState's conflict handling in App.jsx). `force`
+        # bypasses this for _import_all_states, which must be able to restore
+        # an export regardless of the account's current version.
+        if not payload.force and int(payload.version or 0) != current_version:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Version conflict: save was based on version {payload.version}, "
+                    f"but the current version is {current_version}. Re-fetch and retry."
+                ),
+            )
+        # Bump the version monotonically so other devices can tell their
+        # cached copy is stale on their next load.
+        new_version = current_version + 1
         conn.execute(
             "INSERT INTO player_state (account, state, version, updated_at)"
             " VALUES (?, ?, ?, ?)"
@@ -453,7 +475,7 @@ def _import_all_states(payload: StateImport) -> dict[str, Any]:
         state = entry.get("state") if isinstance(entry, dict) and "state" in entry else entry
         if not isinstance(state, dict):
             continue
-        result = _save_player_state(StateSave(account=cleaned, state=state, version=0))
+        result = _save_player_state(StateSave(account=cleaned, state=state, version=0, force=True))
         restored.append({"account": cleaned, "version": result["version"]})
     return {"ok": True, "restored": restored}
 

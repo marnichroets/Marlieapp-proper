@@ -268,6 +268,14 @@ async function fetchRemoteState(account) {
   }
 }
 
+// Returns { version } on success, { conflict: true } on a 409 (the backend's
+// stored version has moved past what this save was based on — see
+// backend/main.py::_save_player_state), or null on any other failure
+// (offline, etc). Distinguishing conflict from generic failure lets callers
+// re-fetch and reconcile instead of either silently losing the write forever
+// or blindly overwriting a fresher state (the mystery-egg/companion
+// corruption on 2026-07-12/13 was exactly that: a stale save winning with no
+// pushback).
 async function saveRemoteState(account, state, version = 0, { keepalive = false } = {}) {
   try {
     const response = await fetch(STATE_API, {
@@ -276,6 +284,7 @@ async function saveRemoteState(account, state, version = 0, { keepalive = false 
       body: JSON.stringify({ account, state: prepareStateForStorage(state), version }),
       keepalive,
     })
+    if (response.status === 409) return { conflict: true }
     if (!response.ok) return null
     const data = await response.json()
     return { version: Number(data.version) || version }
@@ -2963,16 +2972,39 @@ function App() {
   // Source of truth: debounce-save the active account's state to the backend so
   // it follows her login onto any device. The localStorage write above stays as
   // the offline cache. Never runs while viewing Pooks' read-only mirror.
+  //
+  // Handles the backend's 409 version conflict (see
+  // backend/main.py::_save_player_state): this save was based on a version
+  // that's no longer current, because another device or a manual admin fix
+  // moved the account ahead of it. Re-fetch the authoritative state — if we
+  // have no genuine local edits on top of it, adopt it outright (this is
+  // exactly the case that used to get silently clobbered, causing the
+  // mystery-egg/companion corruption on 2026-07-12/13). If we do have real
+  // local edits, re-save them once on top of the fresh version rather than
+  // dropping the write forever.
   useEffect(() => {
     if (readOnly || !session) return undefined
     if (account !== 'pooks' && account !== 'marnich') return undefined
-    const timer = window.setTimeout(() => {
-      saveRemoteState(account, data, stateVersionRef.current).then((res) => {
-        if (res) {
-          stateVersionRef.current = res.version
-          lastSyncedRef.current = data
-        }
-      })
+    const timer = window.setTimeout(async () => {
+      const res = await saveRemoteState(account, data, stateVersionRef.current)
+      if (res && !res.conflict) {
+        stateVersionRef.current = res.version
+        lastSyncedRef.current = data
+        return
+      }
+      if (!res || !res.conflict) return
+      const remote = await fetchRemoteState(account)
+      if (!remote || !remote.state) return
+      const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
+      if (!hasUnsavedLocalEdits) {
+        adoptState(account, remote.state, remote.version)
+        return
+      }
+      const retry = await saveRemoteState(account, dataRef.current, remote.version)
+      if (retry && !retry.conflict) {
+        stateVersionRef.current = retry.version
+        lastSyncedRef.current = dataRef.current
+      }
     }, 10000)
     return () => window.clearTimeout(timer)
   }, [data, account, readOnly, session])
@@ -3027,10 +3059,34 @@ function App() {
 
   // Stamp this visit so the "Tweety missed you" nudge only shows after a real gap.
   // Never stamp while viewing Pooks' read-only mirror.
+  //
+  // BUG FIX (2026-07-14): this used to stamp via plain setData without touching
+  // lastSyncedRef. Since it fires on every mount via setTimeout(0) — a macrotask
+  // that resolves before the "adopt authoritative remote state" fetch's network
+  // round-trip ever can — it made dataRef.current !== lastSyncedRef.current true
+  // within milliseconds of every single app open. shouldAdoptRemote() (see
+  // syncReconcile.js) treats that as "genuine unsaved local edits" and refuses to
+  // adopt a fresher backend state, so it permanently defeated both the mount-time
+  // and the 20s-poll remote-adopt checks on essentially every load. Ten seconds
+  // later the debounced autosave then pushed the stale local copy back to the
+  // backend, which does unconditional last-write-wins (see
+  // backend/main.py::_save_player_state) — silently erasing ANY admin fix applied
+  // to the account while it wasn't the active open session. This is what
+  // reverted the manual companion/mystery-egg corrections made on 2026-07-12: the
+  // next time the app opened, this stamp raced the fix's adoption and then
+  // resaved the pre-fix state over it.
+  //
+  // lastVisit is pure bookkeeping — it is never worth protecting against a
+  // fresher remote fetch — so we advance lastSyncedRef in lockstep with it. That
+  // keeps this stamp from ever masquerading as a "real" unsaved edit.
   useEffect(() => {
     if (readOnly) return undefined
     const t = window.setTimeout(() => {
-      setData((c) => ({ ...c, tweety: { ...c.tweety, lastVisit: new Date().toISOString() } }))
+      setData((c) => {
+        const next = { ...c, tweety: { ...c.tweety, lastVisit: new Date().toISOString() } }
+        lastSyncedRef.current = next
+        return next
+      })
     }, 0)
     return () => window.clearTimeout(t)
   }, [readOnly])
