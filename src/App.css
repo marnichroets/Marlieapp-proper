@@ -4362,6 +4362,58 @@ textarea:focus {
   100%      { transform: translate(0, 0); }                              /* holds back at start */
 }
 
+/* Bench: a one-off hop-up-and-settle on arrival (fill-mode both so she stays
+   settled after, not snapping back) — replaces garden-branch-wander for a
+   benchsit visit, since she's sitting still, not hopping between branches. */
+.garden-bench-perch {
+  animation-name: garden-bench-hop-up;
+  animation-timing-function: ease-out;
+  animation-duration: 0.6s;
+  animation-fill-mode: both;
+  transform-box: fill-box;
+}
+@keyframes garden-bench-hop-up {
+  0%   { transform: translate(0, 10px) scale(0.9); opacity: 0; }
+  60%  { transform: translate(0, -2px) scale(1.03); opacity: 1; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+
+/* Feeder: an occasional peck, once, a few seconds into the visit — three
+   quick head-dips toward the tray, then back to normal. Runs once
+   (not infinite) so she reads as "just did that", not stuck pecking forever. */
+.garden-bird-peck {
+  animation-name: garden-bird-peck;
+  animation-timing-function: ease-in-out;
+  animation-duration: 2.6s;
+  animation-fill-mode: backwards;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes garden-bird-peck {
+  0%, 8%, 100% { transform: translateY(0) rotate(0deg); }
+  16%, 36%, 56% { transform: translateY(3px) rotate(10deg); }
+  26%, 46%, 66% { transform: translateY(0) rotate(0deg); }
+}
+
+/* Bird bath: an occasional splash — dip, ruffle, dip again, settle — once,
+   a few seconds into the visit. */
+.garden-bird-splash {
+  animation-name: garden-bird-splash;
+  animation-timing-function: ease-in-out;
+  animation-duration: 3s;
+  animation-fill-mode: backwards;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes garden-bird-splash {
+  0%, 100% { transform: translateY(0) rotate(0deg) scaleY(1); }
+  15%      { transform: translateY(4px) rotate(-6deg) scaleY(0.9); }
+  30%      { transform: translateY(1px) rotate(8deg) scaleY(1.05); }
+  45%      { transform: translateY(4px) rotate(-8deg) scaleY(0.9); }
+  60%      { transform: translateY(0) rotate(6deg) scaleY(1.05); }
+  75%      { transform: translateY(0) rotate(-3deg) scaleY(1); }
+}
+
 /* A continuous, subtle head/wing twitch layered under everything else, so a
    bird never reads as fully frozen even while "resting" between wanders. */
 .garden-bird-idle {

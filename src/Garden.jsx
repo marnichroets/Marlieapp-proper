@@ -558,9 +558,17 @@ function PerchBird({ c }) {
           className="garden-visitor-bob"
           style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 1.7}s` }}
         >
-          <foreignObject x={-size / 2} y={-size * 0.78} width={size} height={size} style={{ overflow: 'visible' }}>
-            <TweetyBird level="crowned" companion={c.companion} size={size} />
-          </foreignObject>
+          {/* Feeder-only, occasional: a few quick head-dips at the tray, once,
+              after a random delay — layered on a child <g> so it never fights
+              the ever-running bob/idle animations on its ancestors. */}
+          <g
+            className={c.peck ? 'garden-bird-peck' : undefined}
+            style={c.peck ? { animationDelay: `${c.peckDelay ?? 2}s` } : undefined}
+          >
+            <foreignObject x={-size / 2} y={-size * 0.78} width={size} height={size} style={{ overflow: 'visible' }}>
+              <TweetyBird level="crowned" companion={c.companion} size={size} />
+            </foreignObject>
+          </g>
         </g>
       </g>
       {c.name && <text className="garden-visitor-name" x="0" y="-30" textAnchor="middle">{c.name}</text>}
@@ -569,7 +577,12 @@ function PerchBird({ c }) {
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
       <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.26" />
-      <g className="garden-branch-wander" style={wanderStyle}>
+      {/* Bench-only, occasional: she hops up once on arrival and then sits —
+          no branch-to-branch wander while seated, unlike a normal perch. */}
+      <g
+        className={c.benchsit ? 'garden-bench-perch' : 'garden-branch-wander'}
+        style={c.benchsit ? undefined : wanderStyle}
+      >
         {portrait}
       </g>
     </g>
@@ -594,9 +607,17 @@ function SwimBird({ c }) {
           className="garden-bird-idle"
           style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.8}s` }}
         >
-          <foreignObject x={-size / 2} y={-size * 0.62} width={size} height={size} style={{ overflow: 'visible' }}>
-            <TweetyBird level="crowned" companion={c.companion} size={size} />
-          </foreignObject>
+          {/* Bird-bath-only, occasional: a proper dip-ruffle-settle splash,
+              once, after a random delay — see garden-bird-peck above for why
+              this lives on its own child <g>. */}
+          <g
+            className={c.splash ? 'garden-bird-splash' : undefined}
+            style={c.splash ? { animationDelay: `${c.splashDelay ?? 2}s` } : undefined}
+          >
+            <foreignObject x={-size / 2} y={-size * 0.62} width={size} height={size} style={{ overflow: 'visible' }}>
+              <TweetyBird level="crowned" companion={c.companion} size={size} />
+            </foreignObject>
+          </g>
         </g>
       </g>
       {c.name && <text className="garden-visitor-name" x="0" y="-24" textAnchor="middle">{c.name}</text>}
@@ -695,14 +716,25 @@ function composeDay(perches, collection, showcase) {
       const isWater = p.zone === 'water'
       const b = pickBird(collection, isWater, p.zone === 'birdhouse')
       if (isWater) {
+        // At a bird bath specifically (not the pond/waterfall), she
+        // occasionally dips in for a proper splash — never every visit, so
+        // it still reads as a real choice rather than a scripted loop.
+        const splash = p.itemId === 'bird-bath' && Math.random() < 0.4
         list.push({
           id: nid(), type: 'swim', x: p.x, y: p.y,
           name: b && b.name, companion: b && b.companion, tint: b && b.tint,
           sx: rand(9, 18), delay: rand(0, 3), dur: rand(5, 8),
           idleDelay: rand(0, 4), idleDur: rand(3, 4.6),
+          splash, splashDelay: rand(2, 9),
         })
         return
       }
+      // At the feeder she occasionally pecks; at the bench she occasionally
+      // hops up and sits a while (no branch-to-branch wander while seated —
+      // she's settled, not foraging). Both are just-sometimes, same spirit
+      // as the splash above.
+      const peck = p.itemId === 'feeder' && Math.random() < 0.4
+      const benchsit = p.itemId === 'bench' && Math.random() < 0.5
       list.push({
         id: nid(), type: 'bird', x: p.x, y: p.y,
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
@@ -712,6 +744,8 @@ function composeDay(perches, collection, showcase) {
         bx1: rand(6, 15) * (Math.random() < 0.5 ? -1 : 1), by1: rand(-9, -2),
         bx2: rand(6, 15) * (Math.random() < 0.5 ? -1 : 1), by2: rand(-9, -2),
         hopDelay: rand(0, 6), hopDur: rand(9, 15),
+        peck, peckDelay: rand(2, 9),
+        benchsit,
       })
     })
   }
@@ -830,12 +864,21 @@ export function GardenPage({
   }
 
   // Fully-grown elements with a habitat zone are perches birds can visit (P2).
+  // The bench has no habitat zone of its own (it doesn't host species the way
+  // a tree/pond/feeder does) but IS a valid land perch for the occasional
+  // hop-up-and-sit visit below, so it's included here with a synthetic zone.
+  // itemId carries the underlying shop item id so the composer can tell a
+  // feeder/bird-bath/bench apart from an ordinary tree perch.
   const grownPerches = useMemo(
     () =>
       plantings
         .map((p) => ({ p, item: gardenItem(p.type) }))
-        .filter(({ p, item }) => item && item.zone && isFullyGrown(p))
-        .map(({ p }) => ({ id: p.id, x: p.x ?? 0, y: p.y ?? 0, zone: gardenItem(p.type).zone })),
+        .filter(({ p, item }) => item && (item.zone || p.type === 'bench') && isFullyGrown(p))
+        .map(({ p }) => ({
+          id: p.id, x: p.x ?? 0, y: p.y ?? 0,
+          zone: gardenItem(p.type).zone || 'bench',
+          itemId: p.type,
+        })),
     [plantings],
   )
 
