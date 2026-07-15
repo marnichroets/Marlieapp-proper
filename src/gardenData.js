@@ -205,6 +205,28 @@ export function isFullyGrown(planting) {
   return (planting?.wateredDays || 0) >= item.waterToGrow
 }
 
+// Which shop items are real trees — the only plantings that can grow a nest.
+const NEST_TREE_TYPES = ['tree-seed', 'pine-seed']
+// Extra real days fully grown, on top of however long it took to grow, before
+// a nest quietly appears — she never watches it happen, it's just there one
+// day, the way an actual garden fills in over time.
+const NEST_SETTLE_DAYS = 3
+
+// Purely visual, purely derived (no new persisted field): once a tree has
+// been fully grown for a while, she's earned a nest in its branches. No
+// gameplay hangs off this — see the marlie-bird-garden-plan memory for the
+// later storyline (pairing, building a nest together, eggs) this leaves room
+// for without committing to it yet.
+export function treeHasNest(planting) {
+  if (!NEST_TREE_TYPES.includes(planting?.type)) return false
+  if (!isFullyGrown(planting)) return false
+  const item = gardenItem(planting.type)
+  const plantedAt = planting?.plantedAt ? new Date(planting.plantedAt) : null
+  if (!plantedAt || Number.isNaN(plantedAt.getTime())) return false
+  const daysSincePlanted = (Date.now() - plantedAt.getTime()) / 86400000
+  return daysSincePlanted >= (item?.waterToGrow || 0) + NEST_SETTLE_DAYS
+}
+
 // One watering per SA day; the gate rolls over at SA midnight (and Fast Forward
 // clears lastWaterDay so the sandbox can speed through days).
 export function wateredToday(planting, today = saDateKey()) {

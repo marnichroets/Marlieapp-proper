@@ -12,6 +12,7 @@ import {
   isSpeciesPlanting,
   plantStageKey,
   isFullyGrown,
+  treeHasNest,
   wateredToday,
   STAGE_LABELS,
   GARDEN_REGION,
@@ -307,6 +308,23 @@ function PineArt({ stageKey }) {
   if (stageKey === 'pine-sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -16 L-6 -2 L6 -2 Z" fill="#3f8a52" /></g>)
   if (stageKey === 'pine-small') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-2" y="-10" width="4" height="10" fill="#8a5a36" /><path d="M0 -30 L-11 -10 L11 -10 Z" fill="#3f8a52" /><path d="M0 -22 L-9 -6 L9 -6 Z" fill="#357a46" /></g>)
   return (<g><ellipse cx="0" cy="0" rx="9" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-12" width="5" height="12" fill="#8a5a36" /><path d="M0 -48 L-14 -26 L14 -26 Z" fill="#3f8a52" /><path d="M0 -36 L-13 -16 L13 -16 Z" fill="#357a46" /><path d="M0 -24 L-11 -8 L11 -8 Z" fill="#2f6e3e" /></g>)
+}
+
+// A small woven twig nest — purely decorative, no eggs (see treeHasNest in
+// gardenData.js). Positioned per tree type to sit naturally in the branches:
+// tucked into the right canopy lobe for the leafy tree, into the lowest
+// (widest) tier for the pine.
+const NEST_SPOT = { 'tree-seed': { x: 18, y: -41 }, 'pine-seed': { x: 7, y: -21 } }
+function NestArt() {
+  return (
+    <g aria-hidden="true">
+      <ellipse cx="0" cy="1.4" rx="8.6" ry="3.2" fill="#8a6a42" opacity="0.9" />
+      <ellipse cx="0" cy="0" rx="8.6" ry="4" fill="#a9825a" />
+      <ellipse cx="0" cy="-0.6" rx="6.2" ry="2.6" fill="#7a5a38" />
+      <path d="M-7.5 -0.4 Q0 -4.8 7.5 -0.4" stroke="#6a4e30" strokeWidth="1" fill="none" opacity="0.55" strokeLinecap="round" />
+      <path d="M-6.4 1.2 Q0 -2.2 6.4 1.2" stroke="#6a4e30" strokeWidth="1" fill="none" opacity="0.45" strokeLinecap="round" />
+    </g>
+  )
 }
 
 function FlowerPatchArt({ stageKey }) {
@@ -978,6 +996,11 @@ export function GardenPage({
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
                   <PlantArt type={p.type} stageKey={plantStageKey(p)} referenceImageUrl={p.referenceImageUrl} />
+                  {treeHasNest(p) && NEST_SPOT[p.type] && (
+                    <g transform={`translate(${NEST_SPOT[p.type].x} ${NEST_SPOT[p.type].y})`}>
+                      <NestArt />
+                    </g>
+                  )}
                   {!placingAny && (
                     <text className="garden-visitor-name garden-plant-name" x="0" y="-46" textAnchor="middle">
                       {p.commonName || gardenItem(p.type)?.name}
