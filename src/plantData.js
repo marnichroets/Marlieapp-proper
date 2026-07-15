@@ -2365,6 +2365,308 @@ export const SA_PLANT_LIBRARY = [
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Cotyledon_tomentosa_in_cultivation_-_Cape_Town_9.jpg/330px-Cotyledon_tomentosa_in_cultivation_-_Cape_Town_9.jpg',
   },
+  // ---- Batch 6 (2026-07-15): more succulents, indigenous shrubs and
+  // trees, continuing toward the 200-species milestone. ----
+  {
+    id: 'carrion-flower',
+    commonName: 'Carrion Flower',
+    afrikaansName: 'Aasblom',
+    scientificName: 'Stapelia grandiflora',
+    category: 'Succulents',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Summer to autumn',
+    funFact:
+      'Its large starfish-shaped flower smells like rotting meat — a clever trick to attract flies as pollinators.',
+    whereFound: 'Dry rocky slopes across much of the South African interior.',
+    careTips: 'Bright light, very well-drained gritty soil, water sparingly — a classic conversation-starter succulent.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Stapelia_grandiflora_22102013_1_%2810606394434%29.jpg/500px-Stapelia_grandiflora_22102013_1_%2810606394434%29.jpg',
+  },
+  {
+    id: 'yellow-wild-iris',
+    commonName: 'Yellow Wild Iris',
+    afrikaansName: 'Geelui-uintjie',
+    scientificName: 'Dietes bicolor',
+    category: 'Indigenous',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Spring to autumn',
+    funFact:
+      'Each pale yellow flower, marked with maroon blotches, lasts only a single day but new ones open continuously for months.',
+    whereFound: 'Widely across the Eastern Cape; one of the most popular indigenous landscaping plants countrywide.',
+    careTips: 'Full sun to light shade, tolerant of most soils, very low maintenance once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Yellow_Wild_Iris.JPG/330px-Yellow_Wild_Iris.JPG',
+  },
+  {
+    id: 'african-potato',
+    commonName: 'African Potato',
+    afrikaansName: 'Sterblom',
+    scientificName: 'Hypoxis hemerocallidea',
+    category: 'Indigenous',
+    regions: ['potch'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its bright yellow star-shaped flowers close every evening and reopen each morning; the corm is one of South Africa\'s best-known traditional medicinal plants.',
+    whereFound: 'Highveld and bushveld grassland across the interior.',
+    careTips: 'Full sun, well-drained soil, dies back to the corm in winter and re-sprouts in spring.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Hypoxis_hemerocallidea_BotGardBln1105InflorescenceHabitus.JPG/500px-Hypoxis_hemerocallidea_BotGardBln1105InflorescenceHabitus.JPG',
+  },
+  {
+    id: 'march-lily',
+    commonName: 'March Lily',
+    afrikaansName: 'Maartblom',
+    scientificName: 'Amaryllis belladonna',
+    category: 'Indigenous',
+    regions: ['capetown'],
+    bloomSeason: 'Late summer to autumn',
+    funFact:
+      'Its tall pink flower stalks shoot straight up from bare ground with no leaves in sight — the leaves only appear afterward, in winter.',
+    whereFound: 'Rocky slopes and roadsides across the Western Cape.',
+    careTips: 'Full sun, well-drained soil, an extremely tough, low-maintenance bulb once planted.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Naked_Ladies%2C_Hinsdale_Rhododendron_Garden_%2815022561349%29.jpg/500px-Naked_Ladies%2C_Hinsdale_Rhododendron_Garden_%2815022561349%29.jpg',
+  },
+  {
+    id: 'paintbrush-lily',
+    commonName: 'Paintbrush Lily',
+    afrikaansName: 'Veeltjie',
+    scientificName: 'Haemanthus coccineus',
+    category: 'Indigenous',
+    regions: ['capetown'],
+    bloomSeason: 'Late summer to autumn',
+    funFact:
+      'Its thick red flower stalk, tipped with a shaving-brush of scarlet bracts, erupts from bare soil before the two broad leaves appear.',
+    whereFound: 'Rocky sandstone slopes across the Western Cape.',
+    careTips: 'Full sun to light shade, very well-drained soil, dry summer dormancy.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Haemanthus_coccineus_150915-1.jpg/330px-Haemanthus_coccineus_150915-1.jpg',
+  },
+  {
+    id: 'pineapple-lily',
+    commonName: 'Pineapple Lily',
+    afrikaansName: 'Wilde-pynappel',
+    scientificName: 'Eucomis autumnalis',
+    category: 'Indigenous',
+    regions: ['potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its flower spike is topped with a tuft of leafy bracts that make the whole thing look exactly like a small pineapple.',
+    whereFound: 'Grassland and rocky slopes across the eastern interior.',
+    careTips: 'Full sun to light shade, moist well-drained soil, a striking summer bulb for a border.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Eucomis_autumnalis_2_cropped.jpg/500px-Eucomis_autumnalis_2_cropped.jpg',
+  },
+  {
+    id: 'trailing-daisy',
+    commonName: 'Trailing African Daisy',
+    afrikaansName: 'Bosluisbos',
+    scientificName: 'Osteospermum jucundum',
+    category: 'Indigenous',
+    regions: ['potch'],
+    bloomSeason: 'Spring to autumn',
+    funFact:
+      'Forms a low, spreading mat of vivid purple-pink daisies that close up on cloudy days and reopen in the sun.',
+    whereFound: 'Grassland and rocky slopes across the eastern interior.',
+    careTips: 'Full sun, well-drained soil, drought-tolerant groundcover once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/%E8%97%8D%E7%9C%BC%E8%8F%8A%E5%B1%AC_Osteospermum_jucundum_-%E7%89%9B%E6%B4%A5%E5%A4%A7%E5%AD%B8%E6%A4%8D%E7%89%A9%E5%9C%92_Oxford_Botanic_Garden-_%289200881360%29.jpg/330px-%E8%97%8D%E7%9C%BC%E8%8F%8A%E5%B1%AC_Osteospermum_jucundum_-%E7%89%9B%E6%B4%A5%E5%A4%A7%E5%AD%B8%E6%A4%8D%E7%89%A9%E5%9C%92_Oxford_Botanic_Garden-_%289200881360%29.jpg',
+  },
+  {
+    id: 'terracotta-gazania',
+    commonName: 'Common Gazania',
+    afrikaansName: 'Botterblom',
+    scientificName: 'Gazania krebsiana',
+    category: 'Indigenous',
+    regions: ['potch'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its bright orange daisy flowers snap shut every evening and on overcast days, opening fully only in bright sun.',
+    whereFound: 'Grassland across the Highveld and interior plateau.',
+    careTips: 'Full sun, well-drained soil, extremely drought-tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Gazania_krebsiana00.jpg/500px-Gazania_krebsiana00.jpg',
+  },
+  {
+    id: 'honey-bell-bush',
+    commonName: 'Honey Bell Bush',
+    afrikaansName: 'Heuningklokkiesbos',
+    scientificName: 'Freylinia lanceolata',
+    category: 'Indigenous',
+    regions: ['capetown'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its pale yellow tubular flowers smell strongly of honey, drawing bees from a long way off.',
+    whereFound: 'Streambanks and forest margins across the Western Cape.',
+    careTips: 'Full sun to light shade, moist well-drained soil, fast-growing hedge or screen plant.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/FreyliniaLanceolata.jpg/330px-FreyliniaLanceolata.jpg',
+  },
+  {
+    id: 'false-olive',
+    commonName: 'False Olive',
+    afrikaansName: 'Vaalbos',
+    scientificName: 'Buddleja saligna',
+    category: 'Trees',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Autumn to winter',
+    funFact:
+      'Its tiny cream flowers are honey-scented and smother the whole tree, drawing in swarms of bees and butterflies.',
+    whereFound: 'Widespread across bushveld, forest margins and rocky ridges countrywide.',
+    careTips: 'Full sun to light shade, adaptable to most soils, tough and drought-tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Buddleja_saligna00.jpg/500px-Buddleja_saligna00.jpg',
+  },
+  {
+    id: 'crossberry',
+    commonName: 'Crossberry',
+    afrikaansName: 'Kruisbessie',
+    scientificName: 'Grewia occidentalis',
+    category: 'Indigenous',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its star-shaped mauve-pink flowers are followed by four-lobed berries that, sliced in half, show a perfect cross.',
+    whereFound: 'Bushveld, forest margins and coastal scrub across most of the country.',
+    careTips: 'Full sun to light shade, adaptable to most soils, attracts birds and butterflies.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Starr_980529-4195_Grewia_occidentalis.jpg/330px-Starr_980529-4195_Grewia_occidentalis.jpg',
+  },
+  {
+    id: 'port-st-johns-creeper',
+    commonName: 'Port St Johns Creeper',
+    afrikaansName: 'Port St Johns-klimop',
+    scientificName: 'Podranea ricasoliana',
+    category: 'Indigenous',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Summer to autumn',
+    funFact:
+      'A vigorous indigenous climber that smothers itself in trumpet-shaped pink flowers with darker throat veins.',
+    whereFound: 'Forest margins around Port St Johns on the Eastern Cape\'s Wild Coast; widely grown as a garden climber.',
+    careTips: 'Full sun, well-drained soil, needs a strong trellis or wall — grows fast and spreads by suckers.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Sete-l%C3%A9guas_%28Podranea_ricasoliana%29_em_Bag%C3%A9%2C_RS%2C_Brasil.jpg/500px-Sete-l%C3%A9guas_%28Podranea_ricasoliana%29_em_Bag%C3%A9%2C_RS%2C_Brasil.jpg',
+  },
+  {
+    id: 'forest-grape',
+    commonName: 'Forest Grape',
+    afrikaansName: 'Bosdruif',
+    scientificName: 'Rhoicissus tomentosa',
+    category: 'Indigenous',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'A vigorous indigenous vine whose grape-like fruit is edible and much loved by birds and monkeys alike.',
+    whereFound: 'Forest margins and riverine bush across the eastern half of the country.',
+    careTips: 'Light shade, moist well-drained soil, a fast-growing climber for a fence or pergola.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Rhoicissus_tomentosa_capensis_creeper_-_Cape_Town_1.JPG/500px-Rhoicissus_tomentosa_capensis_creeper_-_Cape_Town_1.JPG',
+  },
+  {
+    id: 'wild-jasmine',
+    commonName: 'Wild Jasmine',
+    afrikaansName: 'Wildejasmyn',
+    scientificName: 'Jasminum multipartitum',
+    category: 'Indigenous',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Spring to summer, sporadically year-round',
+    funFact:
+      'Its star-shaped white flowers, flushed pink in bud, release a heady fragrance especially strong at night.',
+    whereFound: 'Coastal bush and forest margins across the eastern half of the country.',
+    careTips: 'Full sun to light shade, well-drained soil, a lovely fragrant hedge or screen.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Jasminum_multipartitum_3.jpg/330px-Jasminum_multipartitum_3.jpg',
+  },
+  {
+    id: 'tinderwood',
+    commonName: 'Tinderwood',
+    afrikaansName: 'Vuurhoutjiebos',
+    scientificName: 'Clerodendrum glabrum',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its dry wood was traditionally used for making fire by friction, giving the tree its common name.',
+    whereFound: 'Bushveld and riverine forest across the eastern and northern parts of the country.',
+    careTips: 'Full sun to light shade, adaptable to most soils, fast-growing and hardy.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Clerodendrum_glabrum00.jpg/500px-Clerodendrum_glabrum00.jpg',
+  },
+  {
+    id: 'velvet-bushwillow',
+    commonName: 'Velvet Bushwillow',
+    afrikaansName: 'Fluweelboswilg',
+    scientificName: 'Combretum molle',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its soft, velvety leaves turn a rich yellow-brown in autumn, among the most colourful of the bushwillows.',
+    whereFound: 'Bushveld and rocky hillsides across the Lowveld and northern regions.',
+    careTips: 'Full sun, well-drained soil, drought-tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Combretum_molle%2C_Eugene_Marais_Park.jpg/330px-Combretum_molle%2C_Eugene_Marais_Park.jpg',
+  },
+  {
+    id: 'red-leaved-rock-fig',
+    commonName: 'Red-leaved Rock Fig',
+    afrikaansName: 'Rooiblaarrotsvy',
+    scientificName: 'Ficus ingens',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Year-round fruiting',
+    funFact:
+      'Its young leaves flush a striking coppery red before maturing to green, and its roots can split solid rock in search of water.',
+    whereFound: 'Rocky outcrops and koppies across the Lowveld and northern regions.',
+    careTips: 'Full sun, tolerant of poor rocky soil, an excellent tree for a rockery.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Ficus_ingens%2C_habitus%2C_Masebe-Wes%2C_a.jpg/330px-Ficus_ingens%2C_habitus%2C_Masebe-Wes%2C_a.jpg',
+  },
+  {
+    id: 'forest-bushwillow',
+    commonName: 'Forest Bushwillow',
+    afrikaansName: 'Boskanniedood',
+    scientificName: 'Combretum kraussii',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Autumn',
+    funFact:
+      'Its four-winged fruit turns a striking pinkish-red in autumn, often more colourful than the tree\'s actual flowers.',
+    whereFound: 'Coastal and montane forest across the eastern half of the country.',
+    careTips: 'Full sun to light shade, moist well-drained soil, an attractive shade tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Combretum_kraussii%2C_winterlower%2C_Louwsburg.jpg/330px-Combretum_kraussii%2C_winterlower%2C_Louwsburg.jpg',
+  },
+  {
+    id: 'quinine-tree',
+    commonName: 'Quinine Tree',
+    afrikaansName: 'Kinaboom',
+    scientificName: 'Rauvolfia caffra',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its bitter bark was historically used to treat malaria fevers, giving the tree its common name.',
+    whereFound: 'Riverine and swamp forest across the eastern half of the country.',
+    careTips: 'Full sun to light shade, moist soil — thrives near water, a fast-growing shade tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Rauvolfia_caffra_stem_leaves.JPG/500px-Rauvolfia_caffra_stem_leaves.JPG',
+  },
+  {
+    id: 'broom-cluster-fig',
+    commonName: 'Broom Cluster Fig',
+    afrikaansName: 'Besemtrosvy',
+    scientificName: 'Ficus sur',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Year-round fruiting',
+    funFact:
+      'Bears its figs directly on long, broom-like branches sprouting from the trunk, a strategy called cauliflory.',
+    whereFound: 'Riverine and forest margins across the eastern half of the country.',
+    careTips: 'Full sun to light shade, deep moist soil, needs plenty of room to spread.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Ficus_sur%2C_volgroeid%2C_Louwsburg.jpg/330px-Ficus_sur%2C_volgroeid%2C_Louwsburg.jpg',
+  },
 ]
 
 export const PLANT_EXPLORE_FILTERS = [
