@@ -673,10 +673,16 @@ const SHOP = {
 // hatches (see warmMysteryEgg) — a new companion starts with nothing bought.
 // Sorted cheapest-first for the shop display.
 const TWEETY_STORE_ITEMS = [
+  { id: 'ribbon', emoji: '🎀', name: 'Ribbon Decoration', cost: 90, kind: 'decor', hint: 'A pretty bow tied onto the nest' },
   { id: 'mirror', emoji: '🪞', name: 'Small Mirror', cost: 120, kind: 'decor', hint: 'Propped by the nest — Tweety occasionally catches her reflection and preens' },
-  { id: 'treats', emoji: '🍓', name: 'Special Treats Bag', cost: 150, kind: 'consumable', hint: 'An instant happiness boost — Tweety stays happy for the rest of the day' },
+  { id: 'flowers', emoji: '🌸', name: 'Flower Bouquet', cost: 130, kind: 'decor', hint: 'A little bouquet blooms beside the nest' },
+  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 140, kind: 'decor', hint: 'A decorative branch settles into the nest area' },
+  { id: 'treats', emoji: '🍓', name: 'Special Treats Bag', cost: 150, kind: 'consumable', hint: 'An instant happiness boost — Tweety stays happy for the rest of the day — plus a little bowl by the nest for good' },
+  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 170, kind: 'decor', hint: 'A warm woven lining makes the nest look cozier' },
   { id: 'herbs', emoji: '🌿', name: 'Herb Bundle', cost: 180, kind: 'comfort', hint: 'Fresh herbs hang by the nest — Tweety looks (and feels) healthier' },
+  { id: 'window', emoji: '🪟', name: 'Tiny Window', cost: 190, kind: 'decor', hint: 'A cute little window appears on the nest' },
   { id: 'feedingbowl', emoji: '🥣', name: 'Feeding Bowl', cost: 200, kind: 'comfort', hint: "A permanent bowl by the nest — missing an occasional feed won't upset her" },
+  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 210, kind: 'decor', hint: 'Tap it for a happy little tune and dance' },
   { id: 'chimes', emoji: '🎐', name: 'Wind Chimes', cost: 220, kind: 'decor', hint: 'Tap them for a gentle jingle and a happy little dance' },
   { id: 'watertank', emoji: '💧', name: 'Large Water Tank', cost: 250, kind: 'comfort', hint: "A water dispenser by the nest — missing an occasional water won't upset her" },
   { id: 'cozynest', emoji: '🏡', name: 'Cozy Nest Upgrade', cost: 300, kind: 'nest', hint: 'The nest gets a warm, lined, lived-in look' },
@@ -5514,7 +5520,11 @@ function App() {
     const item = TWEETY_STORE_ITEMS.find((entry) => entry.id === itemId)
     if (!item) return
     const owned = Array.isArray(data.tweetyStore) ? data.tweetyStore : []
-    if (item.kind !== 'consumable' && owned.includes(item.id)) return
+    // 'nest' is the pre-redesign Nest Upgrade id — same cozy-tier effect as
+    // 'cozynest', so owning one blocks re-buying the other (never charge
+    // twice for the same upgrade).
+    const equivalentOwned = item.id === 'cozynest' && owned.includes('nest')
+    if (item.kind !== 'consumable' && (owned.includes(item.id) || equivalentOwned)) return
     if (data.featherCoins < item.cost) return notEnoughCoins()
 
     if (item.kind === 'consumable') {
@@ -7089,7 +7099,11 @@ function HomePage({
               legacyNestTier={tweetyView.nestTier}
               rainbow={tweetyView.rainbow}
               loveLetter={tweetyView.loveLetter}
-              gifts={TWEETY_STORE_ITEMS.filter((it) => (data.tweetyStore || []).includes(it.id))}
+              // Every raw purchased id, not filtered through the current
+              // TWEETY_STORE_ITEMS catalog — a legacy id no longer sold in the
+              // shop (e.g. pre-redesign 'nest') must still count as owned for
+              // rendering. TweetyHomeCard only ever reads gift.id.
+              gifts={(data.tweetyStore || []).map((id) => ({ id }))}
               onFeed={() => careTweety('feed')}
               onWater={() => careTweety('water')}
               onPlay={() => careTweety('play')}
@@ -10206,7 +10220,13 @@ function RewardsPage({
         <div className="shop-grid">
           {[...TWEETY_STORE_ITEMS].sort((a, b) => a.cost - b.cost).map((item) => {
             const consumable = item.kind === 'consumable'
-            const owned = !consumable && (data.tweetyStore || []).includes(item.id)
+            const ownedIds = data.tweetyStore || []
+            // 'nest' (pre-redesign Nest Upgrade) already grants the same cozy
+            // tier as 'cozynest' — show it as gifted too, so it never looks
+            // buyable-again for something she already has.
+            const owned =
+              !consumable &&
+              (ownedIds.includes(item.id) || (item.id === 'cozynest' && ownedIds.includes('nest')))
             const affordable = coins >= item.cost
             const boostActive = consumable && treatsBoostActive(data.tweety)
             return (

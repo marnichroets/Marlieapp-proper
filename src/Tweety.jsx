@@ -783,9 +783,11 @@ export function TweetyHomeCard({
   // Luxury Birdhouse fully replaces the nest; Cozy Nest Upgrade is the step
   // below that; anything gifted from the admin-only legacy Bird Store (rare)
   // still counts too, so nothing already gifted ever looks like it downgraded.
+  // 'nest' is the pre-redesign Nest Upgrade id — same effect as 'cozynest',
+  // kept recognized so purchases made before the redesign still count.
   const nestTier = ownedGiftIds.has('birdhouse') || legacyNestTier === 'treehouse' || legacyNestTier === 'luxury'
     ? 'treehouse'
-    : ownedGiftIds.has('cozynest') || legacyNestTier === 'cosy'
+    : ownedGiftIds.has('cozynest') || ownedGiftIds.has('nest') || legacyNestTier === 'cosy'
       ? 'cosy'
       : 'basic'
 
@@ -798,6 +800,9 @@ export function TweetyHomeCard({
       playChirp('play')
       setTimeout(() => playChirp('water'), 160)
       setTimeout(() => playChirp('feed'), 320)
+    }
+    if (id === 'musicbox') {
+      playChirp('play')
     }
   }
 
@@ -850,15 +855,31 @@ export function TweetyHomeCard({
           </div>
         )}
 
+        {ownedGiftIds.has('treats') && (
+          <div className="gift-treatsbowl" title="Special Treats — a little bowl she can always nibble from" aria-hidden="true">
+            🍓
+          </div>
+        )}
+
+        {ownedGiftIds.has('flowers') && (
+          <div className="gift-flowers" title="Flower Bouquet" aria-hidden="true">
+            🌸
+          </div>
+        )}
+
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
+          {ownedGiftIds.has('blanket') && <div className="gift-blanket" title="Cozy Nest Blanket" aria-hidden="true" />}
           {ownedGiftIds.has('herbs') && <span className="gift-herbs" aria-hidden="true">🌿</span>}
+          {ownedGiftIds.has('perch') && <span className="gift-perch" title="Perch Branch" aria-hidden="true">🪵</span>}
+          {ownedGiftIds.has('window') && <span className="gift-window" title="Tiny Window" aria-hidden="true">🪟</span>}
+          {ownedGiftIds.has('ribbon') && <span className="gift-ribbon" title="Ribbon Decoration" aria-hidden="true">🎀</span>}
           {ownedGiftIds.has('mirror') && (
             <span className="gift-mirror" aria-hidden="true">🪞</span>
           )}
           <TweetyBird
             level={birdLevel}
             mood={mood}
-            dancing={dancing || justTapped === 'chimes'}
+            dancing={dancing || justTapped === 'chimes' || justTapped === 'musicbox'}
             preening={preening}
             size={132}
             companion={tweety?.companion}
@@ -874,6 +895,16 @@ export function TweetyHomeCard({
               onClick={() => tapGift('chimes')}
             >
               🎐
+            </button>
+          )}
+          {ownedGiftIds.has('musicbox') && (
+            <button
+              type="button"
+              className={`gift-musicbox${justTapped === 'musicbox' ? ' tapped' : ''}`}
+              title="Tap the music box"
+              onClick={() => tapGift('musicbox')}
+            >
+              🎵
             </button>
           )}
         </div>
