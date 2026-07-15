@@ -33,6 +33,13 @@ const SKY_STOPS = {
   night: [['0', '#162449'], ['0.6', '#243a63'], ['1', '#33507e']],
 }
 
+// A hazy, desaturated ridge line far behind the two proper ground layers —
+// atmospheric perspective (distance reads as cooler/lighter/less saturated)
+// so the scene has real depth instead of two flat bands of green. Paired
+// with a soft horizon-haze wash blending the sky into it.
+const DISTANT_HILLS = { morning: '#e6cd9e', midday: '#cbe0d2', evening: '#e8b088', night: '#202f52' }
+const HORIZON_HAZE = { morning: '#ffe6b8', midday: '#eef7ec', evening: '#ffc294', night: '#2c4270' }
+
 // A translucent lighting wash over the ground, so grass + plantings read as
 // lit by the same morning/sunset/moon light (midday = neutral, no wash).
 const GROUND_WASH = {
@@ -561,7 +568,7 @@ function PerchBird({ c }) {
   )
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
-      <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.18" />
+      <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.26" />
       <g className="garden-branch-wander" style={wanderStyle}>
         {portrait}
       </g>
@@ -582,7 +589,7 @@ function SwimBird({ c }) {
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
       <g className="garden-swim-drift" style={style}>
-        <ellipse className="garden-visitor-shadow" cx="0" cy="2.4" rx="8" ry="2.4" fill="#1e4a63" opacity="0.18" />
+        <ellipse className="garden-visitor-shadow" cx="0" cy="2.4" rx="8" ry="2.4" fill="#1e4a63" opacity="0.24" />
         <g
           className="garden-bird-idle"
           style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.8}s` }}
@@ -953,11 +960,28 @@ export function GardenPage({
                 <stop key={offset} offset={offset} stopColor={color} />
               ))}
             </linearGradient>
+            <linearGradient id="gardenHorizonHaze" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={HORIZON_HAZE[phase]} stopOpacity="0" />
+              <stop offset="0.6" stopColor={HORIZON_HAZE[phase]} stopOpacity="0.55" />
+              <stop offset="1" stopColor={HORIZON_HAZE[phase]} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gardenGrassMid" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#dcecc0" />
+              <stop offset="1" stopColor="#c3e0a0" />
+            </linearGradient>
+            <linearGradient id="gardenGrassNear" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#96c977" />
+              <stop offset="1" stopColor="#79b25f" />
+            </linearGradient>
           </defs>
           <rect x="0" y="0" width="400" height="260" fill="url(#gardenSky)" />
           <GardenSky phase={phase} />
-          <path d="M0 150 q70 -30 160 -12 q90 18 240 -8 V260 H0 Z" fill="#cfe9b6" />
-          <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="#8ccb6f" />
+          {/* distant hazy ridge — atmospheric perspective, drawn behind both
+              proper ground layers so the scene reads with real depth */}
+          <path d="M0 138 q60 -18 150 -6 q100 14 250 -10 V260 H0 Z" fill={DISTANT_HILLS[phase]} opacity="0.55" />
+          <rect x="0" y="118" width="400" height="34" fill="url(#gardenHorizonHaze)" style={{ pointerEvents: 'none' }} />
+          <path d="M0 150 q70 -30 160 -12 q90 18 240 -8 V260 H0 Z" fill="url(#gardenGrassMid)" />
+          <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="url(#gardenGrassNear)" />
           {/* a soft meandering path for charm */}
           <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" strokeWidth="13" strokeLinecap="round" opacity="0.7" />
 
@@ -983,15 +1007,20 @@ export function GardenPage({
             .map(({ p, x, y }) => {
               const thirsty = !isFullyGrown(p) && !wateredToday(p, today)
               const isSel = p.id === selectedId
+              // A small, stable per-planting nudge (never touches the real x/y
+              // used for placement/overlap math) so a row of items never reads
+              // as snapped to the invisible placement grid.
+              const jx = x + ((hashSeed(`${p.id}:jx`) % 60) / 10 - 3)
+              const jy = y + ((hashSeed(`${p.id}:jy`) % 40) / 10 - 2)
               return (
                 <g
                   key={p.id}
                   className="garden-plant"
-                  transform={`translate(${x} ${y})`}
+                  transform={`translate(${jx} ${jy})`}
                   onClick={placingAny ? undefined : (e) => {
                     e.stopPropagation()
                     setSelectedId(p.id)
-                    if (p.type === 'wishing-well' && isFullyGrown(p)) setWishBurst({ id: p.id, x, y })
+                    if (p.type === 'wishing-well' && isFullyGrown(p)) setWishBurst({ id: p.id, x: jx, y: jy })
                   }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}

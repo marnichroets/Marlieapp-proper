@@ -4475,7 +4475,7 @@ textarea:focus {
   position: absolute;
   /* anchor the bird's feet (~78% down its box) at the scene point */
   transform: translate(-50%, -78%);
-  filter: drop-shadow(0 3px 2px rgba(60, 90, 46, 0.18));
+  filter: drop-shadow(0 3px 2px rgba(60, 90, 46, 0.26));
   /* it's a <button> (tappable for the memory-wall nameplate), so reset chrome
      and re-enable pointer events — the wrapper above disables them by default. */
   pointer-events: auto;
