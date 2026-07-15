@@ -515,13 +515,13 @@ function PlantArt({ type, stageKey, referenceImageUrl }) {
 // Every timing AND every waypoint is randomized per-instance so no two birds
 // ever move in lockstep, even when their `dur`s happen to be close.
 function PerchBird({ c }) {
-  const tint = c.tint || '#9A8867'
   const wanderStyle = {
     '--bx1': `${c.bx1 ?? 10}px`, '--by1': `${c.by1 ?? -6}px`,
     '--bx2': `${c.bx2 ?? -9}px`, '--by2': `${c.by2 ?? -3}px`,
     animationDelay: `${c.hopDelay || 0}s`,
     animationDuration: `${c.hopDur || 9}s`,
   }
+  const size = 40
   const portrait = (
     <>
       <g
@@ -532,23 +532,12 @@ function PerchBird({ c }) {
           className="garden-visitor-bob"
           style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 1.7}s` }}
         >
-          {/* tail (slightly darker than the body) */}
-          <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill={tint} />
-          <path d="M-6 -6 L-13 -2 L-6 -11 Z" fill="#000" opacity="0.16" />
-          {/* body + soft pale belly */}
-          <ellipse cx="0" cy="-8" rx="7.5" ry="6" fill={tint} />
-          <ellipse cx="1.5" cy="-6" rx="4.4" ry="4" fill="#fff" opacity="0.26" />
-          {/* folded wing */}
-          <path d="M-3 -11 Q4 -10 2.5 -4 Q-2.5 -5 -3 -11 Z" fill="#000" opacity="0.15" />
-          {/* head, beak + eye (facing right) */}
-          <circle cx="5" cy="-13.5" r="4.3" fill={tint} />
-          <path d="M9 -13.5 L13.5 -12.4 L9 -11 Z" fill="#3a332a" />
-          <circle cx="6.3" cy="-14" r="1" fill="#241f18" />
-          {/* legs to the perch */}
-          <path d="M-1 -2 V1 M3 -2 V1" stroke="#3a332a" strokeWidth="1" strokeLinecap="round" />
+          <foreignObject x={-size / 2} y={-size * 0.78} width={size} height={size} style={{ overflow: 'visible' }}>
+            <TweetyBird level="crowned" companion={c.companion} size={size} />
+          </foreignObject>
         </g>
       </g>
-      {c.name && <text className="garden-visitor-name" x="0" y="-23" textAnchor="middle">{c.name}</text>}
+      {c.name && <text className="garden-visitor-name" x="0" y="-30" textAnchor="middle">{c.name}</text>}
     </>
   )
   return (
@@ -565,7 +554,7 @@ function PerchBird({ c }) {
 // to side with a slow bob instead of hopping/flying — a completely different
 // feel from the land birds. Per-instance drift range + timing, same as land.
 function SwimBird({ c }) {
-  const tint = c.tint || '#9A8867'
+  const size = 36
   const style = {
     '--sx': `${c.sx ?? 14}px`,
     animationDelay: `${c.delay || 0}s`,
@@ -579,18 +568,12 @@ function SwimBird({ c }) {
           className="garden-bird-idle"
           style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.8}s` }}
         >
-          {/* body sitting low on the water + soft pale belly */}
-          <ellipse cx="0" cy="-2" rx="8.5" ry="5" fill={tint} />
-          <ellipse cx="1.5" cy="-0.5" rx="4.6" ry="2.8" fill="#fff" opacity="0.24" />
-          {/* folded wing */}
-          <path d="M-3 -4 Q4 -3.5 2 1 Q-3 0.2 -3 -4 Z" fill="#000" opacity="0.14" />
-          {/* head, beak + eye (facing right) */}
-          <circle cx="6" cy="-7" r="3.6" fill={tint} />
-          <path d="M9.4 -6.6 L13.4 -6 L9.4 -5 Z" fill="#3a332a" />
-          <circle cx="7" cy="-7.4" r="0.9" fill="#241f18" />
+          <foreignObject x={-size / 2} y={-size * 0.62} width={size} height={size} style={{ overflow: 'visible' }}>
+            <TweetyBird level="crowned" companion={c.companion} size={size} />
+          </foreignObject>
         </g>
       </g>
-      {c.name && <text className="garden-visitor-name" x="0" y="-13" textAnchor="middle">{c.name}</text>}
+      {c.name && <text className="garden-visitor-name" x="0" y="-24" textAnchor="middle">{c.name}</text>}
     </g>
   )
 }
@@ -602,7 +585,7 @@ function SwimBird({ c }) {
 // instance: glide `dur`/`delay`, arc height `--lift`, and wing-flap `--flap-dur`/
 // `--flap-delay` so no two birds fly or flap in sync.
 function FlyBird({ c }) {
-  const tint = c.tint || '#9A8867'
+  const size = 34
   const dx = c.toX - c.fromX
   const dy = c.toY - c.fromY
   const style = {
@@ -620,14 +603,9 @@ function FlyBird({ c }) {
     <g transform={`translate(${c.fromX + 15} ${c.fromY - 14})`}>
       <g className="g-flybird" style={style}>
         <g transform={facing}>
-          <ellipse className="g-wing g-wing-l" cx="-9" cy="-1" rx="7" ry="3.4" fill={tint} />
-          <ellipse className="g-wing g-wing-r" cx="9" cy="-1" rx="7" ry="3.4" fill={tint} />
-          {/* body + head + beak + eye */}
-          <ellipse cx="0" cy="1" rx="6" ry="4.6" fill={tint} />
-          <ellipse cx="0.5" cy="2.4" rx="3.4" ry="2.6" fill="#fff" opacity="0.2" />
-          <circle cx="4.5" cy="-2.5" r="3.4" fill={tint} />
-          <path d="M7.6 -2.5 L11.5 -1.6 L7.6 -0.6 Z" fill="#3a332a" />
-          <circle cx="5.6" cy="-3" r="0.9" fill="#241f18" />
+          <foreignObject x={-size / 2} y={-size * 0.55} width={size} height={size} style={{ overflow: 'visible' }}>
+            <TweetyBird level="crowned" companion={c.companion} size={size} />
+          </foreignObject>
         </g>
       </g>
     </g>
