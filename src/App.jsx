@@ -7216,6 +7216,30 @@ function FieldGuidePhoto({ bird, className = '' }) {
   )
 }
 
+// Same pattern as FieldGuidePhoto above, for plants — a real photo when
+// imageUrl is usable, falling back to the category emoji (never a bird
+// initials-style placeholder, which wouldn't make sense for a plant).
+function PlantFieldGuidePhoto({ plant, className = '' }) {
+  const [errored, setErrored] = useState(false)
+  const usable = plant.imageUrl && !plant.imageUrl.includes('placehold')
+  if (errored || !usable) {
+    return (
+      <div className={`field-guide-photo placeholder-photo ${className}`.trim()} aria-hidden="true">
+        <span>{plantCategoryEmoji(plant.category)}</span>
+      </div>
+    )
+  }
+  return (
+    <img
+      className={`field-guide-photo ${className}`.trim()}
+      src={plant.imageUrl}
+      alt={plant.commonName}
+      loading="lazy"
+      onError={() => setErrored(true)}
+    />
+  )
+}
+
 // A tiny Jan→Dec presence chart: twelve little bars, the current month gently
 // highlighted, so she can see at a glance when a bird is around.
 function MonthlyActivityBar({ bird }) {
@@ -7318,9 +7342,7 @@ function PlantsNearYouCard({ onOpenPlant }) {
       <div className="near-you-scroll">
         {plants.map((plant) => (
           <button key={plant.id} type="button" className="near-you-bird" onClick={onOpenPlant}>
-            <div className="field-guide-photo placeholder-photo near-you-photo" aria-hidden="true">
-              <span>{plantCategoryEmoji(plant.category)}</span>
-            </div>
+            <PlantFieldGuidePhoto plant={plant} className="near-you-photo" />
             <span className="near-you-name">{plant.commonName}</span>
             {plant.afrikaansName && <span className="near-you-afr">{plant.afrikaansName}</span>}
           </button>
@@ -7421,14 +7443,6 @@ function ExploreBirdsPage({ data, openBirdProfile }) {
           />
         ))}
       </section>
-    </div>
-  )
-}
-
-function PlantFieldGuidePhoto({ plant, className = '' }) {
-  return (
-    <div className={`field-guide-photo placeholder-photo ${className}`.trim()} aria-hidden="true">
-      <span>{plantCategoryEmoji(plant.category)}</span>
     </div>
   )
 }
@@ -10902,9 +10916,13 @@ function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz, plantScann
         <div className="magazine-grid">
           {magazinePlants.map((plant) => (
             <article className="magazine-bird-card" key={plant.id}>
-              <div className="magazine-photo-placeholder">
-                <span>{plantCategoryEmoji(plant.category)}</span>
-              </div>
+              {plant.imageUrl ? (
+                <img src={plant.imageUrl} alt={plant.commonName} />
+              ) : (
+                <div className="magazine-photo-placeholder">
+                  <span>{plantCategoryEmoji(plant.category)}</span>
+                </div>
+              )}
               <div>
                 <h3>{plant.commonName}</h3>
                 <p className="nickname">{plant.afrikaansName}</p>

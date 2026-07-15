@@ -33,6 +33,8 @@ export const SA_PLANT_LIBRARY = [
       "South Africa's national flower — its flower head can grow up to 30cm wide, the largest of any protea species.",
     whereFound: 'Fynbos slopes and mountain fynbos across the Western Cape, especially the Cape Peninsula.',
     careTips: 'Full sun, very well-drained acidic soil, and no phosphate fertiliser — sandy soil mimics its native fynbos best.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Peninsula_Sandstone_Fynbos_-_KingProtea_-_Table_Mountain.JPG/500px-Peninsula_Sandstone_Fynbos_-_KingProtea_-_Table_Mountain.JPG',
   },
   {
     id: 'sugarbush',
@@ -45,6 +47,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'One of the most widespread proteas — its nectar-rich flowers are a favourite of sunbirds and Cape sugarbirds.',
     whereFound: 'Fynbos across the Western and Eastern Cape mountains.',
     careTips: 'Full sun, sandy well-drained soil, drought-tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Protea_repens_20D_4732.jpg/500px-Protea_repens_20D_4732.jpg',
   },
   {
     id: 'pincushion',
@@ -57,6 +61,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Named for its round flower heads covered in curved styles that look like a pincushion full of pins.',
     whereFound: 'Fynbos on the Cape south coast mountains.',
     careTips: 'Needs excellent drainage and full sun — very sensitive to wet, heavy soil.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Leucospermum_cordifolium_Harold_Porter_06.jpg/500px-Leucospermum_cordifolium_Harold_Porter_06.jpg',
   },
   {
     id: 'silver-tree',
@@ -69,6 +75,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its silky silver leaves are covered in fine hairs that reflect sunlight — found naturally almost nowhere except Table Mountain.',
     whereFound: 'Table Mountain and the Cape Peninsula, almost exclusively.',
     careTips: 'Full sun, sandy acidic soil, and cool coastal air — notoriously difficult to grow away from the Cape.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Groote_Schuur_Est_-_Young_Silvertrees_-_Table_Mountain.jpg/500px-Groote_Schuur_Est_-_Young_Silvertrees_-_Table_Mountain.jpg',
   },
   {
     id: 'watsonia',
@@ -81,6 +89,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'A tall, showy relative of the gladiolus that carpets fynbos slopes with pink spikes after fire.',
     whereFound: 'Fynbos slopes across the Western Cape.',
     careTips: 'Full sun, well-drained soil, dies back to a corm in summer — very drought tolerant once dormant.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Starr_070308-5443_Watsonia_borbonica.jpg/500px-Starr_070308-5443_Watsonia_borbonica.jpg',
   },
   {
     id: 'freesia',
@@ -93,6 +103,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'One of the most fragrant flowers in the world, and the ancestor of nearly every freesia grown in gardens globally.',
     whereFound: 'Sandy flats and lower slopes across the Western Cape.',
     careTips: 'Full sun, well-drained soil, plant corms in autumn for a spring bloom.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Freesia.jpg/500px-Freesia.jpg',
   },
   {
     id: 'agapanthus',
@@ -105,6 +117,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its name comes from Greek for "love flower" — one of South Africa’s most exported garden plants worldwide.',
     whereFound: 'Rocky slopes in the Western Cape natively, but grown in gardens right across the country.',
     careTips: 'Full sun to light shade, tolerant of poor soil and drought once established — a very forgiving garden plant.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Agapanthus_africanus_in_habitat_photo_Nick_Helme_CC_by_SA.jpg/500px-Agapanthus_africanus_in_habitat_photo_Nick_Helme_CC_by_SA.jpg',
   },
   {
     id: 'clivia',
@@ -117,6 +131,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Thrives in deep shade where almost nothing else flowers — a favourite for shady gardens across South Africa.',
     whereFound: 'Shaded forest understorey from the Eastern Cape through KwaZulu-Natal into Mpumalanga and Limpopo.',
     careTips: 'Deep shade, well-drained soil, and don’t overwater — it prefers to dry out between waterings.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Clivia_miniata%2C_blomme_en_vrugte%2C_Manie_van_der_Schijff_BT%2C_a.jpg/500px-Clivia_miniata%2C_blomme_en_vrugte%2C_Manie_van_der_Schijff_BT%2C_a.jpg',
   },
   {
     id: 'bird-of-paradise',
@@ -129,6 +145,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its orange and blue flower is shaped to let sunbirds land on it and pollinate it while feeding on the nectar.',
     whereFound: 'Native to the Eastern Cape, but grown as a garden and street plant across South Africa.',
     careTips: 'Full sun, rich well-drained soil, and regular watering in summer for the best flowering.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Ave-do-para%C3%ADso%2C_Strelitzia_reginae%2C_em_Bag%C3%A9%2C_Rio_Grande_do_Sul%2C_Brasil_-_55211233712.jpg/500px-Ave-do-para%C3%ADso%2C_Strelitzia_reginae%2C_em_Bag%C3%A9%2C_Rio_Grande_do_Sul%2C_Brasil_-_55211233712.jpg',
   },
   {
     id: 'wild-banana',
@@ -141,6 +159,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: "The giant, tree-sized relative of the Bird of Paradise — can grow up to 10 metres tall, despite not being a true banana.",
     whereFound: 'Coastal forest from the Eastern Cape to KwaZulu-Natal, widely planted as a garden tree elsewhere.',
     careTips: 'Full sun to part shade, rich soil, and regular water — a fast-growing architectural garden tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Strelitzia_nicolai_3.jpg/500px-Strelitzia_nicolai_3.jpg',
   },
   {
     id: 'arum-lily',
@@ -153,6 +173,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'The elegant white "flower" is actually a leaf-like bract wrapped around the true, tiny flowers on the central spike.',
     whereFound: 'Damp ground and streambanks across most of South Africa.',
     careTips: 'Full sun to part shade, likes consistently moist soil — thrives at the edge of a pond or damp corner.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Zantedeschia_aethiopica_South_Africa.jpg/500px-Zantedeschia_aethiopica_South_Africa.jpg',
   },
   {
     id: 'red-hot-poker',
@@ -165,6 +187,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its glowing orange-to-yellow flower spikes are a magnet for sunbirds, which feed on the nectar tube by tube from the bottom up.',
     whereFound: 'Grassland and rocky slopes across the Eastern Cape and KwaZulu-Natal.',
     careTips: 'Full sun, well-drained soil, very hardy and drought tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Kniphofia_uvaria_close.JPG/500px-Kniphofia_uvaria_close.JPG',
   },
   {
     id: 'wild-dagga',
@@ -177,6 +201,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its shaggy orange flowers grow in tidy whorls up the stem and are a favourite of sunbirds — despite the name, it is unrelated to cannabis.',
     whereFound: 'Grassland and rocky slopes across much of South Africa, including the Highveld.',
     careTips: 'Full sun, tolerates poor soil, very drought hardy once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Southern_Double-collared_Sunbird_%28Cinnyris_chalibeus%29_immature_male_foraging_on_flowers_of_Wild_Dagga_%28Leonotis_leonurus%29_%2832812380721%29.jpg/330px-Southern_Double-collared_Sunbird_%28Cinnyris_chalibeus%29_immature_male_foraging_on_flowers_of_Wild_Dagga_%28Leonotis_leonurus%29_%2832812380721%29.jpg',
   },
   {
     id: 'barberton-daisy',
@@ -189,6 +215,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: "Discovered near Barberton in Mpumalanga in the 1880s, it's the wild ancestor of almost every gerbera sold in flower shops worldwide.",
     whereFound: 'Rocky grassland slopes in Mpumalanga and neighbouring provinces.',
     careTips: 'Full sun to light shade, well-drained soil — a reliable, colourful garden and pot plant.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Gerbera_jamesonii_%28Asteraceae%29.jpg/500px-Gerbera_jamesonii_%28Asteraceae%29.jpg',
   },
   {
     id: 'plumbago',
@@ -201,6 +229,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its soft powder-blue flowers are a favourite nectar stop for butterflies, especially the Common Blue.',
     whereFound: 'Forest margins and thicket across the Eastern Cape, widely grown as a hedge elsewhere.',
     careTips: 'Full sun to part shade, drought tolerant, prune hard after winter to keep it flowering well.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Plumbago_auriculata_2718.jpg/500px-Plumbago_auriculata_2718.jpg',
   },
   {
     id: 'cape-honeysuckle',
@@ -213,6 +243,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its tubular orange flowers are one of the most reliable nectar sources for sunbirds through the coldest months.',
     whereFound: 'Forest margins and coastal scrub across the Eastern Cape and KwaZulu-Natal.',
     careTips: 'Full sun to part shade, tolerant of poor soil, makes an excellent bird-friendly hedge.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Tecoma_capensis_2922.jpg/500px-Tecoma_capensis_2922.jpg',
   },
   {
     id: 'namaqualand-daisy',
@@ -225,6 +257,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'After good winter rains, these daisies carpet entire hillsides in Namaqualand in one of the world’s great wildflower displays.',
     whereFound: 'Semi-arid Namaqualand region of the Northern and Western Cape.',
     careTips: 'Full sun, sandy well-drained soil, sow seed in autumn for a spring show.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Dimorphotheca_sinuata.JPG/500px-Dimorphotheca_sinuata.JPG',
   },
   {
     id: 'vygie',
@@ -237,6 +271,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its jewel-bright flowers only open fully in sunshine and close again on cloudy days and at night.',
     whereFound: 'Rocky and sandy slopes across the Western Cape.',
     careTips: 'Full sun, very well-drained soil, extremely drought tolerant — perfect for a rockery.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Lampranthus_spectabilis_3.JPG/330px-Lampranthus_spectabilis_3.JPG',
   },
   {
     id: 'bitter-aloe',
@@ -249,6 +285,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its bitter sap has been harvested for centuries as a traditional remedy, and its tall orange flower spikes feed sunbirds through the coldest months.',
     whereFound: 'Dry, rocky slopes across the Eastern and Western Cape.',
     careTips: 'Full sun, extremely well-drained soil, waters sparingly — very drought tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Aloe_Ferox_between_Cofimvaba_and_Ngcobo.jpg/330px-Aloe_Ferox_between_Cofimvaba_and_Ngcobo.jpg',
   },
   {
     id: 'spekboom',
@@ -261,6 +299,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: "One of the most efficient carbon-absorbing plants in the world — a single hectare of spekboom thicket can lock away a surprising amount of carbon each year.",
     whereFound: 'Thicket vegetation in the Eastern Cape, widely planted as a hedge across South Africa.',
     careTips: 'Full sun to part shade, extremely drought tolerant, grows easily from a simple cutting.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Portulacaria_afra_02.JPG/500px-Portulacaria_afra_02.JPG',
   },
   {
     id: 'century-plant',
@@ -273,6 +313,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Flowers only once in its life, sending up a towering flower spike several metres tall before the main rosette dies back.',
     whereFound: 'Originally from Mexico, but a common, tough garden and boundary plant across South Africa.',
     careTips: 'Full sun, very well-drained soil, essentially indestructible once established — handle the sharp leaf tips with care.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Agave_July_2011-1.jpg/500px-Agave_July_2011-1.jpg',
   },
   {
     id: 'karee',
@@ -285,6 +327,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'A tough, evergreen tree often planted for shade on Highveld farms and gardens — its narrow willow-like leaves cast dappled shade.',
     whereFound: 'Widespread across the drier interior of South Africa, including the Highveld.',
     careTips: 'Full sun, tolerant of poor soil and drought once established — a reliable, low-maintenance shade tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Rhus_lancea%2C_foliage_detail.jpg/500px-Rhus_lancea%2C_foliage_detail.jpg',
   },
   {
     id: 'wild-olive',
@@ -297,6 +341,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'The indigenous cousin of the Mediterranean olive tree — its small fruit is a favourite of fruit-eating birds.',
     whereFound: 'Widespread across South Africa, from the Cape through to the Highveld.',
     careTips: 'Full sun, tolerant of poor soil, slow-growing but very hardy and long-lived.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Olea_europaea_cuspidata-africana_Cape_Town.JPG/500px-Olea_europaea_cuspidata-africana_Cape_Town.JPG',
   },
   {
     id: 'yellowwood',
@@ -309,6 +355,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: "South Africa's national tree — an ancient conifer that can live for many centuries in the country's indigenous forests.",
     whereFound: 'Indigenous forest patches from the Cape through to Limpopo, including the Knysna forests.',
     careTips: 'Part shade when young, tolerant of full sun once established, slow-growing and long-lived.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Podocarpus_latifolius_-_Cape_Town_-_3.JPG/500px-Podocarpus_latifolius_-_Cape_Town_-_3.JPG',
   },
   {
     id: 'buffalo-thorn',
@@ -321,6 +369,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its Afrikaans name means "shiny-leaf wait-a-bit," after its hooked thorns — a culturally significant tree in many South African traditions.',
     whereFound: 'Widespread across the drier bushveld and Highveld regions of South Africa.',
     careTips: 'Full sun, tolerant of poor soil and drought, thorny — best planted away from pathways.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Ziziphus_mucronata%2C_habitus%2C_Skeerpoort%2C_a.jpg/330px-Ziziphus_mucronata%2C_habitus%2C_Skeerpoort%2C_a.jpg',
   },
   {
     id: 'jacaranda',
@@ -333,6 +383,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Not indigenous to South Africa, but so widely planted that entire streets across Pretoria and the Highveld turn purple every spring.',
     whereFound: 'Streets, parks and gardens across South Africa’s interior towns and cities.',
     careTips: 'Full sun, deep watering while young, sheds a carpet of purple flowers that many towns sweep up each spring.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Jacarand%C3%A1-mimoso_%28do_tupi_%C3%AEakarand%C3%A1%29_-_54942878507_02.jpg/500px-Jacarand%C3%A1-mimoso_%28do_tupi_%C3%AEakarand%C3%A1%29_-_54942878507_02.jpg',
   },
   {
     id: 'wild-garlic',
@@ -345,6 +397,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Its leaves smell faintly of garlic when crushed and are sometimes used to season food, though it is grown mostly for its pretty mauve flower clusters.',
     whereFound: 'Rocky grassland across the eastern half of South Africa.',
     careTips: 'Full sun to light shade, tolerant of poor soil, very easy and reliable in a border.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Tulbaghia_%28Society_Garlic%29.jpg/500px-Tulbaghia_%28Society_Garlic%29.jpg',
   },
   {
     id: 'cosmos',
@@ -357,6 +411,8 @@ export const SA_PLANT_LIBRARY = [
     funFact: 'Not indigenous — it arrived in horse feed during the Anglo-Boer War — but it has naturalised so thoroughly that Highveld roadsides turn pink and white with it every autumn.',
     whereFound: 'Roadsides and fields across the Free State, Mpumalanga and North West provinces.',
     careTips: 'Full sun, poor soil is fine, self-seeds freely once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Cosmos_bipinnatus_pink%2C_Burdwan%2C_West_Bengal%2C_India_10_01_2013.jpg/500px-Cosmos_bipinnatus_pink%2C_Burdwan%2C_West_Bengal%2C_India_10_01_2013.jpg',
   },
   // ---- Batch 2 (2026-07-14): fynbos, indigenous trees, succulents, medicinal
   // and coastal species, expanding toward a fuller field guide. ----
