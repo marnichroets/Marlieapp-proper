@@ -2667,6 +2667,294 @@ export const SA_PLANT_LIBRARY = [
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Ficus_sur%2C_volgroeid%2C_Louwsburg.jpg/330px-Ficus_sur%2C_volgroeid%2C_Louwsburg.jpg',
   },
+  // ---- Batch 7 (2026-07-15): remaining Afromontane forest trees and
+  // succulents — the last of this expansion, crossing the 200-species
+  // milestone. ----
+  {
+    id: 'breede-river-yellowwood',
+    commonName: 'Breede River Yellowwood',
+    afrikaansName: 'Breeriviergeelhout',
+    scientificName: 'Podocarpus elongatus',
+    category: 'Trees',
+    regions: ['capetown'],
+    bloomSeason: 'Cones, not showy flowers',
+    funFact:
+      'A graceful, weeping-leaved yellowwood that tolerates far drier, sandier conditions than its forest-dwelling cousins.',
+    whereFound: 'Riverbanks and dry lowland thicket across the southwestern and southern Cape.',
+    careTips: 'Full sun to light shade, adaptable to sandy soil, more drought-tolerant than most yellowwoods.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Podocarpus_elongatus%2C_habitus%2C_Pretoria_NBT%2C_b.jpg/500px-Podocarpus_elongatus%2C_habitus%2C_Pretoria_NBT%2C_b.jpg',
+  },
+  {
+    id: 'mountain-cypress',
+    commonName: 'Mountain Cypress',
+    afrikaansName: 'Bergsipres',
+    scientificName: 'Widdringtonia nodiflora',
+    category: 'Trees',
+    regions: ['capetown'],
+    bloomSeason: 'Cones, not showy flowers',
+    funFact:
+      'One of very few conifers native to South Africa, and remarkably fire-adapted — it re-sprouts from its base after a fynbos fire.',
+    whereFound: 'Rocky mountain slopes and kloofs across the Cape fold mountains.',
+    careTips: 'Full sun, well-drained rocky soil, slow-growing but very hardy once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Widdringtonia_nodiflora_-_Mountain_cypress.JPG/330px-Widdringtonia_nodiflora_-_Mountain_cypress.JPG',
+  },
+  {
+    id: 'coastal-silver-oak',
+    commonName: 'Coastal Silver Oak',
+    afrikaansName: 'Kus-vaalbos',
+    scientificName: 'Brachylaena discolor',
+    category: 'Trees',
+    regions: ['capetown'],
+    bloomSeason: 'Winter',
+    funFact:
+      'Its leaves are dark glossy green above but silvery-white underneath, flashing silver in the wind.',
+    whereFound: 'Coastal forest and dune scrub across the Eastern Cape and KwaZulu-Natal.',
+    careTips: 'Full sun to light shade, well-drained soil, tolerant of coastal wind and salt spray.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Brachylaena_discolor.JPG/500px-Brachylaena_discolor.JPG',
+  },
+  {
+    id: 'waterberry',
+    commonName: 'Waterberry',
+    afrikaansName: 'Waterbessie',
+    scientificName: 'Syzygium cordatum',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its fluffy cream flowers are followed by dark purple berries once used to brew a traditional beer.',
+    whereFound: 'Riverbanks, swamps and wet grassland across the eastern half of the country.',
+    careTips: 'Full sun to light shade, moist soil — thrives near water and streams.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Syzygium_cordatum_flower.jpg/330px-Syzygium_cordatum_flower.jpg',
+  },
+  {
+    id: 'red-ivory',
+    commonName: 'Red Ivory',
+    afrikaansName: 'Rooi-ivoor',
+    scientificName: 'Berchemia zeyheri',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its wood is a deep, rich red and among the hardest and most prized in southern Africa for carving.',
+    whereFound: 'Bushveld and rocky hillsides across the Lowveld and northern regions.',
+    careTips: 'Full sun, well-drained soil, slow-growing but long-lived.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Berchemia_zeyheri%2C_blare_en_blomknoppe%2C_Manie_van_der_Schijff_BT.jpg/500px-Berchemia_zeyheri%2C_blare_en_blomknoppe%2C_Manie_van_der_Schijff_BT.jpg',
+  },
+  {
+    id: 'scented-thorn',
+    commonName: 'Scented Thorn',
+    afrikaansName: 'Lekkerruikpeul',
+    scientificName: 'Vachellia nilotica',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its round golden flowers release a sweet fragrance, and its dark seed pods look like a string of beads.',
+    whereFound: 'Bushveld and floodplains across the Lowveld and northern regions.',
+    careTips: 'Full sun, tolerant of heavy clay soil, thorny — best kept away from footpaths.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Macro_view_of_thorn_and_leaves_of_a_Babul_tree_%28Vachellia_nilotica%29_from_Rajasthan%2C_India.jpg/500px-Macro_view_of_thorn_and_leaves_of_a_Babul_tree_%28Vachellia_nilotica%29_from_Rajasthan%2C_India.jpg',
+  },
+  {
+    id: 'common-hook-thorn',
+    commonName: 'Common Hook-thorn',
+    afrikaansName: 'Haak-en-steek',
+    scientificName: 'Senegalia caffra',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its hooked thorns come in pairs — one curving forward, one back — earning it the nickname \'wait-a-bit thorn\'.',
+    whereFound: 'Bushveld and wooded grassland across the eastern half of the country.',
+    careTips: 'Full sun, adaptable to most soils, a valuable shade and shelter tree for wildlife.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Acacia_caffra%2C_habitus%2C_Pretoria_NBT.jpg/330px-Acacia_caffra%2C_habitus%2C_Pretoria_NBT.jpg',
+  },
+  {
+    id: 'large-fruited-bushwillow',
+    commonName: 'Large-fruited Bushwillow',
+    afrikaansName: 'Grootvrugkanniedood',
+    scientificName: 'Combretum zeyheri',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Produces the largest four-winged fruit of any bushwillow — each one nearly the size of a small fist.',
+    whereFound: 'Bushveld and sandy woodland across the Lowveld and northern regions.',
+    careTips: 'Full sun, well-drained sandy soil, drought-tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Combretum_zeyheri%2C_habitus%2C_De_Wildt_4x4%2C_a.jpg/500px-Combretum_zeyheri%2C_habitus%2C_De_Wildt_4x4%2C_a.jpg',
+  },
+  {
+    id: 'natal-mahogany',
+    commonName: 'Natal Mahogany',
+    afrikaansName: 'Rooiessenhout',
+    scientificName: 'Trichilia emetica',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Spring',
+    funFact:
+      'A magnificent, densely shaded evergreen — its fruit splits to reveal bright orange seed coats loved by birds.',
+    whereFound: 'Riverine forest and bushveld across the eastern half of the country.',
+    careTips: 'Full sun to light shade, moist deep soil, a superb large shade tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Meliaceae_-_Trichilia_emetica_%28Natal_Mahogany%29.JPG/330px-Meliaceae_-_Trichilia_emetica_%28Natal_Mahogany%29.JPG',
+  },
+  {
+    id: 'small-knobwood',
+    commonName: 'Small Knobwood',
+    afrikaansName: 'Klein-perdepram',
+    scientificName: 'Zanthoxylum capense',
+    category: 'Trees',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its trunk is studded with small conical knobs, each tipped with a sharp thorn.',
+    whereFound: 'Forest margins and rocky bushveld across the eastern half of the country.',
+    careTips: 'Full sun to light shade, well-drained soil, aromatic leaves when crushed.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Zanthoxylum_capense%2C_stam%2C_Waterberg.jpg/500px-Zanthoxylum_capense%2C_stam%2C_Waterberg.jpg',
+  },
+  {
+    id: 'hard-pear',
+    commonName: 'Hard Pear',
+    afrikaansName: 'Hardepeer',
+    scientificName: 'Olinia ventosa',
+    category: 'Trees',
+    regions: ['capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'One of the tallest trees in Afromontane forest, prized for its dense, extremely hard timber.',
+    whereFound: 'Afromontane forest across the southern and southwestern Cape.',
+    careTips: 'Light shade, moist well-drained soil, slow-growing but eventually a fine large tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Olinia_ventosa_foliage_and_flowers.jpg/330px-Olinia_ventosa_foliage_and_flowers.jpg',
+  },
+  {
+    id: 'assegai-tree',
+    commonName: 'Assegai Tree',
+    afrikaansName: 'Assegaaihout',
+    scientificName: 'Curtisia dentata',
+    category: 'Trees',
+    regions: ['capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its straight, tough timber was traditionally used by Zulu warriors to make assegai spear shafts.',
+    whereFound: 'Afromontane forest across the eastern and southern parts of the country.',
+    careTips: 'Light shade, moist well-drained soil, an attractive forest tree with glossy dark green leaves.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Curtisia_dentata_-_Assegai_tree_top_canopy_-_Table_Mountain_3.JPG/330px-Curtisia_dentata_-_Assegai_tree_top_canopy_-_Table_Mountain_3.JPG',
+  },
+  {
+    id: 'willow-beechwood',
+    commonName: 'Willow Beechwood',
+    afrikaansName: 'Boekenhout',
+    scientificName: 'Faurea saligna',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its long, willow-like leaves flush a striking coppery red when young before maturing to green.',
+    whereFound: 'Rocky bushveld and wooded hillsides across the Highveld and northern regions.',
+    careTips: 'Full sun, well-drained soil, fire-adapted and resprouts readily after veld fires.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Faurea_saligna00.jpg/500px-Faurea_saligna00.jpg',
+  },
+  {
+    id: 'haworthia',
+    commonName: 'Cooper\'s Haworthia',
+    afrikaansName: 'Haworthia',
+    scientificName: 'Haworthia cooperi',
+    category: 'Succulents',
+    regions: ['capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its plump, translucent leaf tips act like tiny windows, letting light reach the photosynthetic tissue even when half-buried in sand.',
+    whereFound: 'Rocky grassland and semi-arid scrub across the Eastern Cape.',
+    careTips: 'Bright indirect light, very well-drained gritty soil, water sparingly.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/1_Haworthia_cooperi_-_Kirstenbosch.jpg/330px-1_Haworthia_cooperi_-_Kirstenbosch.jpg',
+  },
+  {
+    id: 'gasteria',
+    commonName: 'Ox-tongue Gasteria',
+    afrikaansName: 'Beestong',
+    scientificName: 'Gasteria carinata',
+    category: 'Succulents',
+    regions: ['capetown'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its stomach-shaped, orange-red tubular flowers give the whole genus its name — gaster is Greek for stomach.',
+    whereFound: 'Rocky sandstone slopes across the Western Cape.',
+    careTips: 'Light shade to bright indirect light, very well-drained soil, tolerates deep shade better than most succulents.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/2_Gasteria_carinata_var_carinata.jpg/500px-2_Gasteria_carinata_var_carinata.jpg',
+  },
+  {
+    id: 'baby-sun-rose',
+    commonName: 'Baby Sun Rose',
+    afrikaansName: 'Vygie',
+    scientificName: 'Aptenia cordifolia',
+    category: 'Succulents',
+    regions: ['capetown', 'potch'],
+    bloomSeason: 'Most of the year',
+    funFact:
+      'Its small, glossy heart-shaped leaves and vivid magenta flowers make it a favourite fast-spreading groundcover.',
+    whereFound: 'Coastal dunes and rocky flats across the Eastern Cape; widely garden-grown countrywide.',
+    careTips: 'Full sun, well-drained soil, extremely easy to grow and propagate from cuttings.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/%D0%A0%D0%B0%D1%81%D1%82%D0%B5%D0%BD%D0%B8%D1%8F_%D0%B2_%D0%A1%D0%B5%D0%B4%D0%BE%D0%B2%D0%BE_109.JPG/500px-%D0%A0%D0%B0%D1%81%D1%82%D0%B5%D0%BD%D0%B8%D1%8F_%D0%B2_%D0%A1%D0%B5%D0%B4%D0%BE%D0%B2%D0%BE_109.JPG',
+  },
+  {
+    id: 'bush-violet',
+    commonName: 'Bush Violet',
+    afrikaansName: 'Bosviooltjie',
+    scientificName: 'Barleria obtusa',
+    category: 'Indigenous',
+    regions: ['potch'],
+    bloomSeason: 'Autumn',
+    funFact:
+      'Smothers itself in violet-blue flowers right through autumn, one of the last indigenous shrubs still blooming before winter.',
+    whereFound: 'Bushveld and forest margins across the eastern half of the country.',
+    careTips: 'Full sun to light shade, well-drained soil, prune hard after flowering to keep it compact.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Barleria_obtusa.jpg/330px-Barleria_obtusa.jpg',
+  },
+  {
+    id: 'fruit-salad-plant',
+    commonName: 'Large Spurflower',
+    afrikaansName: 'Fluitjiesbos',
+    scientificName: 'Plectranthus fruticosus',
+    category: 'Indigenous',
+    regions: ['potch', 'capetown'],
+    bloomSeason: 'Autumn',
+    funFact:
+      'Its crushed leaves give off a strong, fruity aroma that some say smells just like a fruit salad.',
+    whereFound: 'Forest margins and rocky slopes across the eastern half of the country.',
+    careTips: 'Light shade, moist well-drained soil, quick-growing and easy from cuttings.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Plectranthus_fruticosus_002.JPG/500px-Plectranthus_fruticosus_002.JPG',
+  },
+  {
+    id: 'splendid-thorn',
+    commonName: 'Splendid Thorn',
+    afrikaansName: 'Pragdoring',
+    scientificName: 'Vachellia robusta',
+    category: 'Trees',
+    regions: ['potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'A tall, handsome thorn tree with a dense rounded crown, one of the most striking of the bushveld acacias.',
+    whereFound: 'Bushveld and rocky ridges across the Lowveld and northern regions.',
+    careTips: 'Full sun, well-drained soil, needs plenty of space as it matures into a large tree.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Acacia_robusta%2C_Springbokvlakte.jpg/330px-Acacia_robusta%2C_Springbokvlakte.jpg',
+  },
 ]
 
 export const PLANT_EXPLORE_FILTERS = [
