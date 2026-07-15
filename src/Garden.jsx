@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GARDEN_SHOP,
+  GARDEN_TIERS,
   gardenItem,
   isSpeciesPlanting,
   plantStageKey,
@@ -15,7 +16,6 @@ import {
   GARDEN_REGION,
   snapToGarden,
   canPlaceAt,
-  canPlaceResidentAt,
 } from './gardenData'
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
@@ -485,8 +485,9 @@ function PlantArt({ type, stageKey, referenceImageUrl }) {
 }
 
 // ---- sanctuary enclosure (scene-wide, drawn in absolute scene coords) -------
-// A tasteful wooden boundary that frames the whole lawn once she buys it. Drawn
-// behind the plantings so plants + visiting birds sit in front of the back fence.
+// A tasteful wooden boundary that frames the whole lawn — permanent, not a
+// purchase. Drawn behind the plantings so plants + visiting birds sit in
+// front of the back fence.
 function SanctuaryFence() {
   const pickets = []
   for (let x = 14, i = 0; x <= 380; x += 11, i += 1) {
@@ -770,11 +771,6 @@ export function GardenPage({
   onPlace,
   onWater,
   onBack,
-  onBuySanctuary,
-  placingResident = false,
-  residentName = '',
-  residentCompanionId = null,
-  onPlaceResident,
   tweety = null,
   seeds = 0,
   plantableSpecies = [],
@@ -883,27 +879,19 @@ export function GardenPage({
   }
 
   function onScenePointerMove(evt) {
-    if (!placingType && !placingResident) return
+    if (!placingType) return
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y)
-    const ok = placingResident
-      ? canPlaceResidentAt(s.x, s.y, residents)
-      : canPlaceAt(placingType, s.x, s.y, plantings)
+    const ok = canPlaceAt(placingType, s.x, s.y, plantings)
     setGhost({ ...s, ok })
   }
 
   function onSceneClick(evt) {
-    if (!placingType && !placingResident) return
+    if (!placingType) return
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y)
-    if (placingResident) {
-      if (!canPlaceResidentAt(s.x, s.y, residents)) return
-      onPlaceResident(s.x, s.y)
-      setGhost(null)
-      return
-    }
     if (!canPlaceAt(placingType, s.x, s.y, plantings)) return
     onPlace(placingType, s.x, s.y)
     setPlacingType(null)
@@ -926,7 +914,7 @@ export function GardenPage({
   }
 
   const placingItem = placingType ? gardenItem(placingType) : null
-  const placingAny = Boolean(placingType) || placingResident
+  const placingAny = Boolean(placingType)
 
   return (
     <div className="page-grid garden-page">
@@ -969,8 +957,8 @@ export function GardenPage({
           {/* a soft meandering path for charm */}
           <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" stroke-width="13" stroke-linecap="round" opacity="0.7" />
 
-          {/* sanctuary enclosure (behind the plantings) */}
-          {garden?.sanctuary && <SanctuaryFence />}
+          {/* permanent enclosure, drawn behind the plantings */}
+          <SanctuaryFence />
 
           {/* faint placement grid while placing */}
           {placingAny && (
@@ -1007,6 +995,11 @@ export function GardenPage({
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
                   <PlantArt type={p.type} stageKey={plantStageKey(p)} referenceImageUrl={p.referenceImageUrl} />
+                  {!placingAny && (
+                    <text className="garden-visitor-name garden-plant-name" x="0" y="-46" textAnchor="middle">
+                      {p.commonName || gardenItem(p.type)?.name}
+                    </text>
+                  )}
                   {thirsty && !placingAny && <text className="garden-thirsty" x="0" y="-54" textAnchor="middle">💧</text>}
                   {!placingAny && <rect x="-24" y="-58" width="48" height="64" fill="transparent" />}
                 </g>
@@ -1041,14 +1034,11 @@ export function GardenPage({
               fireflies, owl, hedgehog, moths, a bat by night) */}
           {!placingAny && creatures.map((c) => <SceneCreature key={c.id} c={c} />)}
 
-          {/* placement ghost: a garden item while placingType, or the
-              graduating companion's own portrait while placingResident */}
+          {/* placement ghost: a garden item while placingType */}
           {placingAny && ghost && (
             <g transform={`translate(${ghost.x} ${ghost.y})`} opacity={ghost.ok ? 0.6 : 0.3} style={{ pointerEvents: 'none' }}>
               {ghost.ok
-                ? placingResident
-                  ? <foreignObject x="-22" y="-44" width="44" height="44"><TweetyBird level="crowned" companion={residentCompanionId} size={44} /></foreignObject>
-                  : <PlantArt type={placingType} stageKey={placingItem.stages[0]} referenceImageUrl={placingSpeciesMeta?.referenceImageUrl} />
+                ? <PlantArt type={placingType} stageKey={placingItem.stages[0]} referenceImageUrl={placingSpeciesMeta?.referenceImageUrl} />
                 : <text x="0" y="2" textAnchor="middle" fontSize="22" fill="#c0392b">⛔</text>}
             </g>
           )}
@@ -1071,6 +1061,17 @@ export function GardenPage({
               // cheap hash of the id seeds delay/duration so she never looks
               // frozen, and no two residents ever sway in lockstep.
               const seed = hashSeed(r.id)
+              // She also wanders a little around her home spot — two random,
+              // per-resident waypoints (never leaving/entering perfectly in
+              // sync with any other resident) via the same seeded-hash trick.
+              const wanderStyle = {
+                '--rwx1': `${(hashSeed(`${r.id}:wx1`) % 240) / 10 - 12}px`,
+                '--rwy1': `${(hashSeed(`${r.id}:wy1`) % 100) / 10 - 5}px`,
+                '--rwx2': `${(hashSeed(`${r.id}:wx2`) % 240) / 10 - 12}px`,
+                '--rwy2': `${(hashSeed(`${r.id}:wy2`) % 100) / 10 - 5}px`,
+                animationDelay: `${hashSeed(`${r.id}:wdelay`) % 6}s`,
+                animationDuration: `${10 + (hashSeed(`${r.id}:wdur`) % 8)}s`,
+              }
               return (
                 <button
                   key={r.id}
@@ -1080,11 +1081,14 @@ export function GardenPage({
                   title={r.species}
                   onClick={() => setSelectedResidentId(r.id)}
                 >
-                  <span
-                    className="garden-resident-sway"
-                    style={{ animationDelay: `${seed % 4}s`, animationDuration: `${3.4 + (seed % 5) * 0.3}s` }}
-                  >
-                    <TweetyBird level="crowned" companion={r.companionId} size={44} />
+                  <span className="garden-resident-wander" style={wanderStyle}>
+                    <span
+                      className="garden-resident-sway"
+                      style={{ animationDelay: `${seed % 4}s`, animationDuration: `${3.4 + (seed % 5) * 0.3}s` }}
+                    >
+                      <TweetyBird level="crowned" companion={r.companionId} size={44} />
+                    </span>
+                    <span className="garden-resident-name">{r.name}</span>
                   </span>
                 </button>
               )
@@ -1137,12 +1141,6 @@ export function GardenPage({
           >
             Cancel
           </button>
-        </section>
-      )}
-
-      {placingResident && (
-        <section className="soft-card full-span garden-placing-banner">
-          <span>Tap the grass to choose where <strong>{residentName || 'she'}</strong> will live 🌳</span>
         </section>
       )}
 
@@ -1260,43 +1258,36 @@ export function GardenPage({
 
       <section className="soft-card full-span garden-shop">
         <p className="eyebrow">Garden shop 🌱</p>
-        <div className="garden-shop-row">
-          {unlocked.map((item) => {
-            const afford = coins >= item.cost
-            // The Sanctuary Fence is a one-off enclosure, not a placeable plant:
-            // buying it flips garden.sanctuary instead of starting placement.
-            if (item.kind === 'enclosure') {
-              const owned = !!garden?.sanctuary
-              return (
-                <button
-                  key={item.id}
-                  className={`garden-shop-btn${owned ? ' owned' : ''}`}
-                  type="button"
-                  disabled={owned || !afford}
-                  onClick={() => onBuySanctuary && onBuySanctuary()}
-                >
-                  <span className="garden-shop-emoji">{item.emoji}</span>
-                  <strong>{item.name}</strong>
-                  <small>{owned ? 'Owned ✓' : `${item.cost} 🪙`}</small>
-                </button>
-              )
-            }
-            const active = placingType === item.id
-            return (
-              <button
-                key={item.id}
-                className={`garden-shop-btn${active ? ' active' : ''}`}
-                type="button"
-                disabled={!afford && !active}
-                onClick={() => (active ? setPlacingType(null) : startPlacing(item.id))}
-              >
-                <span className="garden-shop-emoji">{item.emoji}</span>
-                <strong>{item.name}</strong>
-                <small>{item.cost} 🪙</small>
-              </button>
-            )
-          })}
-        </div>
+        {GARDEN_TIERS.map((tier) => {
+          const items = unlocked.filter((item) => item.tier === tier.id)
+          if (!items.length) return null
+          return (
+            <div key={tier.id} className="garden-shop-tier">
+              <p className="garden-shop-tier-heading">
+                {tier.label} <span className="garden-shop-tier-range">{tier.range}</span>
+              </p>
+              <div className="garden-shop-row">
+                {items.map((item) => {
+                  const afford = coins >= item.cost
+                  const active = placingType === item.id
+                  return (
+                    <button
+                      key={item.id}
+                      className={`garden-shop-btn${active ? ' active' : ''}`}
+                      type="button"
+                      disabled={!afford && !active}
+                      onClick={() => (active ? setPlacingType(null) : startPlacing(item.id))}
+                    >
+                      <span className="garden-shop-emoji">{item.emoji}</span>
+                      <strong>{item.name}</strong>
+                      <small>{item.cost} 🪙</small>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
         <p className="fine-print">Tip: tap an item, then tap the grass to place it. Use Fast Forward ⏩ to tend it again and grow it while testing.</p>
       </section>
     </div>

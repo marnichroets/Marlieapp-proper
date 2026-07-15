@@ -4229,6 +4229,13 @@ textarea:focus {
   background: rgba(120, 132, 110, 0.25);
 }
 .garden-progress span.on { background: var(--leaf); }
+.garden-shop-tier { margin-top: 14px; }
+.garden-shop-tier:first-of-type { margin-top: 6px; }
+.garden-shop-tier-heading {
+  margin: 0; font-size: 0.85rem; font-weight: 800; color: var(--ink);
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.garden-shop-tier-range { font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: normal; }
 .garden-shop-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
 .garden-shop-btn {
   flex: 1 1 120px;
@@ -4241,8 +4248,6 @@ textarea:focus {
 .garden-shop-btn small { color: var(--muted); font-weight: 600; }
 .garden-shop-btn[disabled] { opacity: 0.45; cursor: default; }
 .garden-shop-emoji { font-size: 1.6rem; }
-.garden-shop-btn.owned { border-color: #bcdcc0; background: #eef7ec; opacity: 1; }
-.garden-shop-btn.owned small { color: #3c7a4a; }
 .garden-shop-species-thumb {
   width: 32px; height: 32px; border-radius: 50%;
   object-fit: cover; border: 1px solid var(--line);
@@ -4462,6 +4467,23 @@ textarea:focus {
   padding: 0;
   margin: 0;
 }
+/* She wanders a little around her home spot — two random per-resident
+   waypoints (--rwx1/--rwy1/--rwx2/--rwy2, hashed from her id in JS) so no two
+   residents ever roam in lockstep, layered under the idle sway below. */
+.garden-resident-wander {
+  display: inline-block;
+  animation-name: garden-resident-wander;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes garden-resident-wander {
+  0%, 10%   { transform: translate(0, 0); }
+  20%       { transform: translate(var(--rwx1), var(--rwy1)); }
+  28%, 44%  { transform: translate(var(--rwx1), var(--rwy1)); }
+  54%       { transform: translate(var(--rwx2), var(--rwy2)); }
+  62%, 80%  { transform: translate(var(--rwx2), var(--rwy2)); }
+  90%, 100% { transform: translate(0, 0); }
+}
 /* A gentle, always-on idle sway so a permanently-placed companion never reads
    as a frozen statue — per-resident delay/duration (stable, hashed from her
    id) keeps every resident swaying out of step with the others. */
@@ -4474,6 +4496,14 @@ textarea:focus {
 @keyframes garden-resident-sway {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-1.5px) rotate(-2deg); }
+}
+/* Always-visible nameplate under each resident, matching the visiting-bird
+   name label style (garden-visitor-name) but as HTML, not SVG text. */
+.garden-resident-name {
+  display: block; text-align: center; margin-top: -2px;
+  font-size: 9px; font-weight: 800; color: #2f4a26;
+  text-shadow: 0 0 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 1px 0 #fff, 0 -1px 0 #fff;
+  white-space: nowrap;
 }
 .tweety-release-btn { margin-top: 10px; width: 100%; }
 

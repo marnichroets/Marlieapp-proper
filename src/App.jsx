@@ -35,7 +35,15 @@ import {
 } from './Tweety'
 import { ReleaseCeremony } from './ReleaseCeremony'
 import { GardenPage } from './Garden'
-import { defaultGarden, gardenItem, canWater, isSpeciesPlanting } from './gardenData'
+import {
+  defaultGarden,
+  gardenItem,
+  canWater,
+  isSpeciesPlanting,
+  isFullyGrown,
+  GARDEN_REGION,
+  canPlaceResidentAt,
+} from './gardenData'
 import {
   defaultTweety,
   tweetyToday,
@@ -2473,12 +2481,10 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
-  // When true, the release ceremony overlay is shown (farewell → placement
-  // prompt) for a crowned companion graduating to the garden.
+  // When true, the release ceremony overlay (a farewell) is shown for a
+  // crowned companion graduating to the garden. As soon as it finishes she's
+  // released immediately — no placement tap, she just flies in and roams.
   const [releasingCompanion, setReleasingCompanion] = useState(false)
-  // True once the ceremony finishes: the Garden opens in tap-to-place mode
-  // for the departing companion. No commit happens until she actually taps.
-  const [placingResident, setPlacingResident] = useState(false)
   // True if Tweety hasn't been visited in over 24h (captured once on load).
   const [missedYou] = useState(() => {
     const lv = data.tweety?.lastVisit
@@ -3836,36 +3842,38 @@ function App() {
     )
   }
 
-  // Buy the one-off Sanctuary Fence: charge once and flip garden.sanctuary so
-  // the scene draws its wooden enclosure. Never grows, never needs tending.
-  function buySanctuaryFence() {
-    if (readOnly) return
-    const garden = data.garden || defaultGarden()
-    if (garden.sanctuary) return
-    const item = gardenItem('sanctuary-fence')
-    const cost = item?.cost || 250
-    if (data.featherCoins < cost) {
-      setToast({ title: 'Not enough coins yet', body: `The Sanctuary Fence costs ${cost} 🪙.`, tone: 'warning' })
-      return
+  // Pick a home-tree spot for a newly-graduated resident: near an existing
+  // grown tree/perch when she has one (so the garden feels lived-in), else a
+  // gentle default near the centre of the lawn — always checked against
+  // existing residents so a home spot never lands exactly on top of another.
+  function pickHomeSpot(existingResidents) {
+    const grownTrees = (data.garden?.plantings || [])
+      .filter((p) => {
+        const item = gardenItem(p.type)
+        return item?.zone && item.zone !== 'water' && isFullyGrown(p)
+      })
+      .map((p) => ({ x: p.x ?? 200, y: p.y ?? 190 }))
+    const anchors = grownTrees.length
+      ? grownTrees
+      : [{ x: (GARDEN_REGION.x0 + GARDEN_REGION.x1) / 2, y: (GARDEN_REGION.y0 + GARDEN_REGION.y1) / 2 }]
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const anchor = anchors[attempt % anchors.length]
+      const x = anchor.x + (Math.random() - 0.5) * 60
+      const y = anchor.y + (Math.random() - 0.5) * 30
+      if (canPlaceResidentAt(x, y, existingResidents)) return { x, y }
     }
-    commit(
-      {
-        ...data,
-        featherCoins: data.featherCoins - cost,
-        garden: { ...garden, sanctuary: true },
-      },
-      { title: 'Sanctuary Fence up! 🛡️', body: 'The garden is now a protected little sanctuary.', tone: 'success' },
-    )
+    // Fallback: region centre, even if a little close to another resident.
+    return { x: (GARDEN_REGION.x0 + GARDEN_REGION.x1) / 2, y: (GARDEN_REGION.y0 + GARDEN_REGION.y1) / 2 }
   }
 
-  // Graduate the current crowned companion into the garden at the spot she
-  // tapped. Atomic: the old companion is added to garden.residents (permanent,
-  // rendered as its real species, with bornAt/releasedAt for the memory-wall
-  // nameplate) and the next companion is resolved — adopted immediately if a
-  // mystery egg has already hatched and is waiting, otherwise she enters the
-  // brief awaitingNextCompanion gap until it does.
-  function confirmReleaseToGarden(x, y) {
-    setPlacingResident(false)
+  // Graduate the current crowned companion into the garden — no placement tap
+  // needed, she just settles near a home tree and sways there. Atomic: the old
+  // companion is added to garden.residents (permanent, rendered as its real
+  // species, with bornAt/releasedAt for the memory-wall nameplate) and the next
+  // companion is resolved — adopted immediately if a mystery egg has already
+  // hatched and is waiting, otherwise she enters the brief awaitingNextCompanion
+  // gap until it does.
+  function confirmReleaseToGarden() {
     if (readOnly || (account !== 'pooks' && account !== 'marnich')) return
     const tw = data.tweety || defaultTweety()
     const oldId = tw.companion
@@ -3873,6 +3881,7 @@ function App() {
     const garden = data.garden || defaultGarden()
     const residents = garden.residents || []
     const name = tw.name || getCompanion(oldId)?.name || 'Tweety'
+    const { x, y } = pickHomeSpot(residents)
     const resident = {
       id: createId('resident'),
       companionId: oldId,
@@ -3880,6 +3889,8 @@ function App() {
       name,
       x,
       y,
+      homeX: x,
+      homeY: y,
       bornAt: tw.bornAt,
       releasedAt: new Date().toISOString(),
     }
@@ -5764,8 +5775,8 @@ function App() {
         companionId={data.tweety.companion}
         onDone={() => {
           setReleasingCompanion(false)
+          confirmReleaseToGarden()
           setActivePage('garden')
-          setPlacingResident(true)
         }}
       />
     )
@@ -5959,12 +5970,7 @@ function App() {
             collection={gardenVisitors}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
-            onBuySanctuary={buySanctuaryFence}
             onBack={goBack}
-            placingResident={placingResident}
-            residentName={data.tweety?.name}
-            residentCompanionId={data.tweety?.companion}
-            onPlaceResident={(x, y) => confirmReleaseToGarden(x, y)}
             tweety={data.tweety}
             seeds={data.seeds}
             plantableSpecies={plantableSpecies}
