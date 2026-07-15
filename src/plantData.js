@@ -2063,6 +2063,308 @@ export const SA_PLANT_LIBRARY = [
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Asparagus_densiflorus_%27Myersii%27.jpg/500px-Asparagus_densiflorus_%27Myersii%27.jpg',
   },
+  // ---- Batch 5 (2026-07-15): fynbos, succulents, indigenous trees and
+  // garden flowers, expanding toward the 200-species milestone. ----
+  {
+    id: 'whorled-heath',
+    commonName: 'Whorled Heath',
+    afrikaansName: 'Krulhoedjie',
+    scientificName: 'Erica verticillata',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Autumn',
+    funFact:
+      'Declared extinct in the wild in the 1950s and only rediscovered in botanical garden collections — now being reintroduced to the Cape Flats.',
+    whereFound: 'Once native to the Cape Flats sand plains near Cape Town; now conserved at Kirstenbosch and Rondevlei.',
+    careTips: 'Full sun, sandy acidic soil, keep consistently moist but never waterlogged.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Erica_verticillata_deep_pink.JPG/500px-Erica_verticillata_deep_pink.JPG',
+  },
+  {
+    id: 'berry-heath',
+    commonName: 'Berry Heath',
+    afrikaansName: 'Trosheide',
+    scientificName: 'Erica baccans',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its papery pink flower clusters look like little bunches of berries clustered along each stem.',
+    whereFound: 'Sandstone fynbos slopes across the Cape Peninsula and southwestern Cape mountains.',
+    careTips: 'Full sun, acidic well-drained soil, avoid phosphate fertiliser like all ericas.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Erica_baccans_flower.JPG/500px-Erica_baccans_flower.JPG',
+  },
+  {
+    id: 'signal-heath',
+    commonName: 'Red Signal Heath',
+    afrikaansName: 'Rooihoedjie',
+    scientificName: 'Erica mammosa',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Summer to autumn',
+    funFact:
+      'One of the showiest ericas, with long tubular scarlet flowers built specifically for sunbird pollinators.',
+    whereFound: 'Damp fynbos slopes across the southwestern and southern Cape.',
+    careTips: 'Full sun to light shade, acidic sandy soil that stays lightly moist.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Erica_mammosa_flower.jpg/500px-Erica_mammosa_flower.jpg',
+  },
+  {
+    id: 'golden-conebush',
+    commonName: 'Golden Conebush',
+    afrikaansName: 'Goudtolbos',
+    scientificName: 'Leucadendron laureolum',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Winter to spring',
+    funFact:
+      'Male and female plants look completely different — males have bright golden bracts, females duller green ones that turn woody cones.',
+    whereFound: 'Sandstone fynbos on the Cape Peninsula and nearby mountains.',
+    careTips: 'Full sun, well-drained acidic soil, drought-tolerant once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Leucadendron_laureolum_1DS-II_1-8287.jpg/500px-Leucadendron_laureolum_1DS-II_1-8287.jpg',
+  },
+  {
+    id: 'queen-protea',
+    commonName: 'Queen Protea',
+    afrikaansName: 'Koninginprotea',
+    scientificName: 'Protea magnifica',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Winter to spring',
+    funFact:
+      'One of the tallest-flowering proteas, with huge pink blooms fringed in dark, velvety hairs.',
+    whereFound: 'High mountain fynbos across the Cape Fold mountains.',
+    careTips: 'Full sun, very well-drained acidic sandy soil, cool moist roots — dislikes humid lowland heat.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Protea_magnifica_flower.JPG/500px-Protea_magnifica_flower.JPG',
+  },
+  {
+    id: 'bot-river-protea',
+    commonName: 'Bot River Protea',
+    afrikaansName: 'Trosprotea',
+    scientificName: 'Protea compacta',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Autumn to spring',
+    funFact:
+      'A classic Overberg fynbos protea, once heavily picked wild for the cut-flower trade.',
+    whereFound: 'Coastal fynbos of the Overberg, from Betty\'s Bay to Bredasdorp.',
+    careTips: 'Full sun, sandy acidic soil, excellent drainage.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Protea_compacta_89.jpg/500px-Protea_compacta_89.jpg',
+  },
+  {
+    id: 'bloodroot',
+    commonName: 'Bloodroot',
+    afrikaansName: 'Rooiwortel',
+    scientificName: 'Wachendorfia thyrsiflora',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Spring to summer',
+    funFact:
+      'Its roots ooze a deep red sap once used as a traditional dye — snap one and the colour is unmistakable.',
+    whereFound: 'Damp streambanks and marshy fynbos across the Western Cape.',
+    careTips: 'Full sun to light shade, likes consistently moist, even boggy soil.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Wachendorfia_thyrsiflora_Flipphi_6.jpg/500px-Wachendorfia_thyrsiflora_Flipphi_6.jpg',
+  },
+  {
+    id: 'african-cornflag',
+    commonName: 'African Cornflag',
+    afrikaansName: 'Pypie',
+    scientificName: 'Chasmanthe floribunda',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Winter to early spring',
+    funFact:
+      'Its bright orange tubular flowers are a vital late-winter nectar source for sunbirds when little else is in bloom.',
+    whereFound: 'Coastal fynbos and renosterveld across the Western Cape.',
+    careTips: 'Full sun to light shade, well-drained soil, dies back and re-sprouts from a corm each year.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Chasmanthe_floribunda_1.jpg/500px-Chasmanthe_floribunda_1.jpg',
+  },
+  {
+    id: 'peacock-moraea',
+    commonName: 'Peacock Moraea',
+    afrikaansName: 'Poublom',
+    scientificName: 'Moraea villosa',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Late winter to spring',
+    funFact:
+      'Each iris-like flower has a dark, iridescent blue-green patch that shimmers like a peacock feather.',
+    whereFound: 'Clay and granite renosterveld across the southwestern Cape.',
+    careTips: 'Full sun, well-drained soil, needs a dry summer dormancy — don\'t water after flowering.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Moraea_villosa_%27X%27_%28Ker_Gawl.%29_Ker_Gawl.-_Fl._Exot._1-_22_%281833%29._20220330_110556.jpg/500px-Moraea_villosa_%27X%27_%28Ker_Gawl.%29_Ker_Gawl.-_Fl._Exot._1-_22_%281833%29._20220330_110556.jpg',
+  },
+  {
+    id: 'waterfall-gladiolus',
+    commonName: 'Waterfall Gladiolus',
+    afrikaansName: 'Waterval-gladiolus',
+    scientificName: 'Gladiolus cardinalis',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Grows wild on wet, mossy cliffs right beside waterfalls — one of the few gladioli that thrives on spray-soaked rock.',
+    whereFound: 'Waterfalls and wet cliffs across the Cape fold mountains.',
+    careTips: 'Light shade, constantly moist, very well-drained rocky soil.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Waterfall_lily_%28Gladiolus_cardinalis%29_6.jpg/330px-Waterfall_lily_%28Gladiolus_cardinalis%29_6.jpg',
+  },
+  {
+    id: 'blue-daisy',
+    commonName: 'Blue Daisy',
+    afrikaansName: 'Blou-madeliefie',
+    scientificName: 'Felicia amelloides',
+    category: 'Flowers',
+    regions: ['capetown', 'potch'],
+    bloomSeason: 'Most of the year, peaking in spring',
+    funFact:
+      'One of the most reliable South African garden daisies — it flowers almost continuously if deadheaded.',
+    whereFound: 'Coastal scrub and forest margins across the Eastern and Western Cape; widely garden-grown.',
+    careTips: 'Full sun, well-drained soil, tolerates light frost and drought once established.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Felicia_amelloides01.jpg/500px-Felicia_amelloides01.jpg',
+  },
+  {
+    id: 'twinspur',
+    commonName: 'Twinspur',
+    afrikaansName: 'Tweespoor',
+    scientificName: 'Diascia barberae',
+    category: 'Flowers',
+    regions: ['capetown', 'potch'],
+    bloomSeason: 'Spring to autumn',
+    funFact:
+      'Named for the two backward-pointing spurs on each little pink flower, which hold oil that a specialist bee collects.',
+    whereFound: 'Grassland and rocky slopes across the eastern interior; a popular garden bedding plant.',
+    careTips: 'Full sun to light shade, moist well-drained soil, trim back after flowering for a second flush.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Diascia_barberae_%C3%96BG_2012-07-08_%2804%29.jpg/500px-Diascia_barberae_%C3%96BG_2012-07-08_%2804%29.jpg',
+  },
+  {
+    id: 'peppermint-pelargonium',
+    commonName: 'Peppermint-scented Pelargonium',
+    afrikaansName: 'Kaneelblaar',
+    scientificName: 'Pelargonium tomentosum',
+    category: 'Fynbos',
+    regions: ['capetown'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its soft, velvety leaves release a strong peppermint scent the moment they\'re brushed.',
+    whereFound: 'Shaded forest margins and ravines across the Western Cape mountains.',
+    careTips: 'Light shade, well-drained soil, keep out of harsh midday sun which scorches the leaves.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Pelargonium_tomentosum_05.jpg/330px-Pelargonium_tomentosum_05.jpg',
+  },
+  {
+    id: 'trailing-lobelia',
+    commonName: 'Trailing Lobelia',
+    afrikaansName: 'Blousterretjie',
+    scientificName: 'Lobelia erinus',
+    category: 'Flowers',
+    regions: ['capetown', 'potch'],
+    bloomSeason: 'Spring to autumn',
+    funFact:
+      'A wild Cape flower so garden-worthy it was taken to Europe centuries ago and is now one of the world\'s most popular bedding plants.',
+    whereFound: 'Damp grassy slopes and streambanks across the Western Cape and eastern interior.',
+    careTips: 'Full sun to light shade, moist well-drained soil, trim back if it gets leggy for a fresh flush.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Lobelia_close-up_%28aka%29.jpg/500px-Lobelia_close-up_%28aka%29.jpg',
+  },
+  {
+    id: 'baseball-plant',
+    commonName: 'Baseball Plant',
+    afrikaansName: 'Bofbalplant',
+    scientificName: 'Euphorbia obesa',
+    category: 'Succulents',
+    regions: ['capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Almost perfectly spherical and patterned like a baseball — one of the most sought-after succulents in cultivation.',
+    whereFound: 'A rare, localised species from the semi-arid Eastern Cape karoo.',
+    careTips: 'Full sun, very well-drained gritty soil, water sparingly — rots easily if overwatered.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Euphorbia_obesa_obesa_15102244.jpg/330px-Euphorbia_obesa_obesa_15102244.jpg',
+  },
+  {
+    id: 'lace-aloe',
+    commonName: 'Lace Aloe',
+    afrikaansName: 'Kantaalwyn',
+    scientificName: 'Aloe aristata',
+    category: 'Succulents',
+    regions: ['capetown', 'potch'],
+    bloomSeason: 'Summer',
+    funFact:
+      'A small, cold-hardy rosette aloe covered in soft white speckles and toothed edges that look almost woven.',
+    whereFound: 'Rocky grassland slopes across the eastern interior and Free State.',
+    careTips: 'Full sun to light shade, well-drained soil, more frost-tolerant than most aloes.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/AloeAristata.jpg/330px-AloeAristata.jpg',
+  },
+  {
+    id: 'pencil-cactus',
+    commonName: 'Pencil Bush',
+    afrikaansName: 'Potlood-euphorbia',
+    scientificName: 'Euphorbia tirucalli',
+    category: 'Succulents',
+    regions: ['potch'],
+    bloomSeason: 'Rarely flowers in cultivation',
+    funFact:
+      'Its thin pencil-like green stems turn a fiery coral-orange in full sun and cold weather.',
+    whereFound: 'Bushveld and dry woodland across the eastern and northern parts of the country.',
+    careTips: 'Full sun, very well-drained soil, drought-tolerant — sap is irritating, handle with care.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Euphorbia_tirucalli_in_the_wild_by_tonrulkens.jpg/500px-Euphorbia_tirucalli_in_the_wild_by_tonrulkens.jpg',
+  },
+  {
+    id: 'string-of-buttons',
+    commonName: 'String of Buttons',
+    afrikaansName: 'Knoppieskraal',
+    scientificName: 'Crassula perforata',
+    category: 'Succulents',
+    regions: ['capetown'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its triangular leaves are perfectly stacked in pairs along the stem, looking like a string of little buttons threaded together.',
+    whereFound: 'Rocky slopes across the Western and Eastern Cape.',
+    careTips: 'Full sun to bright light, well-drained soil, easy to propagate from a single stem cutting.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Starr-110218-1569-Crassula_perforata-flowering_habit-Ulana_St_Makawao-Maui_%2824449889633%29.jpg/330px-Starr-110218-1569-Crassula_perforata-flowering_habit-Ulana_St_Makawao-Maui_%2824449889633%29.jpg',
+  },
+  {
+    id: 'blue-chalk-sticks',
+    commonName: 'Blue Chalk Sticks',
+    afrikaansName: 'Blousiekelbos',
+    scientificName: 'Senecio serpens',
+    category: 'Succulents',
+    regions: ['capetown'],
+    bloomSeason: 'Summer',
+    funFact:
+      'Its powder-blue, finger-like leaves are coated in a natural wax that reflects harsh sun and locks in moisture.',
+    whereFound: 'Coastal dunes and rocky flats across the southwestern Cape.',
+    careTips: 'Full sun, very well-drained sandy soil, drought-tolerant groundcover.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Senecio_serpens_04.jpg/500px-Senecio_serpens_04.jpg',
+  },
+  {
+    id: 'bears-paw',
+    commonName: 'Bear\'s Paw',
+    afrikaansName: 'Plakkie',
+    scientificName: 'Cotyledon tomentosa',
+    category: 'Succulents',
+    regions: ['capetown'],
+    bloomSeason: 'Spring',
+    funFact:
+      'Its thick, felted leaves end in a few reddish-brown teeth, giving it a striking resemblance to a small furry paw.',
+    whereFound: 'Rocky arid slopes across the Western and Eastern Cape.',
+    careTips: 'Full sun to bright light, very well-drained soil, water sparingly like most cotyledons.',
+    imageUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Cotyledon_tomentosa_in_cultivation_-_Cape_Town_9.jpg/330px-Cotyledon_tomentosa_in_cultivation_-_Cape_Town_9.jpg',
+  },
 ]
 
 export const PLANT_EXPLORE_FILTERS = [
