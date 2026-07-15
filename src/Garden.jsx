@@ -768,13 +768,32 @@ function composeDay(perches, collection, showcase) {
   return list
 }
 
-function composeNight(perches, showcase) {
+function composeNight(perches, collection, showcase) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   if (showcase && !land.length) land = [{ id: 'demo-c', x: 150, y: 150, zone: 'land' }]
   // fireflies — variable density
   const nFly = showcase ? 8 + Math.floor(Math.random() * 6) : 3 + Math.floor(Math.random() * 10)
   for (let i = 0; i < nFly; i += 1) list.push({ id: nid(), type: 'firefly', x: rand(40, 360), y: rand(150, 225), delay: rand(0, 5), dur: rand(5, 9) })
+  // Her own collection, roosting for the night — real songbirds sleep after
+  // dark, so no pecking/bathing/bench-sitting here (those are daytime-only,
+  // see composeDay), just a settled bird or two quietly there in a tree, the
+  // same gentle idle/bob as by day but without the branch-to-branch wander —
+  // she isn't foraging, she's asleep. Without this the night garden would
+  // read as if all her birds vanished the moment the sun set.
+  if (land.length) {
+    const nRoost = showcase ? Math.min(2, land.length) : (Math.random() < 0.6 ? 1 : 0)
+    shuffle(land).slice(0, nRoost).forEach((p) => {
+      const b = pickBird(collection, false)
+      list.push({
+        id: nid(), type: 'bird', x: p.x, y: p.y,
+        name: b && b.name, companion: b && b.companion, tint: b && b.tint,
+        delay: rand(0, 2.6), dur: rand(2.2, 3.2), // slower breathing bob, asleep
+        idleDelay: rand(0, 5), idleDur: rand(4, 6), // slower head twitch
+        roosting: true, bx1: 0, by1: 0, bx2: 0, by2: 0, hopDelay: 0, hopDur: 20,
+      })
+    })
+  }
   // an owl, sometimes
   if (land.length && (showcase || Math.random() < 0.55)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y, delay: rand(0, 3), dur: rand(2.8, 3.8) }) }
   // a hedgehog, sometimes
@@ -895,7 +914,7 @@ export function GardenPage({
     let alive = true
     const roll = (showcase = false) => {
       if (!alive) return
-      setCreatures(isNight ? composeNight(grownPerches, showcase) : composeDay(grownPerches, collection, showcase))
+      setCreatures(isNight ? composeNight(grownPerches, collection, showcase) : composeDay(grownPerches, collection, showcase))
     }
     rollRef.current = roll
     const t0 = setTimeout(() => roll(false), 0)        // initial scene (deferred)
