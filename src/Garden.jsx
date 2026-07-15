@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GARDEN_SHOP,
   GARDEN_TIERS,
+  RESIDENT_TREAT_COST,
   gardenItem,
   isSpeciesPlanting,
   plantStageKey,
@@ -735,6 +736,7 @@ export function GardenPage({
   onPlace,
   onWater,
   onBack,
+  onTreatResident,
   tweety = null,
   seeds = 0,
   plantableSpecies = [],
@@ -781,6 +783,26 @@ export function GardenPage({
     const t = window.setTimeout(() => setWishBurst(null), 1400)
     return () => window.clearTimeout(t)
   }, [wishBurst])
+
+  // A resident's pet/treat reaction: which resident, which kind ('pet' plays
+  // a happy bounce + floating hearts, 'treat' plays a peck-and-eat bounce +
+  // a floating treat), cleared automatically once the animation finishes.
+  const [residentReaction, setResidentReaction] = useState(null) // { id, kind }
+  useEffect(() => {
+    if (!residentReaction) return undefined
+    const t = window.setTimeout(() => setResidentReaction(null), 1600)
+    return () => window.clearTimeout(t)
+  }, [residentReaction])
+
+  function petResident(id) {
+    setResidentReaction({ id, kind: 'pet' })
+  }
+
+  function treatResidentLocal(id) {
+    if (!onTreatResident) return
+    const ok = onTreatResident(id)
+    if (ok) setResidentReaction({ id, kind: 'treat' })
+  }
 
   // Fully-grown elements with a habitat zone are perches birds can visit (P2).
   const grownPerches = useMemo(
@@ -1026,11 +1048,12 @@ export function GardenPage({
               // per-resident waypoints (never leaving/entering perfectly in
               // sync with any other resident) via the same seeded-hash trick.
               const wanderStyle = residentWanderStyle(r.id)
+              const reaction = residentReaction?.id === r.id ? residentReaction.kind : null
               return (
                 <button
                   key={r.id}
                   type="button"
-                  className="garden-resident"
+                  className={`garden-resident${reaction === 'pet' ? ' garden-resident-react-pet' : ''}${reaction === 'treat' ? ' garden-resident-react-treat' : ''}`}
                   style={{ left: `${(r.x / 400) * 100}%`, top: `${(r.y / 260) * 100}%` }}
                   title={r.species}
                   onClick={() => setSelectedResidentId(r.id)}
@@ -1043,6 +1066,16 @@ export function GardenPage({
                       <TweetyBird level="crowned" companion={r.companionId} size={44} />
                     </span>
                     <span className="garden-resident-name">{r.name}</span>
+                    {reaction === 'pet' && (
+                      <span className="garden-resident-hearts" aria-hidden="true">
+                        <span className="garden-resident-heart" style={{ '--hx': '-10px', animationDelay: '0s' }}>💛</span>
+                        <span className="garden-resident-heart" style={{ '--hx': '2px', animationDelay: '0.15s' }}>💕</span>
+                        <span className="garden-resident-heart" style={{ '--hx': '11px', animationDelay: '0.3s' }}>💛</span>
+                      </span>
+                    )}
+                    {reaction === 'treat' && (
+                      <span className="garden-resident-treat-emoji" aria-hidden="true">🍓</span>
+                    )}
                   </span>
                 </button>
               )
@@ -1117,6 +1150,23 @@ export function GardenPage({
             {' · '}
             {selectedResident.species}
           </p>
+          <div className="garden-resident-actions">
+            <button
+              className="secondary-btn"
+              type="button"
+              onClick={() => petResident(selectedResident.id)}
+            >
+              Pet 💛
+            </button>
+            <button
+              className="secondary-btn"
+              type="button"
+              disabled={coins < RESIDENT_TREAT_COST}
+              onClick={() => treatResidentLocal(selectedResident.id)}
+            >
+              Give a treat 🍓 ({RESIDENT_TREAT_COST} 🪙)
+            </button>
+          </div>
         </section>
       )}
 

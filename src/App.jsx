@@ -43,6 +43,7 @@ import {
   isFullyGrown,
   GARDEN_REGION,
   canPlaceResidentAt,
+  RESIDENT_TREAT_COST,
 } from './gardenData'
 import {
   defaultTweety,
@@ -3966,6 +3967,38 @@ function App() {
     )
   }
 
+  // Buy a garden resident a treat: a small, repeatable coin sink (unlike the
+  // one-off shop items) that plays a happy-eating reaction on her sprite.
+  // Returns true/false so GardenPage only plays the animation on a real
+  // charge, never on a rejected one (readOnly / can't afford it).
+  function treatResident(residentId) {
+    if (readOnly) return false
+    const garden = data.garden || defaultGarden()
+    const residents = garden.residents || []
+    const resident = residents.find((r) => r.id === residentId)
+    if (!resident) return false
+    if (data.featherCoins < RESIDENT_TREAT_COST) {
+      setToast({ title: 'Not enough coins yet', body: `A treat costs ${RESIDENT_TREAT_COST} 🪙.`, tone: 'warning' })
+      return false
+    }
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - RESIDENT_TREAT_COST,
+        garden: {
+          ...garden,
+          residents: residents.map((r) =>
+            r.id === residentId
+              ? { ...r, treatsGiven: (r.treatsGiven || 0) + 1, lastTreatAt: new Date().toISOString() }
+              : r,
+          ),
+        },
+      },
+      { title: `${resident.name} loved that! 🍓`, body: 'A happy little treat.', tone: 'success' },
+    )
+    return true
+  }
+
   // Sandbox testing helper: top up coins so everything can be bought freely.
   // Guarded by readOnly (and the button only renders in sandbox mode), so it can
   // never run against Pooks' real account. Uses a functional setData so it always
@@ -5999,6 +6032,7 @@ function App() {
             collection={gardenVisitors}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
+            onTreatResident={treatResident}
             onBack={goBack}
             tweety={data.tweety}
             seeds={data.seeds}

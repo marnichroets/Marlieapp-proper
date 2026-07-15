@@ -4525,6 +4525,49 @@ textarea:focus {
 }
 .tweety-release-btn { margin-top: 10px; width: 100%; }
 
+/* Pet/treat panel (tapping a resident opens garden-resident-detail). */
+.garden-resident-actions { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+.garden-resident-actions .secondary-btn { flex: 1 1 140px; }
+
+/* Reaction on the resident sprite itself — a one-off bounce, applied to the
+   outer button (which has no animation of its own, unlike its children) so
+   it layers cleanly on top of the always-running wander/sway. */
+.garden-resident-react-pet .garden-resident-wander { animation: garden-resident-bounce-happy 1.4s ease-in-out; }
+.garden-resident-react-treat .garden-resident-wander { animation: garden-resident-bounce-eat 1.6s ease-in-out; }
+@keyframes garden-resident-bounce-happy {
+  0%, 100% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-8px) scale(1.08); }
+  40% { transform: translateY(0) scale(0.96); }
+  60% { transform: translateY(-4px) scale(1.04); }
+  80% { transform: translateY(0) scale(1); }
+}
+@keyframes garden-resident-bounce-eat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  15%, 45%, 75% { transform: translateY(3px) rotate(-6deg); }
+  30%, 60%, 90% { transform: translateY(0) rotate(4deg); }
+}
+.garden-resident-hearts { position: absolute; left: 50%; top: -4px; pointer-events: none; }
+.garden-resident-heart {
+  position: absolute; left: 50%; top: 0; transform: translate(-50%, 0);
+  font-size: 13px; opacity: 0; animation: garden-resident-heart-pop 1.3s ease-out forwards;
+}
+@keyframes garden-resident-heart-pop {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+  15% { opacity: 1; transform: translate(calc(-50% + var(--hx, 0px) * 0.2), -8px) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--hx, 0px)), -30px) scale(0.9); }
+}
+.garden-resident-treat-emoji {
+  position: absolute; left: 50%; top: -10px; transform: translate(-50%, 0);
+  font-size: 15px; opacity: 0; pointer-events: none;
+  animation: garden-resident-treat-pop 1.6s ease-out forwards;
+}
+@keyframes garden-resident-treat-pop {
+  0% { opacity: 0; transform: translate(-50%, -12px) scale(0.7); }
+  20% { opacity: 1; transform: translate(-50%, -8px) scale(1); }
+  60% { opacity: 1; transform: translate(-50%, 4px) scale(0.92); }
+  100% { opacity: 0; transform: translate(-50%, 8px) scale(0.7); }
+}
+
 /* Premium items: Wishing Well (ambient glow once finished + a one-off wish
    burst on tap), Waterfall (continuous falling water), Sunset Bench (Tweety's
    sway reuses garden-resident-sway above). */

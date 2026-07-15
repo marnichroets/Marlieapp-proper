@@ -11,6 +11,10 @@
 // graduated companions. See the marlie-bird-garden-plan memory.
 import { saDateKey } from './saDate'
 
+// Cost of a treat for a resident (pet is always free). Cheap and repeatable —
+// a small daily-coin sink, not a rare purchase like the shop items above.
+export const RESIDENT_TREAT_COST = 20
+
 // Shop tiers, cheapest to priciest — used to group the shop UI into sections
 // so the catalog reads as a deliberate progression rather than one flat list.
 export const GARDEN_TIERS = [
