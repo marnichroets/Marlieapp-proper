@@ -81,6 +81,28 @@ function hashSeed(str) {
   return h
 }
 
+// A resident's two wander waypoints, in polar form so BOTH the distance from
+// home (always 14-24px, never a barely-there twitch) and the angular gap
+// between the two points (always 100-260°, so point 2 never lands right on
+// top of point 1) are guaranteed — two independent hashed cartesian offsets
+// could otherwise both land near zero, or near each other, and read as
+// completely frozen (the bug this replaced). Y is flattened to 45% of X so
+// she never drifts out of the shallow lawn band.
+function residentWanderStyle(id) {
+  const angle1 = ((hashSeed(`${id}:wa1`) % 360) * Math.PI) / 180
+  const radius1 = 14 + (hashSeed(`${id}:wr1`) % 10)
+  const angle2 = angle1 + ((100 + (hashSeed(`${id}:wa2`) % 160)) * Math.PI) / 180
+  const radius2 = 14 + (hashSeed(`${id}:wr2`) % 10)
+  return {
+    '--rwx1': `${Math.cos(angle1) * radius1}px`,
+    '--rwy1': `${Math.sin(angle1) * radius1 * 0.45}px`,
+    '--rwx2': `${Math.cos(angle2) * radius2}px`,
+    '--rwy2': `${Math.sin(angle2) * radius2 * 0.45}px`,
+    animationDelay: `${hashSeed(`${id}:wdelay`) % 6}s`,
+    animationDuration: `${10 + (hashSeed(`${id}:wdur`) % 8)}s`,
+  }
+}
+
 // Small classic nest-box species — the Decorative Birdhouse specifically
 // draws these when she's collected any, rather than any random land bird.
 const NEST_BOX_COMPANIONS = ['weaver', 'sparrow', 'robin']
@@ -1022,17 +1044,10 @@ export function GardenPage({
               // cheap hash of the id seeds delay/duration so she never looks
               // frozen, and no two residents ever sway in lockstep.
               const seed = hashSeed(r.id)
-              // She also wanders a little around her home spot — two random,
+              // She also wanders around her home spot — two guaranteed-visible,
               // per-resident waypoints (never leaving/entering perfectly in
               // sync with any other resident) via the same seeded-hash trick.
-              const wanderStyle = {
-                '--rwx1': `${(hashSeed(`${r.id}:wx1`) % 240) / 10 - 12}px`,
-                '--rwy1': `${(hashSeed(`${r.id}:wy1`) % 100) / 10 - 5}px`,
-                '--rwx2': `${(hashSeed(`${r.id}:wx2`) % 240) / 10 - 12}px`,
-                '--rwy2': `${(hashSeed(`${r.id}:wy2`) % 100) / 10 - 5}px`,
-                animationDelay: `${hashSeed(`${r.id}:wdelay`) % 6}s`,
-                animationDuration: `${10 + (hashSeed(`${r.id}:wdur`) % 8)}s`,
-              }
+              const wanderStyle = residentWanderStyle(r.id)
               return (
                 <button
                   key={r.id}
