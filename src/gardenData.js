@@ -174,6 +174,15 @@ const SPECIES_ITEM_SHAPE = {
 // A fresh, empty garden. plantings = in-progress care instances; elements =
 // reserved for promoted permanent features (Phase 2); residents = reserved for
 // graduated companions (later). shopUnlocked = which catalog ids are buyable.
+//
+// FUTURE STORYLINE (not built yet, not scheduled — just keeping the door
+// open): residents pairing up, building a nest together, and laying eggs.
+// Nothing here should block it later — residents are plain objects (already
+// grew treatsGiven/lastTreatAt with zero migration), and treeHasNest's nests
+// are purely derived/visual today, not persisted entities, so a real nest
+// mechanic can introduce its own `garden.nests: [{ id, plantingId,
+// residentIds, eggs, createdAt }]` array alongside them without needing to
+// touch or migrate anything that already exists.
 export function defaultGarden() {
   return {
     version: 1,
