@@ -1940,6 +1940,10 @@ function buildDefaultState() {
       // MaintenanceGate). Marnich's own login is unaffected; toggled from the
       // Admin panel (Maintenance Mode section).
       pooksMaintenanceMode: false,
+      // One-time garden gift from Marnich (2026-07-15) — delivered exactly
+      // once, the next time she opens the app as herself; see the effect in
+      // App() gated on this flag. Never reset, never re-fires.
+      marnichGardenGift2025: false,
       secretCodesVisible: false,
       pinnedBirdOfWeekId: '',
       pooksSecret: 'feather',
@@ -3207,6 +3211,60 @@ function App() {
       window.clearInterval(iv)
     }
   }, [])
+
+  // One-time garden gift from Marnich (2026-07-15): a warm inbox note plus a
+  // fully-grown Wishing Well already waiting in the garden (no watering
+  // needed — she sees it the moment she visits), delivered exactly once the
+  // next time she opens the app. Gated on settings.marnichGardenGift2025 so
+  // it can never fire twice, and on session.role === 'pooks' specifically
+  // (not just account === 'pooks') so it never touches Marnich's own
+  // sandbox or fires while he's viewing her read-only mirror.
+  //
+  // Deferred a few seconds and reads dataRef.current (not the closure's
+  // data) at execution time — firing immediately on mount would race the
+  // "pull authoritative state" fetch above (~1.2s typically) and could
+  // commit the gift on top of a stale local cache, undoing same-day fixes.
+  // Exactly the class of bug in the sync-race-corruption memory.
+  useEffect(() => {
+    if (readOnly || !session || session.role !== 'pooks') return
+    if (account !== 'pooks') return
+    if (data.settings.marnichGardenGift2025) return
+    const t = window.setTimeout(() => {
+      const current = dataRef.current
+      if (!current || current.settings.marnichGardenGift2025) return
+      const garden = current.garden || defaultGarden()
+      const wellItem = gardenItem('wishing-well')
+      const gift = {
+        id: createId('plant'),
+        type: 'wishing-well',
+        x: 200,
+        y: 195,
+        wateredDays: wellItem.waterToGrow,
+        lastWaterDay: '',
+        plantedAt: new Date().toISOString(),
+      }
+      commit(
+        {
+          ...current,
+          settings: { ...current.settings, marnichGardenGift2025: true },
+          garden: { ...garden, plantings: [gift, ...(garden.plantings || [])] },
+          messages: [
+            marnichMessage(
+              "The Bird Council has been informed that today was a tough one. Agent Marnich — who is definitely not watching your every move through the app, just occasionally — wanted you to know he's thinking of you. He arranged a small surprise for your garden. Go have a look. 💛 — The Council (and Marnich)",
+              'A little something from Marnich 💛',
+            ),
+            ...(current.messages || []),
+          ],
+        },
+        { title: 'A little something from Marnich 💛', body: 'Check your inbox — and your garden. 🪄', tone: 'success' },
+      )
+    }, 2500)
+    return () => window.clearTimeout(t)
+    // commit is deliberately excluded: it's a new reference every render, so
+    // including it would reset the timeout on every render and could starve
+    // it from ever firing during active use.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, session, account, data.settings.marnichGardenGift2025])
 
   // Load the all-time leaderboard from the server whenever the app opens, so it
   // shows correctly every time either person opens the app.
