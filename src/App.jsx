@@ -3037,7 +3037,17 @@ function App() {
       const remote = await fetchRemoteState(account)
       if (!remote || !remote.state) return
       const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
-      if (!hasUnsavedLocalEdits) {
+      // A version gap bigger than one save means this client's own view of
+      // the world is stale, not racing — e.g. a tab left open for days,
+      // whose "local edits" are really just an old snapshot that happens to
+      // differ from what it last (long ago) synced. Trusting that as a real
+      // edit worth preserving is exactly how the mystery-egg/companion
+      // corruption kept recurring (2026-07-12 through -15): a stale client
+      // reconnects, hits 409, then confidently re-saves its own outdated
+      // state over real, fresher progress. Only a same-or-adjacent-version
+      // client gets the benefit of the doubt.
+      const versionGap = remote.version - stateVersionRef.current
+      if (!hasUnsavedLocalEdits || versionGap > 1) {
         adoptState(account, remote.state, remote.version)
         return
       }
@@ -3172,20 +3182,29 @@ function App() {
     // and toggles adopt remote state on their own).
   }, [])
 
-  // Check Pooks' maintenance flag before she's ever logged in — an
-  // unauthenticated GET of her own account settings (the endpoint has never
-  // required auth; see fetchRemoteState), so the gate can show before the
-  // login screen even renders. Only relevant pre-login: skipped entirely if
-  // this device already has a session (admin, Pooks, or Marnich).
+  // Check Pooks' maintenance flag — before she's ever logged in (an
+  // unauthenticated GET, gating LoginScreen below) AND periodically while
+  // she's already logged in. A pre-login-only check would let a device that
+  // was already signed in before maintenance mode was switched on sail
+  // straight past it and keep making real changes underneath it — exactly
+  // the gap that let her keep using the app while "in maintenance" on
+  // 2026-07-15. The render guard below only ever applies this to
+  // session.role === 'pooks' specifically (not just account === 'pooks',
+  // which also covers Marnich's read-only mirror of her) — his own
+  // login/session never checks this.
   useEffect(() => {
-    if (readStoredSession()) return undefined
     let cancelled = false
-    fetchRemoteState('pooks').then((remote) => {
-      if (cancelled) return
-      setPooksMaintenance(Boolean(remote?.state?.settings?.pooksMaintenanceMode))
-    })
+    function check() {
+      fetchRemoteState('pooks').then((remote) => {
+        if (cancelled) return
+        setPooksMaintenance(Boolean(remote?.state?.settings?.pooksMaintenanceMode))
+      })
+    }
+    check()
+    const iv = window.setInterval(check, 60000)
     return () => {
       cancelled = true
+      window.clearInterval(iv)
     }
   }, [])
 
@@ -5768,6 +5787,16 @@ function App() {
     return <LoginScreen data={data} onLogin={login} />
   }
 
+  // Enforce maintenance mode for an ALREADY-authenticated Pooks session too —
+  // see the polling effect above. No tap-reveal here (unlike MaintenanceGate):
+  // she's already past login, so there's nothing to reveal her back into
+  // until an admin turns it off. Deliberately session.role, not account —
+  // Marnich's own session (including his read-only mirror of her, which
+  // shares account === 'pooks') is never gated by this.
+  if (session.role === 'pooks' && pooksMaintenance) {
+    return <MaintenanceLock />
+  }
+
   // The very first time Pooks (or Marnich, in his own Test sandbox) opens the
   // app after login, play the one-time cinematic "evidence dossier" intro.
   // Stored per-account so it never shows again. The admin panel skips it.
@@ -6377,6 +6406,21 @@ function LoginScreen({ data, onLogin }) {
 // still needs a way in while it's up: 5 quick taps on the bird — the same
 // secret-tap timing as handleBrandTap's admin gate — reveals the real login
 // form underneath.
+function MaintenanceMessage({ logo }) {
+  return (
+    <>
+      {logo}
+      <p className="login-tag" id="maintenance-title">The Bird Council is upgrading headquarters 🪶</p>
+      <p className="login-sub maintenance-message">
+        The Bird Council is currently upgrading Field Agent Pooks&rsquo; headquarters. Our
+        engineers are working hard to make everything more beautiful. Please check back soon.
+        🪶✨
+      </p>
+      <p className="maintenance-signoff">Back soon, Pooks 💛 — Marnich</p>
+    </>
+  )
+}
+
 function MaintenanceGate({ data, onLogin }) {
   const [revealed, setRevealed] = useState(false)
   const tapRef = useRef({ count: 0, last: 0 })
@@ -6397,21 +6441,34 @@ function MaintenanceGate({ data, onLogin }) {
       <div className="season-wash" aria-hidden="true" />
       <SeasonalAmbient />
       <section className="login-card maintenance-card" aria-labelledby="maintenance-title">
-        <button
-          type="button"
-          className="login-logo maintenance-tap"
-          onClick={handleTap}
-          aria-label="Bird Council seal"
-        >
-          <WeeklyBird size={88} />
-        </button>
-        <p className="login-tag" id="maintenance-title">The Bird Council is upgrading headquarters 🪶</p>
-        <p className="login-sub maintenance-message">
-          The Bird Council is currently upgrading Field Agent Pooks&rsquo; headquarters. Our
-          engineers are working hard to make everything more beautiful. Please check back soon.
-          🪶✨
-        </p>
-        <p className="maintenance-signoff">Back soon, Pooks 💛 — Marnich</p>
+        <MaintenanceMessage
+          logo={
+            <button
+              type="button"
+              className="login-logo maintenance-tap"
+              onClick={handleTap}
+              aria-label="Bird Council seal"
+            >
+              <WeeklyBird size={88} />
+            </button>
+          }
+        />
+      </section>
+    </main>
+  )
+}
+
+// Same message, but for a session that's ALREADY authenticated as Pooks —
+// no tap-reveal escape hatch (there's no login screen to reveal her back
+// into; she only gets back in once an admin turns maintenance mode off).
+function MaintenanceLock() {
+  const season = getSeasonInfo()
+  return (
+    <main className={`login-screen season-${season.key}`}>
+      <div className="season-wash" aria-hidden="true" />
+      <SeasonalAmbient />
+      <section className="login-card maintenance-card" aria-labelledby="maintenance-title">
+        <MaintenanceMessage logo={<div className="login-logo"><WeeklyBird size={88} /></div>} />
       </section>
     </main>
   )
@@ -6899,8 +6956,9 @@ function HomePage({
         // Small, always-visible at-a-glance indicator for the mystery-egg
         // system — "if I find more birds I get an egg". The MysteryEggCard
         // further down handles the actual daily warm interaction; this is
-        // just the quick status chip.
-        if (data.mysteryEgg) {
+        // just the quick status chip. Same guard as that card: an egg is only
+        // ever "hers to warm" once she has no active companion.
+        if (data.mysteryEgg && !data.tweety?.companion) {
           const ready = (data.mysteryEgg.warms || 0) >= MYSTERY_EGG_WARMS
           return (
             <div className="egg-progress-chip" title={ready ? 'Your egg has hatched!' : 'Warm it once a day to hatch it'}>
@@ -6984,7 +7042,12 @@ function HomePage({
             <AwaitingCompanionCard tweety={data.tweety} />
           )}
 
-          {data.mysteryEgg && (
+          {/* A mystery egg is earned WHILE a companion is active (birding keeps
+              counting), but it must never be shown/warmable until she's in the
+              awaiting-next-companion gap — an egg card next to a living, active
+              companion is exactly the phantom-egg bug that kept recurring. This
+              guard is unconditional: it doesn't matter how mysteryEgg got set. */}
+          {data.mysteryEgg && !data.tweety?.companion && (
             <MysteryEggCard mysteryEgg={data.mysteryEgg} onWarm={onWarmMysteryEgg} />
           )}
 
