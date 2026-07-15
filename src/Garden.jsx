@@ -306,15 +306,15 @@ function Bee({ c }) {
 // ---- per-item artwork (base at origin (0,0), growing upward; pond is flat) --
 function TreeArt({ stageKey }) {
   if (stageKey === 'seedling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-9" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><ellipse cx="-3.4" cy="-9" rx="3" ry="1.5" fill="#5aa861" transform="rotate(-28 -3.4 -9)" /><ellipse cx="3.4" cy="-9" rx="3" ry="1.5" fill="#5aa861" transform="rotate(28 3.4 -9)" /></g>)
-  if (stageKey === 'sapling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-1.5" y="-22" width="3" height="22" rx="1.5" fill="#9c6f44" /><circle cx="0" cy="-25" r="10" fill="#5aa861" /><circle cx="-4" cy="-27" r="6" fill="#6cb86f" /></g>)
-  if (stageKey === 'young') return (<g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-34" width="5" height="34" rx="2" fill="#9c6f44" /><circle cx="0" cy="-38" r="16" fill="#4f9a55" /><circle cx="-7" cy="-40" r="9" fill="#5aa861" /></g>)
-  return (<g><ellipse cx="0" cy="0" rx="12" ry="4" fill="#7a5a3a" /><rect x="-3.5" y="-44" width="7" height="44" rx="3" fill="#9c6f44" /><ellipse cx="0" cy="-50" rx="24" ry="20" fill="#4f9a55" /><ellipse cx="-14" cy="-46" rx="14" ry="12" fill="#5aa861" /><ellipse cx="14" cy="-46" rx="13" ry="11" fill="#46894c" /></g>)
+  if (stageKey === 'sapling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-1.5" y="-22" width="3" height="22" rx="1.5" fill="url(#gardenWood)" /><circle cx="0" cy="-25" r="10" fill="url(#gardenCanopy)" /><circle cx="-4" cy="-27" r="6" fill="url(#gardenCanopy)" opacity="0.9" /></g>)
+  if (stageKey === 'young') return (<g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-34" width="5" height="34" rx="2" fill="url(#gardenWood)" /><circle cx="0" cy="-38" r="16" fill="url(#gardenCanopy)" /><circle cx="-7" cy="-40" r="9" fill="url(#gardenCanopy)" opacity="0.9" /></g>)
+  return (<g><ellipse cx="0" cy="0" rx="12" ry="4" fill="#7a5a3a" /><rect x="-3.5" y="-44" width="7" height="44" rx="3" fill="url(#gardenWood)" /><ellipse cx="0" cy="-50" rx="24" ry="20" fill="url(#gardenCanopy)" /><ellipse cx="-14" cy="-46" rx="14" ry="12" fill="url(#gardenCanopy)" opacity="0.92" /><ellipse cx="14" cy="-46" rx="13" ry="11" fill="url(#gardenCanopy)" opacity="0.8" /><ellipse cx="-7" cy="-59" rx="9" ry="5.5" fill="#bdeeb0" opacity="0.35" /></g>)
 }
 
 function PineArt({ stageKey }) {
-  if (stageKey === 'pine-sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -16 L-6 -2 L6 -2 Z" fill="#3f8a52" /></g>)
-  if (stageKey === 'pine-small') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-2" y="-10" width="4" height="10" fill="#8a5a36" /><path d="M0 -30 L-11 -10 L11 -10 Z" fill="#3f8a52" /><path d="M0 -22 L-9 -6 L9 -6 Z" fill="#357a46" /></g>)
-  return (<g><ellipse cx="0" cy="0" rx="9" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-12" width="5" height="12" fill="#8a5a36" /><path d="M0 -48 L-14 -26 L14 -26 Z" fill="#3f8a52" /><path d="M0 -36 L-13 -16 L13 -16 Z" fill="#357a46" /><path d="M0 -24 L-11 -8 L11 -8 Z" fill="#2f6e3e" /></g>)
+  if (stageKey === 'pine-sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -16 L-6 -2 L6 -2 Z" fill="url(#gardenPineFoliage)" /></g>)
+  if (stageKey === 'pine-small') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-2" y="-10" width="4" height="10" fill="url(#gardenWood)" /><path d="M0 -30 L-11 -10 L11 -10 Z" fill="url(#gardenPineFoliage)" /><path d="M0 -22 L-9 -6 L9 -6 Z" fill="url(#gardenPineFoliage)" opacity="0.9" /></g>)
+  return (<g><ellipse cx="0" cy="0" rx="9" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-12" width="5" height="12" fill="url(#gardenWood)" /><path d="M0 -48 L-14 -26 L14 -26 Z" fill="url(#gardenPineFoliage)" /><path d="M0 -36 L-13 -16 L13 -16 Z" fill="url(#gardenPineFoliage)" opacity="0.92" /><path d="M0 -24 L-11 -8 L11 -8 Z" fill="url(#gardenPineFoliage)" opacity="0.85" /><path d="M-3 -46 L3 -46 L0 -40 Z" fill="#8fd68a" opacity="0.4" /></g>)
 }
 
 // A small woven twig nest — purely decorative, no eggs (see treeHasNest in
@@ -352,22 +352,22 @@ function FlowerBedArt({ stageKey }) {
 }
 
 function FenceArt({ stageKey }) {
-  const post = (x) => <rect x={x - 2} y="-22" width="4" height="22" rx="1.5" fill="#b5854f" />
+  const post = (x) => <rect x={x - 2} y="-22" width="4" height="22" rx="1.5" fill="url(#gardenWood)" />
   if (stageKey === 'fence-post') return (<g>{post(0)}</g>)
-  if (stageKey === 'fence-rail') return (<g>{post(-12)}{post(12)}<rect x="-14" y="-16" width="28" height="3.5" rx="1.5" fill="#caa46c" /></g>)
-  return (<g>{post(-14)}{post(0)}{post(14)}<rect x="-16" y="-17" width="32" height="3.5" rx="1.5" fill="#caa46c" /><rect x="-16" y="-9" width="32" height="3.5" rx="1.5" fill="#caa46c" /></g>)
+  if (stageKey === 'fence-rail') return (<g>{post(-12)}{post(12)}<rect x="-14" y="-16" width="28" height="3.5" rx="1.5" fill="url(#gardenWood)" /></g>)
+  return (<g>{post(-14)}{post(0)}{post(14)}<rect x="-16" y="-17" width="32" height="3.5" rx="1.5" fill="url(#gardenWood)" /><rect x="-16" y="-9" width="32" height="3.5" rx="1.5" fill="url(#gardenWood)" /></g>)
 }
 
 function FeederArt({ stageKey }) {
-  if (stageKey === 'feeder-post') return (<g><rect x="-2" y="-30" width="4" height="30" rx="2" fill="#a07a4e" /></g>)
-  if (stageKey === 'feeder-tray') return (<g><rect x="-2" y="-30" width="4" height="30" rx="2" fill="#a07a4e" /><rect x="-12" y="-30" width="24" height="5" rx="2" fill="#caa46c" /></g>)
-  return (<g><rect x="-2" y="-30" width="4" height="30" rx="2" fill="#a07a4e" /><rect x="-13" y="-28" width="26" height="5" rx="2" fill="#caa46c" /><path d="M-15 -28 L0 -42 L15 -28 Z" fill="#b5854f" /><circle cx="-5" cy="-25" r="1.4" fill="#6b4a2a" /><circle cx="3" cy="-25" r="1.4" fill="#6b4a2a" /></g>)
+  if (stageKey === 'feeder-post') return (<g><rect x="-2" y="-30" width="4" height="30" rx="2" fill="url(#gardenWood)" /></g>)
+  if (stageKey === 'feeder-tray') return (<g><rect x="-2" y="-30" width="4" height="30" rx="2" fill="url(#gardenWood)" /><rect x="-12" y="-30" width="24" height="5" rx="2" fill="#caa46c" /></g>)
+  return (<g><rect x="-2" y="-30" width="4" height="30" rx="2" fill="url(#gardenWood)" /><rect x="-13" y="-28" width="26" height="5" rx="2" fill="#caa46c" /><path d="M-15 -28 L0 -42 L15 -28 Z" fill="url(#gardenWood)" /><circle cx="-5" cy="-25" r="1.4" fill="#6b4a2a" /><circle cx="3" cy="-25" r="1.4" fill="#6b4a2a" /></g>)
 }
 
 function PondArt({ stageKey }) {
-  if (stageKey === 'pond-puddle') return (<g><ellipse cx="0" cy="-2" rx="16" ry="7" fill="#6fb8d6" /><ellipse cx="-4" cy="-4" rx="6" ry="2" fill="#a9dcec" opacity="0.7" /></g>)
-  if (stageKey === 'pond-small') return (<g><ellipse cx="0" cy="-2" rx="26" ry="11" fill="#6fb8d6" /><ellipse cx="-7" cy="-5" rx="10" ry="3" fill="#a9dcec" opacity="0.6" /></g>)
-  return (<g><ellipse cx="0" cy="-2" rx="34" ry="14" fill="#6fb8d6" /><ellipse cx="-9" cy="-6" rx="13" ry="4" fill="#a9dcec" opacity="0.6" /><g stroke="#5a9e4e" strokeWidth="2.4" strokeLinecap="round"><line x1="-30" y1="-4" x2="-32" y2="-16" /><line x1="-24" y1="-2" x2="-22" y2="-14" /><line x1="30" y1="-4" x2="32" y2="-15" /></g></g>)
+  if (stageKey === 'pond-puddle') return (<g><ellipse cx="0" cy="-2" rx="16" ry="7" fill="url(#gardenWater)" /><ellipse cx="-4" cy="-4" rx="6" ry="2" fill="#e4f6fb" opacity="0.8" /></g>)
+  if (stageKey === 'pond-small') return (<g><ellipse cx="0" cy="-2" rx="26" ry="11" fill="url(#gardenWater)" /><ellipse cx="-7" cy="-5" rx="10" ry="3" fill="#e4f6fb" opacity="0.7" /></g>)
+  return (<g><ellipse cx="0" cy="-2" rx="34" ry="14" fill="url(#gardenWater)" /><ellipse cx="-9" cy="-6" rx="13" ry="4" fill="#e4f6fb" opacity="0.7" /><ellipse cx="10" cy="4" rx="9" ry="2.6" fill="#2f6a86" opacity="0.22" /><g stroke="#5a9e4e" strokeWidth="2.4" strokeLinecap="round"><line x1="-30" y1="-4" x2="-32" y2="-16" /><line x1="-24" y1="-2" x2="-22" y2="-14" /><line x1="30" y1="-4" x2="32" y2="-15" /></g></g>)
 }
 
 function StonePathArt({ stageKey }) {
@@ -391,22 +391,22 @@ function VegPatchArt({ stageKey }) {
 
 function ShrubArt({ stageKey }) {
   if (stageKey === 'shrub-sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-12" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><circle cx="0" cy="-13" r="4" fill="#6cb86f" /></g>)
-  const bush = <g><ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" /><circle cx="0" cy="-16" r="14" fill="#4f9a55" /><circle cx="-8" cy="-12" r="9" fill="#5aa861" /><circle cx="8" cy="-13" r="8" fill="#46894c" /></g>
+  const bush = <g><ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" /><circle cx="0" cy="-16" r="14" fill="url(#gardenCanopy)" /><circle cx="-8" cy="-12" r="9" fill="url(#gardenCanopy)" opacity="0.92" /><circle cx="8" cy="-13" r="8" fill="url(#gardenCanopy)" opacity="0.82" /></g>
   if (stageKey === 'shrub-bush') return bush
   const f = [[-9, -20, '#f6a5c0'], [0, -26, '#ffd45e'], [9, -18, '#c9a8e8'], [-3, -12, '#f8b4d0'], [6, -24, '#fff0b3']]
   return (<g>{bush}{f.map(([x, y, c], i) => <circle key={i} cx={x} cy={y} r="3" fill={c} />)}</g>)
 }
 
 function BenchArt({ stageKey }) {
-  if (stageKey === 'bench-frame') return (<g><rect x="-16" y="-6" width="3" height="6" fill="#a07a4e" /><rect x="13" y="-6" width="3" height="6" fill="#a07a4e" /><rect x="-17" y="-9" width="34" height="3" rx="1.5" fill="#b5854f" /></g>)
-  return (<g><rect x="-16" y="-8" width="3" height="8" fill="#9c6f44" /><rect x="13" y="-8" width="3" height="8" fill="#9c6f44" /><rect x="-18" y="-11" width="36" height="4" rx="2" fill="#caa46c" /><rect x="-16" y="-22" width="3" height="12" fill="#9c6f44" /><rect x="13" y="-22" width="3" height="12" fill="#9c6f44" /><rect x="-18" y="-22" width="36" height="3.5" rx="1.5" fill="#b5854f" /><rect x="-18" y="-16" width="36" height="3" rx="1.5" fill="#b5854f" /></g>)
+  if (stageKey === 'bench-frame') return (<g><rect x="-16" y="-6" width="3" height="6" fill="url(#gardenWood)" /><rect x="13" y="-6" width="3" height="6" fill="url(#gardenWood)" /><rect x="-17" y="-9" width="34" height="3" rx="1.5" fill="url(#gardenWood)" /></g>)
+  return (<g><rect x="-16" y="-8" width="3" height="8" fill="url(#gardenWood)" /><rect x="13" y="-8" width="3" height="8" fill="url(#gardenWood)" /><rect x="-18" y="-11" width="36" height="4" rx="2" fill="#caa46c" /><rect x="-16" y="-22" width="3" height="12" fill="url(#gardenWood)" /><rect x="13" y="-22" width="3" height="12" fill="url(#gardenWood)" /><rect x="-18" y="-22" width="36" height="3.5" rx="1.5" fill="#b5854f" /><rect x="-18" y="-16" width="36" height="3" rx="1.5" fill="#b5854f" /></g>)
 }
 
 function BirdBathArt({ stageKey }) {
-  const ped = <g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#b8b2a8" /><rect x="-3" y="-16" width="6" height="16" fill="#c8c2b8" /><rect x="-3.5" y="-16" width="7" height="3" fill="#b8b2a8" /></g>
+  const ped = <g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="url(#gardenStone)" /><rect x="-3" y="-16" width="6" height="16" fill="url(#gardenStone)" /><rect x="-3.5" y="-16" width="7" height="3" fill="#b8b2a8" /></g>
   if (stageKey === 'bath-base') return ped
-  if (stageKey === 'bath-bowl') return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="#c8c2b8" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="#a39c92" /></g>)
-  return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="#c8c2b8" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="#6fb8d6" /><ellipse cx="-3" cy="-20" rx="4" ry="1.4" fill="#a9dcec" opacity="0.7" /></g>)
+  if (stageKey === 'bath-bowl') return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="url(#gardenStone)" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="#a39c92" /></g>)
+  return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="url(#gardenStone)" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="url(#gardenWater)" /><ellipse cx="-3" cy="-20" rx="4" ry="1.4" fill="#e4f6fb" opacity="0.8" /></g>)
 }
 
 function TrellisArt({ stageKey }) {
@@ -420,9 +420,9 @@ function TrellisArt({ stageKey }) {
 
 // --- premium items -----------------------------------------------------------
 function WishingWellArt({ stageKey }) {
-  const base = <g><ellipse cx="0" cy="0" rx="16" ry="5" fill="#8a8078" /><ellipse cx="0" cy="-8" rx="14" ry="9" fill="#a8a096" /><ellipse cx="0" cy="-9" rx="11" ry="6.5" fill="#1e2a3a" /></g>
+  const base = <g><ellipse cx="0" cy="0" rx="16" ry="5" fill="url(#gardenStone)" /><ellipse cx="0" cy="-8" rx="14" ry="9" fill="url(#gardenStone)" /><ellipse cx="0" cy="-9" rx="11" ry="6.5" fill="#1e2a3a" /></g>
   if (stageKey === 'well-base') return base
-  const roof = <g><rect x="-13" y="-30" width="2.6" height="20" fill="#9c6f44" /><rect x="10.4" y="-30" width="2.6" height="20" fill="#9c6f44" /><path d="M-16 -30 L0 -42 L16 -30 Z" fill="#b5854f" /><rect x="-3" y="-34" width="6" height="10" fill="#6b4a2a" /></g>
+  const roof = <g><rect x="-13" y="-30" width="2.6" height="20" fill="url(#gardenWood)" /><rect x="10.4" y="-30" width="2.6" height="20" fill="url(#gardenWood)" /><path d="M-16 -30 L0 -42 L16 -30 Z" fill="url(#gardenWood)" /><rect x="-3" y="-34" width="6" height="10" fill="#6b4a2a" /></g>
   if (stageKey === 'well-built') return (<g>{base}{roof}</g>)
   return (
     <g className="garden-wishing-well-glow">
@@ -436,30 +436,30 @@ function WishingWellArt({ stageKey }) {
 }
 
 function WaterfallArt({ stageKey }) {
-  const rocks = <g><ellipse cx="-10" cy="0" rx="9" ry="4" fill="#8a8078" /><ellipse cx="10" cy="1" rx="8" ry="3.6" fill="#9a9088" /></g>
-  if (stageKey === 'fall-trickle') return (<g>{rocks}<rect x="-3" y="-14" width="6" height="14" fill="#6fb8d6" opacity="0.7" /><ellipse cx="0" cy="-1" rx="7" ry="3" fill="#6fb8d6" /></g>)
+  const rocks = <g><ellipse cx="-10" cy="0" rx="9" ry="4" fill="url(#gardenStone)" /><ellipse cx="10" cy="1" rx="8" ry="3.6" fill="url(#gardenStone)" /></g>
+  if (stageKey === 'fall-trickle') return (<g>{rocks}<rect x="-3" y="-14" width="6" height="14" fill="url(#gardenWater)" opacity="0.8" /><ellipse cx="0" cy="-1" rx="7" ry="3" fill="url(#gardenWater)" /></g>)
   const cascade = (opacityMul = 1) => (
     <g className="garden-waterfall-flow" opacity={opacityMul}>
       {[-9, -3, 3, 9].map((x, i) => (
-        <rect key={i} x={x - 1.6} y="-30" width="3.2" height="30" fill="#6fb8d6" style={{ animationDelay: `${i * 0.15}s` }} />
+        <rect key={i} x={x - 1.6} y="-30" width="3.2" height="30" fill="url(#gardenWater)" style={{ animationDelay: `${i * 0.15}s` }} />
       ))}
     </g>
   )
-  if (stageKey === 'fall-flowing') return (<g>{rocks}{cascade(0.85)}<ellipse cx="0" cy="-1" rx="14" ry="5" fill="#6fb8d6" /><ellipse cx="-4" cy="-3" rx="5" ry="1.8" fill="#a9dcec" opacity="0.7" /></g>)
+  if (stageKey === 'fall-flowing') return (<g>{rocks}{cascade(0.85)}<ellipse cx="0" cy="-1" rx="14" ry="5" fill="url(#gardenWater)" /><ellipse cx="-4" cy="-3" rx="5" ry="1.8" fill="#e4f6fb" opacity="0.8" /></g>)
   return (
     <g>
-      <ellipse cx="0" cy="-32" rx="16" ry="5" fill="#8a8078" opacity="0.9" />
+      <ellipse cx="0" cy="-32" rx="16" ry="5" fill="url(#gardenStone)" opacity="0.9" />
       {cascade(1)}
-      <ellipse cx="0" cy="-2" rx="20" ry="7" fill="#6fb8d6" />
-      <ellipse cx="-6" cy="-5" rx="8" ry="2.6" fill="#a9dcec" opacity="0.7" />
-      <ellipse cx="0" cy="-3" rx="12" ry="3" fill="#e8f6fa" opacity="0.5" />
+      <ellipse cx="0" cy="-2" rx="20" ry="7" fill="url(#gardenWater)" />
+      <ellipse cx="-6" cy="-5" rx="8" ry="2.6" fill="#e4f6fb" opacity="0.75" />
+      <ellipse cx="0" cy="-3" rx="12" ry="3" fill="#f4fbfd" opacity="0.5" />
       {rocks}
     </g>
   )
 }
 
 function BirdhouseArt({ stageKey }) {
-  const post = <rect x="-2" y="-26" width="4" height="26" rx="1.5" fill="#a07a4e" />
+  const post = <rect x="-2" y="-26" width="4" height="26" rx="1.5" fill="url(#gardenWood)" />
   if (stageKey === 'house-frame') return (<g>{post}<rect x="-9" y="-40" width="18" height="14" rx="2" fill="#c8a46c" /></g>)
   const house = <g><rect x="-9" y="-40" width="18" height="14" rx="2" fill="#e8b96a" /><path d="M-11 -40 L0 -50 L11 -40 Z" fill="#c0392b" /><circle cx="0" cy="-33" r="2.6" fill="#5a3a22" /></g>
   if (stageKey === 'house-painted') return (<g>{post}{house}</g>)
@@ -972,6 +972,31 @@ export function GardenPage({
             <linearGradient id="gardenGrassNear" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#96c977" />
               <stop offset="1" stopColor="#79b25f" />
+            </linearGradient>
+            {/* Shared plant/structure gradients — a sunlit highlight fading to
+                a deeper shadowed edge, instead of one flat fill each, so grown
+                items read with real volume rather than as flat cartoon shapes. */}
+            <radialGradient id="gardenCanopy" cx="38%" cy="30%" r="75%">
+              <stop offset="0" stopColor="#6fbf6c" />
+              <stop offset="0.55" stopColor="#4f9a55" />
+              <stop offset="1" stopColor="#3d7d44" />
+            </radialGradient>
+            <linearGradient id="gardenPineFoliage" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#4a9a5c" />
+              <stop offset="1" stopColor="#2c6a3e" />
+            </linearGradient>
+            <radialGradient id="gardenWater" cx="38%" cy="28%" r="80%">
+              <stop offset="0" stopColor="#bfe9f4" />
+              <stop offset="0.45" stopColor="#7fc4dd" />
+              <stop offset="1" stopColor="#4f96b8" />
+            </radialGradient>
+            <linearGradient id="gardenWood" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#c19257" />
+              <stop offset="1" stopColor="#8a5e36" />
+            </linearGradient>
+            <linearGradient id="gardenStone" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#c2bcb1" />
+              <stop offset="1" stopColor="#8f887c" />
             </linearGradient>
           </defs>
           <rect x="0" y="0" width="400" height="260" fill="url(#gardenSky)" />
