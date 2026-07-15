@@ -2581,6 +2581,24 @@ textarea:focus {
   color: var(--muted);
 }
 
+/* Maintenance gate: same card as the login screen, but the logo is a plain
+   <button> (5 quick taps reveals the real login form for Marnich) — reset
+   its chrome so it reads as a static seal, not an obvious button. */
+.maintenance-tap {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 auto;
+  cursor: default;
+  width: 88px;
+}
+.maintenance-message { line-height: 1.5; }
+.maintenance-signoff {
+  margin: 4px 0 0;
+  font-weight: 800;
+  color: var(--ink-strong);
+}
+
 .login-form {
   display: grid;
   gap: 12px;

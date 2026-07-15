@@ -1934,6 +1934,11 @@ function buildDefaultState() {
       // for Pooks' real account, nothing in a gated area appears until an
       // admin explicitly flips it (see releasePlantsToPooks).
       releaseFlags: { plants: false },
+      // Pre-login gate for Pooks only (checked in App() before she's ever
+      // authenticated — see the unauthenticated GET in the mount effect and
+      // MaintenanceGate). Marnich's own login is unaffected; toggled from the
+      // Admin panel (Maintenance Mode section).
+      pooksMaintenanceMode: false,
       secretCodesVisible: false,
       pinnedBirdOfWeekId: '',
       pooksSecret: 'feather',
@@ -2419,6 +2424,10 @@ function App() {
   // the plants side instead of always landing on Birds.
   const [exploreMode, setExploreMode] = useState('birds')
   const [session, setSession] = useState(readStoredSession)
+  // Pre-login maintenance gate for Pooks (see MaintenanceGate + the mount
+  // effect below). Checked via an unauthenticated GET of her own account
+  // settings, so it can show before she's ever logged in.
+  const [pooksMaintenance, setPooksMaintenance] = useState(false)
   // Marnich's view ('view' mirror of Pooks | 'sandbox' test data). Irrelevant
   // for Pooks/admin sessions.
   const [marnichMode, setMarnichMode] = useState(readMarnichMode)
@@ -3160,6 +3169,23 @@ function App() {
     }
     // Runs once on mount — deliberately not re-run on account changes (logins
     // and toggles adopt remote state on their own).
+  }, [])
+
+  // Check Pooks' maintenance flag before she's ever logged in — an
+  // unauthenticated GET of her own account settings (the endpoint has never
+  // required auth; see fetchRemoteState), so the gate can show before the
+  // login screen even renders. Only relevant pre-login: skipped entirely if
+  // this device already has a session (admin, Pooks, or Marnich).
+  useEffect(() => {
+    if (readStoredSession()) return undefined
+    let cancelled = false
+    fetchRemoteState('pooks').then((remote) => {
+      if (cancelled) return
+      setPooksMaintenance(Boolean(remote?.state?.settings?.pooksMaintenanceMode))
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Load the all-time leaderboard from the server whenever the app opens, so it
@@ -5703,6 +5729,9 @@ function App() {
     if (adminGate) {
       return <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} />
     }
+    if (pooksMaintenance) {
+      return <MaintenanceGate data={data} onLogin={login} />
+    }
     return <LoginScreen data={data} onLogin={login} />
   }
 
@@ -6304,6 +6333,51 @@ function LoginScreen({ data, onLogin }) {
         {!data.settings.pooksSecret && (
           <p className="login-hint">Ask Marnich to set your secret word.</p>
         )}
+      </section>
+    </main>
+  )
+}
+
+// Shown instead of LoginScreen, before anyone has logged in, while Pooks'
+// settings.pooksMaintenanceMode is on (toggled from the Admin panel). Marnich
+// still needs a way in while it's up: 5 quick taps on the bird — the same
+// secret-tap timing as handleBrandTap's admin gate — reveals the real login
+// form underneath.
+function MaintenanceGate({ data, onLogin }) {
+  const [revealed, setRevealed] = useState(false)
+  const tapRef = useRef({ count: 0, last: 0 })
+  const season = getSeasonInfo()
+
+  if (revealed) return <LoginScreen data={data} onLogin={onLogin} />
+
+  function handleTap() {
+    const now = Date.now()
+    const tracker = tapRef.current
+    tracker.count = now - tracker.last < 600 ? tracker.count + 1 : 1
+    tracker.last = now
+    if (tracker.count >= 5) setRevealed(true)
+  }
+
+  return (
+    <main className={`login-screen season-${season.key}`}>
+      <div className="season-wash" aria-hidden="true" />
+      <SeasonalAmbient />
+      <section className="login-card maintenance-card" aria-labelledby="maintenance-title">
+        <button
+          type="button"
+          className="login-logo maintenance-tap"
+          onClick={handleTap}
+          aria-label="Bird Council seal"
+        >
+          <WeeklyBird size={88} />
+        </button>
+        <p className="login-tag" id="maintenance-title">The Bird Council is upgrading headquarters 🪶</p>
+        <p className="login-sub maintenance-message">
+          The Bird Council is currently upgrading Field Agent Pooks&rsquo; headquarters. Our
+          engineers are working hard to make everything more beautiful. Please check back soon.
+          🪶✨
+        </p>
+        <p className="maintenance-signoff">Back soon, Pooks 💛 — Marnich</p>
       </section>
     </main>
   )
@@ -11247,6 +11321,49 @@ function AdminPage({
             ) : (
               <button className="primary-btn" type="button" onClick={releasePlantsToPooks}>
                 Release to Pooks
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="soft-card full-span admin-maintenance">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Maintenance Mode 🛠️</p>
+            <h2>Pooks&rsquo; access</h2>
+          </div>
+        </div>
+        <p className="fine-print">
+          While this is on, Pooks sees a warm &ldquo;check back soon&rdquo; Bird Council message
+          instead of the login screen — nothing else is reachable for her. Your own Marnich login
+          is unaffected.
+        </p>
+        <div className="admin-release-row">
+          <div className="admin-release-item">
+            <div>
+              <strong>Maintenance mode 🚧</strong>
+              <p className="fine-print">
+                {data.settings.pooksMaintenanceMode
+                  ? "She's currently locked out."
+                  : 'She has normal access.'}
+              </p>
+            </div>
+            {data.settings.pooksMaintenanceMode ? (
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => updateSetting('pooksMaintenanceMode', false)}
+              >
+                Turn off — let her in
+              </button>
+            ) : (
+              <button
+                className="primary-btn"
+                type="button"
+                onClick={() => updateSetting('pooksMaintenanceMode', true)}
+              >
+                Turn on
               </button>
             )}
           </div>
