@@ -24,6 +24,7 @@ import {
   plantCategoryEmoji,
   plantsNearPotchThisWeek,
   plantsNearCapeTownThisWeek,
+  findPlantById,
 } from './plantData'
 import {
   TweetyHomeCard,
@@ -1813,6 +1814,49 @@ function buildWeeklyQuiz(issue, library) {
   })
 }
 
+// ---- Weekly Plant Quiz (magazine Plant Corner) ----
+// Same mechanic as the bird quiz, seeded off the Plant Corner's 3-day issue
+// index instead of the bird week, so the two quizzes don't sync up.
+function weeklyPlantQuizSeed(issueIndex) {
+  let h = 2166136261
+  const s = `weekly-plant-quiz-${issueIndex}`
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function buildWeeklyPlantQuiz(issueIndex, library, featuredPlants) {
+  const hasAfr = (p) => p && p.commonName && p.afrikaansName
+  const pool = (library || []).filter(hasAfr)
+  const featured = (featuredPlants || []).filter(hasAfr)
+  const seed = weeklyPlantQuizSeed(issueIndex)
+  // Top up to 5 subjects from the wider library if needed.
+  const extra = seededShuffleLocal(
+    pool.filter((p) => !featured.some((f) => f.id === p.id)),
+    seed,
+  )
+  const subjects = [...featured, ...extra].slice(0, 5)
+  return subjects.map((plant, qi) => {
+    const askAfrikaans = qi % 2 === 0
+    const correct = askAfrikaans ? plant.afrikaansName : plant.commonName
+    const decoyPool = pool
+      .filter((p) => p.id !== plant.id)
+      .map((p) => (askAfrikaans ? p.afrikaansName : p.commonName))
+      .filter((v, i, arr) => v && v !== correct && arr.indexOf(v) === i)
+    const decoys = seededShuffleLocal(decoyPool, seed + qi * 7919).slice(0, 3)
+    const options = seededShuffleLocal([correct, ...decoys], seed + qi * 104729)
+    return {
+      q: askAfrikaans
+        ? `What is the Afrikaans name for the ${plant.commonName}?`
+        : `Which plant is known in Afrikaans as “${plant.afrikaansName}”?`,
+      options,
+      answer: options.indexOf(correct),
+    }
+  })
+}
+
 function getCurrentLevel(uniqueCount) {
   return levels.reduce((current, level) => {
     return uniqueCount >= level.birds ? level : current
@@ -1922,6 +1966,7 @@ function buildDefaultState() {
     games: defaultGames(),
     garden: defaultGarden(),
     weeklyQuizClaimedWeek: null,
+    weeklyPlantQuizClaimedWeek: null,
     discoveries: [],
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
@@ -2499,6 +2544,7 @@ function App() {
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
   const [birdProfile, setBirdProfile] = useState(null)
+  const [plantProfileId, setPlantProfileId] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   const [weeklyTip, setWeeklyTip] = useState(false)
   // When true, the release ceremony overlay (a farewell) is shown for a
@@ -4730,6 +4776,19 @@ function App() {
     )
   }
 
+  // Weekly Plant Corner quiz: seeds (the plant economy's currency, see
+  // addPlant()) rather than Feather Coins, once per issue.
+  function claimWeeklyPlantQuiz(issueIndex) {
+    if (data.weeklyPlantQuizClaimedWeek === issueIndex) return
+    commit(
+      { ...data, weeklyPlantQuizClaimedWeek: issueIndex, seeds: data.seeds + 3 },
+      {
+        title: 'Weekly Plant Quiz complete! 🌿',
+        body: 'The Head Botanist added 3 seeds to your pouch 🌱',
+      },
+    )
+  }
+
   function setTrashTalk(message) {
     setData((c) => ({ ...c, games: { ...c.games, trashTalk: String(message || '').trim() } }))
     setToast({
@@ -4952,6 +5011,15 @@ function App() {
   }
 
   function closeBirdProfile() {
+    goBack()
+  }
+
+  function openPlantProfile(plantId) {
+    setPlantProfileId(plantId)
+    setActivePage('plantProfile')
+  }
+
+  function closePlantProfile() {
     goBack()
   }
 
@@ -6102,6 +6170,7 @@ function App() {
             completeDailyChallenge={completeDailyChallenge}
             goTo={setActivePage}
             openBirdProfile={openBirdProfile}
+            openPlantProfile={openPlantProfile}
             season={season}
             tweetyView={tweetyView}
             tweetyDancing={tweetyDancing}
@@ -6113,10 +6182,6 @@ function App() {
             onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
             onWarmMysteryEgg={warmMysteryEgg}
             plantScannerVisible={plantScannerVisible}
-            goToPlants={() => {
-              setExploreMode('plants')
-              setActivePage('explore')
-            }}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -6195,6 +6260,7 @@ function App() {
           <CollectionHubPage
             data={data}
             openBirdProfile={openBirdProfile}
+            openPlantProfile={openPlantProfile}
             goToSpot={() => setActivePage('add')}
             plantScannerVisible={plantScannerVisible}
           />
@@ -6203,6 +6269,7 @@ function App() {
           <ExploreHubPage
             data={data}
             openBirdProfile={openBirdProfile}
+            openPlantProfile={openPlantProfile}
             plantScannerVisible={plantScannerVisible}
             exploreMode={exploreMode}
             setExploreMode={setExploreMode}
@@ -6215,6 +6282,9 @@ function App() {
             onBack={closeBirdProfile}
             saveFieldGuideNotes={saveFieldGuideNotes}
           />
+        )}
+        {activePage === 'plantProfile' && (
+          <PlantProfilePage data={data} plantId={plantProfileId} onBack={closePlantProfile} />
         )}
         {activePage === 'rewards' && (
           <RewardsPage
@@ -6268,7 +6338,9 @@ function App() {
           <WeeklyMagazinePage
             data={data}
             openBirdProfile={openBirdProfile}
+            openPlantProfile={openPlantProfile}
             claimWeeklyQuiz={claimWeeklyQuiz}
+            claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
             plantScannerVisible={plantScannerVisible}
             goToPlants={() => {
               setExploreMode('plants')
@@ -6987,6 +7059,7 @@ function HomePage({
   completeDailyChallenge,
   goTo,
   openBirdProfile,
+  openPlantProfile,
   season,
   tweetyView,
   tweetyDancing,
@@ -6998,7 +7071,6 @@ function HomePage({
   onReleaseToGarden,
   onWarmMysteryEgg,
   plantScannerVisible = false,
-  goToPlants,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -7076,7 +7148,7 @@ function HomePage({
 
       <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />
 
-      {plantScannerVisible && <PlantsNearYouCard onOpenPlant={goToPlants} />}
+      {plantScannerVisible && <PlantsNearYouCard onOpenPlant={openPlantProfile} />}
 
       <TripSightingsCard sightings={data.sightings} />
 
@@ -7413,7 +7485,12 @@ function PlantsNearYouCard({ onOpenPlant }) {
       </div>
       <div className="near-you-scroll">
         {plants.map((plant) => (
-          <button key={plant.id} type="button" className="near-you-bird" onClick={onOpenPlant}>
+          <button
+            key={plant.id}
+            type="button"
+            className="near-you-bird"
+            onClick={() => onOpenPlant(plant.id)}
+          >
             <PlantFieldGuidePhoto plant={plant} className="near-you-photo" />
             <span className="near-you-name">{plant.commonName}</span>
             {plant.afrikaansName && <span className="near-you-afr">{plant.afrikaansName}</span>}
@@ -7528,9 +7605,9 @@ function getPlantSearchText(plant) {
 
 // One card in the plant field guide: category icon, names, bloom season,
 // where it's found and a care tip. Purely for browsing — no coins, no "caught".
-function ExplorePlantCard({ plant }) {
+function ExplorePlantCard({ plant, onOpen }) {
   return (
-    <article className="explore-card">
+    <article className="explore-card tappable" onClick={onOpen}>
       <div className="explore-card-photo-frame">
         <PlantFieldGuidePhoto plant={plant} className="explore-card-photo" />
         {plant.category && <span className="explore-card-tag">{plant.category}</span>}
@@ -7561,7 +7638,7 @@ function ExplorePlantCard({ plant }) {
 // A beautiful, browsable field guide to the SA Plant Library. Separate from the
 // personal plant collection (scanned specimens): no coins, no "catalogued" —
 // just reading and learning.
-function ExplorePlantsPage() {
+function ExplorePlantsPage({ openPlantProfile }) {
   const [search, setSearch] = useState('')
   const [filterId, setFilterId] = useState('all')
   const filter = PLANT_EXPLORE_FILTERS.find((f) => f.id === filterId) || PLANT_EXPLORE_FILTERS[0]
@@ -7610,7 +7687,7 @@ function ExplorePlantsPage() {
       <section className="full-span explore-grid" aria-live="polite">
         {plants.length === 0 && <EmptyState text="No plants match that search yet." />}
         {plants.map((plant) => (
-          <ExplorePlantCard key={plant.id} plant={plant} />
+          <ExplorePlantCard key={plant.id} plant={plant} onOpen={() => openPlantProfile(plant.id)} />
         ))}
       </section>
     </div>
@@ -7623,6 +7700,7 @@ function ExplorePlantsPage() {
 function ExploreHubPage({
   data,
   openBirdProfile,
+  openPlantProfile,
   plantScannerVisible = false,
   exploreMode: exploreModeProp,
   setExploreMode: setExploreModeProp,
@@ -7651,7 +7729,7 @@ function ExploreHubPage({
         </nav>
       )}
       {exploreMode === 'plants' && plantScannerVisible ? (
-        <ExplorePlantsPage />
+        <ExplorePlantsPage openPlantProfile={openPlantProfile} />
       ) : (
         <ExploreBirdsPage data={data} openBirdProfile={openBirdProfile} />
       )}
@@ -9287,7 +9365,7 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
 // the new Plant Collection, mirroring SpotHubPage's tab pattern exactly.
 // Plants stays hidden until she's unlocked plant scanning — same reveal
 // gate as the Spot page, so nothing spoilers the promotion letter.
-function CollectionHubPage({ data, openBirdProfile, goToSpot, plantScannerVisible = false }) {
+function CollectionHubPage({ data, openBirdProfile, openPlantProfile, goToSpot, plantScannerVisible = false }) {
   const [collectionMode, setCollectionMode] = useState('birds')
   const plantScanningUnlocked = plantScannerVisible
   return (
@@ -9311,7 +9389,7 @@ function CollectionHubPage({ data, openBirdProfile, goToSpot, plantScannerVisibl
         </nav>
       )}
       {collectionMode === 'plants' && plantScanningUnlocked ? (
-        <PlantLibraryPage data={data} />
+        <PlantLibraryPage data={data} openPlantProfile={openPlantProfile} />
       ) : (
         <SaBirdLibraryPage data={data} openBirdProfile={openBirdProfile} goToSpot={goToSpot} />
       )}
@@ -9319,7 +9397,7 @@ function CollectionHubPage({ data, openBirdProfile, goToSpot, plantScannerVisibl
   )
 }
 
-function PlantLibraryPage({ data }) {
+function PlantLibraryPage({ data, openPlantProfile }) {
   const plants = data.plantLibrary
   const count = plants.length
 
@@ -9338,18 +9416,22 @@ function PlantLibraryPage({ data }) {
           <EmptyState text="No plants catalogued yet — tap Scan a Plant to file your first specimen report." />
         )}
         {plants.map((plant) => (
-          <PlantLibraryCard key={plant.id} plant={plant} />
+          <PlantLibraryCard key={plant.id} plant={plant} openPlantProfile={openPlantProfile} />
         ))}
       </section>
     </div>
   )
 }
 
-function PlantLibraryCard({ plant }) {
+function PlantLibraryCard({ plant, openPlantProfile }) {
   const photo = plant.photo || plant.referenceImageUrl
+  const libraryMatch = SA_PLANT_LIBRARY.find(
+    (p) => normalizeBirdName(p.scientificName || p.commonName) === plant.speciesKey,
+  )
+  const onOpen = libraryMatch && openPlantProfile ? () => openPlantProfile(libraryMatch.id) : undefined
 
   return (
-    <article className="library-bird-card seen">
+    <article className={`library-bird-card seen${onOpen ? ' tappable' : ''}`} onClick={onOpen}>
       <div className="bird-card-photo-frame">
         {photo ? (
           <img className="bird-card-photo" src={photo} alt={plant.commonName} loading="lazy" />
@@ -10120,6 +10202,120 @@ function BirdProfilePage({ data, profile, onBack, saveFieldGuideNotes }) {
   )
 }
 
+// The plant field guide's per-species detail page — mirrors BirdProfilePage's
+// library path, but far simpler: no AI matching, no coin/mystery-egg tie-ins,
+// just the field guide entry plus whether/how often she's catalogued this
+// species in her own Plant Collection (see addPlant()).
+function PlantProfilePage({ data, plantId, onBack }) {
+  const plant = findPlantById(plantId)
+
+  if (!plant) {
+    return (
+      <section className="soft-card full-span">
+        <EmptyState text="This plant profile could not be found." />
+        <button className="secondary-btn" type="button" onClick={onBack}>
+          Back
+        </button>
+      </section>
+    )
+  }
+
+  const speciesKey = normalizeBirdName(plant.scientificName || plant.commonName)
+  const specimens = (data.plantLibrary || []).filter((entry) => entry.speciesKey === speciesKey)
+  const sortedSpecimens = [...specimens].sort((a, b) => a.dateSpotted.localeCompare(b.dateSpotted))
+  const cataloged = specimens.length > 0
+  const latestPhoto = specimens.find((entry) => entry.photo)?.photo || plant.imageUrl
+  const regionLabels = { potch: 'Potchefstroom / Highveld', capetown: 'Cape Town / fynbos' }
+  const detailRows = [
+    ['Category', plant.category],
+    ['Region', (plant.regions || []).map((r) => regionLabels[r] || r).join(', ')],
+    ['Bloom season', plant.bloomSeason],
+    ['Where found', plant.whereFound],
+    ['Care tips', plant.careTips],
+    ['Catalogued status', cataloged ? 'Catalogued 🌿' : 'Not catalogued yet'],
+    ['Times logged', specimens.length],
+    ['First logged date', cataloged ? formatDate(sortedSpecimens[0]?.dateSpotted) : 'Not logged yet'],
+  ]
+
+  return (
+    <div className="page-grid bird-profile-page">
+      <section className="soft-card full-span bird-profile-hero">
+        <div>
+          <button className="text-btn back-btn" type="button" onClick={onBack}>
+            Back
+          </button>
+          <p className="eyebrow">SA plant profile</p>
+          <h2>{plant.commonName}</h2>
+          <p className="nickname">{plant.afrikaansName || 'Afrikaans name pending'}</p>
+          <p className="fine-print">{plant.scientificName || 'Scientific name pending'}</p>
+          <div className="tag-row">
+            <span className={cataloged ? 'status-pill paid' : 'status-pill locked'}>
+              {cataloged ? 'Catalogued 🌿' : 'Not catalogued yet'}
+            </span>
+            <span className="tag">{plant.category}</span>
+          </div>
+        </div>
+        {latestPhoto ? (
+          <img className="profile-main-photo" src={latestPhoto} alt={plant.commonName} />
+        ) : (
+          <div className="profile-main-photo placeholder-photo">
+            <span>{plantCategoryEmoji(plant.category)}</span>
+          </div>
+        )}
+      </section>
+
+      <details className="soft-card full-span profile-detail-card" open>
+        <summary>Field guide details</summary>
+        <dl className="bird-meta profile-meta">
+          {detailRows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value || 'Not recorded yet'}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+
+      <section className="soft-card">
+        <p className="eyebrow">Fun fact</p>
+        <div className="mini-list">
+          <p>{plant.funFact || 'Fun facts will appear after more Head Botanist paperwork.'}</p>
+        </div>
+      </section>
+
+      <section className="soft-card full-span">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Her logged specimens</p>
+            <h3>Your catalogue history</h3>
+          </div>
+          <span className="status-pill">{specimens.length} logged</span>
+        </div>
+        {specimens.length === 0 ? (
+          <EmptyState text="No personal specimens for this plant yet." />
+        ) : (
+          <div className="profile-sighting-grid">
+            {sortedSpecimens.map((entry) => (
+              <article className="profile-sighting-card" key={entry.id}>
+                {entry.photo ? (
+                  <img src={entry.photo} alt={entry.commonName} />
+                ) : (
+                  <div className="placeholder-photo">
+                    <span>{plantCategoryEmoji(plant.category)}</span>
+                  </div>
+                )}
+                <div>
+                  <strong>{formatDate(entry.dateSpotted)}</strong>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 function RewardsPage({
   data,
   stats,
@@ -10821,12 +11017,118 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
   )
 }
 
-function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz, plantScannerVisible, goToPlants }) {
+function WeeklyPlantQuiz({ quiz, issueIndex, claimedWeek, onClaim }) {
+  const [answers, setAnswers] = useState({})
+  const [submitted, setSubmitted] = useState(false)
+  const [justAwarded, setJustAwarded] = useState(false)
+  const alreadyClaimed = claimedWeek === issueIndex
+  const allAnswered = quiz.length > 0 && Object.keys(answers).length >= quiz.length
+  const score = quiz.reduce((n, q, i) => n + (answers[i] === q.answer ? 1 : 0), 0)
+
+  function choose(qi, oi) {
+    if (submitted) return
+    setAnswers((a) => ({ ...a, [qi]: oi }))
+  }
+  function submit() {
+    if (!allAnswered) return
+    setSubmitted(true)
+    if (!alreadyClaimed) {
+      onClaim(issueIndex)
+      setJustAwarded(true)
+    }
+  }
+  function retake() {
+    setAnswers({})
+    setSubmitted(false)
+  }
+
+  const verdict =
+    score === 5
+      ? 'A perfect score — the Head Botanist is in awe! 🏆'
+      : score === 4
+        ? 'The Head Botanist is impressed!'
+        : score === 3
+          ? 'Solidly done — the Botanist nods approvingly. 🌿'
+          : score >= 1
+            ? 'A few to revisit — back to the field guide, agent! 💛'
+            : 'Tricky issue! Flip back and study the Plant Corner. 📖'
+
+  if (!quiz.length) {
+    return (
+      <div className="magazine-quiz-page" key="plant-quiz">
+        <p className="eyebrow">Weekly Plant Quiz 🌿</p>
+        <p>This issue’s quiz is warming up — check back soon. 🌸</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="magazine-quiz-page" key="plant-quiz">
+      <p className="eyebrow">Weekly Plant Quiz 🌿</p>
+      <h2>Test yourself on this issue’s plants</h2>
+      <p className="fine-print">5 questions · no timer · 3 seeds for finishing (once per issue).</p>
+      <ol className="weekly-quiz-list">
+        {quiz.map((q, qi) => (
+          <li key={qi} className="weekly-quiz-item">
+            <p className="weekly-quiz-q">{q.q}</p>
+            <div className="weekly-quiz-options">
+              {q.options.map((opt, oi) => {
+                const picked = answers[qi] === oi
+                const reveal = submitted
+                const state = reveal
+                  ? oi === q.answer
+                    ? ' correct'
+                    : picked
+                      ? ' wrong'
+                      : ''
+                  : picked
+                    ? ' picked'
+                    : ''
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`weekly-quiz-option${state}`}
+                    onClick={() => choose(qi, oi)}
+                    disabled={submitted}
+                  >
+                    {opt}
+                  </button>
+                )
+              })}
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      {!submitted ? (
+        <button className="primary-btn wide big-btn" type="button" disabled={!allAnswered} onClick={submit}>
+          {allAnswered ? 'See my score 🌿' : 'Answer all 5 to finish'}
+        </button>
+      ) : (
+        <div className="weekly-quiz-result">
+          <h3>You scored {score}/5 — {verdict}</h3>
+          {justAwarded ? (
+            <p className="weekly-quiz-coins">+3 seeds added 🌱</p>
+          ) : alreadyClaimed ? (
+            <p className="fine-print">You already earned this issue’s 3 seeds 💛 (retakes are just for fun).</p>
+          ) : null}
+          <button className="secondary-btn wide" type="button" onClick={retake}>
+            Try again 🔁
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeeklyQuiz, claimWeeklyPlantQuiz, plantScannerVisible, goToPlants }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
   const season = getSeasonInfo()
   const weekIndex = getAbsoluteWeekIndex()
   const quote = getWeeklyQuote(weekIndex)
   const coverBird = issue.birdOfWeek
+  const plantIssueIndex = getAbsoluteIssueIndex(new Date())
   const magazinePlants = getWeeklyMagazinePlants(new Date())
   // The featured bird is deliberately different from the cover bird.
   const featuredBird =
@@ -10837,6 +11139,11 @@ function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz, plantScann
     // issue is rebuilt each render; week + library are what actually matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [issue.week, data.birdLibrary],
+  )
+  const weeklyPlantQuiz = useMemo(
+    () => buildWeeklyPlantQuiz(plantIssueIndex, SA_PLANT_LIBRARY, magazinePlants),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plantIssueIndex],
   )
   const [page, setPage] = useState(0)
 
@@ -11008,6 +11315,15 @@ function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz, plantScann
                 {plant.careTips && (
                   <p className="fine-print">🪴 {plant.careTips}</p>
                 )}
+                {openPlantProfile && (
+                  <button
+                    className="secondary-btn wide"
+                    type="button"
+                    onClick={() => openPlantProfile(plant.id)}
+                  >
+                    Open plant profile
+                  </button>
+                )}
               </div>
             </article>
           ))}
@@ -11018,6 +11334,17 @@ function WeeklyMagazinePage({ data, openBirdProfile, claimWeeklyQuiz, plantScann
           </button>
         )}
       </div>,
+    )
+
+    // Page 8 — Weekly Plant Quiz, immediately after the Plant Corner.
+    pages.push(
+      <WeeklyPlantQuiz
+        key="plant-quiz"
+        quiz={weeklyPlantQuiz}
+        issueIndex={plantIssueIndex}
+        claimedWeek={data.weeklyPlantQuizClaimedWeek}
+        onClaim={claimWeeklyPlantQuiz}
+      />,
     )
   }
 
