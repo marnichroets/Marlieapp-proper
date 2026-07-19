@@ -5240,31 +5240,51 @@ function App() {
   // Plants: much simpler than addBird — no milestone coins, no mystery-egg
   // machinery, no discovery drama. A confirmed species earns exactly one seed
   // for the pouch the first time it's ever logged; repeat sightings of the
-  // same species are still saved as a memory but earn nothing extra.
+  // same species bump timesLogged/lastSpotted on the existing entry instead
+  // of creating a duplicate (My Plants shows one card per species).
   function addPlant(match, photo) {
     const commonName = String(match?.commonName || '').trim()
     const scientificName = String(match?.scientificName || '').trim()
     const speciesKey = normalizeBirdName(scientificName || commonName)
     if (!speciesKey) return null
 
-    const isNewSpecies = !data.plantLibrary.some((plant) => plant.speciesKey === speciesKey)
+    const existingIndex = data.plantLibrary.findIndex((plant) => plant.speciesKey === speciesKey)
+    const isNewSpecies = existingIndex === -1
     const seedsEarned = isNewSpecies ? 1 : 0
-    const entry = {
-      id: createId('plant'),
-      speciesKey,
-      commonName,
-      afrikaansName: String(match?.afrikaansName || ''),
-      scientificName,
-      family: String(match?.family || ''),
-      confidence: match?.confidence || 0,
-      funFact: String(match?.funFact || ''),
-      careTips: String(match?.careTips || ''),
-      referenceImageUrl: String(match?.imageUrl || ''),
-      photo: photo || '',
-      dateSpotted: todayValue(),
-      createdAt: new Date().toISOString(),
-    }
-    const nextPlantLibrary = isNewSpecies ? [entry, ...data.plantLibrary] : data.plantLibrary
+    const today = todayValue()
+    const entry = isNewSpecies
+      ? {
+          id: createId('plant'),
+          speciesKey,
+          commonName,
+          afrikaansName: String(match?.afrikaansName || ''),
+          scientificName,
+          family: String(match?.family || ''),
+          confidence: match?.confidence || 0,
+          funFact: String(match?.funFact || ''),
+          careTips: String(match?.careTips || ''),
+          referenceImageUrl: String(match?.imageUrl || ''),
+          photo: photo || '',
+          dateSpotted: today,
+          lastSpotted: today,
+          timesLogged: 1,
+          createdAt: new Date().toISOString(),
+        }
+      : data.plantLibrary[existingIndex]
+    const nextPlantLibrary = isNewSpecies
+      ? [entry, ...data.plantLibrary]
+      : data.plantLibrary.map((plant, index) =>
+          index === existingIndex
+            ? {
+                ...plant,
+                lastSpotted: today,
+                timesLogged: (plant.timesLogged || 1) + 1,
+                // Fill in a personal photo if she didn't have one yet; never
+                // overwrite a photo she already took.
+                photo: plant.photo || photo || '',
+              }
+            : plant,
+        )
     const crossedLevel = isNewSpecies
       ? PLANT_LEVELS.find(
           (lvl) => data.plantLibrary.length < lvl.threshold && nextPlantLibrary.length >= lvl.threshold,
@@ -9458,41 +9478,72 @@ function PlantLibraryPage({ data, openPlantProfile }) {
         <p className="discovered-sub">Snap a clear photo of a flower or leaves to catalogue a new specimen</p>
       </section>
 
-      <section className="full-span library-grid" aria-live="polite">
-        {plants.length === 0 && (
-          <EmptyState text="No plants catalogued yet — tap Scan a Plant to file your first specimen report." />
-        )}
-        {plants.map((plant) => (
-          <PlantLibraryCard key={plant.id} plant={plant} openPlantProfile={openPlantProfile} />
-        ))}
+      <section className="soft-card full-span discoveries-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">My Plants 🌿</p>
+            <h3>Plants you&apos;ve personally identified and photographed</h3>
+          </div>
+          <span className="status-pill">{count}</span>
+        </div>
+        <div className="library-grid" aria-live="polite">
+          {plants.length === 0 && (
+            <EmptyState text="No plants catalogued yet — tap Scan a Plant to file your first specimen report." />
+          )}
+          {plants.map((plant) => (
+            <PlantLibraryCard key={plant.id} plant={plant} openPlantProfile={openPlantProfile} />
+          ))}
+        </div>
       </section>
     </div>
   )
 }
 
 function PlantLibraryCard({ plant, openPlantProfile }) {
-  const photo = plant.photo || plant.referenceImageUrl
   const libraryMatch = SA_PLANT_LIBRARY.find(
     (p) => normalizeBirdName(p.scientificName || p.commonName) === plant.speciesKey,
   )
   const onOpen = libraryMatch && openPlantProfile ? () => openPlantProfile(libraryMatch.id) : undefined
+  const referencePhoto = plant.referenceImageUrl || libraryMatch?.imageUrl || ''
+  const timesLogged = plant.timesLogged || 1
 
   return (
     <article className={`library-bird-card seen${onOpen ? ' tappable' : ''}`} onClick={onOpen}>
-      <div className="bird-card-photo-frame">
-        {photo ? (
-          <img className="bird-card-photo" src={photo} alt={plant.commonName} loading="lazy" />
-        ) : (
-          <div className="bird-card-photo placeholder-photo">
-            <span>🌿</span>
-          </div>
-        )}
+      <div className="plant-card-photos">
+        <div className="plant-card-photo-slot">
+          {plant.photo ? (
+            <img className="bird-card-photo" src={plant.photo} alt={`${plant.commonName} — her photo`} loading="lazy" />
+          ) : (
+            <div className="bird-card-photo placeholder-photo">
+              <span>🌿</span>
+            </div>
+          )}
+          <span className="plant-photo-label">Her photo</span>
+        </div>
+        <div className="plant-card-photo-slot">
+          {referencePhoto ? (
+            <img className="bird-card-photo" src={referencePhoto} alt={`${plant.commonName} — reference`} loading="lazy" />
+          ) : (
+            <div className="bird-card-photo placeholder-photo">
+              <span>{plantCategoryEmoji(libraryMatch?.category)}</span>
+            </div>
+          )}
+          <span className="plant-photo-label">Reference</span>
+        </div>
       </div>
       <div className="bird-card-body">
         <span className="status-pill paid">Catalogued 🌿</span>
         <h3>{plant.commonName}</h3>
         <p className="nickname">{plant.afrikaansName || plant.scientificName}</p>
+        <p className="memory-caption">
+          {`First identified ${formatDate(plant.dateSpotted)} · ${timesLogged} scan${timesLogged === 1 ? '' : 's'}`}
+        </p>
         {plant.funFact && <p className="memory-caption">{plant.funFact}</p>}
+        {onOpen && (
+          <button className="secondary-btn wide big-btn" type="button" onClick={onOpen}>
+            Open profile
+          </button>
+        )}
       </div>
     </article>
   )

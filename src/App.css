@@ -1001,6 +1001,45 @@ textarea:focus {
   padding: 10px;
 }
 
+/* My Plants card: her own photo next to the field guide's reference photo,
+   side by side, each labelled so it's clear which is which. */
+.plant-card-photos {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  height: 200px;
+  min-height: 200px;
+  overflow: hidden;
+}
+
+.plant-card-photo-slot {
+  position: relative;
+  overflow: hidden;
+}
+
+.plant-card-photo-slot .bird-card-photo,
+.plant-card-photo-slot .placeholder-photo {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+
+.plant-photo-label {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  right: 6px;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--ink-strong);
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+
 .marnich-heart {
   position: absolute;
   top: 8px;
