@@ -22,6 +22,7 @@ import {
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
 import { tweetyGrowth } from './tweetyData'
+import { plantFamilyColor } from './plantData'
 
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
@@ -492,23 +493,32 @@ function SunsetBenchArt({ stageKey }) {
 }
 
 // A real species planting (from the Seed Pouch) grows through the same
-// generic sprout/budding SVG art as every other flower while young — only its
-// FINAL stage swaps in the actual reference photo of the species she
-// identified, via <foreignObject>, the same mechanism already used for the
-// graduating-companion placement ghost below.
-function SpeciesPhotoArt({ referenceImageUrl }) {
+// generic sprout/budding SVG art as every other flower while young — its FINAL
+// stage draws a generous cluster of illustrated blooms tinted to the plant's
+// real scientific family (see plantFamilyColor), so the garden stays one
+// consistent hand-drawn world throughout every stage. No photos, ever — the
+// garden is an illustrated world.
+function SpeciesBloomArt({ family }) {
+  const petalColor = plantFamilyColor(family)
+  const petals = [[-9, -21, 5], [0, -27, 5.6], [9, -20, 5], [-6, -13, 4], [6, -13, 4]]
   return (
-    <foreignObject x="-26" y="-52" width="52" height="52">
-      <div className="garden-species-photo-frame">
-        <img className="garden-species-photo" src={referenceImageUrl} alt="" loading="lazy" />
-      </div>
-    </foreignObject>
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
+      <path d="M0 -1 V-19" stroke="#5aa05a" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M-6 -10 Q0 -14 6 -9" stroke="#5aa05a" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      {petals.map(([x, y, r], i) => (
+        <g key={i}>
+          <circle cx={x} cy={y} r={r} fill={petalColor} opacity="0.92" />
+          <circle cx={x} cy={y} r={r * 0.4} fill="#ffe07a" />
+        </g>
+      ))}
+    </g>
   )
 }
 
-function PlantArt({ type, stageKey, referenceImageUrl }) {
-  if (isSpeciesPlanting(type) && stageKey === 'bloom' && referenceImageUrl) {
-    return <SpeciesPhotoArt referenceImageUrl={referenceImageUrl} />
+function PlantArt({ type, stageKey, family }) {
+  if (isSpeciesPlanting(type) && stageKey === 'bloom') {
+    return <SpeciesBloomArt family={family} />
   }
   switch (type) {
     case 'tree-seed': return <TreeArt stageKey={stageKey} />
@@ -845,9 +855,9 @@ export function GardenPage({
   const [selectedId, setSelectedId] = useState(null)
   const [selectedResidentId, setSelectedResidentId] = useState(null)
   const [placingType, setPlacingType] = useState(null)
-  // Display-only info for a species placement (commonName/referenceImageUrl):
-  // gardenItem(type) can't know these from the type string alone, so they ride
-  // alongside placingType purely for the "tap the grass..." hint + ghost art.
+  // Display-only info for a species placement (commonName): gardenItem(type)
+  // can't know this from the type string alone, so it rides alongside
+  // placingType purely for the "tap the grass..." hint.
   const [placingSpeciesMeta, setPlacingSpeciesMeta] = useState(null)
   const [ghost, setGhost] = useState(null) // { x, y, ok }
   const selected = plantings.find((p) => p.id === selectedId) || null
@@ -979,10 +989,10 @@ export function GardenPage({
     setGhost(null)
   }
 
-  function startPlacingSpecies(speciesKey, commonName, referenceImageUrl) {
+  function startPlacingSpecies(speciesKey, commonName) {
     setSelectedId(null)
     setPlacingType(`species:${speciesKey}`)
-    setPlacingSpeciesMeta({ commonName, referenceImageUrl })
+    setPlacingSpeciesMeta({ commonName })
     setGhost(null)
   }
 
@@ -1111,7 +1121,7 @@ export function GardenPage({
                   }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
-                  <PlantArt type={p.type} stageKey={plantStageKey(p)} referenceImageUrl={p.referenceImageUrl} />
+                  <PlantArt type={p.type} stageKey={plantStageKey(p)} family={p.family} />
                   {treeHasNest(p) && NEST_SPOT[p.type] && (
                     <g transform={`translate(${NEST_SPOT[p.type].x} ${NEST_SPOT[p.type].y})`}>
                       <NestArt />
@@ -1160,7 +1170,7 @@ export function GardenPage({
           {placingAny && ghost && (
             <g transform={`translate(${ghost.x} ${ghost.y})`} opacity={ghost.ok ? 0.6 : 0.3} style={{ pointerEvents: 'none' }}>
               {ghost.ok
-                ? <PlantArt type={placingType} stageKey={placingItem.stages[0]} referenceImageUrl={placingSpeciesMeta?.referenceImageUrl} />
+                ? <PlantArt type={placingType} stageKey={placingItem.stages[0]} />
                 : <text x="0" y="2" textAnchor="middle" fontSize="22" fill="#c0392b">⛔</text>}
             </g>
           )}
@@ -1375,7 +1385,7 @@ export function GardenPage({
                         setPlacingType(null)
                         setPlacingSpeciesMeta(null)
                       } else {
-                        startPlacingSpecies(species.speciesKey, species.commonName, species.referenceImageUrl)
+                        startPlacingSpecies(species.speciesKey, species.commonName)
                       }
                     }}
                   >

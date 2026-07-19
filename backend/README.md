@@ -41,6 +41,21 @@ Optional:
 OPENAI_VISION_MODEL=gpt-4o-mini
 ```
 
+### Bird ID second opinion (iNaturalist)
+
+```text
+INATURALIST_API_TOKEN=your_approved_partner_token
+```
+
+iNaturalist's computer-vision species ID (`score_image`) is **not** a public,
+self-serve API — iNaturalist staff only grant it to a small number of
+approved research/citizen-science partners on request (contact
+carrie@inaturalist.org); a personal 24-hour token from
+`/users/api_token` is not sufficient. Until `INATURALIST_API_TOKEN` is set to
+an approved partner token, `/api/identify-bird` silently runs on GPT-4o alone
+and `secondOpinion` in the response is always `null` — nothing breaks, it's
+simply inert until (if) that access is granted.
+
 ### Email notifications (Postmark)
 
 The `POST /api/notify` endpoint emails Marnich warm updates via Postmark. Set:
@@ -104,7 +119,13 @@ Returns `{"sent": true}` on success, or `{"sent": false, "reason": "..."}`.
 
 ### `POST /api/identify-bird`
 
-Accepts a multipart form upload with the field name `file`.
+Accepts a multipart form upload:
+
+- `file` (required) — the photo.
+- `location` (optional) — `"potchefstroom"` (default) or `"capetown"`; weights
+  GPT-4o (and iNaturalist, once enabled) toward species realistic for that area.
+- `month` (optional) — e.g. `"July"`, for seasonal/migratory filtering.
+- `season` (optional) — `"summer"` / `"autumn"` / `"winter"` / `"spring"`.
 
 Returns:
 
@@ -128,6 +149,18 @@ Returns:
       "soundDescription": "",
       "similarBirds": []
     }
-  ]
+  ],
+  "secondOpinion": {
+    "source": "iNaturalist",
+    "commonName": "",
+    "scientificName": "",
+    "score": 0,
+    "agreesWithTopMatch": true
+  }
 }
 ```
+
+`secondOpinion` is `null` whenever `INATURALIST_API_TOKEN` isn't configured
+(the default). When it agrees with `topMatches[0]`, `uncertain` is forced
+`false` (a confirmed, high-confidence result); when it disagrees, `uncertain`
+is forced `true` so the frontend shows both candidates and lets her choose.

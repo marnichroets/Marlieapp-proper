@@ -6,7 +6,7 @@ import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
-import { getSeasonInfo, isCapeTownWeek, capeTownTripSightingCount } from './seasons'
+import { getSeason, getSeasonInfo, isCapeTownWeek, capeTownTripSightingCount } from './seasons'
 import { saDateKey, saDateKeyOffset } from './saDate'
 import { WeeklyBird, SeasonalAmbient } from './birds'
 import { getWeeklyBird } from './birdData'
@@ -1416,13 +1416,44 @@ function normalizeAiIdentificationResponse(payload) {
     : payload?.topMatches || payload?.matches || payload?.results || payload?.birds || []
   const matchList = Array.isArray(rawMatches) ? rawMatches : []
 
+  const secondOpinion = payload?.secondOpinion
   return {
     uncertain: Boolean(payload?.uncertain),
     matches: matchList
       .slice(0, 3)
       .map((match) => normalizeAiMatch(match))
       .filter((match) => match.commonName),
+    secondOpinion: secondOpinion
+      ? {
+          source: normalizeAiText(secondOpinion.source) || 'iNaturalist',
+          commonName: normalizeAiText(secondOpinion.commonName),
+          scientificName: normalizeAiText(secondOpinion.scientificName),
+          score: normalizeConfidence(secondOpinion.score),
+          agreesWithTopMatch: Boolean(secondOpinion.agreesWithTopMatch),
+        }
+      : null,
   }
+}
+
+// The low-confidence hint shown above her results: names the top guess, the
+// one visual feature the Council used, and — when there's a genuinely
+// distinct second candidate (either iNaturalist's disagreeing guess, or her
+// own #2 GPT-4o match) — invites her to pick between the two by name, instead
+// of a generic "not sure" brush-off.
+function buildLowConfidenceMessage(matches, secondOpinion) {
+  const top = matches?.[0]
+  if (!top?.commonName) {
+    return 'The photo was a little tricky, so these are gentle guesses. Pick the closest, or none at all.'
+  }
+  const feature = top.whyThisBird
+    ? ` based on ${top.whyThisBird.charAt(0).toLowerCase()}${top.whyThisBird.slice(1).replace(/\.$/, '')}`
+    : ''
+  const altName =
+    secondOpinion?.commonName && !secondOpinion.agreesWithTopMatch
+      ? secondOpinion.commonName
+      : matches?.[1]?.commonName
+  const altBit = altName && altName !== top.commonName ? `, but could also be a ${altName}` : ''
+  return `The Council thinks this might be a ${top.commonName}${feature}${altBit}. Which looks right?`
 }
 
 function formatConfidence(value) {
@@ -3929,9 +3960,9 @@ function App() {
   // Place an item at the spot she tapped: charge on placement, store its {x,y}
   // so each garden's layout is unique. Then she tends it daily to grow it.
   // A tap-to-place from the Seed Pouch: costs a seed instead of coins, and its
-  // final grown stage is the real species photo instead of hand-drawn art
-  // (denormalized here since gardenItem() only knows the generic growth shape,
-  // not which species this particular planting is).
+  // final grown stage is an illustrated bloom tinted to the plant's real
+  // family (denormalized here since gardenItem() only knows the generic
+  // growth shape, not which species this particular planting is).
   function plantSpeciesSeed(speciesKey, x, y) {
     if (data.seeds <= 0) {
       setToast({ title: 'No seeds yet', body: 'Discover a new plant species to earn a seed 🌱', tone: 'warning' })
@@ -3952,7 +3983,7 @@ function App() {
       lastWaterDay: '',
       plantedAt: new Date().toISOString(),
       commonName: species.commonName,
-      referenceImageUrl: species.referenceImageUrl,
+      family: species.family,
     }
     commit(
       {
@@ -7747,6 +7778,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiMatches, setAiMatches] = useState([])
   const [aiUncertain, setAiUncertain] = useState(false)
+  const [aiSecondOpinion, setAiSecondOpinion] = useState(null)
   const [offlineNotice, setOfflineNotice] = useState('')
   const [loadingIndex, setLoadingIndex] = useState(0)
   const [confirmation, setConfirmation] = useState(null)
@@ -7811,6 +7843,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
   function clearAiState() {
     setAiMatches([])
     setAiUncertain(false)
+    setAiSecondOpinion(null)
     setOfflineNotice('')
     setAiStatus('idle')
   }
@@ -8036,6 +8069,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setGuidance('')
     setAiMatches([])
     setAiUncertain(false)
+    setAiSecondOpinion(null)
     setOfflineNotice('')
     setRecordError('')
     try {
@@ -8076,12 +8110,19 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
     setGuidance('')
     setAiMatches([])
     setAiUncertain(false)
+    setAiSecondOpinion(null)
     setOfflineNotice('')
 
     const endpoint = `${BIRD_API_URL}/api/identify-bird`
     try {
       const body = new FormData()
       body.append('file', photoFile)
+      // Location + season context lets the backend weight GPT-4o (and, once
+      // configured, iNaturalist) toward species that are actually realistic
+      // for where/when the photo was taken, instead of guessing blind.
+      body.append('location', isCapeTownWeek() ? 'capetown' : 'potchefstroom')
+      body.append('season', getSeason())
+      body.append('month', new Date().toLocaleDateString('en-US', { month: 'long' }))
 
       console.log('[bird-id] POST', endpoint)
       const response = await fetch(endpoint, { method: 'POST', body })
@@ -8102,6 +8143,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
       console.log('[bird-id] success —', result.matches.length, 'match(es)')
       setAiMatches(result.matches)
       setAiUncertain(result.uncertain)
+      setAiSecondOpinion(result.secondOpinion)
       setAiStatus('results')
     } catch (error) {
       // Only reach the demo result on a genuine failure (network/CORS/API error).
@@ -8113,6 +8155,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
       const result = normalizeAiIdentificationResponse(mockAiBirdMatches)
       setAiMatches(result.matches)
       setAiUncertain(false)
+      setAiSecondOpinion(null)
       setOfflineNotice(OFFLINE_BIRD_COUNCIL_MESSAGE)
       setAiStatus('results')
     }
@@ -8361,12 +8404,16 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                 <h3>Which one looks like your bird?</h3>
               </div>
               <span className={aiUncertain ? 'status-pill locked' : 'status-pill'}>
-                {aiUncertain ? 'Council is unsure' : `Top ${aiMatches.length} guesses`}
+                {aiUncertain
+                  ? 'Council is unsure'
+                  : aiSecondOpinion?.agreesWithTopMatch
+                    ? 'Confirmed by two ID systems'
+                    : `Top ${aiMatches.length} guesses`}
               </span>
             </div>
             <p className="ai-results-hint">
               {aiUncertain
-                ? 'The photo was a little tricky, so these are gentle guesses. Pick the closest, or none at all.'
+                ? buildLowConfidenceMessage(aiMatches, aiSecondOpinion)
                 : 'Tap the one that matches what you saw. There is no wrong answer \u2014 only pick if it feels right.'}
             </p>
             <div className="ai-match-grid">

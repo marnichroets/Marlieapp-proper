@@ -23,6 +23,25 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 AUDIO_MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 DEFAULT_MODEL = "gpt-4o-mini"
 
+# ---- Bird ID second opinion (iNaturalist computer vision) --------------------
+# NOT a public/self-serve API: iNaturalist staff have confirmed (see the
+# "Hidden Computer Vision API" thread on forum.inaturalist.org) that
+# score_image is only granted to a small number of approved research/citizen
+# -science partners on request (contact carrie@inaturalist.org) — a personal
+# 24-hour API token from /users/api_token is not sufficient. Until
+# INATURALIST_API_TOKEN is set to an approved partner token, identify_bird_
+# with_inaturalist below always returns None and the app runs on GPT-4o alone,
+# exactly as it did before this feature existed.
+INATURALIST_CV_URL = "https://api.inaturalist.org/v1/computervision/score_image"
+# Reference coordinates for the two places Pooks does her birding — the
+# frontend picks whichever is active (see isCapeTownWeek in seasons.js) and
+# sends it along so both GPT-4o and iNaturalist can weight toward locally
+# realistic species instead of guessing blind.
+SA_LOCATIONS = {
+    "potchefstroom": {"label": "Potchefstroom, South Africa", "lat": -26.7145, "lon": 27.0980},
+    "capetown": {"label": "Cape Town, South Africa", "lat": -33.9249, "lon": 18.4241},
+}
+
 MATCH_TEMPLATE: dict[str, Any] = {
     "commonName": "",
     "afrikaansName": "",
@@ -631,7 +650,12 @@ async def notify(payload: NotifyPayload) -> dict[str, Any]:
 
 
 @app.post("/api/identify-bird")
-async def identify_bird(file: UploadFile = File(...)) -> dict[str, Any]:
+async def identify_bird(
+    file: UploadFile = File(...),
+    location: str = Form(""),
+    month: str = Form(""),
+    season: str = Form(""),
+) -> dict[str, Any]:
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Please upload an image file.")
 
@@ -652,8 +676,19 @@ async def identify_bird(file: UploadFile = File(...)) -> dict[str, Any]:
             detail="Uploaded image is too large. Maximum size is 10 MB.",
         )
 
+    place = SA_LOCATIONS.get(location, SA_LOCATIONS["potchefstroom"])
     image_data_url = build_image_data_url(image_bytes, file.content_type)
-    return await asyncio.to_thread(identify_bird_with_openai, api_key, image_data_url)
+    result = await asyncio.to_thread(
+        identify_bird_with_openai, api_key, image_data_url, place, month, season,
+    )
+
+    inat_token = os.getenv("INATURALIST_API_TOKEN")
+    second_opinion = None
+    if inat_token:
+        second_opinion = await asyncio.to_thread(
+            identify_bird_with_inaturalist, inat_token, image_bytes, place,
+        )
+    return attach_second_opinion(result, second_opinion)
 
 
 def _run_birdnet(audio_path: str, lat: float | None, lon: float | None, week: int | None) -> list[dict[str, Any]]:
@@ -840,9 +875,19 @@ def build_image_data_url(image_bytes: bytes, content_type: str) -> str:
     return f"data:{content_type};base64,{encoded_image}"
 
 
-def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, Any]:
+def identify_bird_with_openai(
+    api_key: str,
+    image_data_url: str,
+    place: dict[str, Any],
+    month: str = "",
+    season: str = "",
+) -> dict[str, Any]:
     client = OpenAI(api_key=api_key)
     model = os.getenv("OPENAI_VISION_MODEL", DEFAULT_MODEL)
+
+    location_label = place.get("label", "South Africa")
+    when_bits = [b for b in (month, f"{season} in South Africa" if season else "") if b]
+    when_text = " (" + ", ".join(when_bits) + ")" if when_bits else ""
 
     try:
         response = client.chat.completions.create(
@@ -852,10 +897,22 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert South African ornithologist powering the "
-                        "bird-identification feature of a South African birding app. "
-                        "Only ever suggest bird species that genuinely occur in South "
-                        "Africa. Work through the most OBVIOUS physical features FIRST and "
+                        f"You are an expert South African ornithologist powering the "
+                        f"bird-identification feature of a South African birding app. "
+                        f"This photo was taken in South Africa, near {location_label}"
+                        f"{when_text}. Only ever suggest bird species that genuinely occur "
+                        "in South Africa — never a species found only elsewhere. Start "
+                        "from the most COMMON, everyday species you'd realistically see "
+                        "in a South African garden or in this area as your default "
+                        "hypothesis; only reach for a rarer or more unusual species when "
+                        "the visual evidence clearly and specifically rules out every "
+                        "common look-alike. Misidentifying a common bird as a rare one is "
+                        "a far more likely mistake than the reverse, so let common species "
+                        "win close calls. Also factor in the time of year given above — "
+                        "some species are absent, migratory, or in different (non-breeding) "
+                        "plumage at different times, so don't suggest a species that would "
+                        "be genuinely unusual to see in South Africa right now.\n\n"
+                        "Work through the most OBVIOUS physical features FIRST and "
                         "let them rule out impossible matches: overall body size, body "
                         "shape, beak shape and length, leg length, dominant colours and "
                         "markings, and posture. A large brown bird with a long down-curved "
@@ -890,16 +947,21 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                         {
                             "type": "text",
                             "text": (
-                                "Identify the bird in this photo. Only suggest South "
-                                "African bird species. Consider the bird's size, shape, "
-                                "beak, colour, and posture carefully before deciding, and "
-                                "make sure your top match is physically consistent with "
-                                "those features (a large, long-legged, curved-beak bird is "
-                                "not a tiny garden robin). Return the top 3 most likely SA "
-                                "species, ordered from most to least likely.\n\n"
-                                "For EVERY match, the whyThisBird field must name the single "
-                                "KEY distinguishing feature you actually see in THIS photo "
-                                "that points to that species, in one clear sentence, for "
+                                f"Identify the bird in this photo. It was taken near "
+                                f"{location_label}{when_text}. Only suggest South African "
+                                "bird species that are realistic for this location and time "
+                                "of year, favouring common species over rare ones unless "
+                                "the evidence clearly says otherwise. Consider the bird's "
+                                "size, shape, beak, colour, and posture carefully before "
+                                "deciding, and make sure your top match is physically "
+                                "consistent with those features (a large, long-legged, "
+                                "curved-beak bird is not a tiny garden robin). Return the "
+                                "top 3 most likely SA species, ordered from most to least "
+                                "likely.\n\n"
+                                "For EVERY match, the whyThisBird field must explicitly name "
+                                "the concrete visual features you actually see in THIS photo "
+                                "that point to that species — colour, size, beak shape, and "
+                                "any distinguishing markings — in one clear sentence, for "
                                 "example: 'The spotted rufous neck patch and pink-grey tones "
                                 "match the Laughing Dove' or 'The neat black half-collar on "
                                 "the hindneck matches the Cape Turtle Dove'. Never leave "
@@ -911,8 +973,11 @@ def identify_bird_with_openai(api_key: str, image_data_url: str) -> dict[str, An
                                 "visible, and do not force a single confident answer. Set "
                                 "uncertain to true whenever the best match is below 70 "
                                 "confidence, or the image is unclear, too distant, "
-                                "partially obstructed, or not a bird. Use empty strings or "
-                                "empty arrays where a field is genuinely unknown.\n\n"
+                                "partially obstructed, or not a bird. When you are uncertain, "
+                                "make sure at least 2-3 genuinely distinct candidates appear "
+                                "in topMatches rather than repeating one guess. Use empty "
+                                "strings or empty arrays where a field is genuinely "
+                                "unknown.\n\n"
                                 "Return only valid JSON with exactly this shape:\n\n"
                                 "{\n"
                                 '  "uncertain": false,\n'
@@ -1025,6 +1090,105 @@ def normalize_field(key: str, value: Any) -> Any:
         return ""
 
     return str(value)
+
+
+def identify_bird_with_inaturalist(
+    token: str, image_bytes: bytes, place: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Ask iNaturalist's computer-vision model for its own independent best
+    guess, as a second opinion alongside GPT-4o.
+
+    Returns None (never raises) whenever the feature is unavailable — no
+    token configured, the partner API rejects the request, or it's simply
+    unreachable — so a missing/invalid token degrades gracefully to "GPT-4o
+    only", exactly like PlantNet unavailability does for plant ID. See the
+    INATURALIST_CV_URL comment above for why a token is required at all.
+    """
+    if not token:
+        return None
+
+    import httpx  # noqa: PLC0415 - only needed for this call
+
+    data: dict[str, Any] = {}
+    if place.get("lat") is not None and place.get("lon") is not None:
+        data["lat"] = place["lat"]
+        data["lng"] = place["lon"]
+
+    try:
+        response = httpx.post(
+            INATURALIST_CV_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            files={"image": ("bird.jpg", image_bytes, "image/jpeg")},
+            data=data,
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        print(f"[marlie] iNaturalist CV unavailable/failed: {exc}", flush=True)
+        return None
+
+    results = payload.get("results", [])
+    if not isinstance(results, list) or not results:
+        return None
+
+    taxon = results[0].get("taxon") or {}
+    common_name = taxon.get("preferred_common_name") or taxon.get("name") or ""
+    if not common_name:
+        return None
+
+    try:
+        score = float(results[0].get("combined_score", 0))
+    except (TypeError, ValueError):
+        score = 0.0
+
+    return {
+        "commonName": str(common_name),
+        "scientificName": str(taxon.get("name") or ""),
+        "score": max(0, min(100, round(score))),
+    }
+
+
+def _normalize_species_name(name: str) -> str:
+    return "".join(ch.lower() for ch in str(name) if ch.isalnum())
+
+
+def attach_second_opinion(
+    result: dict[str, Any], second: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Fold iNaturalist's independent guess into the GPT-4o response.
+
+    Agreement never fabricates a new species or confidence number — it just
+    clears `uncertain` so the app can show a "confirmed by two independent
+    systems" badge. Disagreement forces `uncertain` true regardless of
+    GPT-4o's own confidence, so the frontend shows both candidates and lets
+    her pick rather than silently trusting one system over the other.
+    """
+    top = result["topMatches"][0] if result.get("topMatches") else None
+    if not second or not top:
+        result["secondOpinion"] = None
+        return result
+
+    top_name = _normalize_species_name(top.get("commonName", "")) or _normalize_species_name(
+        top.get("scientificName", "")
+    )
+    second_name = _normalize_species_name(
+        second.get("commonName", "")
+    ) or _normalize_species_name(second.get("scientificName", ""))
+    agrees = bool(top_name) and top_name == second_name
+
+    result["secondOpinion"] = {
+        "source": "iNaturalist",
+        "commonName": second["commonName"],
+        "scientificName": second["scientificName"],
+        "score": second["score"],
+        "agreesWithTopMatch": agrees,
+    }
+    # Two independent systems agreeing is a strong, explicit high-confidence
+    # signal; disagreeing always forces the "let her choose" flow regardless
+    # of how confident GPT-4o alone felt.
+    result["uncertain"] = not agrees
+    return result
 
 
 @app.post("/api/identify-plant")

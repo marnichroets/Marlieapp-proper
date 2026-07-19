@@ -155,9 +155,10 @@ export function gardenItem(type) {
 
 // A planting from the Seed Pouch (a real identified species, not a shop item)
 // carries its type as `species:<speciesKey>`. Its display info (commonName,
-// referenceImageUrl) is denormalized directly onto the planting record itself
-// at creation time (see App.jsx's placeGardenItem), since gardenItem() here is
-// a pure function of `type` alone and has no access to the plantLibrary.
+// family — used to tint its illustrated bloom) is denormalized directly onto
+// the planting record itself at creation time (see App.jsx's
+// placeGardenItem), since gardenItem() here is a pure function of `type`
+// alone and has no access to the plantLibrary.
 export function isSpeciesPlanting(type) {
   return typeof type === 'string' && type.startsWith('species:')
 }

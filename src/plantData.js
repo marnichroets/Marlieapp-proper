@@ -2982,6 +2982,39 @@ export function plantCategoryEmoji(category) {
   return PLANT_CATEGORY_EMOJI[category] || '🌿'
 }
 
+// Real scientific plant families (from PlantNet, stored on each My Plants
+// entry — see backend's identify_plant_with_plantnet) get a distinctive bloom
+// colour in the Garden's illustrated art, so her grown species reads as
+// botanically varied without ever falling back to a photo. A handful of the
+// families most common in SA gardens get a hand-picked tone; anything else
+// (rarer/unlisted families) hashes deterministically into the same palette,
+// so a given species always blooms the same colour.
+const PLANT_FAMILY_COLORS = {
+  Proteaceae: '#e8657a',
+  Asteraceae: '#ffd45e',
+  Fabaceae: '#c9a8e8',
+  Iridaceae: '#8f7fe0',
+  Aizoaceae: '#f2905a',
+  Rosaceae: '#f6a5c0',
+  Myrtaceae: '#7bc9a8',
+  Rutaceae: '#f8c95e',
+  Lamiaceae: '#a878c9',
+  Amaryllidaceae: '#f47a9c',
+}
+
+const PLANT_FAMILY_FALLBACK_PALETTE = [
+  '#f6a5c0', '#ffd45e', '#c9a8e8', '#f8b4d0', '#fff0b3', '#8fd0e0', '#e8895a', '#9ccb6f',
+]
+
+export function plantFamilyColor(family) {
+  const key = String(family || '').trim()
+  if (PLANT_FAMILY_COLORS[key]) return PLANT_FAMILY_COLORS[key]
+  if (!key) return PLANT_FAMILY_FALLBACK_PALETTE[0]
+  let hash = 0
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
+  return PLANT_FAMILY_FALLBACK_PALETTE[hash % PLANT_FAMILY_FALLBACK_PALETTE.length]
+}
+
 function hash(str) {
   let h = 2166136261
   for (let i = 0; i < str.length; i += 1) {
