@@ -45,6 +45,9 @@ import {
   GARDEN_REGION,
   canPlaceResidentAt,
   RESIDENT_TREAT_COST,
+  SEED_PLANT_COST,
+  WISHING_WELL_COINS,
+  canWish,
 } from './gardenData'
 import {
   defaultTweety,
@@ -456,20 +459,26 @@ function milkshakeClaimed(account = 'pooks') {
   }
 }
 
-// Coin earning rules (rebalanced for a sustainable ~1-2 weeks-per-item pace).
+// Coin earning rules (rebalanced 2026-07 for a much slower, months-long pace —
+// the garden and shops should feel like a real, ongoing savings goal).
 const COINS = {
   spot: 30, // spotting any bird
-  firstSpecies: 10, // +10 bonus the first time a species is seen (40 total)
+  firstSpecies: 20, // +20 bonus the first time a species is seen (50 total)
   withMarnich: 0, // spotting "with Marnich" is sentimental, not extra coins
   dailyChallenge: 20, // daily challenge completion
   streakBonus: 15, // occasional daily-challenge streak bonus (every 3 days)
-  tweetyCare: 5, // per completed Tweety care window (3 windows = 15/day)
-  tweetyStreak: 50, // 7-day Tweety care streak bonus
+  tweetyCare: 25, // per completed Tweety care window (3 windows = 75/day)
+  tweetyStreak: 200, // 7-day Tweety care streak bonus
   mysteryEgg: 50, // small bonus celebration when a mystery egg is earned
+  newPlantSpecies: 40, // +40 the first time a plant species is logged
+  eggWarm: 30, // per daily warm of a mystery egg
+  eggHatch: 300, // one-time bonus when a mystery egg finishes hatching
 }
 
+// New (non-final) Tweety growth-stage transition — one-time per stage.
+const GROWTH_STAGE_REWARD = 500
 // One-time reward when Tweety reaches the final "crowned adult" growth stage.
-const CROWN_ADULT_REWARD = 1500
+const CROWN_ADULT_REWARD = 2000
 
 // ---- Random wildlife encounters --------------------------------------------
 // Occasionally when the app opens or she visits Tweety's nest, a little critter
@@ -674,20 +683,20 @@ const SHOP = {
 // hatches (see warmMysteryEgg) — a new companion starts with nothing bought.
 // Sorted cheapest-first for the shop display.
 const TWEETY_STORE_ITEMS = [
-  { id: 'ribbon', emoji: '🎀', name: 'Ribbon Decoration', cost: 90, kind: 'decor', hint: 'A pretty bow tied onto the nest' },
-  { id: 'mirror', emoji: '🪞', name: 'Small Mirror', cost: 120, kind: 'decor', hint: 'Propped by the nest — Tweety occasionally catches her reflection and preens' },
-  { id: 'flowers', emoji: '🌸', name: 'Flower Bouquet', cost: 130, kind: 'decor', hint: 'A little bouquet blooms beside the nest' },
-  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 140, kind: 'decor', hint: 'A decorative branch settles into the nest area' },
-  { id: 'treats', emoji: '🍓', name: 'Special Treats Bag', cost: 150, kind: 'consumable', hint: 'An instant happiness boost — Tweety stays happy for the rest of the day — plus a little bowl by the nest for good' },
-  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 170, kind: 'decor', hint: 'A warm woven lining makes the nest look cozier' },
-  { id: 'herbs', emoji: '🌿', name: 'Herb Bundle', cost: 180, kind: 'comfort', hint: 'Fresh herbs hang by the nest — Tweety looks (and feels) healthier' },
-  { id: 'window', emoji: '🪟', name: 'Tiny Window', cost: 190, kind: 'decor', hint: 'A cute little window appears on the nest' },
-  { id: 'feedingbowl', emoji: '🥣', name: 'Feeding Bowl', cost: 200, kind: 'comfort', hint: "A permanent bowl by the nest — missing an occasional feed won't upset her" },
-  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 210, kind: 'decor', hint: 'Tap it for a happy little tune and dance' },
-  { id: 'chimes', emoji: '🎐', name: 'Wind Chimes', cost: 220, kind: 'decor', hint: 'Tap them for a gentle jingle and a happy little dance' },
-  { id: 'watertank', emoji: '💧', name: 'Large Water Tank', cost: 250, kind: 'comfort', hint: "A water dispenser by the nest — missing an occasional water won't upset her" },
-  { id: 'cozynest', emoji: '🏡', name: 'Cozy Nest Upgrade', cost: 300, kind: 'nest', hint: 'The nest gets a warm, lined, lived-in look' },
-  { id: 'birdhouse', emoji: '🏰', name: 'Luxury Birdhouse', cost: 800, kind: 'nest', hint: "Replaces the nest entirely — Tweety's whole home changes" },
+  { id: 'ribbon', emoji: '🎀', name: 'Ribbon Decoration', cost: 300, kind: 'decor', hint: 'A pretty bow tied onto the nest' },
+  { id: 'mirror', emoji: '🪞', name: 'Small Mirror', cost: 400, kind: 'decor', hint: 'Propped by the nest — Tweety occasionally catches her reflection and preens' },
+  { id: 'flowers', emoji: '🌸', name: 'Flower Bouquet', cost: 450, kind: 'decor', hint: 'A little bouquet blooms beside the nest' },
+  { id: 'perch', emoji: '🌿', name: 'Perch Branch', cost: 500, kind: 'decor', hint: 'A decorative branch settles into the nest area' },
+  { id: 'treats', emoji: '🍓', name: 'Special Treats Bag', cost: 350, kind: 'consumable', hint: 'An instant happiness boost — Tweety stays happy for the rest of the day — plus a little bowl by the nest for good' },
+  { id: 'blanket', emoji: '🪺', name: 'Cozy Nest Blanket', cost: 600, kind: 'decor', hint: 'A warm woven lining makes the nest look cozier' },
+  { id: 'herbs', emoji: '🌿', name: 'Herb Bundle', cost: 650, kind: 'comfort', hint: 'Fresh herbs hang by the nest — Tweety looks (and feels) healthier' },
+  { id: 'window', emoji: '🪟', name: 'Tiny Window', cost: 700, kind: 'decor', hint: 'A cute little window appears on the nest' },
+  { id: 'feedingbowl', emoji: '🥣', name: 'Feeding Bowl', cost: 800, kind: 'comfort', hint: "A permanent bowl by the nest — missing an occasional feed won't upset her" },
+  { id: 'musicbox', emoji: '🎵', name: 'Music Box', cost: 750, kind: 'decor', hint: 'Tap it for a happy little tune and dance' },
+  { id: 'chimes', emoji: '🎐', name: 'Wind Chimes', cost: 850, kind: 'decor', hint: 'Tap them for a gentle jingle and a happy little dance' },
+  { id: 'watertank', emoji: '💧', name: 'Large Water Tank', cost: 900, kind: 'comfort', hint: "A water dispenser by the nest — missing an occasional water won't upset her" },
+  { id: 'cozynest', emoji: '🏡', name: 'Cozy Nest Upgrade', cost: 1200, kind: 'nest', hint: 'The nest gets a warm, lined, lived-in look' },
+  { id: 'birdhouse', emoji: '🏰', name: 'Luxury Birdhouse', cost: 2500, kind: 'nest', hint: "Replaces the nest entirely — Tweety's whole home changes" },
 ]
 
 // Bottom tab bar (7) + everything else tucked behind the settings menu.
@@ -2824,7 +2833,7 @@ function App() {
         return {
           ...current,
           tweetyGrowthSeen: idx,
-          featherCoins: (current.featherCoins || 0) + (isCrown ? CROWN_ADULT_REWARD : 0),
+          featherCoins: (current.featherCoins || 0) + (isCrown ? CROWN_ADULT_REWARD : GROWTH_STAGE_REWARD),
           messages: [message, ...(current.messages || [])],
         }
       })
@@ -2840,7 +2849,7 @@ function App() {
           : {
               tone: 'bird',
               title: `${name} is growing! 🎉`,
-              body: `${name} just became a ${stage.label}. Each day of love helps them grow a little bigger. 💛`,
+              body: `${name} just became a ${stage.label}. Each day of love helps them grow a little bigger. +${GROWTH_STAGE_REWARD} Feather Coins. 💛`,
             },
       )
     }, 0)
@@ -3666,7 +3675,7 @@ function App() {
     }
 
     // Coins are earned per completed care WINDOW (feed+water+play), so a full
-    // day of all three windows pays 15 — individual taps just keep Tweety happy.
+    // day of all three windows pays 75 — individual taps just keep Tweety happy.
     let coins = windowComplete ? COINS.tweetyCare : 0
     let bonusNote = ''
     // The whole day is "full" once all three care windows are complete.
@@ -3771,8 +3780,15 @@ function App() {
 
     if (warms < MYSTERY_EGG_WARMS) {
       commit(
-        { ...data, mysteryEgg: { ...egg, warms, lastWarmDay: today } },
-        { title: 'So warm and cosy 💛', body: `${warms}/${MYSTERY_EGG_WARMS} days until it hatches.` },
+        {
+          ...data,
+          mysteryEgg: { ...egg, warms, lastWarmDay: today },
+          featherCoins: data.featherCoins + COINS.eggWarm,
+        },
+        {
+          title: 'So warm and cosy 💛',
+          body: `${warms}/${MYSTERY_EGG_WARMS} days until it hatches. +${COINS.eggWarm} Feather Coins.`,
+        },
       )
       return
     }
@@ -3793,7 +3809,7 @@ function App() {
     setReveal({
       tone: 'bird',
       title: `A ${egg.realSpecies} hatched! 🐣`,
-      body: `Your mystery egg hatched into a ${egg.realSpecies} — meet your new companion. 🎉`,
+      body: `Your mystery egg hatched into a ${egg.realSpecies} — meet your new companion. +${COINS.eggHatch} Feather Coins. 🎉`,
     })
     commit(
       {
@@ -3803,9 +3819,10 @@ function App() {
         tweetyGrowthSeen: 0,
         // A new companion starts fresh — the Tweety Store resets completely.
         tweetyStore: [],
+        featherCoins: data.featherCoins + COINS.eggHatch,
         messages: [hatchSystemMessage(egg.realSpecies), ...(data.messages || [])],
       },
-      { title: `${egg.realSpecies} hatched! 🐣`, body: 'Your new companion is here.' },
+      { title: `${egg.realSpecies} hatched! 🐣`, body: `Your new companion is here. +${COINS.eggHatch} Feather Coins.` },
     )
   }
 
@@ -3968,6 +3985,14 @@ function App() {
       setToast({ title: 'No seeds yet', body: 'Discover a new plant species to earn a seed 🌱', tone: 'warning' })
       return
     }
+    if (data.featherCoins < SEED_PLANT_COST) {
+      setToast({
+        title: 'Not enough coins yet',
+        body: `Planting a seed costs ${SEED_PLANT_COST} 🪙 on top of the seed.`,
+        tone: 'warning',
+      })
+      return
+    }
     const species = data.plantLibrary.find((p) => p.speciesKey === speciesKey)
     if (!species) return
     const garden = data.garden || defaultGarden()
@@ -3989,12 +4014,31 @@ function App() {
       {
         ...data,
         seeds: data.seeds - 1,
+        featherCoins: data.featherCoins - SEED_PLANT_COST,
         garden: { ...garden, plantings: [...plantings, planting] },
       },
       {
         title: 'Seed planted 🌱',
         body: `Your ${species.commonName} seed is in the ground — water it each day to watch it grow into the real thing.`,
       },
+    )
+  }
+
+  // Wishing Well: once per SA day, tapping the fully-grown well pays out a
+  // random amount up to WISHING_WELL_COINS — a little daily treat, gated the
+  // same way watering/care windows already are so it can't be farmed.
+  function wishAtWell() {
+    if (readOnly) return
+    const garden = data.garden || defaultGarden()
+    if (!canWish(garden, saDateKey())) return
+    const amount = 1 + Math.floor(Math.random() * WISHING_WELL_COINS)
+    commit(
+      {
+        ...data,
+        garden: { ...garden, lastWishDay: saDateKey() },
+        featherCoins: data.featherCoins + amount,
+      },
+      { title: 'A wish granted ✨', body: `The well glimmers — +${amount} Feather Coins.` },
     )
   }
 
@@ -4631,11 +4675,11 @@ function App() {
   }
 
   // ----- Competitive games (backend-synced sessions + all-time leaderboard) --
-  // Both players earn coins for playing a Bird Battle: 25 for a win, 15 for a
-  // draw, 10 for a loss (a small thank-you, never a penalty).
-  const GAME_WIN_COINS = 25
-  const GAME_DRAW_COINS = 15
-  const GAME_LOSS_COINS = 10
+  // Both players earn coins for playing a Bird Battle: 100 for a win, 40 for a
+  // draw, 25 for a loss (a small thank-you, never a penalty).
+  const GAME_WIN_COINS = 100
+  const GAME_DRAW_COINS = 40
+  const GAME_LOSS_COINS = 25
 
   // Apply a backend session state to the local UI. The leaderboard always comes
   // from the server (single source of truth across both devices); the local
@@ -4690,8 +4734,8 @@ function App() {
   // Used only if the server can't be reached, so a network blip never loses a game.
   function finishMatch(gameKey, winner, detail, extraPooksCoins = 0) {
     const g = data.games
-    // Same sustainable, friendly payout as the online path: 25 win / 15 draw /
-    // 10 loss, always a small gain for the local player (Pooks on this device).
+    // Same friendly payout as the online path: 100 win / 40 draw / 25 loss,
+    // always a small gain for the local player (Pooks on this device).
     const coinDelta =
       (winner === 'pooks' ? GAME_WIN_COINS : winner === 'draw' ? GAME_DRAW_COINS : GAME_LOSS_COINS) +
       extraPooksCoins
@@ -4795,27 +4839,32 @@ function App() {
       })
   }
 
-  // Weekly magazine quiz: 25 coins for finishing, but only once per week.
+  // Weekly magazine quiz: 50 coins for finishing, but only once per week.
   function claimWeeklyQuiz(week) {
     if (data.weeklyQuizClaimedWeek === week) return
     commit(
-      { ...data, weeklyQuizClaimedWeek: week, featherCoins: data.featherCoins + 25 },
+      { ...data, weeklyQuizClaimedWeek: week, featherCoins: data.featherCoins + 50 },
       {
         title: 'Weekly Bird Quiz complete! 🧠',
-        body: 'The Bird Council added 25 Feather Coins to your bank 🪙',
+        body: 'The Bird Council added 50 Feather Coins to your bank 🪙',
       },
     )
   }
 
-  // Weekly Plant Corner quiz: seeds (the plant economy's currency, see
-  // addPlant()) rather than Feather Coins, once per issue.
+  // Weekly Plant Corner quiz: coins plus seeds (the plant economy's currency,
+  // see addPlant()), once per issue.
   function claimWeeklyPlantQuiz(issueIndex) {
     if (data.weeklyPlantQuizClaimedWeek === issueIndex) return
     commit(
-      { ...data, weeklyPlantQuizClaimedWeek: issueIndex, seeds: data.seeds + 3 },
+      {
+        ...data,
+        weeklyPlantQuizClaimedWeek: issueIndex,
+        seeds: data.seeds + 3,
+        featherCoins: data.featherCoins + 50,
+      },
       {
         title: 'Weekly Plant Quiz complete! 🌿',
-        body: 'The Head Botanist added 3 seeds to your pouch 🌱',
+        body: 'The Head Botanist added 50 Feather Coins and 3 seeds to your pouch 🌱',
       },
     )
   }
@@ -5291,13 +5340,14 @@ function App() {
         )
       : null
     const levelCoins = crossedLevel?.coins || 0
+    const speciesCoins = isNewSpecies ? COINS.newPlantSpecies : 0
 
     commit(
       {
         ...data,
         plantLibrary: nextPlantLibrary,
         seeds: data.seeds + seedsEarned,
-        featherCoins: data.featherCoins + levelCoins,
+        featherCoins: data.featherCoins + speciesCoins + levelCoins,
         messages: crossedLevel
           ? [botanicalCertificateMessage(crossedLevel), ...(data.messages || [])]
           : data.messages,
@@ -5306,7 +5356,7 @@ function App() {
         title: isNewSpecies ? 'New plant discovered! 🌿' : 'Logged again 🌱',
         body: [
           isNewSpecies
-            ? `The Head Botanist has confirmed the ${commonName}. +1 seed for your pouch 🌱`
+            ? `The Head Botanist has confirmed the ${commonName}. +1 seed and +${speciesCoins} Feather Coins 🌱`
             : `The ${commonName} is already in your collection — logged again for the memory.`,
           crossedLevel ? `Promoted to ${crossedLevel.name}! +${levelCoins} Feather Coins 🏅` : '',
         ]
@@ -5323,7 +5373,7 @@ function App() {
         body: [
           `The Council's Head Botanist has confirmed this specimen as the ${commonName}${
             entry.afrikaansName ? ` (${entry.afrikaansName})` : ''
-          }. +1 seed for your pouch 🌱`,
+          }. +1 seed for your pouch and +${speciesCoins} Feather Coins 🌱`,
           crossedLevel
             ? `You've been promoted to ${crossedLevel.name}! +${levelCoins} Feather Coins 🏅 A full certificate is waiting in your inbox.`
             : '',
@@ -6246,6 +6296,7 @@ function App() {
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
             onTreatResident={treatResident}
+            onWish={wishAtWell}
             onBack={goBack}
             tweety={data.tweety}
             seeds={data.seeds}

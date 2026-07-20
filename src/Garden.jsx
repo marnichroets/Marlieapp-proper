@@ -8,12 +8,15 @@ import {
   GARDEN_SHOP,
   GARDEN_TIERS,
   RESIDENT_TREAT_COST,
+  SEED_PLANT_COST,
+  WISHING_WELL_COINS,
   gardenItem,
   isSpeciesPlanting,
   plantStageKey,
   isFullyGrown,
   treeHasNest,
   wateredToday,
+  canWish,
   STAGE_LABELS,
   GARDEN_REGION,
   snapToGarden,
@@ -825,6 +828,7 @@ export function GardenPage({
   onWater,
   onBack,
   onTreatResident,
+  onWish,
   tweety = null,
   seeds = 0,
   plantableSpecies = [],
@@ -1117,7 +1121,10 @@ export function GardenPage({
                   onClick={placingAny ? undefined : (e) => {
                     e.stopPropagation()
                     setSelectedId(p.id)
-                    if (p.type === 'wishing-well' && isFullyGrown(p)) setWishBurst({ id: p.id, x: jx, y: jy })
+                    if (p.type === 'wishing-well' && isFullyGrown(p)) {
+                      setWishBurst({ id: p.id, x: jx, y: jy })
+                      if (canWish(garden, today)) onWish?.()
+                    }
                   }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
@@ -1338,7 +1345,13 @@ export function GardenPage({
               ))}
             </div>
             {grown ? (
-              <p className="fine-print">Fully grown — it&apos;s a permanent part of the garden.</p>
+              <p className="fine-print">
+                {selected.type === 'wishing-well'
+                  ? canWish(garden, today)
+                    ? `Tap the well to make a wish — up to ${WISHING_WELL_COINS} 🪙 back.`
+                    : 'Already wished today — the well glimmers, waiting for tomorrow. ✨'
+                  : "Fully grown — it's a permanent part of the garden."}
+              </p>
             ) : watered ? (
               <>
                 <p className="fine-print">{item.verb}ed {selected.wateredDays}/{item.waterToGrow} days.</p>
@@ -1369,11 +1382,14 @@ export function GardenPage({
           </p>
         ) : (
           <>
-            <p className="fine-print">Tap a species below, then tap the grass to plant it — it grows into the real thing you photographed.</p>
+            <p className="fine-print">
+              Tap a species below, then tap the grass to plant it — it grows into the real thing you
+              photographed. Planting costs {SEED_PLANT_COST} 🪙 on top of the seed.
+            </p>
             <div className="garden-shop-row">
               {plantableSpecies.map((species) => {
                 const active = placingType === `species:${species.speciesKey}`
-                const disabled = seeds <= 0 && !active
+                const disabled = (seeds <= 0 || coins < SEED_PLANT_COST) && !active
                 return (
                   <button
                     key={species.speciesKey}
@@ -1400,7 +1416,7 @@ export function GardenPage({
                       <span className="garden-shop-emoji">🌿</span>
                     )}
                     <strong>{species.commonName}</strong>
-                    <small>1 seed 🌱</small>
+                    <small>Plant this 🌱 ({SEED_PLANT_COST} coins)</small>
                   </button>
                 )
               })}
