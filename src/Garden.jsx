@@ -663,6 +663,61 @@ function SucculentBloom({ color, foliage }) {
   )
 }
 
+// Orchid — an arching stem carrying a couple of exotic, broad-lipped blooms,
+// basal strap leaves at the base (Moth Orchid, Paphiopedilum, etc.).
+function OrchidBloom({ color, foliage }) {
+  const blooms = [[6, -22], [3, -31]]
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
+      <path d="M-2 -1 Q-9 -10 -6 -20" stroke={foliage} strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M2 -1 Q9 -10 6 -20" stroke={foliage} strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M0 -3 Q10 -18 4 -32" stroke={foliage} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      {blooms.map(([x, y], i) => (
+        <g key={i} transform={`translate(${x} ${y})`}>
+          <ellipse cx="-4" cy="0" rx="3.6" ry="2.4" fill={color} transform="rotate(-30 -4 0)" />
+          <ellipse cx="4" cy="0" rx="3.6" ry="2.4" fill={color} transform="rotate(30 4 0)" />
+          <ellipse cx="0" cy="-3" rx="3" ry="2.2" fill={color} opacity="0.9" />
+          <ellipse cx="0" cy="1.5" rx="2.2" ry="1.6" fill="#fff3d6" />
+        </g>
+      ))}
+    </g>
+  )
+}
+
+// Palm — a short trunk with fronds radiating out (foliage-only, no flower).
+function PalmBloom({ color }) {
+  const fronds = [-70, -40, -15, 15, 40, 70]
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
+      <path d="M0 -1 Q-3 -14 0 -24" stroke="#8a6a42" strokeWidth="3" fill="none" strokeLinecap="round" />
+      {fronds.map((ang, i) => (
+        <path
+          key={i}
+          d="M0 -24 Q10 -28 16 -22"
+          stroke={color} strokeWidth="3" fill="none" strokeLinecap="round"
+          transform={`rotate(${ang} 0 -24)`}
+        />
+      ))}
+    </g>
+  )
+}
+
+// Leafy houseplant (Monstera, Philodendron, Pothos…) — big glossy paired
+// leaves, foliage-only, no flower.
+function HouseplantBloom({ color }) {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
+      <path d="M0 -2 V-16" stroke="#3f6a3a" strokeWidth="2" strokeLinecap="round" />
+      <path d="M-1 -14 Q-14 -18 -12 -30 Q-4 -24 -1 -14 Z" fill={color} />
+      <path d="M1 -12 Q14 -20 13 -30 Q5 -22 1 -12 Z" fill={color} opacity="0.92" />
+      <path d="M-8 -22 q3 2 2 6 M8 -24 q-3 2 -2 6" stroke="#2a4a28" strokeWidth="1" fill="none" opacity="0.5" />
+    </g>
+  )
+}
+
 // Generic fynbos — fine silvery-grey foliage sprigs with small bright flowers
 // dotted along the tips.
 function FynbosBloom({ color, foliage }) {
@@ -691,6 +746,9 @@ function SpeciesBloomArt({ commonName, family }) {
     case 'bulbine': return <BulbineBloom color={color} foliage={foliage} />
     case 'strelitzia': return <StrelitziaBloom color={color} foliage={foliage} />
     case 'succulent': return <SucculentBloom color={color} foliage={foliage} />
+    case 'orchid': return <OrchidBloom color={color} foliage={foliage} />
+    case 'palm': return <PalmBloom color={color} />
+    case 'houseplant': return <HouseplantBloom color={color} />
     case 'fynbos': return <FynbosBloom color={color} foliage={foliage} />
     default: return <GenericBloom color={color} foliage={foliage} />
   }

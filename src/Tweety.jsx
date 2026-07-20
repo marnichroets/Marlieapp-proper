@@ -425,6 +425,60 @@ const SPECIES = {
     greyUnder: '#D8D0C0', whiteBelly: '#EFEADF',
     feats: { tail: 'short' },
   },
+  // Recoloured siblings of 'wild', same neutral shape — gardenCompanionFor
+  // hashes any species it can't otherwise identify across this whole set
+  // (see wild + WILD_VARIANTS below) instead of always returning plain
+  // 'wild', so two different unmapped species (a heron and a thick-knee, say)
+  // never render as the literal same bird.
+  wild2: {
+    adult: { back: '#6E7C89', wing: '#5C6A76', beak: '#332E28', feet: '#8A7A5A', eye: '#20241E' },
+    young: { back: '#7C8996', wing: '#6A7784', beak: '#463F36', feet: '#8A7A5A', eye: '#20241E' },
+    juv: { back: '#8A97A2', wing: '#78848F', beak: '#5A4A3A', feet: '#8A7A5A', eye: '#2C2620' },
+    greyUnder: '#CBD2D6', whiteBelly: '#E9EEEF',
+    feats: { tail: 'short' },
+  },
+  wild3: {
+    adult: { back: '#6E8A4E', wing: '#5C7640', beak: '#332A1E', feet: '#A08A5A', eye: '#20241E' },
+    young: { back: '#7C9760', wing: '#6A8250', beak: '#463A2A', feet: '#A08A5A', eye: '#20241E' },
+    juv: { back: '#8CA470', wing: '#7A9060', beak: '#5A4A3A', feet: '#A08A5A', eye: '#2C2620' },
+    greyUnder: '#D6DEC4', whiteBelly: '#EDF2E0',
+    feats: { tail: 'short' },
+  },
+  wild4: {
+    adult: { back: '#B08A4A', wing: '#96733A', beak: '#3A2E1E', feet: '#8A6A42', eye: '#20180E' },
+    young: { back: '#BC9860', wing: '#A28248', beak: '#4A3B28', feet: '#8A6A42', eye: '#20180E' },
+    juv: { back: '#C8A874', wing: '#AE9258', beak: '#5A4A3A', feet: '#8A6A42', eye: '#2C2620' },
+    greyUnder: '#EAD9B8', whiteBelly: '#F5EBD4',
+    feats: { tail: 'short' },
+  },
+  wild5: {
+    adult: { back: '#9A5A42', wing: '#804832', beak: '#2E241C', feet: '#7A5A3A', eye: '#1C140E' },
+    young: { back: '#A66C54', wing: '#8C5A42', beak: '#3E3024', feet: '#7A5A3A', eye: '#1C140E' },
+    juv: { back: '#B27E66', wing: '#986C54', beak: '#4E3E30', feet: '#7A5A3A', eye: '#2C2620' },
+    greyUnder: '#DEC0AE', whiteBelly: '#F0DDD2',
+    feats: { tail: 'short' },
+  },
+  wild6: {
+    adult: { back: '#4A4A50', wing: '#3A3A40', beak: '#241E18', feet: '#6A6258', eye: '#100E0C' },
+    young: { back: '#5A5A60', wing: '#4A4A50', beak: '#342E26', feet: '#6A6258', eye: '#100E0C' },
+    juv: { back: '#6A6A70', wing: '#5A5A60', beak: '#443A2E', feet: '#6A6258', eye: '#2C2620' },
+    greyUnder: '#B8B8BE', whiteBelly: '#DEDEE2',
+    feats: { tail: 'short' },
+  },
+  wild7: {
+    adult: { back: '#A2765E', wing: '#88604A', beak: '#302620', feet: '#8A6A4E', eye: '#1E1610' },
+    young: { back: '#AE8670', wing: '#946E58', beak: '#40342A', feet: '#8A6A4E', eye: '#1E1610' },
+    juv: { back: '#BA9682', wing: '#A07C66', beak: '#503E30', feet: '#8A6A4E', eye: '#2C2620' },
+    greyUnder: '#E4CEC2', whiteBelly: '#F2E4DC',
+    feats: { tail: 'short' },
+  },
+  wild8: {
+    adult: { back: '#3E7A72', wing: '#32665E', beak: '#241E18', feet: '#7A7A5A', eye: '#101E1A' },
+    young: { back: '#4E8880', wing: '#42746C', beak: '#342A22', feet: '#7A7A5A', eye: '#101E1A' },
+    juv: { back: '#5E968E', wing: '#52827A', beak: '#443A2E', feet: '#7A7A5A', eye: '#2C2620' },
+    greyUnder: '#C0D6D2', whiteBelly: '#E0EEEC',
+    feats: { tail: 'short' },
+  },
   // ---- Garden-visitor-only species (below): NOT selectable companions, never
   // in TWEETY_COMPANIONS — visual ids resolved purely by gardenCompanionFor()
   // (see tweetyData.js) so every Collection bird visiting the garden gets its

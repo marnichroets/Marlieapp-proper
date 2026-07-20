@@ -71,13 +71,49 @@ const GARDEN_VISUAL_SCI = {
 // Checked only after the exact companion/visual lookups above, so a species
 // with its own dedicated entry (e.g. Scaly-feathered Weaver) is never
 // overridden by a broader family keyword (e.g. "weaver" → bright yellow).
+// Deliberately broad — her real Collection is dominated by common SA garden/
+// water/street birds (sparrows, ducks, starlings, herons, lapwings, gulls,
+// guineafowl, thrushes, wagtails, cormorants, barbets, bulbuls, fiscals,
+// turacos…), none of which are one of the six companions, so this list has
+// to actually cover them or almost everything falls through to 'wild'.
 const GARDEN_FAMILY_KEYWORDS = [
   [/weaver/, 'weaver'],
+  [/bishop/, 'bishop'],
+  [/canary/, 'weaver'],
   [/robin/, 'robin'],
+  [/\bchat\b/, 'familiarchat'],
   [/sunbird/, 'sunbird'],
+  [/kingfisher/, 'kingfisher'],
+  [/sparrow/, 'sparrow'],
   [/ibis/, 'hadeda'],
+  [/starling/, 'starling'],
   [/dove|pigeon/, 'wooddove'],
+  [/bulbul/, 'warbler'],
+  [/thrush/, 'wild5'],
+  [/fiscal|shrike/, 'wild6'],
+  [/barbet/, 'wild4'],
+  [/lapwing|plover|thick-knee|thicknee/, 'wild2'],
+  [/wagtail/, 'wild3'],
+  [/guineafowl|guinea fowl/, 'wild6'],
+  [/cormorant/, 'wild6'],
+  [/gull/, 'wild2'],
+  [/heron|egret/, 'wild8'],
+  [/duck|goose|waterfowl/, 'wild4'],
+  [/turaco|lourie|loerie|go-away/, 'wild3'],
 ]
+
+// Any species that matches none of the above still gets a stable, distinct
+// colour instead of the same flat brown every time — hashed off its own
+// name, from this palette of neutral-but-varied recolours (see Tweety.jsx).
+// This is the real backstop: no two differently-named unmapped species can
+// ever render identically, even ones no keyword above happens to cover.
+const WILD_VARIANTS = ['wild', 'wild2', 'wild3', 'wild4', 'wild5', 'wild6', 'wild7', 'wild8']
+
+function hashString(value) {
+  let h = 0
+  for (let i = 0; i < value.length; i += 1) h = (h * 31 + value.charCodeAt(i)) >>> 0
+  return h
+}
 
 function normName(value) {
   return String(value || '').trim().toLowerCase().replace(/[’']/g, '').replace(/\s+/g, ' ')
@@ -85,7 +121,8 @@ function normName(value) {
 
 // Resolve a collection species to the TweetyBird visual id used to draw it in
 // the garden: one of the six companions or a dedicated species visual when it
-// matches exactly, else a family-keyword match, else the neutral wild fallback.
+// matches exactly, else a family-keyword match, else a hashed neutral variant
+// (never the same fixed 'wild' bird for every unmapped species).
 export function gardenCompanionFor(commonName, scientificName) {
   const sci = normName(scientificName)
   if (sci && COMPANION_SCI[sci]) return COMPANION_SCI[sci]
@@ -95,7 +132,8 @@ export function gardenCompanionFor(commonName, scientificName) {
   if (byName) return byName.id
   const family = GARDEN_FAMILY_KEYWORDS.find(([pattern]) => pattern.test(common))
   if (family) return family[1]
-  return GARDEN_WILD_COMPANION
+  if (!common) return GARDEN_WILD_COMPANION
+  return WILD_VARIANTS[hashString(common) % WILD_VARIANTS.length]
 }
 
 // Representative body colour for a garden visitor's companion id (used to tint

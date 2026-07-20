@@ -3002,31 +3002,52 @@ const PLANT_FAMILY_COLORS = {
   Amaryllidaceae: '#f47a9c',
 }
 
-const PLANT_FAMILY_FALLBACK_PALETTE = [
+// A bigger palette than before (16, not 8) — the more of her real, varied
+// houseplant collection falls through to "generic", the more hash collisions
+// an 8-slot palette produces (several genuinely different plants landing on
+// the exact same colour purely by chance). Doubling the slots roughly halves
+// that collision rate.
+const GENERIC_FALLBACK_PALETTE = [
   '#f6a5c0', '#ffd45e', '#c9a8e8', '#f8b4d0', '#fff0b3', '#8fd0e0', '#e8895a', '#9ccb6f',
+  '#e6789a', '#c4e07a', '#7ad0b8', '#e0a8f0', '#f0c088', '#88b8e0', '#d88a6a', '#a0e0c0',
 ]
+
+function hashText(value) {
+  let h = 0
+  const s = String(value || '')
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h
+}
 
 export function plantFamilyColor(family) {
   const key = String(family || '').trim()
   if (PLANT_FAMILY_COLORS[key]) return PLANT_FAMILY_COLORS[key]
-  if (!key) return PLANT_FAMILY_FALLBACK_PALETTE[0]
-  let hash = 0
-  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
-  return PLANT_FAMILY_FALLBACK_PALETTE[hash % PLANT_FAMILY_FALLBACK_PALETTE.length]
+  if (!key) return GENERIC_FALLBACK_PALETTE[0]
+  return GENERIC_FALLBACK_PALETTE[hashText(key) % GENERIC_FALLBACK_PALETTE.length]
 }
 
-// ---- Garden bloom art: which iconic SA shape a grown species draws as -----
+// ---- Garden bloom art: which iconic shape a grown species draws as --------
 // A handful of well-known common names get their own bespoke illustrated
 // bloom shape in the Garden (see the Bloom components in Garden.jsx) so a
 // flowering aloe looks nothing like a protea, even though both could fall
 // into the same PlantNet family bucket. Checked before any family fallback.
+// Deliberately broad on succulents/orchids/palms/aroids — her real My Plants
+// collection is dominated by common houseplants (Monstera, Philodendron,
+// orchids, Kalanchoe, Portulacaria, Curio…), not SA fynbos icons, so this
+// list has to actually cover those or almost everything falls through.
 const PLANT_BLOOM_KEYWORDS = [
   [/aloe/, 'aloe'],
   [/protea/, 'protea'],
   [/agapanthus/, 'agapanthus'],
   [/bulbine/, 'bulbine'],
   [/strelitzia|bird[- ]of[- ]paradise/, 'strelitzia'],
-  [/vygie|lithops|echeveria|crassula|sedum|succulent/, 'succulent'],
+  [
+    /vygie|lithops|echeveria|crassula|sedum|succulent|kalanchoe|portulacaria|elephant bush|curio|blue fingers|aeonium|senecio|haworthia|gasteria|echinopsis|opuntia|jade plant/,
+    'succulent',
+  ],
+  [/orchid|paphiopedilum|phalaenopsis|cattleya|dendrobium/, 'orchid'],
+  [/palm/, 'palm'],
+  [/monstera|philodendron|pothos|epipremnum|anthurium|peace lily|air plant|tillandsia/, 'houseplant'],
   [/fynbos|erica|pelargonium|restio/, 'fynbos'],
 ]
 
@@ -3036,13 +3057,20 @@ const PLANT_BLOOM_KEYWORDS = [
 const PLANT_FAMILY_BLOOM_KIND = {
   Proteaceae: 'protea',
   Aizoaceae: 'succulent',
+  Crassulaceae: 'succulent',
+  Didiereaceae: 'succulent',
   Asphodelaceae: 'aloe',
   Strelitziaceae: 'strelitzia',
+  Orchidaceae: 'orchid',
+  Arecaceae: 'palm',
+  Araceae: 'houseplant',
 }
 
-// Bloom colour per shape kind — real SA colours, not the scientific-family
-// hash (aloe red, protea pink, agapanthus purple-blue, bulbine yellow,
-// strelitzia orange; succulents/fynbos get a bright accent bloom colour).
+// Bloom colour per shape kind — real colours, not the scientific-family hash
+// (aloe red, protea pink, agapanthus purple-blue, bulbine yellow, strelitzia
+// orange; succulents/fynbos/orchids get a bright accent bloom colour; palms
+// and leafy houseplants are foliage-only, so their "bloom" colour tints the
+// leaf itself rather than a flower).
 const BLOOM_KIND_COLOR = {
   aloe: '#d1382a',
   protea: '#e8657a',
@@ -3050,6 +3078,9 @@ const BLOOM_KIND_COLOR = {
   bulbine: '#f2c230',
   strelitzia: '#e8823a',
   succulent: '#e85a8a',
+  orchid: '#c85ac0',
+  palm: '#4f9a55',
+  houseplant: '#3f8a52',
   fynbos: '#e8657a',
 }
 
@@ -3063,6 +3094,9 @@ const BLOOM_KIND_FOLIAGE = {
   bulbine: '#7d9a5a',
   strelitzia: '#3f7a52',
   succulent: '#8a9a7a',
+  orchid: '#4f7a52',
+  palm: '#3d7d44',
+  houseplant: '#2f6a3a',
   fynbos: '#a8ad96',
   generic: '#5aa05a',
 }
@@ -3076,9 +3110,16 @@ export function plantBloomKind(commonName, family) {
   return 'generic'
 }
 
+// For a truly unmatched plant, hash on its own name (not family) — family is
+// a coarse bucket shared by many unrelated plants (a rose and a strawberry
+// are both Rosaceae), so hashing on it collapses lots of different real
+// species onto the same colour. The name is almost always unique per planting.
 export function plantBloomColor(commonName, family) {
   const kind = plantBloomKind(commonName, family)
-  return kind === 'generic' ? plantFamilyColor(family) : BLOOM_KIND_COLOR[kind]
+  if (kind !== 'generic') return BLOOM_KIND_COLOR[kind]
+  const key = String(commonName || '').trim() || String(family || '').trim()
+  if (!key) return GENERIC_FALLBACK_PALETTE[0]
+  return GENERIC_FALLBACK_PALETTE[hashText(key) % GENERIC_FALLBACK_PALETTE.length]
 }
 
 export function plantFoliageColor(commonName, family) {
