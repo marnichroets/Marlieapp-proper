@@ -288,21 +288,102 @@ export const STAGE_LABELS = {
 export const GARDEN_REGION = { x0: 26, x1: 374, y0: 152, y1: 238 }
 export const GARDEN_GRID = { stepX: 28, stepY: 20 }
 
-// Snap a scene point to the grid, clamped to the placeable region.
-export function snapToGarden(x, y) {
-  const sx = Math.max(GARDEN_REGION.x0, Math.min(GARDEN_REGION.x1,
-    Math.round((x - GARDEN_REGION.x0) / GARDEN_GRID.stepX) * GARDEN_GRID.stepX + GARDEN_REGION.x0))
-  const sy = Math.max(GARDEN_REGION.y0, Math.min(GARDEN_REGION.y1,
-    Math.round((y - GARDEN_REGION.y0) / GARDEN_GRID.stepY) * GARDEN_GRID.stepY + GARDEN_REGION.y0))
+// ---- Garden expansion zones -------------------------------------------------
+// Permanent, one-time unlocks (never placed/grown like GARDEN_SHOP items) that
+// widen the world itself. Fixed absolute world-space slots so an existing
+// planting's x/y never has to shift/relocate when a later zone is purchased:
+// Expand Left always lives at x [-200,0), Expand Right always at [400,600),
+// Back Garden always at [600,800) — regardless of purchase order. If Back
+// Garden is bought before Expand Right, the still-locked Expand Right slot
+// simply renders as a fenced-off placeholder in between (see Garden.jsx).
+export const EXPANSION_WIDTH = 200
+export const GARDEN_EXPANSIONS = [
+  { id: 'expand-left', name: 'Expand Left', emoji: '🌿', cost: 3000, side: 'left' },
+  { id: 'expand-right', name: 'Expand Right', emoji: '🌿', cost: 3000, side: 'right' },
+  { id: 'back-garden', name: 'Back Garden', emoji: '🌳', cost: 5000, side: 'back' },
+]
+
+export function expansionItem(id) {
+  return GARDEN_EXPANSIONS.find((e) => e.id === id) || null
+}
+
+const hasExp = (expansions, id) => Array.isArray(expansions) && expansions.includes(id)
+
+// The scene's current world bounds, in scene units — grows as she unlocks
+// zones. Any locked zone between two owned ones (e.g. Back Garden owned
+// without Expand Right) still falls within these bounds so it can render as
+// a locked placeholder rather than leaving a gap.
+export function gardenViewBox(expansions = []) {
+  const minX = hasExp(expansions, 'expand-left') ? -EXPANSION_WIDTH : 0
+  const maxX = hasExp(expansions, 'back-garden')
+    ? 400 + EXPANSION_WIDTH * 2
+    : hasExp(expansions, 'expand-right')
+      ? 400 + EXPANSION_WIDTH
+      : 400
+  return { minX, minY: 0, width: maxX - minX, height: 260 }
+}
+
+// Fixed world-space rect for a given zone slot, regardless of ownership —
+// used both for the placeable region (when owned) and the locked-placeholder
+// art (when not).
+const ZONE_RECT = {
+  'expand-left': { x0: -EXPANSION_WIDTH, x1: 0 },
+  'expand-right': { x0: 400, x1: 400 + EXPANSION_WIDTH },
+  'back-garden': { x0: 400 + EXPANSION_WIDTH, x1: 400 + EXPANSION_WIDTH * 2 },
+}
+export function gardenZoneRect(id) {
+  const r = ZONE_RECT[id]
+  return r ? { ...r, y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1 } : null
+}
+
+// Every placeable region currently unlocked (base lawn + any owned expansion
+// zones), each padded in from its zone edge the same way the base region is.
+export function gardenRegions(expansions = []) {
+  const regions = [GARDEN_REGION]
+  if (hasExp(expansions, 'expand-left')) {
+    regions.push({ x0: -EXPANSION_WIDTH + 26, x1: -26, y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1 })
+  }
+  if (hasExp(expansions, 'expand-right')) {
+    regions.push({ x0: 426, x1: 400 + EXPANSION_WIDTH - 26, y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1 })
+  }
+  if (hasExp(expansions, 'back-garden')) {
+    regions.push({
+      x0: 400 + EXPANSION_WIDTH + 26, x1: 400 + EXPANSION_WIDTH * 2 - 26,
+      y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1,
+    })
+  }
+  return regions
+}
+
+// Snap a scene point to the grid, clamped to whichever unlocked region is
+// closest to the tapped point (so panning to an expansion and tapping there
+// snaps within that zone, not back to the base lawn).
+export function snapToGarden(x, y, expansions = []) {
+  const regions = gardenRegions(expansions)
+  let region = regions[0]
+  let bestDist = Infinity
+  for (const r of regions) {
+    const cx = Math.max(r.x0, Math.min(r.x1, x))
+    const cy = Math.max(r.y0, Math.min(r.y1, y))
+    const d = Math.hypot(cx - x, cy - y)
+    if (d < bestDist) { bestDist = d; region = r }
+  }
+  const sx = Math.max(region.x0, Math.min(region.x1,
+    Math.round((x - region.x0) / GARDEN_GRID.stepX) * GARDEN_GRID.stepX + region.x0))
+  const sy = Math.max(region.y0, Math.min(region.y1,
+    Math.round((y - region.y0) / GARDEN_GRID.stepY) * GARDEN_GRID.stepY + region.y0))
   return { x: sx, y: sy }
 }
 
-// Can `type` be placed at (x,y) given existing plantings? In-region + not closer
-// than ~0.7×(rA+rB) to any other item (prevents total overlap, keeps spacing).
-export function canPlaceAt(type, x, y, plantings = []) {
+// Can `type` be placed at (x,y) given existing plantings? In one of the
+// currently-unlocked regions + not closer than ~0.7×(rA+rB) to any other item
+// (prevents total overlap, keeps spacing).
+export function canPlaceAt(type, x, y, plantings = [], expansions = []) {
   const item = gardenItem(type)
   if (!item) return false
-  if (x < GARDEN_REGION.x0 || x > GARDEN_REGION.x1 || y < GARDEN_REGION.y0 || y > GARDEN_REGION.y1) return false
+  const regions = gardenRegions(expansions)
+  const inRegion = regions.some((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1)
+  if (!inRegion) return false
   return plantings.every((p) => {
     const other = gardenItem(p.type)
     const minD = ((item.r || 18) + (other?.r || 18)) * 0.7
@@ -311,9 +392,12 @@ export function canPlaceAt(type, x, y, plantings = []) {
 }
 
 // Can a graduating companion be placed at (x,y)? Same in-region check as
-// canPlaceAt, plus a ~36px resident spacing, so a tap-placed resident can
-// never land on top of an existing one.
-export function canPlaceResidentAt(x, y, residents = []) {
-  if (x < GARDEN_REGION.x0 || x > GARDEN_REGION.x1 || y < GARDEN_REGION.y0 || y > GARDEN_REGION.y1) return false
+// canPlaceAt (across every unlocked zone, so residents can roam the full
+// expanded garden), plus a ~36px resident spacing, so a tap-placed resident
+// can never land on top of an existing one.
+export function canPlaceResidentAt(x, y, residents = [], expansions = []) {
+  const regions = gardenRegions(expansions)
+  const inRegion = regions.some((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1)
+  if (!inRegion) return false
   return residents.every((r) => Math.hypot((r.x ?? -999) - x, (r.y ?? -999) - y) >= 36)
 }

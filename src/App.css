@@ -4384,6 +4384,8 @@ textarea:focus {
 }
 .garden-shop-btn small { color: var(--muted); font-weight: 600; }
 .garden-shop-btn[disabled] { opacity: 0.45; cursor: default; }
+.garden-shop-btn.owned[disabled] { opacity: 1; border-color: #7cc47c; background: #eef8ea; }
+.garden-shop-btn.owned small { color: #3a8a3a; }
 .garden-shop-emoji { font-size: 1.6rem; }
 .garden-shop-species-thumb {
   width: 32px; height: 32px; border-radius: 50%;
@@ -4631,7 +4633,16 @@ textarea:focus {
 .garden-demo-btn { white-space: nowrap; }
 
 /* P3: graduated companions living permanently in the garden. */
-.garden-scene-wrap { position: relative; line-height: 0; }
+.garden-scene-wrap {
+  position: relative;
+  line-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.garden-scene-wrap::-webkit-scrollbar { display: none; }
+.garden-scene-wrap.pannable { touch-action: pan-x; }
 .garden-residents { position: absolute; inset: 0; pointer-events: none; }
 .garden-resident {
   position: absolute;

@@ -48,6 +48,7 @@ import {
   SEED_PLANT_COST,
   WISHING_WELL_COINS,
   canWish,
+  expansionItem,
 } from './gardenData'
 import {
   defaultTweety,
@@ -4042,6 +4043,35 @@ function App() {
     )
   }
 
+  // Garden expansion zones: a one-time permanent unlock (never placed/watered
+  // like a shop item) that widens the whole scene. See gardenZoneRect's
+  // comment in gardenData.js for why each zone lives at a fixed world-space
+  // slot regardless of purchase order.
+  function purchaseExpansion(zoneId) {
+    if (readOnly) return
+    const zone = expansionItem(zoneId)
+    if (!zone) return
+    const garden = data.garden || defaultGarden()
+    const owned = garden.expansions || []
+    if (owned.includes(zoneId)) return
+    if (data.featherCoins < zone.cost) {
+      setToast({ title: 'Not enough coins yet', body: `${zone.name} costs ${zone.cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    setConfetti(Date.now())
+    commit(
+      {
+        ...data,
+        garden: { ...garden, expansions: [...owned, zoneId] },
+        featherCoins: data.featherCoins - zone.cost,
+      },
+      {
+        title: `${zone.name} unlocked! ${zone.emoji}`,
+        body: 'Your garden just grew — swipe to explore the new space.',
+      },
+    )
+  }
+
   function placeGardenItem(itemId, x, y) {
     if (isSpeciesPlanting(itemId)) {
       plantSpeciesSeed(itemId.slice('species:'.length), x, y)
@@ -4091,7 +4121,7 @@ function App() {
       const anchor = anchors[attempt % anchors.length]
       const x = anchor.x + (Math.random() - 0.5) * 60
       const y = anchor.y + (Math.random() - 0.5) * 30
-      if (canPlaceResidentAt(x, y, existingResidents)) return { x, y }
+      if (canPlaceResidentAt(x, y, existingResidents, data.garden?.expansions)) return { x, y }
     }
     // Fallback: region centre, even if a little close to another resident.
     return { x: (GARDEN_REGION.x0 + GARDEN_REGION.x1) / 2, y: (GARDEN_REGION.y0 + GARDEN_REGION.y1) / 2 }
@@ -6297,6 +6327,7 @@ function App() {
             onWater={waterGardenPlant}
             onTreatResident={treatResident}
             onWish={wishAtWell}
+            onPurchaseExpansion={purchaseExpansion}
             onBack={goBack}
             tweety={data.tweety}
             seeds={data.seeds}

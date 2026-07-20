@@ -7,6 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GARDEN_SHOP,
   GARDEN_TIERS,
+  GARDEN_EXPANSIONS,
+  expansionItem,
   RESIDENT_TREAT_COST,
   SEED_PLANT_COST,
   WISHING_WELL_COINS,
@@ -19,6 +21,9 @@ import {
   canWish,
   STAGE_LABELS,
   GARDEN_REGION,
+  gardenViewBox,
+  gardenRegions,
+  gardenZoneRect,
   snapToGarden,
   canPlaceAt,
 } from './gardenData'
@@ -883,7 +888,7 @@ function makeFlyBird(a, b, bird) {
   }
 }
 
-function composeDay(perches, collection, showcase) {
+function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 }) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   let all = perches
@@ -942,24 +947,24 @@ function composeDay(perches, collection, showcase) {
       list.push(makeFlyBird(a, b, pickBird(collection, false)))
     }
   }
-  // butterflies near the flowers
+  // butterflies near the flowers — scattered across the full unlocked width
   const nBfly = showcase ? 2 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
-  for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(50, 350), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 5), dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: rand(0, 0.35) })
+  for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 5), dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: rand(0, 0.35) })
   // bees near the beds
   const nBee = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
-  for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(60, 340), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
+  for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
   // never an empty daytime scene
-  if (!list.length) list.push({ id: nid(), type: 'butterfly', x: 200, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
+  if (!list.length) list.push({ id: nid(), type: 'butterfly', x: (bounds.x0 + bounds.x1) / 2, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
   return list
 }
 
-function composeNight(perches, collection, showcase) {
+function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 }) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   if (showcase && !land.length) land = [{ id: 'demo-c', x: 150, y: 150, zone: 'land' }]
-  // fireflies — variable density
+  // fireflies — variable density, across the full unlocked width
   const nFly = showcase ? 8 + Math.floor(Math.random() * 6) : 3 + Math.floor(Math.random() * 10)
-  for (let i = 0; i < nFly; i += 1) list.push({ id: nid(), type: 'firefly', x: rand(40, 360), y: rand(150, 225), delay: rand(0, 5), dur: rand(5, 9) })
+  for (let i = 0; i < nFly; i += 1) list.push({ id: nid(), type: 'firefly', x: rand(bounds.x0 + 14, bounds.x1 - 14), y: rand(150, 225), delay: rand(0, 5), dur: rand(5, 9) })
   // Her own collection, roosting for the night — real songbirds sleep after
   // dark, so no pecking/bathing/bench-sitting here (those are daytime-only,
   // see composeDay), just a settled bird or two quietly there in a tree, the
@@ -985,10 +990,67 @@ function composeNight(perches, collection, showcase) {
   if (showcase || Math.random() < 0.5) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2), dur: rand(10, 13) })
   // moths near the moonlight
   const nMoth = showcase ? 2 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
-  for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(60, 340), y: rand(55, 140), delay: rand(0, 5), dur: rand(4.2, 6), flapDur: rand(0.28, 0.42), flapDelay: rand(0, 0.35) })
+  for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(55, 140), delay: rand(0, 5), dur: rand(4.2, 6), flapDur: rand(0.28, 0.42), flapDelay: rand(0, 0.35) })
   // a bat swooping over, occasionally
   if (showcase || Math.random() < 0.4) list.push({ id: nid(), type: 'bat', y: rand(40, 95), delay: rand(0, 2.5), dur: rand(4.8, 6.8), dir: Math.random() < 0.5 ? 1 : -1 })
   return list
+}
+
+// An owned expansion zone's background art: continues the same sky/hill/grass
+// gradients as the base scene (so it never reads as a bolted-on new style),
+// a couple of soft background tree silhouettes so it feels like its own
+// little grove rather than an empty clone, and a small wooden signpost
+// naming it. Back Garden gets a cooler, shaded-grove tint to feel like a
+// genuinely different, further-in part of the yard.
+function ExpansionZoneArt({ id, phase, shaded = false }) {
+  const rect = gardenZoneRect(id)
+  if (!rect) return null
+  const w = rect.x1 - rect.x0
+  const name = expansionItem(id)?.name || ''
+  return (
+    <g>
+      <path d={`M${rect.x0} 138 h${w} V260 H${rect.x0} Z`} fill={DISTANT_HILLS[phase]} opacity={shaded ? 0.75 : 0.55} />
+      <rect x={rect.x0} y="118" width={w} height="34" fill="url(#gardenHorizonHaze)" />
+      <rect x={rect.x0} y="140" width={w} height="120" fill="url(#gardenGrassMid)" />
+      <rect x={rect.x0} y="180" width={w} height="80" fill="url(#gardenGrassNear)" />
+      {shaded && <rect x={rect.x0} y="140" width={w} height="120" fill="#12321a" opacity="0.24" />}
+      <g opacity={shaded ? 0.85 : 0.5} fill={shaded ? '#1c3d24' : '#5f8f52'}>
+        <ellipse cx={rect.x0 + w * 0.28} cy="150" rx="26" ry="20" />
+        <ellipse cx={rect.x0 + w * 0.68} cy="146" rx="22" ry="17" />
+      </g>
+      <g transform={`translate(${rect.x0 + w / 2} 210)`}>
+        <rect x="-2" y="-18" width="4" height="18" fill="url(#gardenWood)" />
+        <rect x="-26" y="-32" width="52" height="15" rx="3" fill="url(#gardenWood)" />
+        <text x="0" y="-21" textAnchor="middle" fontSize="8" fontWeight="700" fill="#fff6e2">{name}</text>
+      </g>
+    </g>
+  )
+}
+
+// A zone slot that falls within the current view but isn't owned yet (only
+// possible for Expand Right, if Back Garden was bought first) — a fenced-off,
+// non-interactive placeholder rather than a blank gap, naming what unlocks it.
+function LockedZonePlaceholder({ id }) {
+  const rect = gardenZoneRect(id)
+  if (!rect) return null
+  const w = rect.x1 - rect.x0
+  const item = expansionItem(id)
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <rect x={rect.x0} y="118" width={w} height="142" fill="#3a3a3a" opacity="0.4" />
+      {Array.from({ length: Math.max(1, Math.floor(w / 24)) }).map((_, i) => (
+        <line
+          key={i}
+          x1={rect.x0 + i * 24 + 6} y1="150" x2={rect.x0 + i * 24 + 6} y2="230"
+          stroke="#8a6a42" strokeWidth="3" opacity="0.5"
+        />
+      ))}
+      <g transform={`translate(${rect.x0 + w / 2} 190)`}>
+        <text x="0" y="-6" textAnchor="middle" fontSize="16">🔒</text>
+        <text x="0" y="12" textAnchor="middle" fontSize="8" fontWeight="700" fill="#fff">Buy {item?.name}</text>
+      </g>
+    </g>
+  )
 }
 
 // ---- the page --------------------------------------------------------------
@@ -1001,6 +1063,7 @@ export function GardenPage({
   onBack,
   onTreatResident,
   onWish,
+  onPurchaseExpansion,
   tweety = null,
   seeds = 0,
   plantableSpecies = [],
@@ -1010,6 +1073,46 @@ export function GardenPage({
   const today = saDateKey()
   const unlocked = GARDEN_SHOP.filter((i) => (garden?.shopUnlocked || []).includes(i.id))
   const svgRef = useRef(null)
+  const wrapRef = useRef(null)
+
+  // Expansion zones widen the world itself (see gardenData.js): the scene's
+  // viewBox, the set of currently-placeable regions, and the outer bounds used
+  // for decorative wildlife scatter all grow as she unlocks them.
+  const expansions = useMemo(() => garden?.expansions || [], [garden?.expansions])
+  const viewBox = useMemo(() => gardenViewBox(expansions), [expansions])
+  const regions = useMemo(() => gardenRegions(expansions), [expansions])
+  const worldBounds = useMemo(
+    () => ({
+      x0: Math.min(...regions.map((r) => r.x0)),
+      x1: Math.max(...regions.map((r) => r.x1)),
+    }),
+    [regions],
+  )
+
+  // Scene-units-to-pixels scale, measured off the wrap's own rendered width so
+  // the base (unexpanded) 400-unit scene still fills it exactly like before —
+  // an expanded scene renders wider than the wrap in real pixels, so the wrap
+  // scrolls/pans to it instead of squashing everything down to fit.
+  const [unitPx, setUnitPx] = useState(1)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return undefined
+    const measure = () => setUnitPx(el.clientWidth / 400)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // On first load, start scrolled to show the original (base) garden — an
+  // expansion is a deliberate swipe away, not shown by default.
+  const didInitialScroll = useRef(false)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el || didInitialScroll.current || unitPx <= 0) return
+    el.scrollLeft = -viewBox.minX * unitPx
+    didInitialScroll.current = true
+  }, [viewBox.minX, unitPx])
 
   // Time-of-day phase from real SA local time; refreshed on an interval and when
   // the tab regains focus so it rolls over (e.g. into night) while the page is open.
@@ -1100,13 +1203,17 @@ export function GardenPage({
     let alive = true
     const roll = (showcase = false) => {
       if (!alive) return
-      setCreatures(isNight ? composeNight(grownPerches, collection, showcase) : composeDay(grownPerches, collection, showcase))
+      setCreatures(
+        isNight
+          ? composeNight(grownPerches, collection, showcase, worldBounds)
+          : composeDay(grownPerches, collection, showcase, worldBounds),
+      )
     }
     rollRef.current = roll
     const t0 = setTimeout(() => roll(false), 0)        // initial scene (deferred)
     const iv = window.setInterval(() => roll(false), 16000) // keep it shifting
     return () => { alive = false; clearTimeout(t0); window.clearInterval(iv) }
-  }, [grownPerches, collection, isNight])
+  }, [grownPerches, collection, isNight, worldBounds])
 
   // Sunset Bench: Tweety sometimes visits and sits a while — re-rolled on the
   // same cadence as the rest of the living scene, so it isn't a fixed timer.
@@ -1141,8 +1248,8 @@ export function GardenPage({
     if (!placingType) return
     const raw = toScene(evt)
     if (!raw) return
-    const s = snapToGarden(raw.x, raw.y)
-    const ok = canPlaceAt(placingType, s.x, s.y, plantings)
+    const s = snapToGarden(raw.x, raw.y, expansions)
+    const ok = canPlaceAt(placingType, s.x, s.y, plantings, expansions)
     setGhost({ ...s, ok })
   }
 
@@ -1150,8 +1257,8 @@ export function GardenPage({
     if (!placingType) return
     const raw = toScene(evt)
     if (!raw) return
-    const s = snapToGarden(raw.x, raw.y)
-    if (!canPlaceAt(placingType, s.x, s.y, plantings)) return
+    const s = snapToGarden(raw.x, raw.y, expansions)
+    if (!canPlaceAt(placingType, s.x, s.y, plantings, expansions)) return
     onPlace(placingType, s.x, s.y)
     setPlacingType(null)
     setPlacingSpeciesMeta(null)
@@ -1190,12 +1297,13 @@ export function GardenPage({
       </section>
 
       <section className="soft-card full-span garden-scene-card">
-        <div className="garden-scene-wrap">
+        <div className={`garden-scene-wrap${viewBox.width > 400 ? ' pannable' : ''}`} ref={wrapRef}>
         <svg
           ref={svgRef}
           className={`garden-scene-svg${placingAny ? ' placing' : ''}`}
-          viewBox="0 0 400 260"
+          viewBox={`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`}
           preserveAspectRatio="xMidYMid meet"
+          style={{ width: viewBox.width * unitPx, height: viewBox.height * unitPx }}
           xmlns="http://www.w3.org/2000/svg"
           role="img"
           aria-label="Pooks' bird garden"
@@ -1247,29 +1355,47 @@ export function GardenPage({
               <stop offset="1" stopColor="#8f887c" />
             </linearGradient>
           </defs>
-          <rect x="0" y="0" width="400" height="260" fill="url(#gardenSky)" />
+          <rect x={viewBox.minX} y="0" width={viewBox.width} height="260" fill="url(#gardenSky)" />
           <GardenSky phase={phase} />
           {/* distant hazy ridge — atmospheric perspective, drawn behind both
               proper ground layers so the scene reads with real depth */}
           <path d="M0 138 q60 -18 150 -6 q100 14 250 -10 V260 H0 Z" fill={DISTANT_HILLS[phase]} opacity="0.55" />
-          <rect x="0" y="118" width="400" height="34" fill="url(#gardenHorizonHaze)" style={{ pointerEvents: 'none' }} />
+          <rect x={viewBox.minX} y="118" width={viewBox.width} height="34" fill="url(#gardenHorizonHaze)" style={{ pointerEvents: 'none' }} />
           <path d="M0 150 q70 -30 160 -12 q90 18 240 -8 V260 H0 Z" fill="url(#gardenGrassMid)" />
           <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="url(#gardenGrassNear)" />
           {/* a soft meandering path for charm */}
           <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" strokeWidth="13" strokeLinecap="round" opacity="0.7" />
 
-          {/* faint placement grid while placing */}
+          {/* Expansion zones: each owned zone continues the ground plane with
+              the same gradients (own signpost so it reads as a real, distinct
+              place); Back Garden gets a cooler shaded-grove tint. A zone that
+              falls within the current view but ISN'T owned yet (e.g. Back
+              Garden bought before Expand Right) renders as a fenced-off,
+              non-interactive locked placeholder instead of a blank gap. */}
+          {expansions.includes('expand-left') && (
+            <ExpansionZoneArt id="expand-left" phase={phase} />
+          )}
+          {expansions.includes('expand-right') ? (
+            <ExpansionZoneArt id="expand-right" phase={phase} />
+          ) : expansions.includes('back-garden') ? (
+            <LockedZonePlaceholder id="expand-right" />
+          ) : null}
+          {expansions.includes('back-garden') && (
+            <ExpansionZoneArt id="back-garden" phase={phase} shaded />
+          )}
+
+          {/* faint placement grid while placing, across every unlocked region */}
           {placingAny && (
             <g fill="#3c7a4a" opacity="0.22">
-              {(() => {
+              {regions.flatMap((r) => {
                 const dots = []
-                for (let x = GARDEN_REGION.x0; x <= GARDEN_REGION.x1; x += 28) {
-                  for (let y = GARDEN_REGION.y0; y <= GARDEN_REGION.y1; y += 20) {
-                    dots.push(<circle key={`${x},${y}`} cx={x} cy={y} r="1" />)
+                for (let x = r.x0; x <= r.x1; x += 28) {
+                  for (let y = r.y0; y <= r.y1; y += 20) {
+                    dots.push(<circle key={`${r.x0},${x},${y}`} cx={x} cy={y} r="1" />)
                   }
                 }
                 return dots
-              })()}
+              })}
             </g>
           )}
 
@@ -1366,7 +1492,10 @@ export function GardenPage({
             HTML/SVG widget, not a scene <g>); the scene keeps its 400×260 box so
             scene coords map straight to percentages. */}
         {residents.length > 0 && (
-          <div className="garden-residents">
+          <div
+            className="garden-residents"
+            style={{ width: viewBox.width * unitPx, height: viewBox.height * unitPx }}
+          >
             {residents.map((r) => {
               // Stable per-resident timing (not re-randomized every render): a
               // cheap hash of the id seeds delay/duration so she never looks
@@ -1382,7 +1511,10 @@ export function GardenPage({
                   key={r.id}
                   type="button"
                   className={`garden-resident${reaction === 'pet' ? ' garden-resident-react-pet' : ''}${reaction === 'treat' ? ' garden-resident-react-treat' : ''}`}
-                  style={{ left: `${(r.x / 400) * 100}%`, top: `${(r.y / 260) * 100}%` }}
+                  style={{
+                    left: `${((r.x - viewBox.minX) / viewBox.width) * 100}%`,
+                    top: `${((r.y - viewBox.minY) / viewBox.height) * 100}%`,
+                  }}
                   title={r.species}
                   onClick={() => setSelectedResidentId(r.id)}
                 >
@@ -1414,10 +1546,17 @@ export function GardenPage({
         {/* Sunset Bench: Tweety herself, sometimes, sitting a while. Same HTML-
             overlay approach as residents (TweetyBird isn't a scene <g>). */}
         {tweetyAtBench && sunsetBench && (
-          <div className="garden-residents" aria-hidden="true">
+          <div
+            className="garden-residents"
+            aria-hidden="true"
+            style={{ width: viewBox.width * unitPx, height: viewBox.height * unitPx }}
+          >
             <span
               className="garden-resident"
-              style={{ left: `${(sunsetBench.x / 400) * 100}%`, top: `${((sunsetBench.y - 14) / 260) * 100}%` }}
+              style={{
+                left: `${((sunsetBench.x - viewBox.minX) / viewBox.width) * 100}%`,
+                top: `${((sunsetBench.y - 14 - viewBox.minY) / viewBox.height) * 100}%`,
+              }}
               title={`${tweety?.name || 'Tweety'} is enjoying the sunset`}
             >
               <span className="garden-resident-sway" style={{ animationDuration: '4.2s' }}>
@@ -1629,6 +1768,33 @@ export function GardenPage({
             </div>
           )
         })}
+        <div className="garden-shop-tier garden-expansions">
+          <p className="garden-shop-tier-heading">
+            Garden Expansions <span className="garden-shop-tier-range">permanent</span>
+          </p>
+          <p className="fine-print">
+            Widen the garden itself — more room to place things, and it's yours forever. Swipe the scene left/right once unlocked.
+          </p>
+          <div className="garden-shop-row">
+            {GARDEN_EXPANSIONS.map((zone) => {
+              const owned = expansions.includes(zone.id)
+              const afford = coins >= zone.cost
+              return (
+                <button
+                  key={zone.id}
+                  className={`garden-shop-btn${owned ? ' owned' : ''}`}
+                  type="button"
+                  disabled={owned || !afford}
+                  onClick={() => onPurchaseExpansion?.(zone.id)}
+                >
+                  <span className="garden-shop-emoji">{zone.emoji}</span>
+                  <strong>{zone.name}</strong>
+                  <small>{owned ? 'Unlocked ✓' : `${zone.cost} 🪙`}</small>
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <p className="fine-print">Tip: tap an item, then tap the grass to place it. Use Fast Forward ⏩ to tend it again and grow it while testing.</p>
       </section>
     </div>
