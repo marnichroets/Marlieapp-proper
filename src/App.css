@@ -4398,9 +4398,17 @@ textarea:focus {
   transform-box: fill-box;
   transform-origin: center bottom;
 }
+/* Tap-to-reveal name label: a small rounded pill (GardenNameLabel in
+   Garden.jsx) behind the text, so the one active name reads cleanly against
+   the busy scene — replaces the old white-stroke halo, which is redundant
+   once there's a solid pill underneath. */
+.garden-name-label rect {
+  fill: rgba(255, 255, 255, 0.88);
+  stroke: rgba(47, 74, 38, 0.18);
+  stroke-width: 1px;
+}
 .garden-visitor-name {
-  fill: #2f4a26; font-size: 9px; font-weight: 800;
-  paint-order: stroke; stroke: #ffffff; stroke-width: 2.4px; stroke-linejoin: round;
+  fill: #2f4a26; font-size: 7px; font-weight: 800;
 }
 @keyframes garden-visitor-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes garden-visitor-hop {
@@ -4688,12 +4696,22 @@ textarea:focus {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-1.5px) rotate(-2deg); }
 }
-/* Always-visible nameplate under each resident, matching the visiting-bird
-   name label style (garden-visitor-name) but as HTML, not SVG text. */
+/* Tap-to-reveal nameplate under a resident — matches the visiting-bird pill
+   label (.garden-name-label in App.css / GardenNameLabel in Garden.jsx) but
+   as an HTML span, not SVG text. */
 .garden-resident-name {
-  display: block; text-align: center; margin-top: -2px;
-  font-size: 9px; font-weight: 800; color: #2f4a26;
-  text-shadow: 0 0 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 1px 0 #fff, 0 -1px 0 #fff;
+  /* block (not inline-block) so it still forces itself onto its own line
+     below the bird sprite — .garden-resident-wander/-sway are inline-block
+     with no flex/grid, so that line break depends entirely on this being
+     block-level. width:fit-content + margin:auto shrink-wraps the pill to
+     its text and re-centers it, instead of stretching full width. */
+  display: block; width: fit-content; margin: 1px auto 0;
+  text-align: center;
+  font-size: 7px; font-weight: 800; color: #2f4a26;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(47, 74, 38, 0.18);
+  border-radius: 999px;
+  padding: 1px 6px;
   white-space: nowrap;
 }
 .tweety-release-btn { margin-top: 10px; width: 100%; }

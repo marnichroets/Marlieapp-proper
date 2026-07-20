@@ -780,6 +780,22 @@ function PlantArt({ type, stageKey, family, commonName, seed }) {
   }
 }
 
+// The active tap-to-reveal name label: a small rounded pill behind the text
+// so one name reads cleanly against the busy scene, instead of the old raw
+// white-stroked text floating in mid-air. Width is a cheap character-count
+// estimate (SVG has no auto-sizing text background short of measureText/
+// foreignObject, which is overkill for a short species/plant name).
+function GardenNameLabel({ text, y }) {
+  if (!text) return null
+  const w = Math.max(26, text.length * 4.4 + 10)
+  return (
+    <g className="garden-name-label">
+      <rect x={-w / 2} y={y - 7.5} width={w} height={10} rx="5" />
+      <text className="garden-visitor-name" x="0" y={y} textAnchor="middle">{text}</text>
+    </g>
+  )
+}
+
 // A bird from her Collection perched beside a grown element: a small illustrated
 // songbird (never a photo) tinted to its species' companion colour, so the scene
 // stays consistent with Tweety. Three independent, always-running motions are
@@ -788,7 +804,7 @@ function PlantArt({ type, stageKey, family, commonName, seed }) {
 // just a shared shape), a quick idle head-twitch, and the little breathing bob.
 // Every timing AND every waypoint is randomized per-instance so no two birds
 // ever move in lockstep, even when their `dur`s happen to be close.
-function PerchBird({ c }) {
+function PerchBird({ c, active, setActiveLabelId }) {
   const wanderStyle = {
     '--bx1': `${c.bx1 ?? 10}px`, '--by1': `${c.by1 ?? -6}px`,
     '--bx2': `${c.bx2 ?? -9}px`, '--by2': `${c.by2 ?? -3}px`,
@@ -796,6 +812,14 @@ function PerchBird({ c }) {
     animationDuration: `${c.hopDur || 9}s`,
   }
   const size = 40
+  // Tap-to-reveal name label (see activeLabelId in GardenPage): sets, never
+  // toggles, so a touch device's synthetic pre-click mouseenter can't flicker
+  // it straight back off on the first tap.
+  const onClick = setActiveLabelId ? (e) => { e.stopPropagation(); setActiveLabelId(c.id) } : undefined
+  const onMouseEnter = setActiveLabelId ? () => setActiveLabelId(c.id) : undefined
+  const onMouseLeave = setActiveLabelId
+    ? () => setActiveLabelId((cur) => (cur === c.id ? null : cur))
+    : undefined
   const portrait = (
     <>
       <g
@@ -819,11 +843,17 @@ function PerchBird({ c }) {
           </g>
         </g>
       </g>
-      {c.name && <text className="garden-visitor-name" x="0" y="-30" textAnchor="middle">{c.name}</text>}
+      {active && <GardenNameLabel text={c.name} y={-30} />}
     </>
   )
   return (
-    <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
+    <g
+      className="garden-visitor"
+      transform={`translate(${c.x + 15} ${c.y - 1})`}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.26" />
       {/* Bench-only, occasional: she hops up once on arrival and then sits —
           no branch-to-branch wander while seated, unlike a normal perch. */}
@@ -840,15 +870,26 @@ function PerchBird({ c }) {
 // A water bird (duck, heron, …) sitting low on the pond, drifting gently side
 // to side with a slow bob instead of hopping/flying — a completely different
 // feel from the land birds. Per-instance drift range + timing, same as land.
-function SwimBird({ c }) {
+function SwimBird({ c, active, setActiveLabelId }) {
   const size = 36
   const style = {
     '--sx': `${c.sx ?? 14}px`,
     animationDelay: `${c.delay || 0}s`,
     animationDuration: `${c.dur || 6}s`,
   }
+  const onClick = setActiveLabelId ? (e) => { e.stopPropagation(); setActiveLabelId(c.id) } : undefined
+  const onMouseEnter = setActiveLabelId ? () => setActiveLabelId(c.id) : undefined
+  const onMouseLeave = setActiveLabelId
+    ? () => setActiveLabelId((cur) => (cur === c.id ? null : cur))
+    : undefined
   return (
-    <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
+    <g
+      className="garden-visitor"
+      transform={`translate(${c.x + 15} ${c.y - 1})`}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <g className="garden-swim-drift" style={style}>
         <ellipse className="garden-visitor-shadow" cx="0" cy="2.4" rx="8" ry="2.4" fill="#1e4a63" opacity="0.24" />
         <g
@@ -868,7 +909,7 @@ function SwimBird({ c }) {
           </g>
         </g>
       </g>
-      {c.name && <text className="garden-visitor-name" x="0" y="-24" textAnchor="middle">{c.name}</text>}
+      {active && <GardenNameLabel text={c.name} y={-24} />}
     </g>
   )
 }
@@ -908,10 +949,10 @@ function FlyBird({ c }) {
 }
 
 // Dispatch a creature descriptor to its renderer.
-function SceneCreature({ c }) {
+function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
   switch (c.type) {
-    case 'bird': return <PerchBird c={c} />
-    case 'swim': return <SwimBird c={c} />
+    case 'bird': return <PerchBird c={c} active={activeLabelId === c.id} setActiveLabelId={setActiveLabelId} />
+    case 'swim': return <SwimBird c={c} active={activeLabelId === c.id} setActiveLabelId={setActiveLabelId} />
     case 'flybird': return <FlyBird c={c} />
     case 'butterfly': return <Butterfly c={c} />
     case 'bee': return <Bee c={c} />
@@ -1191,6 +1232,14 @@ export function GardenPage({
 
   const [selectedId, setSelectedId] = useState(null)
   const [selectedResidentId, setSelectedResidentId] = useState(null)
+  // Tap-to-reveal name label: at most one garden entity (plant/bird/
+  // resident) shows its name at a time, since always-on labels overlap once
+  // anything clusters. Tapping an entity SETS it active (never toggles off
+  // on a repeat tap of the same entity — touch devices often fire a
+  // synthetic mouseenter right before click, and a toggle there would flicker
+  // on/off on the very first tap). Only tapping empty grass or a different
+  // entity changes it. Hover (desktop) shows/hides it transiently on top.
+  const [activeLabelId, setActiveLabelId] = useState(null)
   const [placingType, setPlacingType] = useState(null)
   // Display-only info for a species placement (commonName): gardenItem(type)
   // can't know this from the type string alone, so it rides alongside
@@ -1312,7 +1361,10 @@ export function GardenPage({
   }
 
   function onSceneClick(evt) {
-    if (!placingType) return
+    if (!placingType) {
+      setActiveLabelId(null)
+      return
+    }
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y, expansions)
@@ -1325,6 +1377,7 @@ export function GardenPage({
 
   function startPlacing(itemId) {
     setSelectedId(null)
+    setActiveLabelId(null)
     setPlacingType(itemId)
     setPlacingSpeciesMeta(null)
     setGhost(null)
@@ -1332,6 +1385,7 @@ export function GardenPage({
 
   function startPlacingSpecies(speciesKey, commonName) {
     setSelectedId(null)
+    setActiveLabelId(null)
     setPlacingType(`species:${speciesKey}`)
     setPlacingSpeciesMeta({ commonName })
     setGhost(null)
@@ -1477,11 +1531,14 @@ export function GardenPage({
                   onClick={placingAny ? undefined : (e) => {
                     e.stopPropagation()
                     setSelectedId(p.id)
+                    setActiveLabelId(p.id)
                     if (p.type === 'wishing-well' && isFullyGrown(p)) {
                       setWishBurst({ id: p.id, x: jx, y: jy })
                       if (canWish(garden, today)) onWish?.()
                     }
                   }}
+                  onMouseEnter={placingAny ? undefined : () => setActiveLabelId(p.id)}
+                  onMouseLeave={placingAny ? undefined : () => setActiveLabelId((cur) => (cur === p.id ? null : cur))}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
                   <PlantArt type={p.type} stageKey={plantStageKey(p)} family={p.family} commonName={p.commonName} seed={p.id} />
@@ -1490,10 +1547,8 @@ export function GardenPage({
                       <NestArt />
                     </g>
                   )}
-                  {!placingAny && (
-                    <text className="garden-visitor-name garden-plant-name" x="0" y="-46" textAnchor="middle">
-                      {p.commonName || gardenItem(p.type)?.name}
-                    </text>
+                  {!placingAny && activeLabelId === p.id && (
+                    <GardenNameLabel text={p.commonName || gardenItem(p.type)?.name} y={-46} />
                   )}
                   {thirsty && !placingAny && <text className="garden-thirsty" x="0" y="-54" textAnchor="middle">💧</text>}
                   {!placingAny && <rect x="-24" y="-58" width="48" height="64" fill="transparent" />}
@@ -1527,7 +1582,9 @@ export function GardenPage({
           {/* the living scene: a random mix of creatures, all at once, layered
               in front of the plantings (birds, butterflies, bees by day;
               fireflies, owl, hedgehog, moths, a bat by night) */}
-          {!placingAny && creatures.map((c) => <SceneCreature key={c.id} c={c} />)}
+          {!placingAny && creatures.map((c) => (
+            <SceneCreature key={c.id} c={c} activeLabelId={activeLabelId} setActiveLabelId={setActiveLabelId} />
+          ))}
 
           {/* placement ghost: a garden item while placingType */}
           {placingAny && ghost && (
@@ -1574,7 +1631,9 @@ export function GardenPage({
                     top: `${((r.y - viewBox.minY) / viewBox.height) * 100}%`,
                   }}
                   title={r.species}
-                  onClick={() => setSelectedResidentId(r.id)}
+                  onClick={() => { setSelectedResidentId(r.id); setActiveLabelId(r.id) }}
+                  onMouseEnter={() => setActiveLabelId(r.id)}
+                  onMouseLeave={() => setActiveLabelId((cur) => (cur === r.id ? null : cur))}
                 >
                   <span className="garden-resident-wander" style={wanderStyle}>
                     <span
@@ -1583,7 +1642,7 @@ export function GardenPage({
                     >
                       <TweetyBird level="crowned" companion={r.companionId} size={44} />
                     </span>
-                    <span className="garden-resident-name">{r.name}</span>
+                    {activeLabelId === r.id && <span className="garden-resident-name">{r.name}</span>}
                     {reaction === 'pet' && (
                       <span className="garden-resident-hearts" aria-hidden="true">
                         <span className="garden-resident-heart" style={{ '--hx': '-10px', animationDelay: '0s' }}>💛</span>
