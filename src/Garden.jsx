@@ -25,7 +25,7 @@ import {
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
 import { tweetyGrowth } from './tweetyData'
-import { plantFamilyColor } from './plantData'
+import { plantBloomKind, plantBloomColor, plantFoliageColor } from './plantData'
 
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
@@ -308,11 +308,30 @@ function Bee({ c }) {
 }
 
 // ---- per-item artwork (base at origin (0,0), growing upward; pond is flat) --
-function TreeArt({ stageKey }) {
-  if (stageKey === 'seedling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-9" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><ellipse cx="-3.4" cy="-9" rx="3" ry="1.5" fill="#5aa861" transform="rotate(-28 -3.4 -9)" /><ellipse cx="3.4" cy="-9" rx="3" ry="1.5" fill="#5aa861" transform="rotate(28 3.4 -9)" /></g>)
-  if (stageKey === 'sapling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-1.5" y="-22" width="3" height="22" rx="1.5" fill="url(#gardenWood)" /><circle cx="0" cy="-25" r="10" fill="url(#gardenCanopy)" /><circle cx="-4" cy="-27" r="6" fill="url(#gardenCanopy)" opacity="0.9" /></g>)
-  if (stageKey === 'young') return (<g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-34" width="5" height="34" rx="2" fill="url(#gardenWood)" /><circle cx="0" cy="-38" r="16" fill="url(#gardenCanopy)" /><circle cx="-7" cy="-40" r="9" fill="url(#gardenCanopy)" opacity="0.9" /></g>)
-  return (<g><ellipse cx="0" cy="0" rx="12" ry="4" fill="#7a5a3a" /><rect x="-3.5" y="-44" width="7" height="44" rx="3" fill="url(#gardenWood)" /><ellipse cx="0" cy="-50" rx="24" ry="20" fill="url(#gardenCanopy)" /><ellipse cx="-14" cy="-46" rx="14" ry="12" fill="url(#gardenCanopy)" opacity="0.92" /><ellipse cx="14" cy="-46" rx="13" ry="11" fill="url(#gardenCanopy)" opacity="0.8" /><ellipse cx="-7" cy="-59" rx="9" ry="5.5" fill="#bdeeb0" opacity="0.35" /></g>)
+// Three iconic SA tree looks, picked deterministically per planting (so the
+// same tree always looks the same, but different plantings vary): a fever
+// tree's yellow-green bark and feathery pale canopy, a marula's grey bark and
+// rounded green canopy, a wild fig's dark, dense canopy.
+const TREE_VARIANTS = {
+  fever: { bark: '#9fae5a', canopy: '#7bc9a8' },
+  marula: { bark: '#9a948a', canopy: '#6fae5e' },
+  fig: { bark: '#6b5a42', canopy: '#3d6b3f' },
+}
+function treeVariantFor(seed) {
+  const keys = Object.keys(TREE_VARIANTS)
+  if (!seed) return TREE_VARIANTS.marula
+  let h = 0
+  const s = String(seed)
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return TREE_VARIANTS[keys[h % keys.length]]
+}
+
+function TreeArt({ stageKey, seed }) {
+  const { bark, canopy } = treeVariantFor(seed)
+  if (stageKey === 'seedling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-9" stroke={canopy} strokeWidth="2" strokeLinecap="round" /><ellipse cx="-3.4" cy="-9" rx="3" ry="1.5" fill={canopy} transform="rotate(-28 -3.4 -9)" /><ellipse cx="3.4" cy="-9" rx="3" ry="1.5" fill={canopy} transform="rotate(28 3.4 -9)" /></g>)
+  if (stageKey === 'sapling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-1.5" y="-22" width="3" height="22" rx="1.5" fill={bark} /><circle cx="0" cy="-25" r="10" fill={canopy} /><circle cx="-4" cy="-27" r="6" fill={canopy} opacity="0.9" /></g>)
+  if (stageKey === 'young') return (<g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-34" width="5" height="34" rx="2" fill={bark} /><circle cx="0" cy="-38" r="16" fill={canopy} /><circle cx="-7" cy="-40" r="9" fill={canopy} opacity="0.9" /></g>)
+  return (<g><ellipse cx="0" cy="0" rx="12" ry="4" fill="#7a5a3a" /><rect x="-3.5" y="-44" width="7" height="44" rx="3" fill={bark} /><ellipse cx="0" cy="-50" rx="24" ry="20" fill={canopy} /><ellipse cx="-14" cy="-46" rx="14" ry="12" fill={canopy} opacity="0.92" /><ellipse cx="14" cy="-46" rx="13" ry="11" fill={canopy} opacity="0.8" /><ellipse cx="-7" cy="-59" rx="9" ry="5.5" fill="#bdeeb0" opacity="0.35" /></g>)
 }
 
 function PineArt({ stageKey }) {
@@ -382,8 +401,17 @@ function StonePathArt({ stageKey }) {
 function RockGardenArt({ stageKey }) {
   const rocks = (<g><ellipse cx="0" cy="0" rx="15" ry="5.5" fill="#8a8078" /><ellipse cx="-6" cy="-3" rx="6.5" ry="4.5" fill="#9a9088" /><ellipse cx="6" cy="-2.5" rx="5.5" ry="4" fill="#a8a096" /></g>)
   if (stageKey === 'rock-bare') return rocks
-  const succ = (x, y, c) => (<g><circle cx={x} cy={y} r="3" fill={c} /><circle cx={x} cy={y} r="1.3" fill="#bfe6a0" /></g>)
-  return (<g>{rocks}{succ(-6, -6, '#5aa861')}{succ(6, -5, '#6cb86f')}{succ(0, -3.5, '#4f9a55')}</g>)
+  // Real succulent tones: blue-grey, silver-green, and a reddish-tipped one —
+  // never plain garden green.
+  const succ = (x, y, c, tip) => (<g><circle cx={x} cy={y} r="3" fill={c} /><circle cx={x} cy={y} r="1.3" fill={tip} /></g>)
+  return (
+    <g>
+      {rocks}
+      {succ(-6, -6, '#7a95a0', '#c8dde0')}
+      {succ(6, -5, '#8fae8a', '#d8e8c8')}
+      {succ(0, -3.5, '#a8685c', '#e0a898')}
+    </g>
+  )
 }
 
 function VegPatchArt({ stageKey }) {
@@ -497,21 +525,21 @@ function SunsetBenchArt({ stageKey }) {
 
 // A real species planting (from the Seed Pouch) grows through the same
 // generic sprout/budding SVG art as every other flower while young — its FINAL
-// stage draws a generous cluster of illustrated blooms tinted to the plant's
-// real scientific family (see plantFamilyColor), so the garden stays one
-// consistent hand-drawn world throughout every stage. No photos, ever — the
-// garden is an illustrated world.
-function SpeciesBloomArt({ family }) {
-  const petalColor = plantFamilyColor(family)
+// stage draws an illustrated bloom shaped and tinted to the real plant it is
+// (see plantBloomKind/plantBloomColor/plantFoliageColor), so a flowering aloe
+// looks nothing like a protea, and a succulent's foliage reads blue-grey while
+// fynbos reads fine and silvery. No photos, ever — the garden stays one
+// consistent hand-drawn illustrated world throughout every stage.
+function GenericBloom({ color, foliage }) {
   const petals = [[-9, -21, 5], [0, -27, 5.6], [9, -20, 5], [-6, -13, 4], [6, -13, 4]]
   return (
     <g>
       <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -1 V-19" stroke="#5aa05a" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M-6 -10 Q0 -14 6 -9" stroke="#5aa05a" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <path d="M0 -1 V-19" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M-6 -10 Q0 -14 6 -9" stroke={foliage} strokeWidth="1.8" fill="none" strokeLinecap="round" />
       {petals.map(([x, y, r], i) => (
         <g key={i}>
-          <circle cx={x} cy={y} r={r} fill={petalColor} opacity="0.92" />
+          <circle cx={x} cy={y} r={r} fill={color} opacity="0.92" />
           <circle cx={x} cy={y} r={r * 0.4} fill="#ffe07a" />
         </g>
       ))}
@@ -519,12 +547,156 @@ function SpeciesBloomArt({ family }) {
   )
 }
 
-function PlantArt({ type, stageKey, family }) {
+// Aloe — a spiky succulent rosette at the base with a tall red-orange raceme
+// of tubular flowers rising above it.
+function AloeBloom({ color, foliage }) {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="11" ry="3.2" fill="#7a5a3a" />
+      <path d="M0 -1 L-13 -9" stroke={foliage} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M0 -1 L-8 -15" stroke={foliage} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M0 -1 L0 -18" stroke={foliage} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M0 -1 L8 -15" stroke={foliage} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M0 -1 L13 -9" stroke={foliage} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M0 -12 V-34" stroke="#4f6a48" strokeWidth="2" strokeLinecap="round" />
+      {[-34, -31, -28, -25, -22, -19].map((y, i) => (
+        <ellipse key={i} cx={i % 2 ? 3 : -3} cy={y} rx="3.2" ry="2" fill={color} opacity={0.95 - i * 0.06} />
+      ))}
+    </g>
+  )
+}
+
+// Protea — a starburst ring of pointed woody bracts around a pale fluffy centre.
+function ProteaBloom({ color, foliage }) {
+  const bracts = [
+    'M0 -30 L-4 -22 L4 -22 Z',
+    'M-9 -27 L-11 -18 L-3 -20 Z',
+    'M9 -27 L11 -18 L3 -20 Z',
+    'M-13 -19 L-13 -10 L-6 -15 Z',
+    'M13 -19 L13 -10 L6 -15 Z',
+    'M-7 -13 L-9 -6 L0 -10 Z',
+    'M7 -13 L9 -6 L0 -10 Z',
+  ]
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
+      <path d="M0 -1 V-20" stroke={foliage} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M-7 -12 Q0 -15 7 -11" stroke={foliage} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      {bracts.map((d, i) => <path key={i} d={d} fill={color} opacity={0.94 - (i % 2) * 0.08} />)}
+      <circle cx="0" cy="-19" r="4.4" fill="#fff3d6" opacity="0.85" />
+    </g>
+  )
+}
+
+// Agapanthus — a tall stem topped with a ball-shaped umbel of small star
+// flowers, strappy leaves at the base.
+function AgapanthusBloom({ color, foliage }) {
+  const umbel = [[-8, -33], [-4, -37], [2, -38], [7, -35], [5, -30], [-3, -30], [0, -34]]
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
+      <path d="M0 -1 L-8 -12" stroke={foliage} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M0 -1 L8 -12" stroke={foliage} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M0 -1 L-3 -14" stroke={foliage} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M0 -3 V-30" stroke={foliage} strokeWidth="2" strokeLinecap="round" />
+      {umbel.map(([x, y], i) => (
+        <g key={i}>
+          <line x1="0" y1="-30" x2={x} y2={y} stroke={foliage} strokeWidth="1" />
+          <circle cx={x} cy={y} r="2.4" fill={color} />
+        </g>
+      ))}
+    </g>
+  )
+}
+
+// Bulbine — a thin spike dotted with small star flowers, narrow succulent
+// leaves at the base.
+function BulbineBloom({ color, foliage }) {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
+      <path d="M0 -1 L-5 -10" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M0 -1 L5 -10" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M0 -2 V-30" stroke={foliage} strokeWidth="1.8" strokeLinecap="round" />
+      {[-28, -25, -22, -19, -16, -13].map((y, i) => (
+        <circle key={i} cx={i % 2 ? 2.6 : -2.6} cy={y} r="2" fill={color} />
+      ))}
+    </g>
+  )
+}
+
+// Strelitzia (bird-of-paradise) — a large paddle leaf with the unmistakable
+// orange crane-head bloom and a blue tongue.
+function StrelitziaBloom({ color, foliage }) {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
+      <path d="M0 -1 Q-10 -12 -4 -24 Q2 -14 0 -1 Z" fill={foliage} opacity="0.9" />
+      <path d="M0 -2 V-26" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M0 -26 Q10 -28 14 -22" stroke="#4f6a48" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      <path d="M8 -27 L18 -30 L11 -24 Z" fill={color} />
+      <path d="M9 -24 L20 -25 L12 -20 Z" fill={color} />
+      <path d="M8 -21 L18 -19 L11 -18 Z" fill={color} />
+      <path d="M11 -24 L20 -23 L13 -20 Z" fill="#2a3a7a" />
+    </g>
+  )
+}
+
+// Generic succulent (vygie-like) — fleshy blue-grey/silver-green rosette
+// leaves with a small bright daisy-like bloom on top.
+function SucculentBloom({ color, foliage }) {
+  const petals = [[-5, -18], [0, -20], [5, -18], [-3, -11], [3, -11]]
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="11" ry="3.4" fill="#7a5a3a" />
+      <ellipse cx="-6" cy="-4" rx="4" ry="6.5" fill={foliage} opacity="0.9" />
+      <ellipse cx="6" cy="-4" rx="4" ry="6.5" fill={foliage} opacity="0.9" />
+      <ellipse cx="0" cy="-6" rx="4.6" ry="7.5" fill={foliage} />
+      {petals.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.6" fill={color} />)}
+      <circle cx="0" cy="-15" r="2.2" fill="#ffe07a" />
+    </g>
+  )
+}
+
+// Generic fynbos — fine silvery-grey foliage sprigs with small bright flowers
+// dotted along the tips.
+function FynbosBloom({ color, foliage }) {
+  const sprigs = [-8, -4, 0, 4, 8]
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
+      {sprigs.map((x, i) => (
+        <path key={i} d={`M0 -1 L${x} ${-14 - Math.abs(x) * 0.3}`} stroke={foliage} strokeWidth="1.2" strokeLinecap="round" />
+      ))}
+      {[[-8, -16], [-4, -19], [0, -21], [4, -19], [8, -16]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="2" fill={color} />
+      ))}
+    </g>
+  )
+}
+
+function SpeciesBloomArt({ commonName, family }) {
+  const kind = plantBloomKind(commonName, family)
+  const color = plantBloomColor(commonName, family)
+  const foliage = plantFoliageColor(commonName, family)
+  switch (kind) {
+    case 'aloe': return <AloeBloom color={color} foliage={foliage} />
+    case 'protea': return <ProteaBloom color={color} foliage={foliage} />
+    case 'agapanthus': return <AgapanthusBloom color={color} foliage={foliage} />
+    case 'bulbine': return <BulbineBloom color={color} foliage={foliage} />
+    case 'strelitzia': return <StrelitziaBloom color={color} foliage={foliage} />
+    case 'succulent': return <SucculentBloom color={color} foliage={foliage} />
+    case 'fynbos': return <FynbosBloom color={color} foliage={foliage} />
+    default: return <GenericBloom color={color} foliage={foliage} />
+  }
+}
+
+function PlantArt({ type, stageKey, family, commonName, seed }) {
   if (isSpeciesPlanting(type) && stageKey === 'bloom') {
-    return <SpeciesBloomArt family={family} />
+    return <SpeciesBloomArt commonName={commonName} family={family} />
   }
   switch (type) {
-    case 'tree-seed': return <TreeArt stageKey={stageKey} />
+    case 'tree-seed': return <TreeArt stageKey={stageKey} seed={seed} />
     case 'pine-seed': return <PineArt stageKey={stageKey} />
     case 'flower-bed': return <FlowerBedArt stageKey={stageKey} />
     case 'fence': return <FenceArt stageKey={stageKey} />
@@ -1128,7 +1300,7 @@ export function GardenPage({
                   }}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
-                  <PlantArt type={p.type} stageKey={plantStageKey(p)} family={p.family} />
+                  <PlantArt type={p.type} stageKey={plantStageKey(p)} family={p.family} commonName={p.commonName} seed={p.id} />
                   {treeHasNest(p) && NEST_SPOT[p.type] && (
                     <g transform={`translate(${NEST_SPOT[p.type].x} ${NEST_SPOT[p.type].y})`}>
                       <NestArt />

@@ -54,18 +54,47 @@ const COMPANION_SCI = {
   'alcedo cristata': 'kingfisher', // older synonym for the Malachite Kingfisher
 }
 
+// A handful of very common garden visitors get their own accurate, dedicated
+// SPECIES entry in Tweety.jsx (visual-only ids — never selectable companions,
+// see the block below TWEETY_COMPANIONS' six real species there).
+const GARDEN_VISUAL_SCI = {
+  'bostrychia hagedash': 'hadeda', // Hadeda Ibis
+  'sturnus vulgaris': 'starling', // Common Starling
+  'curruca subcoerulea': 'warbler', // Chestnut-vented Warbler
+  'sporopipes squamifrons': 'scalyweaver', // Scaly-feathered Weaver
+  'turtur chalcospilos': 'wooddove', // Emerald-spotted Wood Dove
+  'oenanthe familiaris': 'familiarchat', // Familiar Chat
+}
+
+// Everything else still gets a real colour instead of the plain 'wild' bird:
+// a keyword match against its common name picks the closest family visual.
+// Checked only after the exact companion/visual lookups above, so a species
+// with its own dedicated entry (e.g. Scaly-feathered Weaver) is never
+// overridden by a broader family keyword (e.g. "weaver" → bright yellow).
+const GARDEN_FAMILY_KEYWORDS = [
+  [/weaver/, 'weaver'],
+  [/robin/, 'robin'],
+  [/sunbird/, 'sunbird'],
+  [/ibis/, 'hadeda'],
+  [/dove|pigeon/, 'wooddove'],
+]
+
 function normName(value) {
   return String(value || '').trim().toLowerCase().replace(/[’']/g, '').replace(/\s+/g, ' ')
 }
 
 // Resolve a collection species to the TweetyBird visual id used to draw it in
-// the garden: one of the six companions when it matches, else the wild fallback.
+// the garden: one of the six companions or a dedicated species visual when it
+// matches exactly, else a family-keyword match, else the neutral wild fallback.
 export function gardenCompanionFor(commonName, scientificName) {
   const sci = normName(scientificName)
   if (sci && COMPANION_SCI[sci]) return COMPANION_SCI[sci]
+  if (sci && GARDEN_VISUAL_SCI[sci]) return GARDEN_VISUAL_SCI[sci]
   const common = normName(commonName)
   const byName = TWEETY_COMPANIONS.find((c) => normName(c.species) === common)
   if (byName) return byName.id
+  const family = GARDEN_FAMILY_KEYWORDS.find(([pattern]) => pattern.test(common))
+  if (family) return family[1]
   return GARDEN_WILD_COMPANION
 }
 

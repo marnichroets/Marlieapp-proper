@@ -3015,6 +3015,76 @@ export function plantFamilyColor(family) {
   return PLANT_FAMILY_FALLBACK_PALETTE[hash % PLANT_FAMILY_FALLBACK_PALETTE.length]
 }
 
+// ---- Garden bloom art: which iconic SA shape a grown species draws as -----
+// A handful of well-known common names get their own bespoke illustrated
+// bloom shape in the Garden (see the Bloom components in Garden.jsx) so a
+// flowering aloe looks nothing like a protea, even though both could fall
+// into the same PlantNet family bucket. Checked before any family fallback.
+const PLANT_BLOOM_KEYWORDS = [
+  [/aloe/, 'aloe'],
+  [/protea/, 'protea'],
+  [/agapanthus/, 'agapanthus'],
+  [/bulbine/, 'bulbine'],
+  [/strelitzia|bird[- ]of[- ]paradise/, 'strelitzia'],
+  [/vygie|lithops|echeveria|crassula|sedum|succulent/, 'succulent'],
+  [/fynbos|erica|pelargonium|restio/, 'fynbos'],
+]
+
+// Families that reliably imply one of the shapes above even when the common
+// name itself doesn't contain the keyword (e.g. a PlantNet match that only
+// returned a scientific name).
+const PLANT_FAMILY_BLOOM_KIND = {
+  Proteaceae: 'protea',
+  Aizoaceae: 'succulent',
+  Asphodelaceae: 'aloe',
+  Strelitziaceae: 'strelitzia',
+}
+
+// Bloom colour per shape kind — real SA colours, not the scientific-family
+// hash (aloe red, protea pink, agapanthus purple-blue, bulbine yellow,
+// strelitzia orange; succulents/fynbos get a bright accent bloom colour).
+const BLOOM_KIND_COLOR = {
+  aloe: '#d1382a',
+  protea: '#e8657a',
+  agapanthus: '#7a6fd0',
+  bulbine: '#f2c230',
+  strelitzia: '#e8823a',
+  succulent: '#e85a8a',
+  fynbos: '#e8657a',
+}
+
+// Foliage/stem colour per shape kind — succulents run blue-grey/silver-green,
+// fynbos runs fine silver-grey, everything else keeps an ordinary garden
+// green (ungated by species, so ordinary flowers still read as healthy).
+const BLOOM_KIND_FOLIAGE = {
+  aloe: '#7a8a6a',
+  protea: '#5f7a52',
+  agapanthus: '#4f9a55',
+  bulbine: '#7d9a5a',
+  strelitzia: '#3f7a52',
+  succulent: '#8a9a7a',
+  fynbos: '#a8ad96',
+  generic: '#5aa05a',
+}
+
+export function plantBloomKind(commonName, family) {
+  const common = String(commonName || '').trim().toLowerCase()
+  const byName = PLANT_BLOOM_KEYWORDS.find(([pattern]) => pattern.test(common))
+  if (byName) return byName[1]
+  const key = String(family || '').trim()
+  if (PLANT_FAMILY_BLOOM_KIND[key]) return PLANT_FAMILY_BLOOM_KIND[key]
+  return 'generic'
+}
+
+export function plantBloomColor(commonName, family) {
+  const kind = plantBloomKind(commonName, family)
+  return kind === 'generic' ? plantFamilyColor(family) : BLOOM_KIND_COLOR[kind]
+}
+
+export function plantFoliageColor(commonName, family) {
+  return BLOOM_KIND_FOLIAGE[plantBloomKind(commonName, family)]
+}
+
 function hash(str) {
   let h = 2166136261
   for (let i = 0; i < str.length; i += 1) {

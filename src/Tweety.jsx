@@ -425,6 +425,55 @@ const SPECIES = {
     greyUnder: '#D8D0C0', whiteBelly: '#EFEADF',
     feats: { tail: 'short' },
   },
+  // ---- Garden-visitor-only species (below): NOT selectable companions, never
+  // in TWEETY_COMPANIONS — visual ids resolved purely by gardenCompanionFor()
+  // (see tweetyData.js) so every Collection bird visiting the garden gets its
+  // own real SA colouring instead of falling back to the neutral 'wild' bird.
+  // Hadeda Ibis — dark grey-brown, glossy green wing patch, long curved bill.
+  hadeda: {
+    adult: { back: '#4A423A', wing: '#3E362E', beak: '#5A4632', feet: '#5A4A3A', eye: '#2C2620' },
+    young: { back: '#554B40', wing: '#463C32', beak: '#63503A', feet: '#5A4A3A', eye: '#2C2620' },
+    juv: { back: '#605448', wing: '#4F4238', beak: '#6E5A42', feet: '#5A4A3A', eye: '#2C2620' },
+    feats: { bill: 'longCurved', wingPatch: '#2E7D5B', tail: 'short' },
+  },
+  // Common Starling — glossy near-black with purple-green iridescence, pale
+  // winter speckling.
+  starling: {
+    adult: { back: '#221F26', wing: '#1B181E', beak: '#D8A23A', feet: '#8A6A2A', eye: '#15130F' },
+    young: { back: '#3A3540', wing: '#2E2A34', beak: '#7A6248', feet: '#8A6A2A', eye: '#15130F' },
+    juv: { back: '#544C46', wing: '#463F3A', beak: '#6A5A44', feet: '#8A6A2A', eye: '#2C2620' },
+    feats: { sheen: '#6A4FA0', speckle: '#D9D2C0', tail: 'short' },
+  },
+  // Chestnut-vented Warbler — brown back, pale breast, chestnut vent/rump.
+  warbler: {
+    adult: { back: '#8A7256', wing: '#7A6248', beak: '#4A3B2C', feet: '#9A8060', eye: '#2C2620' },
+    young: { back: '#93806A', wing: '#846E52', beak: '#5A4838', feet: '#9A8060', eye: '#2C2620' },
+    juv: { back: '#9C8A70', wing: '#8C7A5C', beak: '#6A5642', feet: '#9A8060', eye: '#2C2620' },
+    breast: { adult: '#EDE3CE', young: '#EDE3CE', juv: '#E5D9BE' },
+    feats: { tail: 'short', rump: '#9C5A2C' },
+  },
+  // Scaly-feathered Weaver — brown with a scaly black-and-white chest pattern,
+  // a tiny pale bill.
+  scalyweaver: {
+    adult: { back: '#9C8A6C', wing: '#8A7856', beak: '#C8A86A', feet: '#B89868', eye: '#2C2620' },
+    young: { back: '#A8977A', wing: '#968562', beak: '#B89868', feet: '#B89868', eye: '#2C2620' },
+    juv: { back: '#B3A488', wing: '#A0906E', beak: '#A88C60', feet: '#B89868', eye: '#2C2620' },
+    feats: { tail: 'short', scalyChest: true, tinyBill: true },
+  },
+  // Emerald-spotted Wood Dove — grey-brown, bright emerald wing spots.
+  wooddove: {
+    adult: { back: '#9C8E78', wing: '#897A62', beak: '#6A5642', feet: '#B5895A', eye: '#2C2620' },
+    young: { back: '#A79A82', wing: '#948468', beak: '#7A6650', feet: '#B5895A', eye: '#2C2620' },
+    juv: { back: '#B3A78E', wing: '#A0916E', beak: '#8A7660', feet: '#B5895A', eye: '#2C2620' },
+    feats: { tail: 'short', wingSpots: '#2FA85F' },
+  },
+  // Familiar Chat — dark brown back, rufous-orange tail and rump.
+  familiarchat: {
+    adult: { back: '#4A3826', wing: '#3E2E1E', beak: '#2A2016', feet: '#6A5238', eye: '#15100A' },
+    young: { back: '#5A4634', wing: '#4C3A2A', beak: '#3A2E20', feet: '#6A5238', eye: '#15100A' },
+    juv: { back: '#6A5644', wing: '#5C4A38', beak: '#4A3A2A', feet: '#6A5238', eye: '#2C2620' },
+    feats: { tail: 'rufous', tailColor: '#E8743C', rump: '#E8743C' },
+  },
 }
 
 // How "adult" a stage is: 0 = chick … 1 = adult. Features fade in along this.
@@ -445,7 +494,7 @@ function companionVisual(id, level) {
     spots: Boolean(f.spotsJuv && juvenile),
     streaks: Boolean(f.streaksJuv && juvenile),
     redPupil: Boolean(f.redEyeAdult && adult),
-    bill: { type: f.bill || 'short', color: pal.beak },
+    bill: { type: f.bill || 'short', color: pal.beak, tiny: Boolean(f.tinyBill) },
   }
   // robin: orange breast patch (+ grey lower belly) that deepens with age
   if (s.breast) {
@@ -479,13 +528,24 @@ function companionVisual(id, level) {
   // sunbird yellow pectoral tufts + iridescent sheen
   if (f.tuft && adult) vis.tuft = { color: f.tuft }
   if (f.sheen && t >= 0.7) vis.sheen = { color: f.sheen }
-  // tails: robin rufous (stages), sunbird streamers, others a short wing-coloured tail
+  // hadeda: iridescent green wing patch (present once wings show at all)
+  if (f.wingPatch && t >= 0.4) vis.wingPatch = { color: f.wingPatch }
+  // wood dove: bright emerald wing spots
+  if (f.wingSpots && t >= 0.4) vis.wingSpots = { color: f.wingSpots }
+  // starling: pale winter speckling across the body (adult/near-adult only)
+  if (f.speckle && t >= 0.5) vis.speckle = { color: f.speckle }
+  // scaly-feathered weaver: scalloped black-and-white chest pattern
+  if (f.scalyChest && t >= 0.5) vis.scalyChest = true
+  // warbler/chat: a small rump/vent colour patch at the tail base
+  if (f.rump && t >= 0.4) vis.rump = { color: f.rump }
+  // tails: robin/chat rufous (stages), sunbird streamers, others a short tail
+  // (wing-coloured by default, or a species colour override e.g. none here)
   if (f.tail === 'rufous') {
     vis.tail = { kind: t < 0.2 ? null : t < 0.5 ? 'rufousShort' : t < 1 ? 'rufousMed' : 'rufousFull', color: f.tailColor }
   } else if (f.streamers) {
     vis.tail = { kind: t >= 0.7 ? 'streamers' : null, color: f.streamers }
   } else if (f.tail === 'short') {
-    vis.tail = { kind: t >= 0.6 ? 'short' : null, color: pal.wing }
+    vis.tail = { kind: t >= 0.6 ? 'short' : null, color: f.tailColor || pal.wing }
   }
   return vis
 }
@@ -553,6 +613,8 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, p
               />
             )
           )}
+          {/* warbler/chat rump or vent patch, at the tail base */}
+          {vis?.rump && <ellipse cx="52" cy="76" rx="5" ry="4" fill={vis.rump.color} opacity="0.9" />}
           {/* top curl/tuft (recoloured to the wing colour for species) */}
           <path d="M50 30 q-2 -12 6 -13 q-3 8 -2 13 Z" fill={wing} />
           {/* body */}
@@ -562,6 +624,21 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, p
               {/* large underparts wash (sparrow grey · kingfisher orange) */}
               {vis.underparts && (
                 <ellipse cx="50" cy={62} rx={rx * 0.6} ry={ry * 0.62} fill={vis.underparts.color} />
+              )}
+              {/* starling pale winter speckling across the body */}
+              {vis.speckle && (
+                <g fill={vis.speckle.color} opacity="0.55">
+                  <circle cx="44" cy="56" r="1.3" /><circle cx="56" cy="60" r="1.2" />
+                  <circle cx="50" cy="52" r="1.1" /><circle cx="42" cy="64" r="1.1" />
+                  <circle cx="58" cy="66" r="1.2" /><circle cx="48" cy="68" r="1" />
+                </g>
+              )}
+              {/* scaly-feathered weaver scalloped chest pattern */}
+              {vis.scalyChest && (
+                <g stroke="#2A2620" strokeWidth="1.1" fill="none" strokeLinecap="round" opacity="0.6">
+                  <path d="M44 58 q2 3 4 0" /><path d="M50 60 q2 3 4 0" /><path d="M56 58 q2 3 4 0" />
+                  <path d="M47 64 q2 3 4 0" /><path d="M53 64 q2 3 4 0" />
+                </g>
               )}
               {/* breast patch (robin) */}
               {vis.breast && (
@@ -615,6 +692,18 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, p
           {mid && <ellipse cx={50 + rx - 2} cy="58" rx={big ? 8 : 6} ry={wingRy} fill={wing} />}
           {/* sparrow white wing bar */}
           {vis?.wingBar && <path d="M26 56 q6 -1 9 2" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />}
+          {/* hadeda iridescent green wing patch (speculum) */}
+          {mid && vis?.wingPatch && (
+            <ellipse cx={50 + rx - 4} cy="57" rx="4" ry="6" fill={vis.wingPatch.color} opacity="0.9" />
+          )}
+          {/* wood dove bright emerald wing spots */}
+          {mid && vis?.wingSpots && (
+            <g fill={vis.wingSpots.color}>
+              <circle cx={50 + rx - 3} cy="54" r="1.6" />
+              <circle cx={50 + rx - 2} cy="59" r="1.4" />
+              <circle cx={50 + rx - 4} cy="63" r="1.3" />
+            </g>
+          )}
           {/* feet */}
           <path d="M44 82 v6 M41 88 h6 M42 85 h4" stroke={feetColor} strokeWidth="2.2" strokeLinecap="round" fill="none" />
           <path d="M56 82 v6 M53 88 h6 M54 85 h4" stroke={feetColor} strokeWidth="2.2" strokeLinecap="round" fill="none" />
@@ -692,6 +781,8 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, p
             <path d="M46 53 q-12 1 -17 9" stroke={beakColor} strokeWidth="2.4" fill="none" strokeLinecap="round" />
           ) : vis?.bill?.type === 'longStraight' ? (
             <path d="M50 53 l0 15" stroke={beakColor} strokeWidth="3.2" strokeLinecap="round" />
+          ) : vis?.bill?.tiny ? (
+            <path d="M48 57 l4 0 l-2 3 z" fill={beakColor} />
           ) : (
             <path d="M47 57 l6 0 l-3 5 z" fill={beakColor} />
           )}
