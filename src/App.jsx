@@ -64,6 +64,7 @@ import {
   roomSound,
   tweetyCareState,
   currentCareWindow,
+  nextCareWindow,
   CARE_WINDOWS,
   companionSpecies,
   getCompanion,
@@ -3682,10 +3683,31 @@ function App() {
     if (readOnly) return // viewing Pooks' mirror — never change her Tweety
     const now = new Date()
     const win = currentCareWindow(now)
-    if (!win) return // Tweety is resting between care windows
+    if (!win) {
+      // Was a silent no-op — if the card's display went stale (e.g. the app
+      // was backgrounded across a window boundary) she'd tap a still-visible
+      // "Feed" button and see nothing happen at all. Every tap now responds.
+      const name = data.tweety?.name || 'Tweety'
+      const next = nextCareWindow(now)
+      setToast({
+        title: `${name} is resting 😴`,
+        body: `Next care window (${next.window.emoji} ${next.window.label}) in ${next.hoursUntil} hour${next.hoursUntil === 1 ? '' : 's'} 💤`,
+        tone: 'calm',
+      })
+      return
+    }
     const field = kind === 'water' ? 'watered' : kind === 'play' ? 'played' : 'fed'
     const careNow = tweetyCareState(data.tweety, now)
-    if (careNow[field]) return // already done in this window
+    if (careNow[field]) {
+      const name = data.tweety?.name || 'Tweety'
+      const noun = field === 'watered' ? 'water' : field === 'played' ? 'playtime' : 'a feed'
+      setToast({
+        title: 'Already done 💛',
+        body: `${name}'s already had ${noun} this window 💛`,
+        tone: 'calm',
+      })
+      return
+    }
 
     playChirp(kind)
     const key = tweetyTodayKey()

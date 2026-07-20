@@ -914,6 +914,20 @@ export function TweetyHomeCard({
   const worn = tweety?.wardrobe?.worn || null
   const ownedGiftIds = useMemo(() => new Set(gifts.map((g) => g.id)), [gifts])
 
+  // Nothing else re-renders this card purely because the clock ticked, so a
+  // "Feed" button rendered while a window was open would stay visually
+  // active/stale after that window silently closes, until some unrelated
+  // state change happened to force a re-render. This ticks a throwaway piece
+  // of state once a minute so care/win/next above recompute on their own —
+  // cheap (a single interval, 60s granularity) and scoped to exactly while
+  // this card is mounted (cleared the moment it isn't, e.g. she navigates
+  // away or Tweety graduates to the garden).
+  const [, forceCareRecheck] = useState(0)
+  useEffect(() => {
+    const id = window.setInterval(() => forceCareRecheck((t) => t + 1), 60000)
+    return () => window.clearInterval(id)
+  }, [])
+
   // Feeding Bowl / Large Water Tank / Herb Bundle soften an occasional missed
   // window so she never reads as visibly upset over it; Special Treats Bag
   // forces a happy mood for the rest of the day it was bought.
