@@ -703,16 +703,16 @@ const TWEETY_STORE_ITEMS = [
   { id: 'birdhouse', emoji: '🏰', name: 'Luxury Birdhouse', cost: 2500, kind: 'nest', hint: "Replaces the nest entirely — Tweety's whole home changes" },
 ]
 
-// Bottom tab bar (7) + everything else tucked behind the settings menu.
-// Inbox (📬) stays a prominent top-level tab with an unread badge; Magazine
-// (📖) lives on the bar too, right before Gifts.
+// Bottom tab bar (6) + everything else tucked behind the settings menu.
+// Inbox (📬) stays a prominent top-level tab with an unread badge. The Weekly
+// Magazine used to live here too; it's now rendered inline at the bottom of
+// Home instead (see WeeklyMagazinePage's call site inside HomePage).
 const bottomTabs = [
   ['home', 'Home', '🏡'],
   ['add', 'Spot', '📷'],
   ['explore', 'Explore', '🔍'],
   ['library', 'Collection', '🦜'],
   ['messages', 'Inbox', '📬'],
-  ['magazine', 'Magazine', '📖'],
   ['rewards', 'Gifts', '🎁'],
 ]
 
@@ -2519,6 +2519,11 @@ function addBirdToState(state, match, photo) {
 
 function App() {
   const [activePage, setActivePage] = useState('home')
+  // When set, the next top-scroll effect (below) scrolls to this element id
+  // instead of resetting to the top — lets old `goTo('magazine')` deep-links
+  // land on Home already scrolled to the magazine section, instead of either
+  // a dead route or a page that silently ignores where they meant to go.
+  const pendingScrollTarget = useRef(null)
   // Which side of the Explore tab (Birds/Plants) to land on — lifted out of
   // ExploreHubPage so the "Plants near you" home card can jump straight to
   // the plants side instead of always landing on Birds.
@@ -2722,12 +2727,28 @@ function App() {
   // used to land at the bottom of the long bird grid after navigation.
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (pendingScrollTarget.current) {
+      const targetId = pendingScrollTarget.current
+      pendingScrollTarget.current = null
+      const el = document.getElementById(targetId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+    }
     window.scrollTo(0, 0)
     const wrap = document.querySelector('.page-wrap')
     if (wrap) wrap.scrollTop = 0
     document.documentElement.scrollTop = 0
     if (document.body) document.body.scrollTop = 0
   }, [activePage])
+
+  // Repoints anything that used to do setActivePage('magazine') — the route
+  // is gone, but the content lives at #home-magazine-section on Home now.
+  function goToMagazineSection() {
+    pendingScrollTarget.current = 'home-magazine-section'
+    setActivePage('home')
+  }
 
   // First app-open of the day: a warm new dispatch from the Bird Council lands
   // in the inbox, with a real SA bird fact she has not seen before.
@@ -6037,8 +6058,9 @@ function App() {
   // Pooks' menu is intentionally bare: just "My Story" (replay intro) and Log
   // out, both rendered by SettingsMenu itself. The feature pages still exist —
   // they're only hidden from her menu for now. Admin still sees everything.
-  // Magazine and Inbox now live in the bottom nav, so the gear menu only carries
-  // the role-specific extras (Pooks: Bird Battles; Admin: full feature set).
+  // Inbox lives in the bottom nav and the Magazine now lives on Home, so the
+  // gear menu only carries the role-specific extras (Pooks: Bird Battles;
+  // Admin: full feature set).
   const fullMenu =
     session?.role === 'admin'
       ? [...menuItems, ['admin', 'Admin', '🔒']]
@@ -6316,6 +6338,12 @@ function App() {
             onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
             onWarmMysteryEgg={warmMysteryEgg}
             plantScannerVisible={plantScannerVisible}
+            claimWeeklyQuiz={claimWeeklyQuiz}
+            claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
+            goToPlants={() => {
+              setExploreMode('plants')
+              setActivePage('explore')
+            }}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -6470,20 +6498,6 @@ function App() {
         )}
         {activePage === 'bingo' && <BingoPage data={data} toggleBingo={toggleBingo} />}
         {activePage === 'codes' && <SecretCodesPage data={data} redeemCode={redeemCode} />}
-        {activePage === 'magazine' && (
-          <WeeklyMagazinePage
-            data={data}
-            openBirdProfile={openBirdProfile}
-            openPlantProfile={openPlantProfile}
-            claimWeeklyQuiz={claimWeeklyQuiz}
-            claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
-            plantScannerVisible={plantScannerVisible}
-            goToPlants={() => {
-              setExploreMode('plants')
-              setActivePage('explore')
-            }}
-          />
-        )}
         {activePage === 'messages' && (
           <InboxPage
             messages={data.messages}
@@ -6500,6 +6514,7 @@ function App() {
             data={data}
             stats={stats}
             goTo={setActivePage}
+            onReadMagazine={goToMagazineSection}
             onReplayIntro={
             session.role === 'pooks' || session.role === 'marnich' ? replayIntro : null
           }
@@ -6529,7 +6544,7 @@ function App() {
             setTrashTalk={setTrashTalk}
             resetData={resetData}
             previewMarlieView={() => setActivePage('home')}
-            previewMagazineIssue={() => setActivePage('magazine')}
+            previewMagazineIssue={goToMagazineSection}
             sandbox={sandbox}
             onSendMessage={sendMarnichInboxMessage}
             setData={setData}
@@ -7207,6 +7222,9 @@ function HomePage({
   onReleaseToGarden,
   onWarmMysteryEgg,
   plantScannerVisible = false,
+  claimWeeklyQuiz,
+  claimWeeklyPlantQuiz,
+  goToPlants,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -7459,6 +7477,23 @@ function HomePage({
             </button>
           )
         })()}
+
+      {/* The Weekly Magazine used to be its own bottom-tab page; it now
+          renders here, at the bottom of Home, in full (not a preview) — same
+          WeeklyMagazinePage/WeeklyQuiz/WeeklyPlantQuiz components, just a new
+          parent. The id is the scroll target for old 'Read magazine' links
+          (see goToMagazineSection in App()). */}
+      <div id="home-magazine-section">
+        <WeeklyMagazinePage
+          data={data}
+          openBirdProfile={openBirdProfile}
+          openPlantProfile={openPlantProfile}
+          claimWeeklyQuiz={claimWeeklyQuiz}
+          claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
+          plantScannerVisible={plantScannerVisible}
+          goToPlants={goToPlants}
+        />
+      </div>
     </div>
   )
 }
@@ -11573,7 +11608,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
   )
 }
 
-function ProfilePage({ data, stats, goTo, onReplayIntro }) {
+function ProfilePage({ data, stats, goTo, onReplayIntro, onReadMagazine }) {
   const levelTarget = stats.nextLevel?.birds || stats.uniqueCount || 1
   const levelProgressValue = Math.min(100, Math.round((stats.uniqueCount / levelTarget) * 100))
 
@@ -11615,7 +11650,7 @@ function ProfilePage({ data, stats, goTo, onReplayIntro }) {
           <button className="secondary-btn" type="button" onClick={() => goTo('rewards')}>
             Open surprises
           </button>
-          <button className="secondary-btn" type="button" onClick={() => goTo('magazine')}>
+          <button className="secondary-btn" type="button" onClick={onReadMagazine}>
             Read magazine
           </button>
           <button className="secondary-btn" type="button" onClick={() => goTo('messages')}>
