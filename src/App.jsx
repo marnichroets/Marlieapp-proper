@@ -599,54 +599,57 @@ const PLANT_LEVELS = [
   },
   {
     level: 6,
-    threshold: 350,
+    threshold: 203,
     name: 'Master Botanist',
     coins: 2000,
     certificate:
-      'Three hundred and fifty specimens. The Botanical Archive has been expanded twice this ' +
-      'year alone. Agent Pooks is promoted to Master Botanist, a title previously held by ' +
-      'absolutely no one, because no one has ever done this before. The Bird Council is ' +
-      'quietly, begrudgingly, extremely proud. 🌿👑',
+      'Two hundred and three specimens — the Botanical Archive is running out of shelf space. ' +
+      'Agent Pooks is promoted to Master Botanist, a title previously held by absolutely no ' +
+      'one, because no one has ever come this close to the end of the record before. The Bird ' +
+      'Council is quietly, begrudgingly, extremely proud. 🌿👑',
   },
   {
     level: 7,
-    threshold: 500,
+    threshold: 205,
     name: 'Chief Botanical Officer',
     coins: 3500,
     certificate:
-      'Five hundred botanical specimens. The Council has consulted its records. No field ' +
-      'agent in the history of the Botanical Division has achieved this. Agent Pooks is ' +
-      'hereby awarded the title of Chief Botanical Officer of the Southern Hemisphere — the ' +
-      'highest honour the Council can bestow. The Bird Council would like it noted that we ' +
-      'identified her potential first. 🌿👑',
+      'Two hundred and five specimens. The Council has consulted its records — there are only ' +
+      "two species left in the entire archive she hasn't catalogued. Agent Pooks is hereby " +
+      'awarded the title of Chief Botanical Officer of the Southern Hemisphere — the highest ' +
+      'honour the Council can bestow before the record itself runs out. The Bird Council ' +
+      'would like it noted that we identified her potential first. 🌿👑',
   },
   {
     level: 8,
-    threshold: 750,
+    threshold: 206,
     name: 'Legendary Field Agent',
     coins: 5000,
     certificate:
-      'Seven hundred and fifty specimens, Agent. The Council has stopped pretending this is ' +
-      'normal. A Legendary Field Agent designation has been created specifically for this ' +
-      'occasion, because no existing title was dramatic enough. The Bird Council has begun ' +
-      'quietly citing her in their own official correspondence. This has never happened ' +
-      'before. 🌿⚡',
+      'Two hundred and six specimens, Agent. One species stands between her and the complete ' +
+      'record. The Council has stopped pretending this is normal. A Legendary Field Agent ' +
+      'designation has been created specifically for this occasion, because no existing title ' +
+      'was dramatic enough for someone standing at the very edge of the archive. 🌿⚡',
   },
   {
     level: 9,
-    threshold: 1000,
+    // Dynamic, not a hardcoded number — the top rank means "identified every
+    // species in the library," so it must track SA_PLANT_LIBRARY as it grows
+    // rather than going stale the next time species get added (see the
+    // recent "batch N of ~59" library-expansion commits).
+    threshold: SA_PLANT_LIBRARY.length,
     name: 'Grand Master of the Botanical Council',
     coins: 10000,
     certificate:
-      'One thousand plants. ONE THOUSAND, Agent. The Botanical Council has run out of ' +
-      'superlatives, ceremonial titles, and, frankly, dignity. By unanimous vote — and ' +
-      "against the Bird Council's mild protest that birds are still, objectively, superior " +
-      '— Agent Pooks is hereby named Grand Master of the Botanical Council, a rank that did ' +
-      'not exist until eleven minutes ago and was invented purely so there would be ' +
-      'something left to give her. Southern Hemisphere flora will never fully recover from ' +
-      'being this thoroughly known. The Bird Council, for the first time in recorded ' +
-      'history, has nothing sarcastic to add. They are simply, entirely, unreservedly proud ' +
-      'of her. 🌿👑✨',
+      "Every single species in the Botanical Division's record — complete, Agent. There is " +
+      'nothing left to identify. The Botanical Council has run out of superlatives, ' +
+      'ceremonial titles, and, frankly, dignity. By unanimous vote — and against the Bird ' +
+      "Council's mild protest that birds are still, objectively, superior — Agent Pooks is " +
+      'hereby named Grand Master of the Botanical Council, a rank that did not exist until ' +
+      'eleven minutes ago and was invented purely so there would be something left to give ' +
+      'her. Southern Hemisphere flora will never fully recover from being this thoroughly ' +
+      'known. The Bird Council, for the first time in recorded history, has nothing sarcastic ' +
+      'to add. They are simply, entirely, unreservedly proud of her. 🌿👑✨',
   },
 ]
 
@@ -7444,7 +7447,7 @@ function HomePage({
               <span className="mini-card-top">
                 <span className="eyebrow">{rank ? rank.name : 'Botanical Initiation'}</span>
                 <strong>
-                  {count}/{target.threshold} plants identified
+                  {count} plants identified · {target.threshold} for {target.name}
                 </strong>
               </span>
               <div className="progress-track">
