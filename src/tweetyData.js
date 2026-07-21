@@ -299,6 +299,49 @@ export function treatsBoostActive(tweety) {
   return Boolean(tweety?.treatsBoostUntil) && tweety.treatsBoostUntil > Date.now()
 }
 
+// ---- Happiness meter (0-100) -----------------------------------------------
+// Rises from care/store interactions (see HAPPINESS_GAIN in App.jsx), decays
+// passively ~2 points/hour when neglected. Decay is settled once per
+// TweetyHomeCard mount (App.jsx's settleHappinessDecay), not a live timer —
+// both helpers below do the same "apply elapsed decay" math so every call
+// site agrees on the current baseline before adding anything on top.
+export const HAPPINESS_DECAY_PER_HOUR = 2
+
+export function decayedHappiness(tweety, now = new Date()) {
+  const current = typeof tweety?.happiness === 'number' ? tweety.happiness : 70
+  const lastIso = tweety?.lastHappinessUpdate
+  if (!lastIso) return { happiness: current, lastHappinessUpdate: now.toISOString() }
+  const elapsedHours = Math.max(0, (now.getTime() - new Date(lastIso).getTime()) / 3600000)
+  const decay = Math.floor(elapsedHours * HAPPINESS_DECAY_PER_HOUR)
+  if (decay <= 0) return { happiness: current, lastHappinessUpdate: lastIso }
+  return { happiness: Math.max(0, current - decay), lastHappinessUpdate: now.toISOString() }
+}
+
+// Settle decay first, then add `amount`, capped at 100.
+export function happinessDelta(tweety, amount, now = new Date()) {
+  const decayed = decayedHappiness(tweety, now)
+  return {
+    happiness: Math.min(100, decayed.happiness + amount),
+    lastHappinessUpdate: now.toISOString(),
+  }
+}
+
+// The bar's own 4-tier mood label.
+export function happinessMood(happiness) {
+  const h = typeof happiness === 'number' ? happiness : 70
+  if (h >= 80) return 'happy'
+  if (h >= 50) return 'content'
+  if (h >= 20) return 'lonely'
+  return 'sad'
+}
+
+export const HAPPINESS_MOOD_FACE = {
+  happy: { emoji: '😊', label: 'Happy' },
+  content: { emoji: '🙂', label: 'Content' },
+  lonely: { emoji: '😔', label: 'Lonely' },
+  sad: { emoji: '😢', label: 'Sad' },
+}
+
 // Five clear moods built from the window routine.
 // `neverSad` (Feeding Bowl / Water Tank / Herb Bundle from the Tweety Store)
 // softens a missed window from 'sad' down to a neutral mood — she still needs
@@ -306,7 +349,8 @@ export function treatsBoostActive(tweety) {
 // (an active Special Treats Bag) overrides everything to 'happy' for the day.
 export function tweetySimpleMood(tweety, now = new Date(), { neverSad = false, boosted = false } = {}) {
   if (boosted) return 'happy'
-  if (windowsDoneToday(tweety) === 3) return 'happy'
+  const happiness = typeof tweety?.happiness === 'number' ? tweety.happiness : 70
+  if (happiness >= 80 || windowsDoneToday(tweety) === 3) return 'happy'
   const care = tweetyCareState(tweety, now)
   const missed = missedAWindow(tweety, now)
   if (care.window) {
@@ -315,9 +359,9 @@ export function tweetySimpleMood(tweety, now = new Date(), { neverSad = false, b
     if (!care.watered) return 'thirsty'
     return 'content'
   }
-  // Resting between windows.
-  if (windowsDoneToday(tweety) > 0) return 'content'
-  return missed ? (neverSad ? 'content' : 'sad') : 'content'
+  // Resting between windows: the happiness bar is the baseline mood signal
+  // now, instead of just "did any window get done today."
+  return happiness < 20 && !neverSad ? 'sad' : 'content'
 }
 
 export const MOOD_FACE = {
@@ -448,6 +492,8 @@ export function defaultTweety() {
     wardrobe: { owned: [], worn: { hat: null, accessory: null, outfit: null }, wishlist: [] },
     lastVisit: null, // ISO of last home visit (for the 24h "miss you" nudge)
     treatsBoostUntil: 0, // ms timestamp; Special Treats Bag forces mood 'happy' until then
+    happiness: 70, // 0-100 happiness meter (see decayedHappiness/happinessDelta below)
+    lastHappinessUpdate: new Date().toISOString(), // decay is computed from here on load
   }
 }
 
@@ -557,9 +603,9 @@ export function tweetyLongestStreak(tweety) {
 // neverSad (from store perks like the Infinite Feeder / Playground) floors it
 // at content.
 export function tweetyMood(tweety, { neverSad = false } = {}) {
-  const mood = tweetySimpleMood(tweety)
-  if (mood === 'happy') return 'happy'
-  if (mood === 'sad') return neverSad ? 'content' : 'sad'
+  const happiness = typeof tweety?.happiness === 'number' ? tweety.happiness : 70
+  if (happiness >= 80) return 'happy'
+  if (happiness < 20) return neverSad ? 'content' : 'sad'
   return 'content'
 }
 

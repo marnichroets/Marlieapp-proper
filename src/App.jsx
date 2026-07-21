@@ -73,6 +73,8 @@ import {
   pickHatchCandidate,
   MYSTERY_EGG_WARMS,
   treatsBoostActive,
+  decayedHappiness,
+  happinessDelta,
 } from './tweetyData'
 import IntroSequence from './IntroSequence'
 import { BirdStore } from './BirdStore'
@@ -496,6 +498,14 @@ const COINS = {
   newPlantSpecies: 40, // +40 the first time a plant species is logged
   eggWarm: 30, // per daily warm of a mystery egg
   eggHatch: 300, // one-time bonus when a mystery egg finishes hatching
+}
+
+// How much the happiness bar rises per action.
+const HAPPINESS_GAIN = {
+  care: 15, // per feed/water/play action
+  giftTap: 5, // tapping an owned Tweety Store item for a reaction
+  storePurchase: 20, // buying a new Tweety Store item
+  streakBonus: 10, // on top of `care`, when that action also completes a streak bonus
 }
 
 // New (non-final) Tweety growth-stage transition — one-time per stage.
@@ -3831,6 +3841,13 @@ function App() {
       }
     }
 
+    // Happiness: +15 for the care action, plus +10 more if it also completed
+    // a streak bonus above.
+    const happinessGain = HAPPINESS_GAIN.care + (bonusNote ? HAPPINESS_GAIN.streakBonus : 0)
+    const nextHappiness = happinessDelta(data.tweety, happinessGain)
+    nextTweety.happiness = nextHappiness.happiness
+    nextTweety.lastHappinessUpdate = nextHappiness.lastHappinessUpdate
+
     // Every care action gives Tweety a happy little animation; play and streak
     // bonuses get a longer celebration dance.
     const bigCelebrate = kind === 'play' || Boolean(bonusNote)
@@ -3854,6 +3871,35 @@ function App() {
       },
       { immediate: true },
     )
+  }
+
+  // Settle passive happiness decay once per mount — this card fully
+  // remounts every time she returns to Home (key={activePage} on the page
+  // wrap), so "on mount" already covers every Home visit, not just first
+  // app load. No-op if under a full hour has passed.
+  function settleHappinessDecay() {
+    if (readOnly) return
+    const decayed = decayedHappiness(data.tweety)
+    if (decayed.happiness === (data.tweety?.happiness ?? 70)) return
+    setData((current) => {
+      const next = { ...current, tweety: { ...current.tweety, ...decayed } }
+      lastSyncedRef.current = next
+      return next
+    })
+  }
+
+  // Tapping an owned Tweety Store item (TweetyHomeCard's tapGift) is a small,
+  // frequent bump — bypasses commit() (no toast; that'd be spammy for a
+  // casual repeatable tap) and saves directly, same mechanism as the
+  // immediate care-action save.
+  function bumpHappinessFromGiftTap() {
+    if (readOnly) return
+    const next = {
+      ...data,
+      tweety: { ...data.tweety, ...happinessDelta(data.tweety, HAPPINESS_GAIN.giftTap) },
+    }
+    setData(next)
+    syncStateToBackend(next)
   }
 
   function renameTweety(name) {
@@ -5846,9 +5892,14 @@ function App() {
         {
           ...data,
           featherCoins: data.featherCoins - item.cost,
-          tweety: { ...data.tweety, treatsBoostUntil: endOfToday.getTime() },
+          tweety: {
+            ...data.tweety,
+            treatsBoostUntil: endOfToday.getTime(),
+            ...happinessDelta(data.tweety, HAPPINESS_GAIN.storePurchase),
+          },
         },
         { title: `${item.emoji} ${item.name}!`, body: `Tweety is thrilled — happy all day. ${item.emoji}` },
+        { immediate: true },
       )
       return
     }
@@ -5859,8 +5910,10 @@ function App() {
         ...data,
         featherCoins: data.featherCoins - item.cost,
         tweetyStore: [...owned, item.id],
+        tweety: { ...data.tweety, ...happinessDelta(data.tweety, HAPPINESS_GAIN.storePurchase) },
       },
       { title: `${item.emoji} ${item.name} gifted!`, body: `Tweety loves it. ${item.emoji}` },
+      { immediate: true },
     )
   }
 
@@ -6426,6 +6479,8 @@ function App() {
             claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
             readOnly={readOnly}
             markMagazineIssueSeen={markMagazineIssueSeen}
+            onSettleHappiness={settleHappinessDecay}
+            onGiftTap={bumpHappinessFromGiftTap}
             goToPlants={() => {
               setExploreMode('plants')
               setActivePage('explore')
@@ -7302,6 +7357,8 @@ function HomePage({
   tweetyDancing,
   missedYou,
   careTweety,
+  onSettleHappiness,
+  onGiftTap,
   releaseAviaryBird,
   tapWorldEvent,
   resolveWorldEvent,
@@ -7471,6 +7528,8 @@ function HomePage({
               onPlay={() => careTweety('play')}
               onOpenStats={() => goTo('tweety')}
               onReleaseToGarden={onReleaseToGarden}
+              onSettleHappiness={onSettleHappiness}
+              onGiftTap={onGiftTap}
             />
           ) : (
             <AwaitingCompanionCard tweety={data.tweety} />

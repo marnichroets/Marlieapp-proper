@@ -4390,6 +4390,18 @@ button.tweety-nest-base.tapped {
   75% { transform: rotate(4deg); }
 }
 
+.tweety-happiness { margin: 10px 0; }
+.tweety-happiness-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.tweety-happiness-pct { color: var(--ink-strong); }
+
 .tweety-care-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

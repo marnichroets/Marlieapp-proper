@@ -17,6 +17,8 @@ import {
   tweetyCareState,
   tweetySimpleMood,
   treatsBoostActive,
+  happinessMood,
+  HAPPINESS_MOOD_FACE,
   nextCareWindow,
   windowsDoneToday,
   tweetyGrowth,
@@ -924,6 +926,8 @@ export function TweetyHomeCard({
   onPlay,
   onOpenStats,
   onReleaseToGarden,
+  onSettleHappiness,
+  onGiftTap,
 }) {
   const name = tweety?.name || 'Tweety'
   const species = companionSpecies(tweety?.companion)
@@ -948,6 +952,12 @@ export function TweetyHomeCard({
     return () => window.clearInterval(id)
   }, [])
 
+  // Settle passive decay once per mount (see settleHappinessDecay in App.jsx).
+  useEffect(() => {
+    onSettleHappiness?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Feeding Bowl / Large Water Tank / Herb Bundle soften an occasional missed
   // window so she never reads as visibly upset over it; Special Treats Bag
   // forces a happy mood for the rest of the day it was bought.
@@ -959,6 +969,8 @@ export function TweetyHomeCard({
   const brightened = Boolean(justTapped)
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
+  const happiness = typeof tweety?.happiness === 'number' ? tweety.happiness : 70
+  const happinessFace = HAPPINESS_MOOD_FACE[happinessMood(happiness)]
   const growth = tweetyGrowth(tweety)
   const progress = tweetyGrowthProgress(tweety)
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
@@ -980,6 +992,7 @@ export function TweetyHomeCard({
   function tapGift(id) {
     setJustTapped(id)
     window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
+    onGiftTap?.()
     if (id === 'chimes') {
       playChirp('play')
       setTimeout(() => playChirp('water'), 160)
@@ -1198,6 +1211,20 @@ export function TweetyHomeCard({
         </div>
         <div className="tweety-growth-bar" aria-hidden="true">
           <span style={{ width: `${progress.percent}%` }} />
+        </div>
+      </div>
+
+      {/* Happiness meter — rises from care/store interactions, decays
+          passively when neglected, drives tweetySimpleMood/tweetyMood. */}
+      <div className="tweety-happiness">
+        <div className="tweety-happiness-top">
+          <span className="tweety-happiness-caption">
+            {happinessFace.emoji} {happinessFace.label}
+          </span>
+          <span className="tweety-happiness-pct">{happiness}%</span>
+        </div>
+        <div className="progress-track" aria-hidden="true">
+          <span style={{ width: `${happiness}%` }} />
         </div>
       </div>
 
