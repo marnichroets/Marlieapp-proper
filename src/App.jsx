@@ -1796,12 +1796,20 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
 
 // Same 3-day issue cadence as the bird magazine, offset so the plant corner
 // doesn't just mirror whichever birds are already on the cover/feature pages.
-function getWeeklyMagazinePlants(date = new Date(), count = 4) {
+function getWeeklyMagazinePlants(settings = {}, date = new Date(), count = 4) {
   const library = [...SA_PLANT_LIBRARY].sort((a, b) => a.commonName.localeCompare(b.commonName))
-  if (!library.length) return []
+  if (!library.length) return { featuredPlants: [], plantOfWeek: null }
   const issueIndex = getAbsoluteIssueIndex(date)
   const startIndex = (issueIndex * 3) % library.length
-  return selectRotatingBirds(library, count, startIndex)
+  const pinnedPlant =
+    library.find((plant) => plant.id === settings.pinnedPlantOfWeekId) || null
+  const rotatingPlants = selectRotatingBirds(library, pinnedPlant ? count - 1 : count, startIndex, pinnedPlant?.id)
+  const featuredPlants = pinnedPlant ? [pinnedPlant, ...rotatingPlants] : rotatingPlants
+
+  return {
+    featuredPlants,
+    plantOfWeek: pinnedPlant || featuredPlants[0] || null,
+  }
 }
 
 // ---- Weekly Bird Quiz (magazine) ----
@@ -2045,6 +2053,7 @@ function buildDefaultState() {
       marnichGardenGift2025: false,
       secretCodesVisible: false,
       pinnedBirdOfWeekId: '',
+      pinnedPlantOfWeekId: '',
       pooksSecret: 'feather',
       adminSecret: 'marnich',
       marnichDailyMessage:
@@ -11467,10 +11476,13 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
   const quote = getWeeklyQuote(weekIndex)
   const coverBird = issue.birdOfWeek
   const plantIssueIndex = getAbsoluteIssueIndex(new Date())
-  const magazinePlants = getWeeklyMagazinePlants(new Date())
+  const { featuredPlants: magazinePlants, plantOfWeek } = getWeeklyMagazinePlants(data.settings, new Date())
   // The featured bird is deliberately different from the cover bird.
   const featuredBird =
     issue.featuredBirds.find((bird) => bird.id !== coverBird?.id) || issue.featuredBirds[1] || null
+  // Same rule for plants: the feature page shows a different plant than the cover.
+  const featuredPlant =
+    magazinePlants.find((plant) => plant.id !== plantOfWeek?.id) || magazinePlants[1] || null
   const recap = getWeeklyRecap(data)
   const weeklyQuiz = useMemo(
     () => buildWeeklyQuiz(issue, data.birdLibrary),
@@ -11548,6 +11560,67 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
           className="secondary-btn wide"
           type="button"
           onClick={() => openBirdProfile({ source: 'library', id: featuredBird.id })}
+        >
+          Open full profile
+        </button>
+      </div>,
+    )
+  }
+
+  // Plant of the Week cover — same layout as the bird cover page, reusing the
+  // coverPhoto() helper defined above. Gated the same way the Plant Corner
+  // gallery/quiz already are, so accounts without plant features never see it.
+  if (plantScannerVisible && plantOfWeek) {
+    pages.push(
+      <div className="magazine-cover-page" key="plant-cover">
+        <p className="magazine-issue-no">The Bloom</p>
+        <p className="magazine-season">Plant Issue #{plantIssueIndex} — {season.name} Edition</p>
+        <p className="fine-print">A fresh bloom every 3 days · {season.greeting}</p>
+        {coverPhoto(plantOfWeek.commonName, plantOfWeek.imageUrl)}
+        <p className="magazine-quote">“{plantOfWeek.funFact}”</p>
+        <h2>Plant of the week: {plantOfWeek.commonName}</h2>
+        <p className="nickname">{plantOfWeek.afrikaansName}</p>
+        <button
+          className="primary-btn"
+          type="button"
+          onClick={() => openPlantProfile(plantOfWeek.id)}
+        >
+          Meet this week's plant
+        </button>
+      </div>,
+    )
+  }
+
+  // Featured plant page — different plant from the cover, same as the bird
+  // feature page's relationship to the bird cover.
+  if (plantScannerVisible && featuredPlant) {
+    pages.push(
+      <div className="magazine-feature-page" key="plant-feature">
+        <p className="eyebrow">Featured this week 🌿</p>
+        <h2>{featuredPlant.commonName}</h2>
+        <p className="nickname">{featuredPlant.afrikaansName}</p>
+        <dl className="bird-meta profile-meta">
+          <div>
+            <dt>Category</dt>
+            <dd>{plantCategoryEmoji(featuredPlant.category)} {featuredPlant.category}</dd>
+          </div>
+          <div>
+            <dt>Where found</dt>
+            <dd>{featuredPlant.whereFound || 'Across South Africa'}</dd>
+          </div>
+          <div>
+            <dt>Care tips</dt>
+            <dd>{featuredPlant.careTips}</dd>
+          </div>
+        </dl>
+        <p className="eyebrow">Fun fact</p>
+        <div className="mini-list">
+          <p>{featuredPlant.funFact}</p>
+        </div>
+        <button
+          className="secondary-btn wide"
+          type="button"
+          onClick={() => openPlantProfile(featuredPlant.id)}
         >
           Open full profile
         </button>
@@ -12939,6 +13012,31 @@ function AdminPage({
               .map((bird) => (
                 <option key={bird.id} value={bird.id}>
                   {bird.commonName}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          Pinned plant of the week
+          <select
+            value={data.settings.pinnedPlantOfWeekId || ''}
+            onChange={(event) =>
+              setData((current) => ({
+                ...current,
+                settings: {
+                  ...current.settings,
+                  pinnedPlantOfWeekId: event.target.value,
+                },
+              }))
+            }
+          >
+            <option value="">Auto-rotate weekly</option>
+            {SA_PLANT_LIBRARY
+              .slice()
+              .sort((a, b) => a.commonName.localeCompare(b.commonName))
+              .map((plant) => (
+                <option key={plant.id} value={plant.id}>
+                  {plant.commonName}
                 </option>
               ))}
           </select>
