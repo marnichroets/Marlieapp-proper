@@ -315,6 +315,27 @@ async function saveRemoteState(account, state, version = 0, { keepalive = false 
   }
 }
 
+// Fire-and-forget flush for page teardown (backgrounding/eviction) — used by
+// the visibilitychange/pagehide/beforeunload handlers below, not the normal
+// debounced save. sendBeacon is explicitly guaranteed by spec to be
+// delivered even after the page is torn down, unlike a keepalive fetch,
+// which the browser can still drop once the process actually goes away. No
+// response to react to here (no conflict handling) — this is best-effort;
+// the next normal sync reconciles against whatever actually landed.
+function flushStateOnExit(account, state, version = 0) {
+  const payload = JSON.stringify({ account, state: prepareStateForStorage(state), version })
+  if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+    const blob = new Blob([payload], { type: 'application/json' })
+    if (navigator.sendBeacon(STATE_API, blob)) return
+  }
+  fetch(STATE_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+    keepalive: true,
+  }).catch(() => {})
+}
+
 const XENO_CANTO_KEY_STORAGE = 'pooks-xeno-canto-key'
 // NOTE: import.meta.env.VITE_* is inlined at BUILD time, not read at runtime.
 // .trim() guards against a stray newline/space if the key was pasted in Vercel.
@@ -3144,11 +3165,7 @@ function App() {
     }
   }, [data, account, readOnly])
 
-  // Source of truth: debounce-save the active account's state to the backend so
-  // it follows her login onto any device. The localStorage write above stays as
-  // the offline cache. Never runs while viewing Pooks' read-only mirror.
-  //
-  // Handles the backend's 409 version conflict (see
+  // Posts `state` to the backend and reconciles a 409 version conflict (see
   // backend/main.py::_save_player_state): this save was based on a version
   // that's no longer current, because another device or a manual admin fix
   // moved the account ahead of it. Re-fetch the authoritative state — if we
@@ -3157,41 +3174,56 @@ function App() {
   // mystery-egg/companion corruption on 2026-07-12/13). If we do have real
   // local edits, re-save them once on top of the fresh version rather than
   // dropping the write forever.
+  //
+  // Factored out of the debounce effect below so a high-value action (see
+  // careTweety's `immediate` commit) can trigger this right away instead of
+  // waiting out the full debounce, without duplicating the conflict logic.
+  async function syncStateToBackend(state) {
+    if (readOnly || !session) return
+    if (account !== 'pooks' && account !== 'marnich') return
+    const res = await saveRemoteState(account, state, stateVersionRef.current)
+    if (res && !res.conflict) {
+      stateVersionRef.current = res.version
+      lastSyncedRef.current = state
+      return
+    }
+    if (!res || !res.conflict) return
+    const remote = await fetchRemoteState(account)
+    if (!remote || !remote.state) return
+    const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
+    // A version gap bigger than one save means this client's own view of
+    // the world is stale, not racing — e.g. a tab left open for days,
+    // whose "local edits" are really just an old snapshot that happens to
+    // differ from what it last (long ago) synced. Trusting that as a real
+    // edit worth preserving is exactly how the mystery-egg/companion
+    // corruption kept recurring (2026-07-12 through -15): a stale client
+    // reconnects, hits 409, then confidently re-saves its own outdated
+    // state over real, fresher progress. Only a same-or-adjacent-version
+    // client gets the benefit of the doubt.
+    const versionGap = remote.version - stateVersionRef.current
+    if (!hasUnsavedLocalEdits || versionGap > 1) {
+      adoptState(account, remote.state, remote.version)
+      return
+    }
+    const retry = await saveRemoteState(account, dataRef.current, remote.version)
+    if (retry && !retry.conflict) {
+      stateVersionRef.current = retry.version
+      lastSyncedRef.current = dataRef.current
+    }
+  }
+
+  // Source of truth: debounce-save the active account's state to the backend so
+  // it follows her login onto any device. The localStorage write above stays as
+  // the offline cache. Never runs while viewing Pooks' read-only mirror.
   useEffect(() => {
     if (readOnly || !session) return undefined
     if (account !== 'pooks' && account !== 'marnich') return undefined
-    const timer = window.setTimeout(async () => {
-      const res = await saveRemoteState(account, data, stateVersionRef.current)
-      if (res && !res.conflict) {
-        stateVersionRef.current = res.version
-        lastSyncedRef.current = data
-        return
-      }
-      if (!res || !res.conflict) return
-      const remote = await fetchRemoteState(account)
-      if (!remote || !remote.state) return
-      const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
-      // A version gap bigger than one save means this client's own view of
-      // the world is stale, not racing — e.g. a tab left open for days,
-      // whose "local edits" are really just an old snapshot that happens to
-      // differ from what it last (long ago) synced. Trusting that as a real
-      // edit worth preserving is exactly how the mystery-egg/companion
-      // corruption kept recurring (2026-07-12 through -15): a stale client
-      // reconnects, hits 409, then confidently re-saves its own outdated
-      // state over real, fresher progress. Only a same-or-adjacent-version
-      // client gets the benefit of the doubt.
-      const versionGap = remote.version - stateVersionRef.current
-      if (!hasUnsavedLocalEdits || versionGap > 1) {
-        adoptState(account, remote.state, remote.version)
-        return
-      }
-      const retry = await saveRemoteState(account, dataRef.current, remote.version)
-      if (retry && !retry.conflict) {
-        stateVersionRef.current = retry.version
-        lastSyncedRef.current = dataRef.current
-      }
-    }, 10000)
+    const timer = window.setTimeout(() => syncStateToBackend(data), 10000)
     return () => window.clearTimeout(timer)
+    // syncStateToBackend is a fresh closure every render but only meaningfully
+    // depends on account/readOnly/session — already listed — so including it
+    // here would just reset this 10s timer on every unrelated re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, account, readOnly, session])
 
   // Flush the latest state to the backend when the tab is hidden or closed, so
@@ -3199,15 +3231,20 @@ function App() {
   useEffect(() => {
     if (readOnly || !session) return undefined
     if (account !== 'pooks' && account !== 'marnich') return undefined
-    const flushNow = () =>
-      saveRemoteState(account, dataRef.current, stateVersionRef.current, { keepalive: true })
+    const flushNow = () => flushStateOnExit(account, dataRef.current, stateVersionRef.current)
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flushNow()
     }
     window.addEventListener('visibilitychange', onVisibility)
+    // pagehide fires more reliably than visibilitychange on mobile
+    // Safari/PWA backgrounding — this is the actual eviction case the
+    // Tweety-feed reversion bug traced back to: the 10s debounce hadn't
+    // fired yet when the page was evicted, so the feed was never persisted.
+    window.addEventListener('pagehide', flushNow)
     window.addEventListener('beforeunload', flushNow)
     return () => {
       window.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', flushNow)
       window.removeEventListener('beforeunload', flushNow)
     }
   }, [account, readOnly, session])
@@ -3815,6 +3852,7 @@ function App() {
               : 'So much fun! 💗',
         body: `${nextTweety.name || 'Tweety'} loved that.${coins > 0 ? ` Care window complete! +${coins} Feather Coins.` : ''}${bonusNote}${familyNote}`,
       },
+      { immediate: true },
     )
   }
 
@@ -4974,7 +5012,7 @@ function App() {
     })
   }
 
-  function commit(nextState, message) {
+  function commit(nextState, message, { immediate = false } = {}) {
     // Central guard: while viewing Pooks' read-only mirror, no action persists.
     if (readOnly) {
       setToast({
@@ -5028,6 +5066,10 @@ function App() {
     const unlockSummary = giftsEnabled ? getUnlockSummary(data, recalculated) : ''
     const unlockedRewards = giftsEnabled ? getNewlyUnlockedRewards(data, recalculated) : []
     setData(recalculated)
+    // High-value care actions (careTweety) opt into an immediate save instead
+    // of waiting the full 10s debounce — see the mobile-backgrounding
+    // reversion bug this fixes.
+    if (immediate) syncStateToBackend(recalculated)
     if (unlockedRewards.length) {
       setRewardUnlockQueue((current) => [...current, ...unlockedRewards])
       // Email Marnich about each freshly unlocked gift.
