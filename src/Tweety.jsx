@@ -604,7 +604,7 @@ function companionVisual(id, level) {
   return vis
 }
 
-export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, preening = false, size = 120, companion = null, worn = null, scale = null }) {
+export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, preening = false, sway = false, size = 120, companion = null, worn = null, scale = null }) {
   const shape = STAGE_SHAPE[level] || STAGE_SHAPE.chick
   const showCrown = shape.crown || level === 'crown' || level === 'crowned'
   const mid = shape.wings >= 1 // any wings at all
@@ -634,7 +634,7 @@ export function TweetyBird({ level = 'chick', mood = 'happy', dancing = false, p
 
   return (
     <span
-      className={`tweety-bird${dancing ? ' tweety-dance' : ''}${!dancing && preening ? ' tweety-preen' : ''}${sad ? ' tweety-sad' : ''}`}
+      className={`tweety-bird${dancing ? ' tweety-dance' : ''}${!dancing && preening ? ' tweety-preen' : ''}${!dancing && !preening && sway ? ' tweety-gift-sway' : ''}${sad ? ' tweety-sad' : ''}`}
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
@@ -892,6 +892,26 @@ const GROWTH_TO_LEVEL = {
   crowned: 'crowned',
 }
 
+// Tweety Store gifts: tap any owned item for a chirp + a matching motion.
+// 'dance' reuses the existing happy-dance bounce, 'sway' is the gentler
+// gift-tap motion, 'preen' reuses the existing self-preening wobble.
+const GIFT_REACTIONS = {
+  ribbon: { sound: 'play', motion: 'dance' },
+  mirror: { sound: 'water', motion: 'preen' },
+  flowers: { sound: 'water', motion: 'sway' },
+  perch: { sound: 'play', motion: 'dance' },
+  treats: { sound: 'feed', motion: 'dance' },
+  blanket: { sound: 'water', motion: 'sway' },
+  herbs: { sound: 'feed', motion: 'sway' },
+  window: { sound: 'play', motion: 'sway' },
+  feedingbowl: { sound: 'feed', motion: 'dance' },
+  musicbox: { sound: 'play', motion: 'dance' },
+  chimes: { sound: 'play', motion: 'dance' },
+  watertank: { sound: 'water', motion: 'sway' },
+  cozynest: { sound: 'water', motion: 'sway' },
+  birdhouse: { sound: 'play', motion: 'dance' },
+}
+
 export function TweetyHomeCard({
   tweety,
   dancing = false,
@@ -933,7 +953,11 @@ export function TweetyHomeCard({
   // forces a happy mood for the rest of the day it was bought.
   const neverSad = ownedGiftIds.has('feedingbowl') || ownedGiftIds.has('watertank') || ownedGiftIds.has('herbs')
   const boosted = treatsBoostActive(tweety)
-  const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted })
+  // Tapping any gift brightens her mood for the moment — transient, never
+  // persisted, and it clears the instant justTapped does.
+  const [justTapped, setJustTapped] = useState(null)
+  const brightened = Boolean(justTapped)
+  const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
   const growth = tweetyGrowth(tweety)
   const progress = tweetyGrowthProgress(tweety)
@@ -950,8 +974,9 @@ export function TweetyHomeCard({
       ? 'cosy'
       : 'basic'
 
-  // Wind Chimes are a tap-for-delight moment (no persisted state, always safe).
-  const [justTapped, setJustTapped] = useState(null)
+  // Every gift is a tap-for-delight moment (no persisted state, always safe).
+  // Chimes and music box keep their own signature chirp sequences; every
+  // other item plays a single chirp + motion straight off GIFT_REACTIONS.
   function tapGift(id) {
     setJustTapped(id)
     window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
@@ -959,11 +984,16 @@ export function TweetyHomeCard({
       playChirp('play')
       setTimeout(() => playChirp('water'), 160)
       setTimeout(() => playChirp('feed'), 320)
+      return
     }
     if (id === 'musicbox') {
       playChirp('play')
+      return
     }
+    const reaction = GIFT_REACTIONS[id]
+    if (reaction) playChirp(reaction.sound)
   }
+  const tapReaction = justTapped ? GIFT_REACTIONS[justTapped] : null
 
   // Small Mirror: every so often Tweety catches her reflection and preens for
   // a few seconds — a little bit of "alive" behaviour, not player-triggered.
@@ -999,53 +1029,142 @@ export function TweetyHomeCard({
 
       <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
-        {nestTier === 'treehouse' && <div className="nest-decor nest-tree" aria-hidden="true">🌳</div>}
+        {nestTier === 'treehouse' && (
+          <button
+            type="button"
+            className={`nest-decor nest-tree${justTapped === 'birdhouse' ? ' tapped' : ''}`}
+            title="Luxury Birdhouse"
+            onClick={() => tapGift('birdhouse')}
+          >
+            🌳
+          </button>
+        )}
         {boosted && <div className="gift-boost-sparkle" title="Treats Bag boost — happy all day" aria-hidden="true">✨</div>}
 
         {ownedGiftIds.has('feedingbowl') && (
-          <div className="gift-feedingbowl" title="Feeding Bowl — she always has something to nibble" aria-hidden="true">
+          <button
+            type="button"
+            className={`gift-feedingbowl${justTapped === 'feedingbowl' ? ' tapped' : ''}`}
+            title="Feeding Bowl — she always has something to nibble"
+            onClick={() => tapGift('feedingbowl')}
+          >
             🥣
-          </div>
+          </button>
         )}
 
         {ownedGiftIds.has('watertank') && (
-          <div className="gift-watertank" title="Large Water Tank — never runs dry" aria-hidden="true">
+          <button
+            type="button"
+            className={`gift-watertank${justTapped === 'watertank' ? ' tapped' : ''}`}
+            title="Large Water Tank — never runs dry"
+            onClick={() => tapGift('watertank')}
+          >
             💧
-          </div>
+          </button>
         )}
 
         {ownedGiftIds.has('treats') && (
-          <div className="gift-treatsbowl" title="Special Treats — a little bowl she can always nibble from" aria-hidden="true">
+          <button
+            type="button"
+            className={`gift-treatsbowl${justTapped === 'treats' ? ' tapped' : ''}`}
+            title="Special Treats — a little bowl she can always nibble from"
+            onClick={() => tapGift('treats')}
+          >
             🍓
-          </div>
+          </button>
         )}
 
         {ownedGiftIds.has('flowers') && (
-          <div className="gift-flowers" title="Flower Bouquet" aria-hidden="true">
+          <button
+            type="button"
+            className={`gift-flowers${justTapped === 'flowers' ? ' tapped' : ''}`}
+            title="Flower Bouquet"
+            onClick={() => tapGift('flowers')}
+          >
             🌸
-          </div>
+          </button>
         )}
 
         <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          {ownedGiftIds.has('blanket') && <div className="gift-blanket" title="Cozy Nest Blanket" aria-hidden="true" />}
-          {ownedGiftIds.has('herbs') && <span className="gift-herbs" aria-hidden="true">🌿</span>}
-          {ownedGiftIds.has('perch') && <span className="gift-perch" title="Perch Branch" aria-hidden="true">🪵</span>}
-          {ownedGiftIds.has('window') && <span className="gift-window" title="Tiny Window" aria-hidden="true">🪟</span>}
-          {ownedGiftIds.has('ribbon') && <span className="gift-ribbon" title="Ribbon Decoration" aria-hidden="true">🎀</span>}
+          {ownedGiftIds.has('blanket') && (
+            <button
+              type="button"
+              className={`gift-blanket${justTapped === 'blanket' ? ' tapped' : ''}`}
+              title="Cozy Nest Blanket"
+              onClick={() => tapGift('blanket')}
+            />
+          )}
+          {ownedGiftIds.has('herbs') && (
+            <button
+              type="button"
+              className={`gift-herbs${justTapped === 'herbs' ? ' tapped' : ''}`}
+              title="Herb Bundle"
+              onClick={() => tapGift('herbs')}
+            >
+              🌿
+            </button>
+          )}
+          {ownedGiftIds.has('perch') && (
+            <button
+              type="button"
+              className={`gift-perch${justTapped === 'perch' ? ' tapped' : ''}`}
+              title="Perch Branch"
+              onClick={() => tapGift('perch')}
+            >
+              🪵
+            </button>
+          )}
+          {ownedGiftIds.has('window') && (
+            <button
+              type="button"
+              className={`gift-window${justTapped === 'window' ? ' tapped' : ''}`}
+              title="Tiny Window"
+              onClick={() => tapGift('window')}
+            >
+              🪟
+            </button>
+          )}
+          {ownedGiftIds.has('ribbon') && (
+            <button
+              type="button"
+              className={`gift-ribbon${justTapped === 'ribbon' ? ' tapped' : ''}`}
+              title="Ribbon Decoration"
+              onClick={() => tapGift('ribbon')}
+            >
+              🎀
+            </button>
+          )}
           {ownedGiftIds.has('mirror') && (
-            <span className="gift-mirror" aria-hidden="true">🪞</span>
+            <button
+              type="button"
+              className={`gift-mirror${justTapped === 'mirror' ? ' tapped' : ''}`}
+              title="Small Mirror"
+              onClick={() => tapGift('mirror')}
+            >
+              🪞
+            </button>
           )}
           <TweetyBird
             level={birdLevel}
             mood={mood}
-            dancing={dancing || justTapped === 'chimes' || justTapped === 'musicbox'}
-            preening={preening}
+            dancing={dancing || tapReaction?.motion === 'dance'}
+            preening={preening || tapReaction?.motion === 'preen'}
+            sway={tapReaction?.motion === 'sway'}
             size={132}
             companion={tweety?.companion}
             worn={worn}
           />
           {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
-          <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
+          {nestTier === 'basic' ? (
+            <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
+          ) : (
+            <button
+              type="button"
+              className={`tweety-nest-base nest-base-${nestTier}${justTapped === (nestTier === 'treehouse' ? 'birdhouse' : 'cozynest') ? ' tapped' : ''}`}
+              title={nestTier === 'treehouse' ? 'Luxury Birdhouse' : 'Cozy Nest Upgrade'}
+              onClick={() => tapGift(nestTier === 'treehouse' ? 'birdhouse' : 'cozynest')}
+            />
+          )}
           {ownedGiftIds.has('chimes') && (
             <button
               type="button"

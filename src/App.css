@@ -4297,6 +4297,80 @@ textarea:focus {
 .gift-musicbox:hover { transform: scale(1.1); }
 .gift-musicbox.tapped { animation: gift-musicbox-shake 1.1s ease; }
 
+/* Every Tweety Store gift is tappable — button reset + hover pop + a shake
+   on tap. Items with a resting transform (rotation or the translateX(-50%)
+   centering trick) keep that base transform in their hover/shake states so
+   they don't snap to a different position/angle mid-animation. */
+.gift-feedingbowl,
+.gift-watertank,
+.gift-treatsbowl,
+.gift-flowers,
+.gift-blanket,
+.gift-herbs,
+.gift-perch,
+.gift-window,
+.gift-ribbon,
+.gift-mirror,
+.nest-tree,
+button.tweety-nest-base {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.gift-feedingbowl:hover,
+.gift-watertank:hover,
+.gift-treatsbowl:hover,
+.gift-flowers:hover,
+.gift-window:hover,
+.gift-mirror:hover,
+.nest-tree:hover,
+button.tweety-nest-base:hover {
+  transform: scale(1.1);
+}
+.gift-feedingbowl.tapped,
+.gift-watertank.tapped,
+.gift-treatsbowl.tapped,
+.gift-flowers.tapped,
+.gift-window.tapped,
+.gift-mirror.tapped,
+.nest-tree.tapped,
+button.tweety-nest-base.tapped {
+  animation: gift-musicbox-shake 1.1s ease;
+}
+
+/* Herb Bundle / Perch Branch rest at their own tilt, so their hover + tap
+   shake stay centred on that resting rotation instead of snapping to 0deg. */
+.gift-herbs:hover { transform: rotate(-12deg) scale(1.1); }
+.gift-perch:hover { transform: rotate(20deg) scale(1.1); }
+.gift-herbs.tapped { animation: gift-herbs-shake 1.1s ease; }
+.gift-perch.tapped { animation: gift-perch-shake 1.1s ease; }
+@keyframes gift-herbs-shake {
+  0%, 100% { transform: rotate(-12deg); }
+  15%, 45%, 75% { transform: rotate(-24deg); }
+  30%, 60%, 90% { transform: rotate(0deg); }
+}
+@keyframes gift-perch-shake {
+  0%, 100% { transform: rotate(20deg); }
+  15%, 45%, 75% { transform: rotate(8deg); }
+  30%, 60%, 90% { transform: rotate(32deg); }
+}
+
+/* Ribbon / Blanket are horizontally centred with translateX(-50%) — hover +
+   tap shake must keep that or they'd jump to the left edge mid-animation. */
+.gift-ribbon:hover,
+.gift-blanket:hover { transform: translateX(-50%) scale(1.1); }
+.gift-ribbon.tapped { animation: gift-ribbon-shake 1.1s ease; }
+.gift-blanket.tapped { animation: gift-ribbon-shake 1.1s ease; }
+@keyframes gift-ribbon-shake {
+  0%, 100% { transform: translateX(-50%) rotate(0); }
+  15%, 45%, 75% { transform: translateX(-50%) rotate(-12deg); }
+  30%, 60%, 90% { transform: translateX(-50%) rotate(12deg); }
+}
+
 /* Small Mirror: a gentle self-preening wobble, distinct from the bigger
    happy-dance — triggers on its own timer, not on tap. */
 .tweety-preen { animation: tweety-preen 2.2s ease-in-out; }
@@ -4306,6 +4380,15 @@ textarea:focus {
   40% { transform: rotate(4deg) translateY(0); }
   60% { transform: rotate(-4deg) translateY(1px); }
   80% { transform: rotate(3deg) translateY(0); }
+}
+
+/* Tweety Store gift tap: a gentle sway, distinct from the bigger happy-dance
+   bounce — used for gifts whose reaction motion is calmer than a dance. */
+.tweety-gift-sway { animation: tweety-gift-sway 1.1s ease-in-out; }
+@keyframes tweety-gift-sway {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
 }
 
 .tweety-care-row {
