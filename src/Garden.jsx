@@ -754,6 +754,12 @@ function SpeciesBloomArt({ commonName, family }) {
   }
 }
 
+// Final "flowering" stage keys — used to layer a subtle bloom-pulse on top of
+// the base idle sway (see the plantings render loop below). Deliberately
+// narrow: only stages that are an actual flush of flowers, not every
+// fully-grown plant (succulents, ripe veggies etc. don't "bloom").
+const FLOWERING_STAGES = new Set(['bloom', 'bed-full', 'shrub-bloom'])
+
 function PlantArt({ type, stageKey, family, commonName, seed }) {
   if (isSpeciesPlanting(type) && stageKey === 'bloom') {
     return <SpeciesBloomArt commonName={commonName} family={family} />
@@ -939,9 +945,18 @@ function FlyBird({ c }) {
     <g transform={`translate(${c.fromX + 15} ${c.fromY - 14})`}>
       <g className="g-flybird" style={style}>
         <g transform={facing}>
-          <foreignObject x={-size / 2} y={-size * 0.55} width={size} height={size} style={{ overflow: 'visible' }}>
-            <TweetyBird level="crowned" companion={c.companion} size={size} />
-          </foreignObject>
+          {/* Reuse the same idle head/wing twitch PerchBird/SwimBird use, so
+              the bird stays visibly alive during g-fly-shuttle's landed holds
+              instead of freezing mid-pose — it now reads as actually
+              perching, not just pausing mid-drift. */}
+          <g
+            className="garden-bird-idle"
+            style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.4}s` }}
+          >
+            <foreignObject x={-size / 2} y={-size * 0.55} width={size} height={size} style={{ overflow: 'visible' }}>
+              <TweetyBird level="crowned" companion={c.companion} size={size} />
+            </foreignObject>
+          </g>
         </g>
       </g>
     </g>
@@ -984,6 +999,7 @@ function makeFlyBird(a, b, bird) {
     name: bird && bird.name, companion: bird && bird.companion, tint: bird && bird.tint,
     dur: rand(4.5, 8), delay: rand(0, 2.5), lift: rand(24, 46),
     flapDur: rand(0.26, 0.36), flapDelay: rand(0, 0.3),
+    idleDelay: rand(0, 5), idleDur: rand(2.8, 4.2),
   }
 }
 
@@ -999,7 +1015,7 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
   // 1–4 birds perched at distinct elements, each with its own independent
   // wander waypoints/timing (land) or drift (water) — never in lockstep.
   if (all.length) {
-    const maxB = Math.min(showcase ? 4 : 3, all.length)
+    const maxB = Math.min(showcase ? 5 : 4, all.length)
     const nB = showcase ? maxB : 1 + Math.floor(Math.random() * maxB)
     shuffle(all).slice(0, nB).forEach((p) => {
       const isWater = p.zone === 'water'
@@ -1040,17 +1056,21 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
   }
   // birds shuttling between trees — each its own pair, direction, arc and speed
   if (land.length >= 2) {
-    const nFly = showcase ? 1 + Math.floor(Math.random() * 2) : (Math.random() < 0.6 ? 1 : 0)
+    const nFly = showcase
+      ? 1 + Math.floor(Math.random() * 2)
+      : Math.random() < 0.65
+        ? (land.length >= 4 && Math.random() < 0.3 ? 2 : 1)
+        : 0
     for (let i = 0; i < nFly; i += 1) {
       const [a, b] = shuffle(land).slice(0, 2)
       list.push(makeFlyBird(a, b, pickBird(collection, false)))
     }
   }
   // butterflies near the flowers — scattered across the full unlocked width
-  const nBfly = showcase ? 2 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
+  const nBfly = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5)
   for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 5), dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: rand(0, 0.35) })
   // bees near the beds
-  const nBee = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
+  const nBee = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 4)
   for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
   // never an empty daytime scene
   if (!list.length) list.push({ id: nid(), type: 'butterfly', x: (bounds.x0 + bounds.x1) / 2, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
@@ -1062,7 +1082,7 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
   let land = perches.filter((p) => p.zone !== 'water')
   if (showcase && !land.length) land = [{ id: 'demo-c', x: 150, y: 150, zone: 'land' }]
   // fireflies — variable density, across the full unlocked width
-  const nFly = showcase ? 8 + Math.floor(Math.random() * 6) : 3 + Math.floor(Math.random() * 10)
+  const nFly = showcase ? 8 + Math.floor(Math.random() * 6) : 4 + Math.floor(Math.random() * 11)
   for (let i = 0; i < nFly; i += 1) list.push({ id: nid(), type: 'firefly', x: rand(bounds.x0 + 14, bounds.x1 - 14), y: rand(150, 225), delay: rand(0, 5), dur: rand(5, 9) })
   // Her own collection, roosting for the night — real songbirds sleep after
   // dark, so no pecking/bathing/bench-sitting here (those are daytime-only,
@@ -1071,7 +1091,9 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
   // she isn't foraging, she's asleep. Without this the night garden would
   // read as if all her birds vanished the moment the sun set.
   if (land.length) {
-    const nRoost = showcase ? Math.min(2, land.length) : (Math.random() < 0.6 ? 1 : 0)
+    const nRoost = showcase
+      ? Math.min(2, land.length)
+      : Math.min(land.length, Math.random() < 0.6 ? (Math.random() < 0.3 ? 2 : 1) : 0)
     shuffle(land).slice(0, nRoost).forEach((p) => {
       const b = pickBird(collection, false)
       list.push({
@@ -1084,14 +1106,14 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
     })
   }
   // an owl, sometimes
-  if (land.length && (showcase || Math.random() < 0.55)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y, delay: rand(0, 3), dur: rand(2.8, 3.8) }) }
+  if (land.length && (showcase || Math.random() < 0.6)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y, delay: rand(0, 3), dur: rand(2.8, 3.8) }) }
   // a hedgehog, sometimes
-  if (showcase || Math.random() < 0.5) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2), dur: rand(10, 13) })
+  if (showcase || Math.random() < 0.55) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2), dur: rand(10, 13) })
   // moths near the moonlight
-  const nMoth = showcase ? 2 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
+  const nMoth = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5)
   for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(55, 140), delay: rand(0, 5), dur: rand(4.2, 6), flapDur: rand(0.28, 0.42), flapDelay: rand(0, 0.35) })
   // a bat swooping over, occasionally
-  if (showcase || Math.random() < 0.4) list.push({ id: nid(), type: 'bat', y: rand(40, 95), delay: rand(0, 2.5), dur: rand(4.8, 6.8), dir: Math.random() < 0.5 ? 1 : -1 })
+  if (showcase || Math.random() < 0.45) list.push({ id: nid(), type: 'bat', y: rand(40, 95), delay: rand(0, 2.5), dur: rand(4.8, 6.8), dir: Math.random() < 0.5 ? 1 : -1 })
   return list
 }
 
@@ -1523,6 +1545,12 @@ export function GardenPage({
               // as snapped to the invisible placement grid.
               const jx = x + ((hashSeed(`${p.id}:jx`) % 60) / 10 - 3)
               const jy = y + ((hashSeed(`${p.id}:jy`) % 40) / 10 - 2)
+              const stageKey = plantStageKey(p)
+              // Gentle idle life once grown: only real plants sway (not
+              // structures/water features — a swaying feeder would look
+              // broken), and only the actual flowering stage gets the pulse.
+              const swaying = isFullyGrown(p) && gardenItem(p.type)?.kind === 'plant'
+              const blooming = swaying && FLOWERING_STAGES.has(stageKey)
               return (
                 <g
                   key={p.id}
@@ -1541,7 +1569,23 @@ export function GardenPage({
                   onMouseLeave={placingAny ? undefined : () => setActiveLabelId((cur) => (cur === p.id ? null : cur))}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
-                  <PlantArt type={p.type} stageKey={plantStageKey(p)} family={p.family} commonName={p.commonName} seed={p.id} />
+                  <g
+                    className={swaying ? 'garden-plant-sway' : undefined}
+                    style={swaying ? {
+                      animationDelay: `${hashSeed(`${p.id}:swaydelay`) % 4}s`,
+                      animationDuration: `${6 + (hashSeed(`${p.id}:swaydur`) % 3)}s`,
+                    } : undefined}
+                  >
+                    <g
+                      className={blooming ? 'garden-plant-bloom' : undefined}
+                      style={blooming ? {
+                        animationDelay: `${hashSeed(`${p.id}:bloomdelay`) % 3}s`,
+                        animationDuration: `${3 + (hashSeed(`${p.id}:bloomdur`) % 2)}s`,
+                      } : undefined}
+                    >
+                      <PlantArt type={p.type} stageKey={stageKey} family={p.family} commonName={p.commonName} seed={p.id} />
+                    </g>
+                  </g>
                   {treeHasNest(p) && NEST_SPOT[p.type] && (
                     <g transform={`translate(${NEST_SPOT[p.type].x} ${NEST_SPOT[p.type].y})`}>
                       <NestArt />

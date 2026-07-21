@@ -4435,6 +4435,34 @@ button.tweety-nest-base.tapped {
   border-radius: 16px;
 }
 .garden-plant { cursor: pointer; }
+/* Gentle idle life on grown plants (not structures/water features): a soft
+   sway, plus a slightly stronger bloom-pulse layered on top for whichever
+   stage is the actual flush of flowers. Two nested groups since one element
+   can't independently animate rotate and scale via two separate transform
+   keyframes at once. Cheap compositor-only transforms, same pattern as every
+   other garden idle-animation. */
+.garden-plant-sway {
+  animation-name: garden-plant-sway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes garden-plant-sway {
+  0%, 100% { transform: rotate(-1.1deg); }
+  50% { transform: rotate(1.1deg); }
+}
+.garden-plant-bloom {
+  animation-name: garden-plant-bloom-pulse;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+@keyframes garden-plant-bloom-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
 .garden-scene-svg.placing { cursor: crosshair; touch-action: none; }
 .garden-placing-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
