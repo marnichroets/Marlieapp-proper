@@ -2012,6 +2012,9 @@ function buildDefaultState() {
     garden: defaultGarden(),
     weeklyQuizClaimedWeek: null,
     weeklyPlantQuizClaimedWeek: null,
+    // Which 3-day magazine issue (issue.week) the new-issue Home popup has
+    // already been shown/dismissed for — only a new issue.week re-triggers it.
+    magazineIssueSeenWeek: null,
     discoveries: [],
     birdLibrary: normalizeBirdLibrary(defaultBirdLibrary),
     magazineIssue: defaultMagazineIssue,
@@ -4945,6 +4948,14 @@ function App() {
     )
   }
 
+  // New-issue popup on Home: marks the current 3-day issue as seen so the
+  // auto-popup never re-fires for it — only the next issue.week re-triggers
+  // it. No reward attached, so a plain silent setData (not commit()) is fine.
+  function markMagazineIssueSeen(week) {
+    if (readOnly) return
+    setData((c) => (c.magazineIssueSeenWeek === week ? c : { ...c, magazineIssueSeenWeek: week }))
+  }
+
   function setTrashTalk(message) {
     setData((c) => ({ ...c, games: { ...c.games, trashTalk: String(message || '').trim() } }))
     setToast({
@@ -6362,6 +6373,8 @@ function App() {
             plantScannerVisible={plantScannerVisible}
             claimWeeklyQuiz={claimWeeklyQuiz}
             claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
+            readOnly={readOnly}
+            markMagazineIssueSeen={markMagazineIssueSeen}
             goToPlants={() => {
               setExploreMode('plants')
               setActivePage('explore')
@@ -7247,6 +7260,8 @@ function HomePage({
   claimWeeklyQuiz,
   claimWeeklyPlantQuiz,
   goToPlants,
+  readOnly = false,
+  markMagazineIssueSeen,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -7261,8 +7276,47 @@ function HomePage({
   // this is the streak that should be celebrated front-and-centre.
   const careStreak = tweetyStreak(data.tweety)
 
+  // Magazine issue: same 3-day issue key the full magazine section (below)
+  // already uses, so "new issue" here means exactly what it means down there.
+  const magazineIssue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
+
+  function scrollToMagazineSection() {
+    document
+      .getElementById('home-magazine-section')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  // New-issue popup: shows once per issue, the first time Home mounts after
+  // that issue publishes. A lazy useState initializer runs exactly once, at
+  // mount — a mount-check only, deliberately with no interval/clock tick, so
+  // it can never pop up mid-session if a new issue happens to roll over
+  // while she's already sitting on Home; the next mount (next visit/reload)
+  // picks it up instead.
+  const [showIssueModal, setShowIssueModal] = useState(
+    () => !readOnly && data.magazineIssueSeenWeek !== magazineIssue.week,
+  )
+
+  function dismissIssueModal() {
+    setShowIssueModal(false)
+    markMagazineIssueSeen(magazineIssue.week)
+  }
+  function readIssueFromModal() {
+    setShowIssueModal(false)
+    markMagazineIssueSeen(magazineIssue.week)
+    scrollToMagazineSection()
+  }
+
   return (
-    <div className={`home-stack home-mood-${tweetyView.mood}`}>
+    <>
+      {showIssueModal && (
+        <MagazineIssueModal
+          issue={magazineIssue}
+          season={season}
+          onRead={readIssueFromModal}
+          onDismiss={dismissIssueModal}
+        />
+      )}
+      <div className={`home-stack home-mood-${tweetyView.mood}`}>
       <div className="home-topline">
         <span className="streak-chip">Day {careStreak} care streak 🔥</span>
         <span className="coin-chip">{data.featherCoins} 🪙</span>
@@ -7321,6 +7375,15 @@ function HomePage({
         <h2>{season.greeting}</h2>
         <p>{season.blurb}</p>
       </section>
+
+      {/* Permanent shortcut so the magazine is never just buried at the
+          bottom of Home — a real card up top, styled like any other soft
+          card, that jumps straight down to the full issue. */}
+      <button type="button" className="soft-card magazine-shortcut-card" onClick={scrollToMagazineSection}>
+        <p className="eyebrow">The Feather 🗞️</p>
+        <h3>Issue #{magazineIssue.issueIndex} — {season.name} Edition</h3>
+        <span className="magazine-shortcut-cta">Read this week&apos;s issue →</span>
+      </button>
 
       <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />
 
@@ -7516,6 +7579,41 @@ function HomePage({
           goToPlants={goToPlants}
         />
       </div>
+      </div>
+    </>
+  )
+}
+
+function MagazineIssueModal({ issue, season, onRead, onDismiss }) {
+  const coverBird = issue.birdOfWeek
+  return (
+    <div className="reward-modal-backdrop" role="presentation">
+      <article
+        className="reward-unlock-card magazine-issue-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="magazine-issue-modal-title"
+      >
+        <p className="eyebrow">The Feather 🗞️</p>
+        <h2 id="magazine-issue-modal-title">This week&apos;s issue is here!</h2>
+        <p className="magazine-season">
+          Issue #{issue.issueIndex} — {season.name} Edition
+        </p>
+        {coverBird && (
+          <>
+            <FieldGuidePhoto bird={coverBird} className="magazine-issue-modal-photo" />
+            <p className="nickname">Cover bird: {coverBird.commonName}</p>
+          </>
+        )}
+        <div className="button-row">
+          <button className="primary-btn wide big-btn" type="button" onClick={onRead}>
+            Read this week&apos;s issue
+          </button>
+          <button className="text-btn" type="button" onClick={onDismiss}>
+            Maybe later
+          </button>
+        </div>
+      </article>
     </div>
   )
 }

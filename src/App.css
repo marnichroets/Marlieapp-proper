@@ -6083,6 +6083,39 @@ button.tweety-nest-base.tapped {
 .garden-home-text small { color: var(--muted); font-weight: 600; }
 .garden-home-arrow { font-size: 1.3rem; color: #3c7a4a; }
 
+/* Magazine shortcut card — a plain soft-card (not a banner) near the top of
+   Home, since the full issue at the bottom is too easy to never scroll to. */
+.magazine-shortcut-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.magazine-shortcut-card:hover { transform: translateY(-1px); }
+.magazine-shortcut-cta {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 800;
+  color: var(--leaf);
+}
+
+/* New-issue popup: reuses the reward-modal-backdrop/reward-unlock-card shell
+   (same overlay + card chrome), just with magazine-flavoured content. */
+.magazine-issue-modal-card .magazine-season {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+.magazine-issue-modal-photo {
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
 /* --- Spot page: camera + gallery options --- */
 .spot-actions {
   display: grid;
