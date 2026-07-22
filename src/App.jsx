@@ -2146,7 +2146,7 @@ function mergeByKey(defaultItems, savedItems, key) {
 // reset her. (This predates and is unrelated to the NEW top-level mystery-egg
 // mechanic in data.mysteryEgg — that one intentionally leaves companion null
 // via awaitingNextCompanion below, in the brief gap after a release.)
-function normalizeTweety(tweety) {
+function normalizeTweety(tweety, savedTweety) {
   const next = { ...tweety }
   // She is always her companion now — UNLESS she's in the brief gap between
   // releasing her last companion and adopting the next one (awaitingNextCompanion).
@@ -2162,6 +2162,19 @@ function normalizeTweety(tweety) {
     next.bornAt = careKeys[0]
       ? new Date(`${careKeys[0]}T00:00:00`).toISOString()
       : new Date().toISOString()
+  }
+  // Backfill happiness for saves that predate the happiness meter (added
+  // 2026-07-21). Must check the RAW saved value, not `next.happiness` — by
+  // this point `tweety` already carries defaultTweety()'s baked-in
+  // happiness/lastHappinessUpdate from the base-default spread at the call
+  // site, so checking `next.happiness` here could never tell "really
+  // missing" apart from "already migrated." Seeding once, explicitly, means
+  // the very next autosave persists a real baseline for good, instead of
+  // re-deriving a fresh "now" timestamp (and therefore zero elapsed decay)
+  // on every single load.
+  if (typeof savedTweety?.happiness !== 'number') {
+    next.happiness = 70
+    next.lastHappinessUpdate = new Date().toISOString()
   }
   // Clear every removed egg/baby mechanic so none of that UI can ever surface.
   next.firstEgg = null
@@ -2265,7 +2278,7 @@ function normalizeLoadedState(saved) {
               : { hat: null, accessory: null, outfit: null },
         },
         careAt: { ...base.tweety.careAt, ...(saved.tweety?.careAt || {}) },
-      }),
+      }, saved.tweety),
       store: { ...base.store, ...(saved.store || {}) },
       games: { ...base.games, ...(saved.games || {}) },
       garden: {
@@ -3880,7 +3893,12 @@ function App() {
   function settleHappinessDecay() {
     if (readOnly) return
     const decayed = decayedHappiness(data.tweety)
-    if (decayed.happiness === (data.tweety?.happiness ?? 70)) return
+    // Only compare against a REAL prior value. Comparing against a `?? 70`
+    // fallback made "just computed the same default" indistinguishable from
+    // "nothing changed," so this guard used to bail before ever seeding a
+    // baseline — the bug this fixes.
+    const hasRealHappiness = typeof data.tweety?.happiness === 'number'
+    if (hasRealHappiness && decayed.happiness === data.tweety.happiness) return
     setData((current) => {
       const next = { ...current, tweety: { ...current.tweety, ...decayed } }
       lastSyncedRef.current = next
