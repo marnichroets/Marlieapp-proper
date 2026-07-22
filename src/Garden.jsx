@@ -31,6 +31,8 @@ import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
 import { tweetyGrowth } from './tweetyData'
 import { plantBloomKind, plantBloomColor, plantFoliageColor } from './plantData'
+import { GardenBird } from './birdTemplates'
+import { BIRD_COLOUR_MAP } from './birdColourMap'
 
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
@@ -802,14 +804,32 @@ function GardenNameLabel({ text, y }) {
   )
 }
 
-// A bird from her Collection perched beside a grown element: a small illustrated
-// songbird (never a photo) tinted to its species' companion colour, so the scene
-// stays consistent with Tweety. Three independent, always-running motions are
-// layered so she never looks frozen: a wander loop that hops between a few
-// random branch points and pauses at each one (per-instance waypoints, not
-// just a shared shape), a quick idle head-twitch, and the little breathing bob.
-// Every timing AND every waypoint is randomized per-instance so no two birds
-// ever move in lockstep, even when their `dur`s happen to be close.
+// Generic fallback zones for a garden visitor whose species isn't in
+// BIRD_COLOUR_MAP yet (uncatalogued, or an old save with no species id) —
+// a plain brown/grey songbird rather than defaulting to Tweety's cartoon look.
+const GENERIC_BIRD_ZONES = {
+  head: '#8a7b63', beak: '#4a433d', eye: '#2b2117', body: '#7c6e58',
+  breast: '#c9c3b6', wing: '#6e5c4e', tail: '#4a3e33', legs: '#6b5b47',
+}
+
+// Resolves a garden visitor's species id to a real template + colour zones,
+// falling back to a generic songbird-small when the species hasn't been
+// catalogued in BIRD_COLOUR_MAP (see birdColourMap.js).
+function birdVisual(speciesId) {
+  const entry = speciesId && BIRD_COLOUR_MAP[speciesId]
+  if (entry) return { template: entry.template, zones: entry.zones }
+  return { template: 'songbird-small', zones: GENERIC_BIRD_ZONES }
+}
+
+// A bird from her Collection perched beside a grown element: a species-accurate
+// illustrated bird (never a photo), rendered from its BIRD_COLOUR_MAP entry so
+// the scene shows the real species instead of a generic mascot. Three
+// independent, always-running motions are layered so she never looks frozen: a
+// wander loop that hops between a few random branch points and pauses at each
+// one (per-instance waypoints, not just a shared shape), a quick idle
+// head-twitch, and the little breathing bob. Every timing AND every waypoint
+// is randomized per-instance so no two birds ever move in lockstep, even when
+// their `dur`s happen to be close.
 function PerchBird({ c, active, setActiveLabelId }) {
   const wanderStyle = {
     '--bx1': `${c.bx1 ?? 10}px`, '--by1': `${c.by1 ?? -6}px`,
@@ -818,6 +838,7 @@ function PerchBird({ c, active, setActiveLabelId }) {
     animationDuration: `${c.hopDur || 9}s`,
   }
   const size = 40
+  const { template, zones } = birdVisual(c.speciesId)
   // Tap-to-reveal name label (see activeLabelId in GardenPage): sets, never
   // toggles, so a touch device's synthetic pre-click mouseenter can't flicker
   // it straight back off on the first tap.
@@ -843,8 +864,8 @@ function PerchBird({ c, active, setActiveLabelId }) {
             className={c.peck ? 'garden-bird-peck' : undefined}
             style={c.peck ? { animationDelay: `${c.peckDelay ?? 2}s` } : undefined}
           >
-            <foreignObject x={-size / 2} y={-size * 0.78} width={size} height={size} style={{ overflow: 'visible' }}>
-              <TweetyBird level="crowned" companion={c.companion} size={size} />
+            <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
+              <GardenBird template={template} zones={zones} size={size} />
             </foreignObject>
           </g>
         </g>
@@ -878,6 +899,7 @@ function PerchBird({ c, active, setActiveLabelId }) {
 // feel from the land birds. Per-instance drift range + timing, same as land.
 function SwimBird({ c, active, setActiveLabelId }) {
   const size = 36
+  const { template, zones } = birdVisual(c.speciesId)
   const style = {
     '--sx': `${c.sx ?? 14}px`,
     animationDelay: `${c.delay || 0}s`,
@@ -909,8 +931,8 @@ function SwimBird({ c, active, setActiveLabelId }) {
             className={c.splash ? 'garden-bird-splash' : undefined}
             style={c.splash ? { animationDelay: `${c.splashDelay ?? 2}s` } : undefined}
           >
-            <foreignObject x={-size / 2} y={-size * 0.62} width={size} height={size} style={{ overflow: 'visible' }}>
-              <TweetyBird level="crowned" companion={c.companion} size={size} />
+            <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
+              <GardenBird template={template} zones={zones} size={size} />
             </foreignObject>
           </g>
         </g>
@@ -928,6 +950,7 @@ function SwimBird({ c, active, setActiveLabelId }) {
 // `--flap-delay` so no two birds fly or flap in sync.
 function FlyBird({ c }) {
   const size = 34
+  const { template, zones } = birdVisual(c.speciesId)
   const dx = c.toX - c.fromX
   const dy = c.toY - c.fromY
   const style = {
@@ -953,8 +976,8 @@ function FlyBird({ c }) {
             className="garden-bird-idle"
             style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.4}s` }}
           >
-            <foreignObject x={-size / 2} y={-size * 0.55} width={size} height={size} style={{ overflow: 'visible' }}>
-              <TweetyBird level="crowned" companion={c.companion} size={size} />
+            <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
+              <GardenBird template={template} zones={zones} size={size} ground={false} />
             </foreignObject>
           </g>
         </g>
@@ -997,6 +1020,7 @@ function makeFlyBird(a, b, bird) {
     id: nid(), type: 'flybird',
     fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
     name: bird && bird.name, companion: bird && bird.companion, tint: bird && bird.tint,
+    speciesId: bird && bird.id,
     dur: rand(4.5, 8), delay: rand(0, 2.5), lift: rand(24, 46),
     flapDur: rand(0.26, 0.36), flapDelay: rand(0, 0.3),
     idleDelay: rand(0, 5), idleDur: rand(2.8, 4.2),
@@ -1028,6 +1052,7 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
         list.push({
           id: nid(), type: 'swim', x: p.x, y: p.y,
           name: b && b.name, companion: b && b.companion, tint: b && b.tint,
+          speciesId: b && b.id,
           sx: rand(9, 18), delay: rand(0, 3), dur: rand(5, 8),
           idleDelay: rand(0, 4), idleDur: rand(3, 4.6),
           splash, splashDelay: rand(2, 9),
@@ -1043,6 +1068,7 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
       list.push({
         id: nid(), type: 'bird', x: p.x, y: p.y,
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
+        speciesId: b && b.id,
         delay: rand(0, 2.6), dur: rand(1.4, 2.1), // little breathing bob
         idleDelay: rand(0, 5), idleDur: rand(2.8, 4.2), // head/wing twitch
         // wander: 2 random branch points within reach, each held briefly
@@ -1099,6 +1125,7 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
       list.push({
         id: nid(), type: 'bird', x: p.x, y: p.y,
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
+        speciesId: b && b.id,
         delay: rand(0, 2.6), dur: rand(2.2, 3.2), // slower breathing bob, asleep
         idleDelay: rand(0, 5), idleDur: rand(4, 6), // slower head twitch
         roosting: true, bx1: 0, by1: 0, bx2: 0, by2: 0, hopDelay: 0, hopDur: 20,
