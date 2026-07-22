@@ -67,29 +67,29 @@
 
 .status-pill {
   background: var(--mint);
-  border-color: rgba(59, 124, 91, 0.18);
+  border-color: rgba(138, 174, 126, 0.18);
   color: var(--leaf-dark);
 }
 
 .status-pill.locked {
-  background: #f2ede4;
+  background: var(--parchment);
   color: var(--muted);
 }
 
 .status-pill.unlocked {
-  background: #fff1bf;
-  color: #8b5d00;
+  background: #f9edcd;
+  color: #8b6b2e;
 }
 
 .status-pill.claimed {
-  background: #fbe4dc;
-  color: #a54d31;
+  background: #f7e6e6;
+  color: #a5615d;
 }
 
 .status-pill.paid,
 .tag.warm {
-  background: #ffe2b6;
-  color: #8b4f14;
+  background: #f7e6c4;
+  color: #8b6b2e;
 }
 
 .tabs {
@@ -144,15 +144,15 @@
 
 .tab:hover {
   transform: translateY(-1px);
-  border-color: rgba(71, 112, 77, 0.3);
+  border-color: rgba(138, 174, 126, 0.4);
   color: var(--ink);
 }
 
 .tab.active {
   transform: translateY(-1px);
-  border-color: rgba(38, 84, 49, 0.6);
+  border-color: var(--leaf-dark);
   background: var(--leaf);
-  box-shadow: 0 10px 22px rgba(63, 111, 76, 0.26);
+  box-shadow: 0 10px 22px rgba(138, 174, 126, 0.32);
   color: #fff;
 }
 
@@ -215,17 +215,17 @@
 .certificate,
 .missed-card,
 .memory-card {
-  border: 1px solid var(--line);
+  border: 1.5px dashed var(--dash);
   border-radius: var(--radius);
   /* A faint paper-grain texture (two tiny offset radial dots, tiled) under the
      usual white wash — reads as a soft journal-page surface at normal zoom
      without ever competing with real content or photos. */
   background-image:
-    radial-gradient(rgba(71, 112, 77, 0.05) 1px, transparent 1px),
-    radial-gradient(rgba(71, 112, 77, 0.035) 1px, transparent 1px);
+    radial-gradient(rgba(196, 181, 154, 0.06) 1px, transparent 1px),
+    radial-gradient(rgba(196, 181, 154, 0.04) 1px, transparent 1px);
   background-size: 15px 15px, 11px 11px;
   background-position: 0 0, 6px 8px;
-  background-color: rgba(255, 255, 255, 0.78);
+  background-color: var(--paper);
   box-shadow: var(--shadow);
   transition:
     transform 180ms ease,
@@ -243,10 +243,7 @@
   min-height: 380px;
   overflow: hidden;
   padding: 38px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(244, 250, 232, 0.72)),
-    radial-gradient(circle at 80% 20%, rgba(255, 197, 102, 0.34), transparent 28%),
-    linear-gradient(160deg, #f7efe1, #e4f0dc 52%, #ffe9c6);
+  background: var(--paper);
 }
 
 .mystery-hero {
@@ -268,11 +265,11 @@
   place-items: center;
   width: min(180px, 100%);
   aspect-ratio: 1;
-  border: 1px solid rgba(223, 166, 79, 0.4);
+  border: 1px solid rgba(232, 201, 122, 0.4);
   border-radius: 999px;
   background:
-    radial-gradient(circle at 45% 35%, #fff8db 0 18%, #ffd47b 19% 58%, #d99b41 59% 100%);
-  box-shadow: 0 22px 60px rgba(197, 129, 51, 0.24);
+    radial-gradient(circle at 45% 35%, #fff8db 0 18%, var(--honey) 19% 58%, var(--honey-dark) 59% 100%);
+  box-shadow: 0 22px 60px rgba(196, 153, 74, 0.24);
   color: #5d3c09;
   text-align: center;
 }
@@ -298,8 +295,8 @@
   inset: auto 0 0;
   height: 118px;
   background:
-    linear-gradient(135deg, transparent 42%, rgba(99, 135, 86, 0.1) 42% 45%, transparent 45%),
-    linear-gradient(45deg, transparent 46%, rgba(99, 135, 86, 0.13) 46% 49%, transparent 49%);
+    linear-gradient(135deg, transparent 42%, rgba(138, 174, 126, 0.1) 42% 45%, transparent 45%),
+    linear-gradient(45deg, transparent 46%, rgba(138, 174, 126, 0.13) 46% 49%, transparent 49%);
   background-size: 46px 46px;
   content: '';
 }
@@ -350,8 +347,8 @@
   aspect-ratio: 1;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 40% 35%, #fff8db 0 18%, #ffd47b 19% 56%, #edb75d 57% 100%);
-  box-shadow: 0 28px 80px rgba(197, 129, 51, 0.28);
+    radial-gradient(circle at 40% 35%, #fff8db 0 18%, var(--honey) 19% 56%, var(--honey-dark) 57% 100%);
+  box-shadow: 0 28px 80px rgba(196, 153, 74, 0.28);
 }
 
 .bird-shape {
@@ -360,17 +357,17 @@
   place-items: center;
   width: min(78%, 320px);
   aspect-ratio: 1;
-  border: 1px solid rgba(65, 98, 63, 0.16);
+  border: 1px solid rgba(138, 174, 126, 0.16);
   border-radius: 42% 58% 46% 54%;
   background:
     radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.28)),
-    linear-gradient(145deg, rgba(93, 137, 83, 0.32), rgba(255, 246, 218, 0.74));
+    linear-gradient(145deg, rgba(138, 174, 126, 0.32), rgba(255, 246, 218, 0.74));
   animation: floaty 4.8s ease-in-out infinite;
 }
 
 .bird-body {
   font-size: 7.8rem;
-  filter: drop-shadow(0 18px 20px rgba(69, 77, 52, 0.22));
+  filter: drop-shadow(0 18px 20px rgba(61, 53, 48, 0.22));
 }
 
 .floating-leaf {
@@ -398,8 +395,7 @@
 
 .stat-card {
   min-height: 130px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(242, 247, 230, 0.82));
+  background: var(--paper);
 }
 
 .stat-card span,
@@ -469,19 +465,23 @@
   height: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e9e0d0;
+  background: #ede7dc;
 }
 
 .progress-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--leaf), var(--honey));
+  background: var(--lavender);
+}
+
+/* Happiness meter (Tweety card): rose-to-honey gradient, per the storybook palette. */
+.tweety-happiness .progress-track span {
+  background: linear-gradient(90deg, var(--rose), var(--honey));
 }
 
 .council-card {
-  background:
-    linear-gradient(145deg, rgba(255, 248, 227, 0.9), rgba(239, 248, 226, 0.88));
+  background: var(--paper);
 }
 
 .alert-card {
@@ -496,8 +496,7 @@
   flex-direction: column;
   justify-content: space-between;
   min-height: 260px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(255, 241, 211, 0.82));
+  background: var(--paper);
 }
 
 .home-link-card {
@@ -525,8 +524,7 @@
 .teaser-card,
 .subtle-bonus-card,
 .ai-placeholder-card {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 246, 222, 0.76));
+  background: var(--paper);
 }
 
 .primary-btn,
@@ -535,7 +533,7 @@
 .danger-btn,
 .text-btn {
   border: 0;
-  border-radius: 999px;
+  border-radius: 12px;
   font: inherit;
   font-size: 0.9rem;
   font-weight: 900;
@@ -556,14 +554,20 @@
 }
 
 .primary-btn {
+  border-radius: 14px;
   background: var(--leaf);
   color: #fff;
-  box-shadow: 0 12px 24px rgba(63, 111, 76, 0.2);
+  box-shadow: 0 12px 24px rgba(138, 174, 126, 0.28);
+}
+
+.primary-btn:hover {
+  background: var(--leaf-dark);
 }
 
 .secondary-btn {
-  border: 1px solid rgba(71, 112, 77, 0.22);
-  background: var(--mint);
+  border: 1.5px dashed var(--dash);
+  border-radius: 12px;
+  background: var(--parchment);
   color: var(--leaf-dark);
 }
 
@@ -582,7 +586,7 @@
   min-height: 40px;
   margin-left: 8px;
   background: transparent;
-  color: var(--leaf);
+  color: var(--leaf-dark);
   padding: 0 8px;
 }
 
@@ -599,7 +603,7 @@
 .danger-btn:active,
 .text-btn:active,
 .tab:active {
-  transform: translateY(0);
+  transform: scale(0.97);
 }
 
 button:disabled {
@@ -637,8 +641,8 @@ textarea {
   max-width: 100%;
   min-height: 46px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.84);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   color: var(--ink-strong);
   font: inherit;
   font-size: 0.95rem;
@@ -655,8 +659,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: rgba(71, 112, 77, 0.56);
-  box-shadow: 0 0 0 4px rgba(71, 112, 77, 0.12);
+  border-color: rgba(138, 174, 126, 0.56);
+  box-shadow: 0 0 0 4px rgba(138, 174, 126, 0.12);
 }
 
 .check-card {
@@ -666,8 +670,8 @@ textarea:focus {
   justify-content: flex-start;
   gap: 8px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.66);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   min-height: 46px;
   padding: 12px;
 }
@@ -712,7 +716,7 @@ textarea:focus {
 .photo-empty-preview {
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(71, 112, 77, 0.28);
+  border: 1px dashed rgba(138, 174, 126, 0.28);
   border-radius: 18px;
   background:
     linear-gradient(135deg, rgba(231, 241, 223, 0.86), rgba(255, 244, 214, 0.8));
@@ -762,7 +766,7 @@ textarea:focus {
   align-items: center;
   gap: 10px;
   margin-top: 14px;
-  border: 1px solid rgba(71, 112, 77, 0.18);
+  border: 1px solid rgba(138, 174, 126, 0.18);
   border-radius: 16px;
   background: rgba(231, 241, 223, 0.68);
   padding: 12px 14px;
@@ -772,7 +776,7 @@ textarea:focus {
   flex: 0 0 auto;
   width: 18px;
   aspect-ratio: 1;
-  border: 3px solid rgba(71, 112, 77, 0.18);
+  border: 3px solid rgba(138, 174, 126, 0.18);
   border-top-color: var(--leaf);
   border-radius: 999px;
   animation: council-spin 800ms linear infinite;
@@ -793,10 +797,9 @@ textarea:focus {
 .checked-off-banner {
   display: grid;
   gap: 6px;
-  border: 1px solid rgba(71, 112, 77, 0.24);
+  border: 1.5px dashed var(--dash);
   border-radius: 16px;
-  background:
-    linear-gradient(145deg, rgba(231, 241, 223, 0.92), rgba(255, 246, 222, 0.86));
+  background: var(--paper);
   padding: 14px;
 }
 
@@ -819,9 +822,9 @@ textarea:focus {
   display: grid;
   align-content: start;
   gap: 12px;
-  border: 1px solid var(--line);
+  border: 1.5px dashed var(--dash);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--paper);
   padding: 14px;
 }
 
@@ -843,8 +846,8 @@ textarea:focus {
   display: grid;
   gap: 6px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.58);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   padding: 11px;
 }
 
@@ -932,8 +935,7 @@ textarea:focus {
 }
 
 .bird-card {
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(238, 247, 226, 0.78));
+  background: var(--paper);
 }
 
 .memory-gallery {
@@ -1057,7 +1059,7 @@ textarea:focus {
   background:
     radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.5), transparent 55%),
     linear-gradient(160deg, #e9eadf, #dfe6d6);
-  color: rgba(71, 112, 77, 0.5);
+  color: rgba(138, 174, 126, 0.5);
   font-size: 3.4rem;
   font-weight: 900;
 }
@@ -1142,8 +1144,8 @@ textarea:focus {
 .report-item,
 .future-grid article {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.58);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   padding: 11px;
 }
 
@@ -1164,9 +1166,7 @@ textarea:focus {
 }
 
 .checklist-hero {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(231, 241, 223, 0.78)),
-    linear-gradient(90deg, rgba(223, 166, 79, 0.18), rgba(216, 131, 115, 0.16));
+  background: var(--paper);
 }
 
 .library-controls {
@@ -1198,9 +1198,14 @@ textarea:focus {
 }
 
 .filter-chip.active {
-  border-color: rgba(71, 112, 77, 0.42);
+  border-color: rgba(138, 174, 126, 0.42);
   background: var(--leaf);
   color: #fff;
+}
+
+.filter-chip:active,
+.bingo-square:active {
+  transform: scale(0.97);
 }
 
 .library-grid {
@@ -1216,10 +1221,9 @@ textarea:focus {
   grid-template-rows: auto 1fr;
   gap: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1.5px dashed var(--dash);
   border-radius: var(--radius);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(255, 243, 218, 0.76));
+  background: var(--paper);
   box-shadow: var(--shadow);
   transition:
     transform 180ms ease,
@@ -1233,15 +1237,14 @@ textarea:focus {
 }
 
 .library-bird-card.seen {
-  border-color: rgba(71, 112, 77, 0.34);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.94), rgba(231, 241, 223, 0.86));
+  border-color: var(--leaf);
+  background: var(--paper);
 }
 
 .library-placeholder {
   background:
     linear-gradient(135deg, rgba(231, 241, 223, 0.92), rgba(255, 226, 182, 0.8)),
-    linear-gradient(45deg, rgba(216, 131, 115, 0.18), transparent);
+    linear-gradient(45deg, rgba(212, 160, 160, 0.18), transparent);
 }
 
 .library-bird-card h3,
@@ -1270,8 +1273,8 @@ textarea:focus {
   overflow: hidden;
   border-style: double;
   border-width: 4px;
-  background:
-    linear-gradient(145deg, rgba(255, 250, 235, 0.96), rgba(247, 236, 205, 0.88));
+  border-color: var(--dash);
+  background: var(--paper);
 }
 
 .certificate::after {
@@ -1290,8 +1293,8 @@ textarea:focus {
 
 .mini-list p {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.56);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   margin: 0;
   padding: 12px;
 }
@@ -1307,8 +1310,7 @@ textarea:focus {
 }
 
 .note-card.unlocked {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 229, 221, 0.72));
+  background: var(--paper);
 }
 
 .bingo-board {
@@ -1346,7 +1348,7 @@ textarea:focus {
 
 .bingo-square.checked {
   background: var(--leaf);
-  box-shadow: 0 12px 24px rgba(63, 111, 76, 0.22);
+  box-shadow: 0 12px 24px rgba(107, 143, 98, 0.22);
   color: #fff;
 }
 
@@ -1356,8 +1358,7 @@ textarea:focus {
 }
 
 .report-card {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(232, 243, 220, 0.74));
+  background: var(--paper);
 }
 
 .magazine-page {
@@ -1370,11 +1371,9 @@ textarea:focus {
   grid-column: 1 / -1;
   min-height: 330px;
   overflow: hidden;
-  border: 1px solid rgba(71, 112, 77, 0.16);
+  border: 1.5px dashed var(--dash);
   border-radius: 28px;
-  background:
-    linear-gradient(135deg, rgba(21, 38, 28, 0.12), rgba(255, 248, 230, 0.7)),
-    linear-gradient(160deg, #f7efe1, #dcebd2 56%, #ffd999);
+  background: var(--paper);
   box-shadow: var(--shadow);
   padding: clamp(22px, 5vw, 54px);
 }
@@ -1440,9 +1439,7 @@ textarea:focus {
 }
 
 .bird-of-week-card {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 230, 198, 0.82)),
-    linear-gradient(90deg, rgba(71, 112, 77, 0.14), rgba(216, 131, 115, 0.12));
+  background: var(--paper);
 }
 
 .profile-main-photo {
@@ -1468,9 +1465,7 @@ textarea:focus {
 }
 
 .bird-profile-hero {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(231, 241, 223, 0.8)),
-    linear-gradient(135deg, rgba(223, 166, 79, 0.16), rgba(216, 131, 115, 0.14));
+  background: var(--paper);
 }
 
 .profile-meta {
@@ -1506,7 +1501,7 @@ textarea:focus {
   display: grid;
   min-height: 72px;
   place-items: center;
-  border: 1px dashed rgba(71, 112, 77, 0.28);
+  border: 1px dashed rgba(138, 174, 126, 0.28);
   border-radius: 16px;
   background:
     linear-gradient(145deg, rgba(231, 241, 223, 0.72), rgba(255, 246, 222, 0.82));
@@ -1574,8 +1569,8 @@ textarea:focus {
   grid-template-columns: minmax(0, 1fr) minmax(120px, 0.3fr);
   gap: 10px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.52);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   padding: 10px;
 }
 
@@ -1620,7 +1615,7 @@ textarea:focus {
   display: grid;
   justify-items: center;
   gap: 8px;
-  border: 1px dashed rgba(71, 112, 77, 0.25);
+  border: 1px dashed rgba(138, 174, 126, 0.25);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.48);
   color: var(--muted);
@@ -1654,11 +1649,9 @@ textarea:focus {
   gap: 18px;
   width: min(620px, 100%);
   overflow: hidden;
-  border: 1px solid rgba(71, 112, 77, 0.18);
+  border: 1.5px dashed var(--dash);
   border-radius: 28px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 239, 215, 0.86)),
-    linear-gradient(135deg, rgba(231, 241, 223, 0.95), rgba(255, 248, 230, 0.9));
+  background: var(--paper);
   box-shadow: var(--shadow-strong);
   padding: 34px;
   animation: modal-in 260ms ease both;
@@ -1668,7 +1661,7 @@ textarea:focus {
   position: absolute;
   right: -18px;
   bottom: -30px;
-  color: rgba(71, 112, 77, 0.1);
+  color: rgba(138, 174, 126, 0.1);
   content: 'Bird Journey';
   font-size: 4.2rem;
   font-weight: 900;
@@ -1708,7 +1701,7 @@ textarea:focus {
   z-index: 90;
   display: grid;
   place-items: center;
-  background: rgba(38, 48, 34, 0.34);
+  background: rgba(61, 53, 48, 0.34);
   padding: 18px;
   backdrop-filter: blur(10px);
   animation: backdrop-in 180ms ease both;
@@ -1721,12 +1714,10 @@ textarea:focus {
   width: min(560px, 100%);
   max-height: min(720px, calc(100svh - 36px));
   overflow: auto;
-  border: 1px solid rgba(223, 166, 79, 0.5);
+  border: 1.5px dashed var(--honey-dark);
   border-radius: 26px;
-  background:
-    linear-gradient(145deg, rgba(255, 253, 248, 0.98), rgba(255, 242, 209, 0.94)),
-    radial-gradient(circle at 90% 0%, rgba(216, 131, 115, 0.22), transparent 15rem);
-  box-shadow: 0 30px 90px rgba(38, 48, 34, 0.26);
+  background: var(--paper);
+  box-shadow: 0 30px 90px rgba(61, 53, 48, 0.26);
   padding: 26px;
   animation: modal-in 260ms ease both;
 }
@@ -1739,7 +1730,7 @@ textarea:focus {
     linear-gradient(90deg, transparent 42%, rgba(255, 255, 255, 0.6) 42% 58%, transparent 58%),
     linear-gradient(0deg, transparent 42%, rgba(255, 255, 255, 0.6) 42% 58%, transparent 58%),
     linear-gradient(145deg, var(--honey), var(--rose));
-  box-shadow: 0 16px 30px rgba(191, 116, 70, 0.22);
+  box-shadow: 0 16px 30px rgba(196, 153, 74, 0.22);
   content: '';
 }
 
@@ -1759,9 +1750,9 @@ textarea:focus {
   display: grid;
   gap: 5px;
   margin: 0;
-  border: 1px solid rgba(71, 112, 77, 0.13);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-inner);
+  background: var(--parchment);
   padding: 12px;
 }
 
@@ -1783,9 +1774,9 @@ textarea:focus {
   display: grid;
   gap: 5px;
   width: min(460px, calc(100% - 24px));
-  border: 1px solid rgba(71, 112, 77, 0.2);
+  border: 1.5px dashed var(--dash);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--paper);
   box-shadow: var(--shadow-strong);
   color: var(--ink);
   padding: 14px 16px;
@@ -1798,11 +1789,11 @@ textarea:focus {
 }
 
 .toast.warning {
-  border-color: rgba(188, 119, 37, 0.34);
+  border-color: var(--honey-dark);
 }
 
 .toast.calm {
-  border-color: rgba(58, 111, 140, 0.26);
+  border-color: var(--lavender);
 }
 
 .app-footer {
@@ -2143,7 +2134,7 @@ textarea:focus {
 .ambient-sky span {
   position: absolute;
   will-change: transform;
-  filter: drop-shadow(0 8px 12px rgba(71, 86, 56, 0.12));
+  filter: drop-shadow(0 8px 12px rgba(180, 160, 130, 0.18));
 }
 
 .floating-feather {
@@ -2284,13 +2275,13 @@ textarea:focus {
 }
 
 .ai-match-card.best-match {
-  border-color: rgba(71, 112, 77, 0.4);
+  border-color: rgba(138, 174, 126, 0.4);
   box-shadow: var(--shadow);
 }
 
 .ai-match-card.unsure {
   border-style: dashed;
-  border-color: rgba(216, 131, 115, 0.5);
+  border-color: rgba(212, 160, 160, 0.5);
   background: rgba(255, 250, 246, 0.82);
 }
 
@@ -2484,8 +2475,8 @@ textarea:focus {
   gap: 2px;
   width: min(620px, 100%);
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.86), rgba(255, 253, 248, 0.98));
-  border-top: 1px solid var(--line);
+  background: var(--parchment);
+  border-top: 1.5px solid var(--line);
   backdrop-filter: blur(16px);
 }
 
@@ -2539,7 +2530,7 @@ textarea:focus {
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  background: rgba(33, 46, 35, 0.34);
+  background: rgba(61, 53, 48, 0.34);
   padding: 64px 14px;
   animation: backdrop-in 160ms ease both;
 }
@@ -2704,13 +2695,13 @@ textarea:focus {
 .streak-chip {
   background: #fff0d6;
   color: #9a5a14;
-  border: 1px solid rgba(223, 166, 79, 0.4);
+  border: 1px solid rgba(232, 201, 122, 0.4);
 }
 
 .coin-chip {
   background: var(--mint);
   color: var(--leaf-dark);
-  border: 1px solid rgba(71, 112, 77, 0.22);
+  border: 1px solid rgba(138, 174, 126, 0.22);
 }
 
 /* At-a-glance mystery-egg status: dot progress toward the next egg, or a
@@ -2738,7 +2729,7 @@ textarea:focus {
 .mission-card {
   display: grid;
   gap: 12px;
-  border: 1px solid rgba(223, 166, 79, 0.34);
+  border: 1px solid rgba(232, 201, 122, 0.34);
   border-radius: 26px;
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 244, 224, 0.9)),
@@ -2748,7 +2739,7 @@ textarea:focus {
 }
 
 .mission-card.done {
-  border-color: rgba(71, 112, 77, 0.34);
+  border-color: rgba(138, 174, 126, 0.34);
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(231, 241, 223, 0.92));
 }
 
@@ -2803,17 +2794,17 @@ textarea:focus {
   border-radius: 28px;
   background:
     radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.28), transparent 60%),
-    linear-gradient(160deg, var(--leaf), #2f5a38);
+    linear-gradient(160deg, var(--leaf), #6b8f62);
   color: #fff;
   font-size: 1.5rem;
   font-weight: 900;
   letter-spacing: 0.01em;
-  box-shadow: 0 22px 44px rgba(47, 90, 56, 0.32);
+  box-shadow: 0 22px 44px rgba(107, 143, 98, 0.32);
   animation: gentle-pulse 3.2s ease-in-out infinite;
 }
 
 .giant-spot-btn:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
 }
 
 .giant-spot-emoji {
@@ -2824,10 +2815,10 @@ textarea:focus {
 @keyframes gentle-pulse {
   0%,
   100% {
-    box-shadow: 0 22px 44px rgba(47, 90, 56, 0.32);
+    box-shadow: 0 22px 44px rgba(107, 143, 98, 0.32);
   }
   50% {
-    box-shadow: 0 26px 56px rgba(47, 90, 56, 0.46);
+    box-shadow: 0 26px 56px rgba(107, 143, 98, 0.46);
   }
 }
 
@@ -2853,12 +2844,17 @@ textarea:focus {
   gap: 8px;
   align-content: start;
   text-align: left;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.82);
+  border: 1.5px dashed var(--dash);
+  border-radius: var(--radius);
+  background: var(--paper);
   box-shadow: var(--shadow);
   padding: 14px;
   min-height: 92px;
+  transition: transform 160ms ease;
+}
+
+.mini-card:active {
+  transform: scale(0.97);
 }
 
 .mini-card-top {
@@ -3001,9 +2997,9 @@ textarea:focus {
 
 /* --- Locked / rare birds --- */
 .status-pill.rare {
-  background: #f3e8ff;
-  border-color: rgba(141, 96, 196, 0.3);
-  color: #6b3fa0;
+  background: #efe9f5;
+  border-color: rgba(184, 169, 201, 0.4);
+  color: #6b5a87;
 }
 
 .library-bird-card.locked-bird {
@@ -3105,8 +3101,8 @@ textarea:focus {
   border-radius: 999px;
   background:
     radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.35), transparent 60%),
-    linear-gradient(160deg, var(--leaf), #2f5a38);
-  box-shadow: 0 20px 44px rgba(47, 90, 56, 0.34);
+    linear-gradient(160deg, var(--leaf), #6b8f62);
+  box-shadow: 0 20px 44px rgba(107, 143, 98, 0.34);
   color: #fff;
   animation: camera-pulse 2.6s ease-in-out infinite;
 }
@@ -3116,7 +3112,7 @@ textarea:focus {
   position: absolute;
   inset: -10px;
   border-radius: 999px;
-  border: 2px solid rgba(71, 112, 77, 0.4);
+  border: 2px solid rgba(138, 174, 126, 0.4);
   animation: camera-halo 2.6s ease-out infinite;
 }
 
@@ -3141,11 +3137,11 @@ textarea:focus {
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 20px 44px rgba(47, 90, 56, 0.34);
+    box-shadow: 0 20px 44px rgba(107, 143, 98, 0.34);
   }
   50% {
     transform: scale(1.04);
-    box-shadow: 0 26px 58px rgba(47, 90, 56, 0.46);
+    box-shadow: 0 26px 58px rgba(107, 143, 98, 0.46);
   }
 }
 
@@ -3163,7 +3159,7 @@ textarea:focus {
 .spot-preview-card {
   display: grid;
   gap: 12px;
-  border: 1px solid rgba(223, 166, 79, 0.34);
+  border: 1px solid rgba(232, 201, 122, 0.34);
   border-radius: 24px;
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 244, 224, 0.85));
@@ -3518,7 +3514,7 @@ textarea:focus {
   color: var(--ink-strong);
   text-align: left;
 }
-.weekly-quiz-option.picked { border-color: var(--honey); background: rgba(223, 166, 79, 0.16); }
+.weekly-quiz-option.picked { border-color: var(--honey); background: rgba(232, 201, 122, 0.16); }
 .weekly-quiz-option.correct { background: rgba(120, 180, 120, 0.28); border-color: #6fae6f; }
 .weekly-quiz-option.wrong { background: rgba(220, 120, 90, 0.24); border-color: #d07a52; }
 .weekly-quiz-option:disabled { cursor: default; }
@@ -3852,9 +3848,12 @@ textarea:focus {
 
 .app-shell > .app-header,
 .app-shell > .page-wrap,
-.app-shell > .bottom-nav,
 .login-card {
   position: relative;
+  z-index: 2;
+}
+
+.app-shell > .bottom-nav {
   z-index: 2;
 }
 
@@ -4414,17 +4413,18 @@ button.tweety-nest-base.tapped {
   justify-items: center;
   gap: 4px;
   padding: 12px 6px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.7);
+  border: 1.5px dashed var(--dash);
+  border-radius: 12px;
+  background: var(--parchment);
   font-weight: 800;
   color: var(--ink-strong);
   transition: transform 140ms ease, background 140ms ease;
 }
 .tweety-care-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.tweety-care-btn:active:not(:disabled) { transform: scale(0.97); }
 .tweety-care-btn .tweety-care-icon { font-size: 1.5rem; }
 .tweety-care-btn.done {
-  background: rgba(231, 241, 223, 0.7);
+  background: var(--mint);
   color: var(--leaf-dark);
   cursor: default;
 }
@@ -5077,7 +5077,7 @@ button.tweety-nest-base.tapped {
 
 .store-item.owned {
   background: rgba(231, 241, 223, 0.7);
-  border-color: rgba(71, 112, 77, 0.32);
+  border-color: rgba(138, 174, 126, 0.32);
 }
 
 .store-item h4 { margin: 0; font-size: 0.95rem; color: var(--ink-strong); }
@@ -5218,8 +5218,8 @@ button.tweety-nest-base.tapped {
 }
 .date-memory-grid .date-polaroid:nth-child(even) { transform: rotate(1.4deg); }
 .date-polaroid.favourite {
-  box-shadow: 0 8px 22px rgba(216, 131, 115, 0.4);
-  outline: 2px solid rgba(216, 131, 115, 0.5);
+  box-shadow: 0 8px 22px rgba(212, 160, 160, 0.4);
+  outline: 2px solid rgba(212, 160, 160, 0.5);
 }
 .date-polaroid img {
   width: 100%;
@@ -5256,7 +5256,7 @@ button.tweety-nest-base.tapped {
   margin: 6px 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(216, 131, 115, 0.16);
+  background: rgba(212, 160, 160, 0.16);
   color: #9a4a36;
   font-weight: 800;
 }
@@ -5325,7 +5325,7 @@ button.tweety-nest-base.tapped {
 }
 .bluff-btn:hover { transform: translateY(-1px); }
 .bluff-btn.real { background: rgba(120, 180, 120, 0.16); }
-.bluff-btn.bluff { background: rgba(223, 166, 79, 0.16); }
+.bluff-btn.bluff { background: rgba(232, 201, 122, 0.16); }
 .bluff-btn.correct { background: rgba(120, 180, 120, 0.35); border-color: #6fae6f; }
 .bluff-btn.wrong { background: rgba(220, 120, 90, 0.28); border-color: #d07a52; }
 .bluff-reveal { text-align: center; font-weight: 800; margin-top: 12px; color: var(--ink-strong); }
@@ -5562,7 +5562,7 @@ button.tweety-nest-base.tapped {
   gap: 8px;
   padding: 10px;
   border-radius: 14px;
-  border: 1px solid rgba(224, 166, 79, 0.4);
+  border: 1px solid rgba(232, 201, 122, 0.4);
   background: rgba(255, 255, 255, 0.75);
 }
 .discovery-card img {
@@ -5922,7 +5922,7 @@ button.tweety-nest-base.tapped {
 .event-timer { font-weight: 800; color: #9a5a2a; }
 
 /* escape */
-.escape-card { text-align: center; border: 2px solid rgba(216, 131, 115, 0.6); background: linear-gradient(160deg, #fff5ef, #ffe3da); }
+.escape-card { text-align: center; border: 2px solid rgba(212, 160, 160, 0.6); background: linear-gradient(160deg, #fff5ef, #ffe3da); }
 .escape-emoji { font-size: 2.6rem; animation: float-a 1.6s ease-in-out infinite; }
 .escape-timer { font-weight: 900; color: #c0392b; font-size: 1.1rem; }
 .escape-clues { display: grid; gap: 4px; margin: 8px 0; }
@@ -6110,9 +6110,9 @@ button.tweety-nest-base.tapped {
 .garden-home-card {
   display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
   padding: 14px 18px; border-radius: 18px; cursor: pointer;
-  background: linear-gradient(135deg, rgba(140, 203, 111, 0.28), rgba(111, 184, 214, 0.16));
-  border: 1px solid rgba(63, 122, 74, 0.28);
-  box-shadow: 0 2px 0 rgba(63, 122, 74, 0.12);
+  background: linear-gradient(135deg, rgba(138, 174, 126, 0.24), rgba(184, 169, 201, 0.16));
+  border: 1.5px dashed var(--dash);
+  box-shadow: 0 2px 0 rgba(180, 160, 130, 0.12);
   transition: transform 0.15s ease;
 }
 .garden-home-card:hover { transform: translateY(-1px); }
@@ -6177,7 +6177,7 @@ button.tweety-nest-base.tapped {
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
 .spot-action-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-strong); }
-.spot-action-btn:active { transform: translateY(0); }
+.spot-action-btn:active { transform: scale(0.97); }
 .spot-action-emoji { font-size: 2.4rem; line-height: 1; }
 /* One of these is a real <button> (Record now) — normalise so it matches the
    <label> tiles exactly (buttons don't inherit font by default). */
@@ -6242,7 +6242,7 @@ button.tweety-nest-base.tapped {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .marnich-ff-btn:hover { opacity: 1; transform: translateY(-1px); }
-.marnich-ff-btn:active { transform: translateY(0); }
+.marnich-ff-btn:active { transform: scale(0.97); }
 
 /* Sandbox dev tools stack (Fast Forward + Bird Garden) — the container is the
    fixed-positioned element so the buttons sit together instead of overlapping. */

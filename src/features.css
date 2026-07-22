@@ -25,14 +25,14 @@
 .tweety-growth-bar {
   height: 12px;
   border-radius: 999px;
-  background: rgba(58, 77, 54, 0.12);
+  background: #ede7dc;
   overflow: hidden;
 }
 .tweety-growth-bar > span {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #f4c049, #e89a3c);
+  background: var(--leaf);
   transition: width 600ms ease;
 }
 
