@@ -30,9 +30,11 @@ import {
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
 import { tweetyGrowth } from './tweetyData'
-import { plantBloomKind, plantBloomColor, plantFoliageColor } from './plantData'
+import { SA_PLANT_LIBRARY, plantBloomKind, plantBloomColor, plantFoliageColor } from './plantData'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
+import { GardenPlant } from './plantTemplates'
+import { PLANT_COLOUR_MAP } from './plantColourMap'
 
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
@@ -531,228 +533,104 @@ function SunsetBenchArt({ stageKey }) {
 }
 
 // A real species planting (from the Seed Pouch) grows through the same
-// generic sprout/budding SVG art as every other flower while young — its FINAL
-// stage draws an illustrated bloom shaped and tinted to the real plant it is
-// (see plantBloomKind/plantBloomColor/plantFoliageColor), so a flowering aloe
-// looks nothing like a protea, and a succulent's foliage reads blue-grey while
-// fynbos reads fine and silvery. No photos, ever — the garden stays one
-// consistent hand-drawn illustrated world throughout every stage.
-function GenericBloom({ color, foliage }) {
-  const petals = [[-9, -21, 5], [0, -27, 5.6], [9, -20, 5], [-6, -13, 4], [6, -13, 4]]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -1 V-19" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M-6 -10 Q0 -14 6 -9" stroke={foliage} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      {petals.map(([x, y, r], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r={r} fill={color} opacity="0.92" />
-          <circle cx={x} cy={y} r={r * 0.4} fill="#ffe07a" />
-        </g>
-      ))}
-    </g>
-  )
+// generic sprout/budding SVG art as every other flower while young — its
+// FINAL stage renders the species-accurate illustrated GardenPlant template
+// (see plantTemplates.jsx). Three tiers, most-accurate first:
+//  1. A curated SA_PLANT_LIBRARY species (matched by commonName) with a
+//     hand-researched real-colour entry in PLANT_COLOUR_MAP — exact template
+//     + exact colours.
+//  2. Anything else (most real plantings: she identifies whatever she
+//     actually photographs, not just the 207 SA species catalogued for the
+//     Explore/Magazine tab) — reuse plantBloomKind's keyword/family
+//     classifier to still pick the closest-shaped template (a Monstera still
+//     reads as a big-leaved climber, a Moth Orchid still reads as a showy
+//     single bloom), tinted with plantBloomColor/plantFoliageColor.
+//  3. Truly unclassifiable — flowering-shrub in plain generic green.
+// No photos, ever — the garden stays one consistent hand-drawn illustrated
+// world throughout every stage.
+const GENERIC_PLANT_ZONES = {
+  stem: '#6b5638', leafMain: '#3e6e33', leafSecondary: '#5e8e4c',
+  petal: '#f5f0e0', center: '#f2c230', soil: '#7a5a3a',
 }
 
-// Aloe — a spiky succulent rosette at the base with a tall red-orange raceme
-// of tubular flowers rising above it.
-function AloeBloom({ color, foliage }) {
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="11" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -1 L-13 -9" stroke={foliage} strokeWidth="3.6" strokeLinecap="round" />
-      <path d="M0 -1 L-8 -15" stroke={foliage} strokeWidth="3.4" strokeLinecap="round" />
-      <path d="M0 -1 L0 -18" stroke={foliage} strokeWidth="3.6" strokeLinecap="round" />
-      <path d="M0 -1 L8 -15" stroke={foliage} strokeWidth="3.4" strokeLinecap="round" />
-      <path d="M0 -1 L13 -9" stroke={foliage} strokeWidth="3.6" strokeLinecap="round" />
-      <path d="M0 -12 V-34" stroke="#4f6a48" strokeWidth="2" strokeLinecap="round" />
-      {[-34, -31, -28, -25, -22, -19].map((y, i) => (
-        <ellipse key={i} cx={i % 2 ? 3 : -3} cy={y} rx="3.2" ry="2" fill={color} opacity={0.95 - i * 0.06} />
-      ))}
-    </g>
-  )
+// plantBloomKind's shape vocabulary doesn't map 1:1 onto plantTemplates.jsx's
+// 12 illustrated templates (there's no dedicated orchid/houseplant/fynbos
+// template shape) — this picks the closest visual match for each, mirroring
+// how those same species read in the hand-curated PLANT_COLOUR_MAP entries
+// (e.g. Red Disa, an orchid, is templated as 'bulb-flower'; Bird of Paradise,
+// a strelitzia, is also 'bulb-flower').
+const BLOOM_KIND_TEMPLATE = {
+  aloe: 'aloe',
+  protea: 'protea',
+  agapanthus: 'bulb-flower',
+  bulbine: 'bulb-flower',
+  strelitzia: 'bulb-flower',
+  succulent: 'succulent',
+  orchid: 'bulb-flower',
+  palm: 'palm',
+  houseplant: 'climbing-vine',
+  fynbos: 'herb',
+  generic: 'flowering-shrub',
 }
 
-// Protea — a starburst ring of pointed woody bracts around a pale fluffy centre.
-function ProteaBloom({ color, foliage }) {
-  const bracts = [
-    'M0 -30 L-4 -22 L4 -22 Z',
-    'M-9 -27 L-11 -18 L-3 -20 Z',
-    'M9 -27 L11 -18 L3 -20 Z',
-    'M-13 -19 L-13 -10 L-6 -15 Z',
-    'M13 -19 L13 -10 L6 -15 Z',
-    'M-7 -13 L-9 -6 L0 -10 Z',
-    'M7 -13 L9 -6 L0 -10 Z',
-  ]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -1 V-20" stroke={foliage} strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M-7 -12 Q0 -15 7 -11" stroke={foliage} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      {bracts.map((d, i) => <path key={i} d={d} fill={color} opacity={0.94 - (i % 2) * 0.08} />)}
-      <circle cx="0" cy="-19" r="4.4" fill="#fff3d6" opacity="0.85" />
-    </g>
-  )
+// A lighter shade of a hex colour, for the template's secondary/back-layer
+// foliage zone — plantFoliageColor only gives one foliage tone, but every
+// template wants two (front/back layers) so the plant reads as textured
+// instead of flat.
+function lightenHex(hex, amount = 0.35) {
+  const n = parseInt(String(hex).replace('#', ''), 16)
+  const mix = (v) => Math.round(v + (255 - v) * amount)
+  const r = mix((n >> 16) & 255)
+  const g = mix((n >> 8) & 255)
+  const b = mix(n & 255)
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
 }
 
-// Agapanthus — a tall stem topped with a ball-shaped umbel of small star
-// flowers, strappy leaves at the base.
-function AgapanthusBloom({ color, foliage }) {
-  const umbel = [[-8, -33], [-4, -37], [2, -38], [7, -35], [5, -30], [-3, -30], [0, -34]]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -1 L-8 -12" stroke={foliage} strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M0 -1 L8 -12" stroke={foliage} strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M0 -1 L-3 -14" stroke={foliage} strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M0 -3 V-30" stroke={foliage} strokeWidth="2" strokeLinecap="round" />
-      {umbel.map(([x, y], i) => (
-        <g key={i}>
-          <line x1="0" y1="-30" x2={x} y2={y} stroke={foliage} strokeWidth="1" />
-          <circle cx={x} cy={y} r="2.4" fill={color} />
-        </g>
-      ))}
-    </g>
-  )
+const SPECIES_BY_COMMON_NAME = new Map(
+  SA_PLANT_LIBRARY.map((p) => [p.commonName.trim().toLowerCase(), p]),
+)
+
+// Same deterministic-hash idea as PLANT_COLOUR_MAP's own generated section
+// (see that file's header) — a species that isn't curated still gets a
+// shape distinct from its template-mates instead of every fallback plant
+// reading as one identical clone, keyed on her own name for it so it's
+// stable across renders/reloads.
+function fallbackVariation(seedKey) {
+  const unit = (salt) => (hashSeed(`${seedKey}:${salt}`) % 1000) / 1000
+  const between = (salt, lo, hi) => lo + unit(salt) * (hi - lo)
+  return {
+    leafCount: Math.round(between('leafCount', 3, 8)),
+    leafAngle: Math.round(between('leafAngle', 30, 90)),
+    leafWidth: Math.round(between('leafWidth', 0.8, 1.3) * 10) / 10,
+    height: Math.round(between('height', 0.75, 1.3) * 10) / 10,
+    flowerCount: Math.round(between('flowerCount', 2, 8)),
+    flowerSize: Math.round(between('flowerSize', 0.7, 1.2) * 10) / 10,
+    hasStem: unit('hasStem') < 0.5,
+  }
 }
 
-// Bulbine — a thin spike dotted with small star flowers, narrow succulent
-// leaves at the base.
-function BulbineBloom({ color, foliage }) {
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
-      <path d="M0 -1 L-5 -10" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M0 -1 L5 -10" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M0 -2 V-30" stroke={foliage} strokeWidth="1.8" strokeLinecap="round" />
-      {[-28, -25, -22, -19, -16, -13].map((y, i) => (
-        <circle key={i} cx={i % 2 ? 2.6 : -2.6} cy={y} r="2" fill={color} />
-      ))}
-    </g>
-  )
-}
+function plantVisual(commonName, family) {
+  const species = commonName && SPECIES_BY_COMMON_NAME.get(String(commonName).trim().toLowerCase())
+  const curated = species && PLANT_COLOUR_MAP[species.id]
+  if (curated) return { template: curated.template, zones: curated.zones, variation: curated.variation }
 
-// Strelitzia (bird-of-paradise) — a large paddle leaf with the unmistakable
-// orange crane-head bloom and a blue tongue.
-function StrelitziaBloom({ color, foliage }) {
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -1 Q-10 -12 -4 -24 Q2 -14 0 -1 Z" fill={foliage} opacity="0.9" />
-      <path d="M0 -2 V-26" stroke={foliage} strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M0 -26 Q10 -28 14 -22" stroke="#4f6a48" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-      <path d="M8 -27 L18 -30 L11 -24 Z" fill={color} />
-      <path d="M9 -24 L20 -25 L12 -20 Z" fill={color} />
-      <path d="M8 -21 L18 -19 L11 -18 Z" fill={color} />
-      <path d="M11 -24 L20 -23 L13 -20 Z" fill="#2a3a7a" />
-    </g>
-  )
-}
-
-// Generic succulent (vygie-like) — fleshy blue-grey/silver-green rosette
-// leaves with a small bright daisy-like bloom on top.
-function SucculentBloom({ color, foliage }) {
-  const petals = [[-5, -18], [0, -20], [5, -18], [-3, -11], [3, -11]]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="11" ry="3.4" fill="#7a5a3a" />
-      <ellipse cx="-6" cy="-4" rx="4" ry="6.5" fill={foliage} opacity="0.9" />
-      <ellipse cx="6" cy="-4" rx="4" ry="6.5" fill={foliage} opacity="0.9" />
-      <ellipse cx="0" cy="-6" rx="4.6" ry="7.5" fill={foliage} />
-      {petals.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.6" fill={color} />)}
-      <circle cx="0" cy="-15" r="2.2" fill="#ffe07a" />
-    </g>
-  )
-}
-
-// Orchid — an arching stem carrying a couple of exotic, broad-lipped blooms,
-// basal strap leaves at the base (Moth Orchid, Paphiopedilum, etc.).
-function OrchidBloom({ color, foliage }) {
-  const blooms = [[6, -22], [3, -31]]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M-2 -1 Q-9 -10 -6 -20" stroke={foliage} strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M2 -1 Q9 -10 6 -20" stroke={foliage} strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M0 -3 Q10 -18 4 -32" stroke={foliage} strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      {blooms.map(([x, y], i) => (
-        <g key={i} transform={`translate(${x} ${y})`}>
-          <ellipse cx="-4" cy="0" rx="3.6" ry="2.4" fill={color} transform="rotate(-30 -4 0)" />
-          <ellipse cx="4" cy="0" rx="3.6" ry="2.4" fill={color} transform="rotate(30 4 0)" />
-          <ellipse cx="0" cy="-3" rx="3" ry="2.2" fill={color} opacity="0.9" />
-          <ellipse cx="0" cy="1.5" rx="2.2" ry="1.6" fill="#fff3d6" />
-        </g>
-      ))}
-    </g>
-  )
-}
-
-// Palm — a short trunk with fronds radiating out (foliage-only, no flower).
-function PalmBloom({ color }) {
-  const fronds = [-70, -40, -15, 15, 40, 70]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
-      <path d="M0 -1 Q-3 -14 0 -24" stroke="#8a6a42" strokeWidth="3" fill="none" strokeLinecap="round" />
-      {fronds.map((ang, i) => (
-        <path
-          key={i}
-          d="M0 -24 Q10 -28 16 -22"
-          stroke={color} strokeWidth="3" fill="none" strokeLinecap="round"
-          transform={`rotate(${ang} 0 -24)`}
-        />
-      ))}
-    </g>
-  )
-}
-
-// Leafy houseplant (Monstera, Philodendron, Pothos…) — big glossy paired
-// leaves, foliage-only, no flower.
-function HouseplantBloom({ color }) {
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="10" ry="3.2" fill="#7a5a3a" />
-      <path d="M0 -2 V-16" stroke="#3f6a3a" strokeWidth="2" strokeLinecap="round" />
-      <path d="M-1 -14 Q-14 -18 -12 -30 Q-4 -24 -1 -14 Z" fill={color} />
-      <path d="M1 -12 Q14 -20 13 -30 Q5 -22 1 -12 Z" fill={color} opacity="0.92" />
-      <path d="M-8 -22 q3 2 2 6 M8 -24 q-3 2 -2 6" stroke="#2a4a28" strokeWidth="1" fill="none" opacity="0.5" />
-    </g>
-  )
-}
-
-// Generic fynbos — fine silvery-grey foliage sprigs with small bright flowers
-// dotted along the tips.
-function FynbosBloom({ color, foliage }) {
-  const sprigs = [-8, -4, 0, 4, 8]
-  return (
-    <g>
-      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
-      {sprigs.map((x, i) => (
-        <path key={i} d={`M0 -1 L${x} ${-14 - Math.abs(x) * 0.3}`} stroke={foliage} strokeWidth="1.2" strokeLinecap="round" />
-      ))}
-      {[[-8, -16], [-4, -19], [0, -21], [4, -19], [8, -16]].map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="2" fill={color} />
-      ))}
-    </g>
-  )
-}
-
-function SpeciesBloomArt({ commonName, family }) {
   const kind = plantBloomKind(commonName, family)
-  const color = plantBloomColor(commonName, family)
-  const foliage = plantFoliageColor(commonName, family)
-  switch (kind) {
-    case 'aloe': return <AloeBloom color={color} foliage={foliage} />
-    case 'protea': return <ProteaBloom color={color} foliage={foliage} />
-    case 'agapanthus': return <AgapanthusBloom color={color} foliage={foliage} />
-    case 'bulbine': return <BulbineBloom color={color} foliage={foliage} />
-    case 'strelitzia': return <StrelitziaBloom color={color} foliage={foliage} />
-    case 'succulent': return <SucculentBloom color={color} foliage={foliage} />
-    case 'orchid': return <OrchidBloom color={color} foliage={foliage} />
-    case 'palm': return <PalmBloom color={color} />
-    case 'houseplant': return <HouseplantBloom color={color} />
-    case 'fynbos': return <FynbosBloom color={color} foliage={foliage} />
-    default: return <GenericBloom color={color} foliage={foliage} />
+  const seedKey = commonName || family
+  if (kind === 'generic' && !seedKey) {
+    return { template: 'flowering-shrub', zones: GENERIC_PLANT_ZONES, variation: {} }
+  }
+  const leafMain = plantFoliageColor(commonName, family)
+  return {
+    template: BLOOM_KIND_TEMPLATE[kind] || 'flowering-shrub',
+    zones: {
+      stem: kind === 'aloe' || kind === 'succulent' ? '#8a9a7a' : '#6b5638',
+      leafMain,
+      leafSecondary: lightenHex(leafMain),
+      petal: plantBloomColor(commonName, family),
+      center: kind === 'protea' ? '#3d2a22' : '#f2c230',
+      soil: '#7a5a3a',
+    },
+    variation: fallbackVariation(seedKey),
   }
 }
 
@@ -764,7 +642,13 @@ const FLOWERING_STAGES = new Set(['bloom', 'bed-full', 'shrub-bloom'])
 
 function PlantArt({ type, stageKey, family, commonName, seed }) {
   if (isSpeciesPlanting(type) && stageKey === 'bloom') {
-    return <SpeciesBloomArt commonName={commonName} family={family} />
+    const { template, zones, variation } = plantVisual(commonName, family)
+    const size = 60
+    return (
+      <foreignObject x={-size / 2} y={-size * 1.22} width={size} height={size * 1.3} style={{ overflow: 'visible' }}>
+        <GardenPlant template={template} zones={zones} size={size} variation={variation} />
+      </foreignObject>
+    )
   }
   switch (type) {
     case 'tree-seed': return <TreeArt stageKey={stageKey} seed={seed} />
