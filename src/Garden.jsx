@@ -834,11 +834,22 @@ function PerchBird({ c, active, setActiveLabelId }) {
   const wanderStyle = {
     '--bx1': `${c.bx1 ?? 10}px`, '--by1': `${c.by1 ?? -6}px`,
     '--bx2': `${c.bx2 ?? -9}px`, '--by2': `${c.by2 ?? -3}px`,
+    // Custom properties, so the leg-step animation (deep inside GardenBird's
+    // nested <svg> — see .garden-bird-walking .bird-leg-a/-b in App.css) can
+    // read this element's own timing regardless of how many levels down it is.
+    '--wander-dur': `${c.hopDur || 9}s`,
+    '--wander-delay': `${c.hopDelay || 0}s`,
     animationDelay: `${c.hopDelay || 0}s`,
     animationDuration: `${c.hopDur || 9}s`,
   }
   const size = 40
   const { template, zones } = birdVisual(c.speciesId)
+  // She's actually travelling between waypoints only when on the normal
+  // branch-to-branch wander — not while seated on the bench, and not while
+  // roosting for the night (composeNight zeroes the waypoints but still runs
+  // the same wander animation, just with nowhere to go). Legs only step, and
+  // the body only holds still instead of idle-wobbling, in this case.
+  const walking = !c.benchsit && !c.roosting
   // Tap-to-reveal name label (see activeLabelId in GardenPage): sets, never
   // toggles, so a touch device's synthetic pre-click mouseenter can't flicker
   // it straight back off on the first tap.
@@ -850,8 +861,15 @@ function PerchBird({ c, active, setActiveLabelId }) {
   const portrait = (
     <>
       <g
-        className="garden-bird-idle"
-        style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.4}s` }}
+        className={walking ? 'garden-bird-idle-walk' : 'garden-bird-idle'}
+        style={
+          walking
+            // Same clock as the wander/hop below (not the independent
+            // idleDelay/idleDur), so the gated idle-walk keyframe's hold
+            // windows land exactly where the body is actually holding still.
+            ? { animationDelay: `${c.hopDelay || 0}s`, animationDuration: `${c.hopDur || 9}s` }
+            : { animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.4}s` }
+        }
       >
         <g
           className="garden-visitor-bob"
@@ -883,9 +901,12 @@ function PerchBird({ c, active, setActiveLabelId }) {
     >
       <ellipse className="garden-visitor-shadow" cx="0" cy="2" rx="9" ry="3" fill="#3c5a2e" opacity="0.26" />
       {/* Bench-only, occasional: she hops up once on arrival and then sits —
-          no branch-to-branch wander while seated, unlike a normal perch. */}
+          no branch-to-branch wander while seated, unlike a normal perch.
+          garden-bird-walking (see App.css) scopes the leg-step animation to
+          the .bird-leg-a/-b elements nested deep inside — off for benchsit
+          and roosting, on for the normal wander. */}
       <g
-        className={c.benchsit ? 'garden-bench-perch' : 'garden-branch-wander'}
+        className={`${c.benchsit ? 'garden-bench-perch' : 'garden-branch-wander'}${walking ? ' garden-bird-walking' : ''}`}
         style={c.benchsit ? undefined : wanderStyle}
       >
         {portrait}
@@ -968,16 +989,15 @@ function FlyBird({ c }) {
     <g transform={`translate(${c.fromX + 15} ${c.fromY - 14})`}>
       <g className="g-flybird" style={style}>
         <g transform={facing}>
-          {/* Reuse the same idle head/wing twitch PerchBird/SwimBird use, so
-              the bird stays visibly alive during g-fly-shuttle's landed holds
-              instead of freezing mid-pose — it now reads as actually
-              perching, not just pausing mid-drift. */}
-          <g
-            className="garden-bird-idle"
-            style={{ animationDelay: `${c.idleDelay || 0}s`, animationDuration: `${c.idleDur || 3.4}s` }}
-          >
+          {/* A slight nose-up gliding attitude, applied INSIDE the facing
+              mirror above so it always reads as "nose up" rather than
+              flipping to "nose down" when the bird is heading left. Legs
+              are hidden and the wing flaps (see GardenBird's `flying` prop
+              and .bird-wing-flap in App.css) instead of the whole body
+              wobbling the way a perched bird's idle twitch does. */}
+          <g className="garden-bird-flight-tilt">
             <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
-              <GardenBird template={template} zones={zones} size={size} ground={false} />
+              <GardenBird template={template} zones={zones} size={size} ground={false} flying />
             </foreignObject>
           </g>
         </g>
@@ -1012,13 +1032,29 @@ function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
 // animation `delay` + slightly varied `dur`, plus per-bird flight direction,
 // arc height and wing-flap cadence.
 
+// A bird visiting a bench/feeder/tree renders at that item's own placement
+// anchor (p.x, p.y) — which is ground level, where the item's art draws its
+// base/legs from. Left alone, she'd stand on the ground beside the bench
+// instead of sitting on its seat. This nudges her up onto the actual seat
+// rail / feeder tray / lower branch, read off each art function's own local
+// coordinates (see BenchArt/FeederArt/TreeArt/PineArt above). Anything not
+// listed (flower beds, the fence, etc.) gets no offset — ground-level plants
+// already look right without one.
+const PERCH_Y_OFFSET = {
+  bench: -13, // BenchArt's seat plank sits at y=-11; a hair above reads as "on" it
+  feeder: -29, // FeederArt's tray surface is at y=-28
+  'tree-seed': -38, // a lower branch inside TreeArt's mature canopy (trunk top is y=-44)
+  'pine-seed': -26, // a mid-tier branch inside PineArt's mature foliage
+}
+const perchY = (p) => p.y + (PERCH_Y_OFFSET[p.itemId] || 0)
+
 // A bird shuttling between two elements, with a random launch end (so direction
 // varies L→R / R→L), arc height, speed, start offset and wing-flap cadence.
 function makeFlyBird(a, b, bird) {
   const [from, to] = Math.random() < 0.5 ? [a, b] : [b, a]
   return {
     id: nid(), type: 'flybird',
-    fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+    fromX: from.x, fromY: perchY(from), toX: to.x, toY: perchY(to),
     name: bird && bird.name, companion: bird && bird.companion, tint: bird && bird.tint,
     speciesId: bird && bird.id,
     dur: rand(4.5, 8), delay: rand(0, 2.5), lift: rand(24, 46),
@@ -1066,7 +1102,7 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
       const peck = p.itemId === 'feeder' && Math.random() < 0.4
       const benchsit = p.itemId === 'bench' && Math.random() < 0.5
       list.push({
-        id: nid(), type: 'bird', x: p.x, y: p.y,
+        id: nid(), type: 'bird', x: p.x, y: perchY(p),
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
         speciesId: b && b.id,
         delay: rand(0, 2.6), dur: rand(1.4, 2.1), // little breathing bob
@@ -1123,7 +1159,7 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
     shuffle(land).slice(0, nRoost).forEach((p) => {
       const b = pickBird(collection, false)
       list.push({
-        id: nid(), type: 'bird', x: p.x, y: p.y,
+        id: nid(), type: 'bird', x: p.x, y: perchY(p),
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
         speciesId: b && b.id,
         delay: rand(0, 2.6), dur: rand(2.2, 3.2), // slower breathing bob, asleep

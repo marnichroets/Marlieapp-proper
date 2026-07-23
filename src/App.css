@@ -4671,6 +4671,93 @@ button.tweety-nest-base.tapped {
   90% { transform: rotate(2deg) scaleY(0.99); }
 }
 
+/* Mid-flight wing flap — tags just the wing zone (see birdTemplates.jsx's
+   `flying` prop), not the whole bird, so the body can hold its glide angle
+   while the wing beats. Pivots from the wing's own top edge (roughly where
+   it meets the body) rather than its centre, so it reads as flapping from
+   the shoulder instead of just wobbling in place. */
+.bird-wing-flap {
+  animation: garden-bird-wingflap 0.32s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+}
+@keyframes garden-bird-wingflap {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(-16deg); }
+}
+
+/* Gliding attitude for FlyBird — a static nose-up tilt, not animated. */
+.garden-bird-flight-tilt {
+  transform: rotate(-12deg);
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+
+/* Leg-step while wandering between branches — PerchBird adds
+   .garden-bird-walking to the SAME wrapper that already drives
+   garden-branch-wander (see below), carrying its hopDur/hopDelay as the
+   --wander-dur/--wander-delay custom properties referenced below, so the
+   steps land in lockstep with the body's actual travel, not a separate
+   clock. Each leg pivots from its own top/hip point (transform-origin,
+   fill-box) and swings opposite its partner. */
+.bird-leg-a, .bird-leg-b {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+}
+.garden-bird-walking .bird-leg-a,
+.garden-bird-walking .bird-leg-b {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  /* `inherit` only reaches one DOM level up, but the leg <path>s sit several
+     levels deep inside GardenBird's nested <svg> — custom properties, unlike
+     animation-duration/-delay themselves, inherit through any depth, so this
+     is the only reliable way to reuse the wander wrapper's own timing. */
+  animation-duration: var(--wander-dur, 9s);
+  animation-delay: var(--wander-delay, 0s);
+}
+.garden-bird-walking .bird-leg-a { animation-name: garden-bird-legwalk-a; }
+.garden-bird-walking .bird-leg-b { animation-name: garden-bird-legwalk-b; }
+/* Breakpoints mirror garden-branch-wander's own hold/move windows exactly
+   (0-10% hold, 10-20% travel, 20-44% hold, 44-54% travel, 54-80% hold,
+   80-90% travel, 90-100% hold) — legs swing only during the three travel
+   bursts, and hang still the rest of the time, instead of marching in
+   place while she's actually just standing on a branch. */
+@keyframes garden-bird-legwalk-a {
+  0%, 10%, 20%, 28%, 44%, 54%, 62%, 80%, 90%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(16deg); }
+  49% { transform: rotate(-16deg); }
+  85% { transform: rotate(16deg); }
+}
+@keyframes garden-bird-legwalk-b {
+  0%, 10%, 20%, 28%, 44%, 54%, 62%, 80%, 90%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-16deg); }
+  49% { transform: rotate(16deg); }
+  85% { transform: rotate(-16deg); }
+}
+
+/* Whole-body idle twitch, gated to the SAME hold windows above — used
+   instead of the plain always-on .garden-bird-idle while she's actually
+   walking, so the body doesn't wobble at the same time the legs are
+   stepping. Needs the wander wrapper's own timing (hopDur/hopDelay, applied
+   directly since this sits on that same element — see PerchBird), not the
+   independent, faster idleDur/idleDelay plain .garden-bird-idle uses. */
+.garden-bird-idle-walk {
+  animation-name: garden-bird-idle-walk;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes garden-bird-idle-walk {
+  0%, 10%, 20%, 44%, 54%, 80%, 90%, 100% { transform: rotate(0deg) scaleY(1); }
+  4%  { transform: rotate(2deg) scaleY(0.99); }
+  32% { transform: rotate(-3deg) scaleY(1.02); }
+  38% { transform: rotate(2deg) scaleY(0.99); }
+  66% { transform: rotate(-3deg) scaleY(1.02); }
+  72% { transform: rotate(2deg) scaleY(0.99); }
+  96% { transform: rotate(-3deg) scaleY(1.02); }
+}
+
 /* Water birds sit low and drift side to side with a slow bob — never hop or
    fly, a deliberately different feel from land birds. --sx is the per-instance
    drift range (JS-randomized), so no two ducks glide the same distance. */
