@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
-import { dedupePhotosForStorage, rehydratePhotos } from './photoPool'
+import { dedupePhotosForStorage, rehydratePhotos, stripPhotosForLocalStorage } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
@@ -261,16 +261,18 @@ const STATE_API = `${BIRD_API_URL}/api/state`
 // from saved state and rebuild them from the bundle on load.
 const DEFAULT_LIBRARY_IDS = new Set(defaultBirdLibrary.map((bird) => bird.id))
 
-// Prepare state for any persistence boundary (localStorage or backend): slim the
-// bird library to just the user's own birds, then pool duplicated photos. Both
-// steps are lossless on load (mergeBirdLibrary rebuilds the catalog; rehydrate
-// restores photos), so the in-memory state shape is never affected.
-function prepareStateForStorage(state) {
+// Prepare state for a persistence boundary: slim the bird library to just the
+// user's own birds, then either pool duplicated photos (backend — the durable
+// photo store) or strip photo bytes entirely (localStorage — an offline cache
+// that never needs to hold photos; the backend fetch rehydrates them). Both
+// are lossless on load for non-photo fields (mergeBirdLibrary rebuilds the
+// catalog), so the in-memory state shape is never affected.
+function prepareStateForStorage(state, { forLocalStorage = false } = {}) {
   if (!state || typeof state !== 'object') return state
   const slim = Array.isArray(state.birdLibrary)
     ? { ...state, birdLibrary: slimBirdLibrary(state.birdLibrary, DEFAULT_LIBRARY_IDS) }
     : state
-  return dedupePhotosForStorage(slim)
+  return forLocalStorage ? stripPhotosForLocalStorage(slim) : dedupePhotosForStorage(slim)
 }
 
 async function fetchRemoteState(account) {
@@ -3173,7 +3175,7 @@ function App() {
       // Pooks' real save never overwrite one another.
       localStorage.setItem(
         storageKeyForAccount(account),
-        JSON.stringify(prepareStateForStorage(data)),
+        JSON.stringify(prepareStateForStorage(data, { forLocalStorage: true })),
       )
     } catch (error) {
       // Storage is full — warn rather than silently losing the save.
@@ -3568,7 +3570,10 @@ function App() {
     const state = normalizeLoadedState(rawState)
     stateVersionRef.current = version || 0
     try {
-      localStorage.setItem(storageKeyForAccount(acct), JSON.stringify(prepareStateForStorage(state)))
+      localStorage.setItem(
+        storageKeyForAccount(acct),
+        JSON.stringify(prepareStateForStorage(state, { forLocalStorage: true })),
+      )
     } catch {
       /* cache may be full — backend remains the source of truth */
     }

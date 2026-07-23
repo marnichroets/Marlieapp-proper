@@ -70,3 +70,26 @@ export function rehydratePhotos(stored) {
   }
   return walk(stored)
 }
+
+// Strip photo bytes entirely for the localStorage cache. Unlike
+// dedupePhotosForStorage (used for the backend, which IS the durable photo
+// store), localStorage is only a short-lived offline cache that gets
+// overwritten by the next backend fetch — so there's no reason for it to
+// carry any base64 at all. This is what actually fixes the QuotaExceededError:
+// deduping alone still leaves every distinct photo's full bytes in the pool.
+export function stripPhotosForLocalStorage(state) {
+  if (!state || typeof state !== 'object') return state
+  const walk = (val) => {
+    if (Array.isArray(val)) return val.map(walk)
+    if (val && typeof val === 'object') {
+      const out = {}
+      for (const key of Object.keys(val)) {
+        if (key === '__photoPool') continue
+        out[key] = walk(val[key])
+      }
+      return out
+    }
+    return isPoolablePhoto(val) ? null : val
+  }
+  return walk(state)
+}
