@@ -35,6 +35,7 @@ import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { GardenPlant } from './plantTemplates'
 import { PLANT_COLOUR_MAP } from './plantColourMap'
+import { Kallie } from './kallieTemplates'
 
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
@@ -243,6 +244,32 @@ function Hedgehog({ c }) {
       <g className="garden-hedgehog" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 11.5}s` }}>
         <ellipse cx="0" cy="2" rx="11" ry="2.6" fill="#16233f" opacity="0.3" />
         <g className="garden-hedgehog-body"><HedgehogArt /></g>
+      </g>
+    </g>
+  )
+}
+
+// Kallie the Yorkie — the family dog, trotting across the front grass on the
+// same fixed-baseline + traversing-inner-group shape as the hedgehog above.
+// Running legs + tail wag come from kallieTemplates.jsx's own kallie-leg-a/-b
+// and kallie-tail classNames (see the matching CSS in App.css) — this
+// component just places and traverses her. Tapping her surfaces a random
+// flavour message via onKallieTap (owned by App.jsx, same as onWish).
+const KALLIE_SIZE = 64
+function KallieVisitor({ c, onKallieTap }) {
+  return (
+    <g
+      className="garden-visitor"
+      transform="translate(0 228)"
+      onClick={onKallieTap ? (e) => { e.stopPropagation(); onKallieTap() } : undefined}
+    >
+      <g className="garden-kallie" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 10}s` }}>
+        <ellipse cx="0" cy="2" rx="16" ry="3.4" fill="#16233f" opacity="0.25" />
+        <g className="garden-kallie-body">
+          <foreignObject x={-KALLIE_SIZE / 2} y={-KALLIE_SIZE * 0.58} width={KALLIE_SIZE} height={KALLIE_SIZE * 0.625} style={{ overflow: 'visible' }}>
+            <Kallie pose="trotting" size={KALLIE_SIZE} />
+          </foreignObject>
+        </g>
       </g>
     </g>
   )
@@ -609,10 +636,87 @@ function fallbackVariation(seedKey) {
   }
 }
 
+// Pooks' actual real-world plantings (from her Seed Pouch photo IDs) that
+// aren't part of the curated 207-species SA_PLANT_LIBRARY — checked by exact
+// common name, same idea as PLANT_COLOUR_MAP but for her personal houseplant
+// collection instead of the SA Explore/Magazine catalog. Keeps
+// plantBloomKind's keyword guessing as the fallback for anything NOT listed
+// here, rather than growing that catalog with non-SA species.
+const PERSONAL_PLANT_COLOUR_MAP = {
+  'splendid paphiopedilum': {
+    template: 'bulb-flower',
+    zones: { stem: '#4f7a52', leafMain: '#2f6a3a', leafSecondary: '#4a8a4a', petal: '#7a2f3a', center: '#d8c860', soil: '#7a5a3a' },
+    variation: { leafCount: 2, leafWidth: 1.3, height: 0.7, flowerCount: 1, flowerSize: 1.3 },
+  },
+  monstera: {
+    template: 'climbing-vine',
+    zones: { stem: '#5f7a45', leafMain: '#2f6a3a', leafSecondary: '#4f9a55', petal: '#e8ead0', center: '#e8c060', soil: '#6b5638' },
+    variation: { leafCount: 8, leafWidth: 1.5, height: 1.25, flowerCount: 0, flowerSize: 1 },
+  },
+  'air plant': {
+    template: 'succulent',
+    zones: { stem: '#8a9a7a', leafMain: '#9fae8a', leafSecondary: '#c3d0b0', petal: '#a878c9', center: '#e8a0c0', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 90, leafWidth: 0.6, height: 0.6, flowerCount: 1, flowerSize: 0.6, hasStem: false },
+  },
+  'elephant bush': {
+    template: 'succulent',
+    zones: { stem: '#8a5a3a', leafMain: '#4a8a5a', leafSecondary: '#6aa86a', petal: '#f0a8c0', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 60, leafWidth: 0.75, height: 0.9, flowerCount: 0, flowerSize: 0.6, hasStem: true },
+  },
+  'moth orchid': {
+    template: 'bulb-flower',
+    zones: { stem: '#5a6a4a', leafMain: '#2f6a3a', leafSecondary: '#4a8a4a', petal: '#d17ad6', center: '#7a2f6a', soil: '#6b5638' },
+    variation: { leafCount: 2, leafWidth: 1.2, height: 0.85, flowerCount: 5, flowerSize: 1.2 },
+  },
+  'easter lily': {
+    template: 'bulb-flower',
+    zones: { stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5e9a5a', petal: '#fbfaf3', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 3, leafWidth: 1, height: 1.15, flowerCount: 1, flowerSize: 1.3 },
+  },
+  succulent: {
+    template: 'succulent',
+    zones: { stem: '#8a6a42', leafMain: '#4a2f42', leafSecondary: '#6a4a5e', petal: '#f2e090', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 75, leafWidth: 1, height: 1, flowerCount: 2, flowerSize: 0.8, hasStem: true },
+  },
+  'blue fingers': {
+    template: 'succulent',
+    zones: { stem: '#8a9a8a', leafMain: '#8fa3ad', leafSecondary: '#b8cdd6', petal: '#f5f0e0', center: '#e8d896', soil: '#7a5a3a' },
+    variation: { leafCount: 7, leafAngle: 55, leafWidth: 0.55, height: 0.85, flowerCount: 1, flowerSize: 0.6, hasStem: true },
+  },
+  'bushveld kalanchoe': {
+    template: 'succulent',
+    zones: { stem: '#6a8a5a', leafMain: '#5a9a5a', leafSecondary: '#7cb87c', petal: '#e8663a', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 5, leafAngle: 65, leafWidth: 1.1, height: 0.75, flowerCount: 10, flowerSize: 0.7, hasStem: false },
+  },
+  'french rose': {
+    template: 'flowering-shrub',
+    zones: { stem: '#6b7d4a', leafMain: '#3f7a45', leafSecondary: '#5e9a5a', petal: '#e8789e', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 6, leafAngle: 55, leafWidth: 1, height: 1, flowerCount: 10, flowerSize: 1, hasStem: true },
+  },
+  'queen palm': {
+    template: 'palm',
+    zones: { stem: '#a88a5a', leafMain: '#4f9a55', leafSecondary: '#7bc9a8', petal: '#c9a25a', center: '#e8a45c', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 100, leafWidth: 1.05, height: 1.2, flowerCount: 2, flowerSize: 1 },
+  },
+  philodendron: {
+    template: 'climbing-vine',
+    zones: { stem: '#5f7a45', leafMain: '#356b3d', leafSecondary: '#4f9a55', petal: '#e8ead0', center: '#e8c060', soil: '#6b5638' },
+    variation: { leafCount: 7, leafWidth: 1.6, height: 1.15, flowerCount: 0, flowerSize: 1 },
+  },
+  'white bird-of-paradise tree': {
+    template: 'bulb-flower',
+    zones: { stem: '#5f7a52', leafMain: '#2f6a3a', leafSecondary: '#4f9a55', petal: '#f5f0e0', center: '#3a2a6a', soil: '#7a5a3a' },
+    variation: { leafCount: 3, leafWidth: 1.4, height: 1.3, flowerCount: 1, flowerSize: 1.3, hasStem: true },
+  },
+}
+
 function plantVisual(commonName, family) {
   const species = commonName && SPECIES_BY_COMMON_NAME.get(String(commonName).trim().toLowerCase())
   const curated = species && PLANT_COLOUR_MAP[species.id]
   if (curated) return { template: curated.template, zones: curated.zones, variation: curated.variation }
+
+  const personal = commonName && PERSONAL_PLANT_COLOUR_MAP[String(commonName).trim().toLowerCase()]
+  if (personal) return { template: personal.template, zones: personal.zones, variation: personal.variation }
 
   const kind = plantBloomKind(commonName, family)
   const seedKey = commonName || family
@@ -891,7 +995,7 @@ function FlyBird({ c }) {
 }
 
 // Dispatch a creature descriptor to its renderer.
-function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
+function SceneCreature({ c, activeLabelId, setActiveLabelId, onKallieTap }) {
   switch (c.type) {
     case 'bird': return <PerchBird c={c} active={activeLabelId === c.id} setActiveLabelId={setActiveLabelId} />
     case 'swim': return <SwimBird c={c} active={activeLabelId === c.id} setActiveLabelId={setActiveLabelId} />
@@ -903,6 +1007,7 @@ function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
     case 'owl': return <OwlPerch c={c} />
     case 'hedgehog': return <Hedgehog c={c} />
     case 'bat': return <Bat c={c} />
+    case 'kallie': return <KallieVisitor c={c} onKallieTap={onKallieTap} />
     default: return null
   }
 }
@@ -1018,6 +1123,9 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
   // bees near the beds
   const nBee = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 4)
   for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
+  // Kallie the Yorkie — a one-off trot across the front grass, about 1 in 3
+  // loads (always in the showcase preview, same rule as the night hedgehog).
+  if (showcase || Math.random() < 1 / 3) list.push({ id: nid(), type: 'kallie', delay: rand(0, 2), dur: rand(9, 12) })
   // never an empty daytime scene
   if (!list.length) list.push({ id: nid(), type: 'butterfly', x: (bounds.x0 + bounds.x1) / 2, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
   return list
@@ -1131,6 +1239,7 @@ export function GardenPage({
   onBack,
   onTreatResident,
   onWish,
+  onKallieTap,
   onPurchaseExpansion,
   tweety = null,
   seeds = 0,
@@ -1574,7 +1683,7 @@ export function GardenPage({
               in front of the plantings (birds, butterflies, bees by day;
               fireflies, owl, hedgehog, moths, a bat by night) */}
           {!placingAny && creatures.map((c) => (
-            <SceneCreature key={c.id} c={c} activeLabelId={activeLabelId} setActiveLabelId={setActiveLabelId} />
+            <SceneCreature key={c.id} c={c} activeLabelId={activeLabelId} setActiveLabelId={setActiveLabelId} onKallieTap={onKallieTap} />
           ))}
 
           {/* placement ghost: a garden item while placingType */}
