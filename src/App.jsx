@@ -467,6 +467,42 @@ function accountFlagKey(baseKey, account = 'pooks') {
   return account === 'marnich' ? `${baseKey}__marnich` : baseKey
 }
 
+// Marks that this account's last care/store action never got a CONFIRMED
+// successful backend save (a network hiccup, or the page was killed mid-
+// request) — even after syncStateToBackend's one retry. The mount-time
+// remote-adopt effect checks this before ever adopting a freshly fetched
+// backend copy: a fresh reload has no other way to know a previous session's
+// edit never actually reached the backend (dataRef/lastSyncedRef both start
+// out equal again after a reload, so that in-session "unsaved edits" check
+// can't catch it) — without this flag it would happily adopt that stale
+// remote state right over a locally-correct, un-synced cache. See the
+// 2026-07-26 feed-glitch investigation.
+const PENDING_SYNC_KEY = 'marlie_pending_sync'
+
+function markPendingSync(account) {
+  try {
+    localStorage.setItem(accountFlagKey(PENDING_SYNC_KEY, account), 'true')
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearPendingSync(account) {
+  try {
+    localStorage.removeItem(accountFlagKey(PENDING_SYNC_KEY, account))
+  } catch {
+    /* ignore */
+  }
+}
+
+function hasPendingSync(account) {
+  try {
+    return localStorage.getItem(accountFlagKey(PENDING_SYNC_KEY, account)) === 'true'
+  } catch {
+    return false
+  }
+}
+
 function applyWelcomeCoins(state, account = 'pooks') {
   const key = accountFlagKey(WELCOME_COINS_KEY, account)
   try {
@@ -3204,9 +3240,9 @@ function App() {
   // Factored out of the debounce effect below so a high-value action (see
   // careTweety's `immediate` commit) can trigger this right away instead of
   // waiting out the full debounce, without duplicating the conflict logic.
-  async function syncStateToBackend(state) {
+  async function syncStateToBackend(state, { isRetry = false } = {}) {
     // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
-    console.log('syncStateToBackend called', { readOnly, session: Boolean(session), account })
+    console.log('syncStateToBackend called', { readOnly, session: Boolean(session), account, isRetry })
     if (readOnly || !session) {
       console.log('syncStateToBackend bailed: readOnly or no session', { readOnly, session: Boolean(session) })
       return
@@ -3220,14 +3256,29 @@ function App() {
     if (res && !res.conflict) {
       stateVersionRef.current = res.version
       lastSyncedRef.current = state
+      clearPendingSync(account)
       return
     }
     if (!res || !res.conflict) {
-      console.log('syncStateToBackend save FAILED (network/offline) — write was NOT persisted to backend', res)
+      // Network hiccup (fetch threw, or a non-409 non-ok response) — saveRemoteState
+      // swallows the failure silently, so without this retry+flag a single blip
+      // loses the write with no record of it ever happening (the root cause behind
+      // the feed-glitch: a later reload's mount-time fetch would then have no way
+      // to know the backend copy it's about to adopt is stale).
+      if (!isRetry) {
+        console.log('syncStateToBackend save failed — retrying once in 2.5s')
+        window.setTimeout(() => syncStateToBackend(state, { isRetry: true }), 2500)
+        return
+      }
+      console.log('syncStateToBackend save FAILED after retry — marking pending sync', res)
+      markPendingSync(account)
       return
     }
     const remote = await fetchRemoteState(account)
-    if (!remote || !remote.state) return
+    if (!remote || !remote.state) {
+      markPendingSync(account)
+      return
+    }
     const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
     // A version gap bigger than one save means this client's own view of
     // the world is stale, not racing — e.g. a tab left open for days,
@@ -3248,6 +3299,9 @@ function App() {
     if (retry && !retry.conflict) {
       stateVersionRef.current = retry.version
       lastSyncedRef.current = dataRef.current
+      clearPendingSync(account)
+    } else {
+      markPendingSync(account)
     }
   }
 
@@ -3381,17 +3435,27 @@ function App() {
     let cancelled = false
     fetchRemoteState(acct).then((remote) => {
       if (cancelled || !remote || !remote.state) return
+      if (hasPendingSync(acct)) {
+        // A previous session ended with a care/store action that never got a
+        // CONFIRMED backend save (see markPendingSync in syncStateToBackend) —
+        // the usual "any unsaved edits?" check just below (dataRef vs.
+        // lastSyncedRef) can't catch this on a fresh reload, since both refs
+        // start out equal again right after load. Trust the flag instead:
+        // never adopt remote here, and force syncStateToBackend to treat this
+        // session's freshly loaded local state as unsaved so it pushes it up
+        // rather than silently comparing it away as "nothing to save".
+        console.log('mount-time fetch: pending sync flag set — pushing local state instead of adopting remote', { remoteVersion: remote.version })
+        stateVersionRef.current = remote.version
+        lastSyncedRef.current = null
+        syncStateToBackend(dataRef.current)
+        return
+      }
       // Don't clobber edits the user made WHILE this fetch was in flight — e.g.
       // tapping a button right after load. Without this guard the late-resolving
       // adopt overwrites their just-made change (the coin top-up reverting to the
       // old balance, and the same class of bug that froze the daily messages).
       // Same protection the auto-adopt poll uses.
       if (dataRef.current !== lastSyncedRef.current) return
-      // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
-      // NOTE: this mount-time adopt has no way to know if a PREVIOUS session's
-      // care action never actually reached the backend (e.g. saveRemoteState
-      // failed silently offline) — it will happily adopt that stale remote
-      // copy right over a locally-correct, un-synced localStorage cache.
       console.log('mount-time fetch: adopting remote state on load', { remoteVersion: remote.version })
       adoptState(acct, remote.state, remote.version)
     })
@@ -3399,7 +3463,10 @@ function App() {
       cancelled = true
     }
     // Runs once on mount — deliberately not re-run on account changes (logins
-    // and toggles adopt remote state on their own).
+    // and toggles adopt remote state on their own). syncStateToBackend is a
+    // fresh closure every render but only meaningfully depends on
+    // account/readOnly/session, same as the debounce effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Check Pooks' maintenance flag — before she's ever logged in (an
@@ -3603,6 +3670,9 @@ function App() {
     }
     setData(state)
     lastSyncedRef.current = state
+    // The remote copy is now truth for this account — whatever unconfirmed-save
+    // concern markPendingSync recorded no longer applies to it.
+    clearPendingSync(acct)
     setIntroSeen(Boolean(state.introSeen) || readIntroSeen(acct))
     if (state.introSeen) markIntroSeen(acct)
   }
