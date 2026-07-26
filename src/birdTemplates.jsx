@@ -69,8 +69,8 @@ export function SongbirdSmall({ zones, size = 160, ground = true, flying = false
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="7" strokeLinecap="round">
-          <path d="M 272 300 L 264 380" className="bird-leg-a" fill="none" />
-          <path d="M 316 298 L 328 380" className="bird-leg-b" fill="none" />
+          <path d="M 272 300 L 264 380" className="bird-leg-a" style={{ transformOrigin: '272px 300px' }} fill="none" />
+          <path d="M 316 298 L 328 380" className="bird-leg-b" style={{ transformOrigin: '316px 298px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={264} x2={328} />
         </>
@@ -78,7 +78,7 @@ export function SongbirdSmall({ zones, size = 160, ground = true, flying = false
       <path d="M 224 214 C 208 172 268 132 328 140 C 384 148 416 192 408 236 C 400 276 356 312 296 312 C 244 312 216 280 212 244 C 210 232 212 222 224 214 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-songbird-small)">
-        <path d="M 244 188 C 276 172 316 180 336 220 C 316 240 276 248 246 234 C 234 216 234 200 244 188 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 244 188 C 276 172 316 180 336 220 C 316 240 276 248 246 234 C 234 216 234 200 244 188 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '244px 188px' }} fill="var(--z-wing)" />
         <ellipse cx="330" cy="264" rx="66" ry="48" fill="var(--z-breast)" />
       </g>
       <circle cx="432" cy="176" r="62" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -109,8 +109,8 @@ export function SongbirdCrested({ zones, size = 160, ground = true, flying = fal
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="7" strokeLinecap="round">
-          <path d="M 272 300 L 264 380" className="bird-leg-a" fill="none" />
-          <path d="M 316 298 L 328 380" className="bird-leg-b" fill="none" />
+          <path d="M 272 300 L 264 380" className="bird-leg-a" style={{ transformOrigin: '272px 300px' }} fill="none" />
+          <path d="M 316 298 L 328 380" className="bird-leg-b" style={{ transformOrigin: '316px 298px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={264} x2={328} />
         </>
@@ -118,7 +118,7 @@ export function SongbirdCrested({ zones, size = 160, ground = true, flying = fal
       <path d="M 224 214 C 208 172 268 132 328 140 C 384 148 416 192 408 236 C 400 276 356 312 296 312 C 244 312 216 280 212 244 C 210 232 212 222 224 214 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-songbird-crested)">
-        <path d="M 244 188 C 276 172 316 180 336 220 C 316 240 276 248 246 234 C 234 216 234 200 244 188 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 244 188 C 276 172 316 180 336 220 C 316 240 276 248 246 234 C 234 216 234 200 244 188 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '244px 188px' }} fill="var(--z-wing)" />
         <ellipse cx="330" cy="264" rx="66" ry="48" fill="var(--z-breast)" />
       </g>
       <circle cx="432" cy="176" r="62" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -155,8 +155,8 @@ export function Weaver({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="8" strokeLinecap="round">
-          <path d="M 276 296 L 268 380" className="bird-leg-a" fill="none" />
-          <path d="M 322 294 L 334 380" className="bird-leg-b" fill="none" />
+          <path d="M 276 296 L 268 380" className="bird-leg-a" style={{ transformOrigin: '276px 296px' }} fill="none" />
+          <path d="M 322 294 L 334 380" className="bird-leg-b" style={{ transformOrigin: '322px 294px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={268} x2={334} />
         </>
@@ -164,7 +164,7 @@ export function Weaver({ zones, size = 160, ground = true, flying = false }) {
       <path d="M 218 225 C 210 178 270 138 320 140 C 378 142 420 178 420 224 C 420 268 380 306 316 306 C 258 306 220 272 216 240 C 214 232 216 228 218 225 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-weaver)">
-        <path d="M 236 192 C 266 178 302 186 322 222 C 302 240 266 246 238 234 C 228 216 228 202 236 192 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 236 192 C 266 178 302 186 322 222 C 302 240 266 246 238 234 C 228 216 228 202 236 192 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '236px 192px' }} fill="var(--z-wing)" />
         <ellipse cx="322" cy="258" rx="62" ry="46" fill="var(--z-breast)" />
       </g>
       <circle cx="420" cy="168" r="56" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -197,8 +197,8 @@ export function Sunbird({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="5" strokeLinecap="round">
-          <path d="M 280 280 L 274 380" className="bird-leg-a" fill="none" />
-          <path d="M 314 278 L 322 380" className="bird-leg-b" fill="none" />
+          <path d="M 280 280 L 274 380" className="bird-leg-a" style={{ transformOrigin: '280px 280px' }} fill="none" />
+          <path d="M 314 278 L 322 380" className="bird-leg-b" style={{ transformOrigin: '314px 278px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={274} x2={322} />
         </>
@@ -206,7 +206,7 @@ export function Sunbird({ zones, size = 160, ground = true, flying = false }) {
       <path d="M 230 230 C 224 196 268 168 316 172 C 360 176 388 206 384 236 C 380 262 350 286 306 286 C 266 286 236 266 230 248 C 228 242 228 236 230 230 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-sunbird)">
-        <path d="M 250 206 C 276 196 302 202 314 228 C 298 242 272 246 252 236 C 244 224 244 214 250 206 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 250 206 C 276 196 302 202 314 228 C 298 242 272 246 252 236 C 244 224 244 214 250 206 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '250px 206px' }} fill="var(--z-wing)" />
         <ellipse cx="304" cy="252" rx="52" ry="36" fill="var(--z-breast)" />
       </g>
       <circle cx="398" cy="186" r="42" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -235,8 +235,8 @@ export function Kingfisher({ zones, size = 160, ground = true, flying = false })
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="6" strokeLinecap="round">
-          <path d="M 284 296 L 280 380" className="bird-leg-a" fill="none" />
-          <path d="M 312 294 L 318 380" className="bird-leg-b" fill="none" />
+          <path d="M 284 296 L 280 380" className="bird-leg-a" style={{ transformOrigin: '284px 296px' }} fill="none" />
+          <path d="M 312 294 L 318 380" className="bird-leg-b" style={{ transformOrigin: '312px 294px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={280} x2={318} />
         </>
@@ -244,7 +244,7 @@ export function Kingfisher({ zones, size = 160, ground = true, flying = false })
       <path d="M 244 244 C 234 206 282 178 328 182 C 368 186 396 214 392 246 C 388 274 356 300 306 300 C 264 300 240 278 236 256 C 235 250 236 248 244 244 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-kingfisher)">
-        <path d="M 256 214 C 286 200 320 208 338 242 C 320 260 286 266 258 254 C 248 238 248 224 256 214 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 256 214 C 286 200 320 208 338 242 C 320 260 286 266 258 254 C 248 238 248 224 256 214 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '256px 214px' }} fill="var(--z-wing)" />
         <ellipse cx="318" cy="270" rx="58" ry="42" fill="var(--z-breast)" />
       </g>
       <circle cx="366" cy="192" r="80" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -274,8 +274,8 @@ export function Barbet({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="8" strokeLinecap="round">
-          <path d="M 274 292 L 268 380" className="bird-leg-a" fill="none" />
-          <path d="M 318 290 L 328 380" className="bird-leg-b" fill="none" />
+          <path d="M 274 292 L 268 380" className="bird-leg-a" style={{ transformOrigin: '274px 292px' }} fill="none" />
+          <path d="M 318 290 L 328 380" className="bird-leg-b" style={{ transformOrigin: '318px 290px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={268} x2={328} />
         </>
@@ -283,7 +283,7 @@ export function Barbet({ zones, size = 160, ground = true, flying = false }) {
       <path d="M 222 222 C 212 180 268 144 324 148 C 380 152 414 188 410 226 C 406 262 368 298 306 298 C 252 298 220 270 216 242 C 214 234 216 228 222 222 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-barbet)">
-        <path d="M 240 196 C 270 182 306 190 326 224 C 306 242 270 248 242 236 C 232 218 232 204 240 196 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 240 196 C 270 182 306 190 326 224 C 306 242 270 248 242 236 C 232 218 232 204 240 196 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '240px 196px' }} fill="var(--z-wing)" />
         <ellipse cx="320" cy="258" rx="60" ry="44" fill="var(--z-breast)" />
       </g>
       <circle cx="404" cy="178" r="64" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -314,8 +314,8 @@ export function Longtail({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="5" strokeLinecap="round">
-          <path d="M 278 266 L 272 380" className="bird-leg-a" fill="none" />
-          <path d="M 306 264 L 312 380" className="bird-leg-b" fill="none" />
+          <path d="M 278 266 L 272 380" className="bird-leg-a" style={{ transformOrigin: '278px 266px' }} fill="none" />
+          <path d="M 306 264 L 312 380" className="bird-leg-b" style={{ transformOrigin: '306px 264px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={272} x2={312} />
         </>
@@ -323,7 +323,7 @@ export function Longtail({ zones, size = 160, ground = true, flying = false }) {
       <path d="M 234 222 C 226 192 264 168 306 172 C 344 176 368 202 364 228 C 360 252 334 272 296 272 C 262 272 236 254 232 238 C 230 232 230 228 234 222 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-longtail)">
-        <path d="M 244 196 C 266 188 288 192 298 214 C 284 226 262 230 246 222 C 240 212 240 204 244 196 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 244 196 C 266 188 288 192 298 214 C 284 226 262 230 246 222 C 240 212 240 204 244 196 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '244px 196px' }} fill="var(--z-wing)" />
         <ellipse cx="292" cy="232" rx="42" ry="30" fill="var(--z-breast)" />
       </g>
       <circle cx="340" cy="184" r="40" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -353,8 +353,8 @@ export function Swallow({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="4" strokeLinecap="round">
-          <path d="M 272 258 L 268 380" className="bird-leg-a" fill="none" />
-          <path d="M 294 258 L 298 380" className="bird-leg-b" fill="none" />
+          <path d="M 272 258 L 268 380" className="bird-leg-a" style={{ transformOrigin: '272px 258px' }} fill="none" />
+          <path d="M 294 258 L 298 380" className="bird-leg-b" style={{ transformOrigin: '294px 258px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={268} x2={298} />
         </>
@@ -363,7 +363,7 @@ export function Swallow({ zones, size = 160, ground = true, flying = false }) {
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       {/* pointed swept-back wing — deliberately NOT clipped to the body, so
           the tip can reach past it the way a folded swallow wing does */}
-      <path d="M 250 200 L 340 222 L 246 232 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 250 200 L 340 222 L 246 232 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '250px 200px' }} fill="var(--z-wing)" stroke={INK} strokeWidth="2" strokeLinejoin="round" />
       <g clipPath="url(#clip-swallow)">
         <ellipse cx="296" cy="226" rx="38" ry="26" fill="var(--z-breast)" />
       </g>
@@ -395,8 +395,8 @@ export function Dove({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="7" strokeLinecap="round">
-          <path d="M 268 312 L 262 380" className="bird-leg-a" fill="none" />
-          <path d="M 308 310 L 316 380" className="bird-leg-b" fill="none" />
+          <path d="M 268 312 L 262 380" className="bird-leg-a" style={{ transformOrigin: '268px 312px' }} fill="none" />
+          <path d="M 308 310 L 316 380" className="bird-leg-b" style={{ transformOrigin: '308px 310px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={262} x2={316} />
         </>
@@ -404,7 +404,7 @@ export function Dove({ zones, size = 160, ground = true, flying = false }) {
       <path d="M 212 222 C 198 172 262 132 328 138 C 390 144 428 190 420 236 C 412 278 366 318 300 318 C 244 318 214 284 210 246 C 208 234 210 224 212 222 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-dove)">
-        <path d="M 240 198 C 272 184 310 192 330 226 C 310 246 272 252 244 240 C 232 222 232 208 240 198 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 240 198 C 272 184 310 192 330 226 C 310 246 272 252 244 240 C 232 222 232 208 240 198 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '240px 198px' }} fill="var(--z-wing)" />
         <ellipse cx="318" cy="268" rx="64" ry="50" fill="var(--z-breast)" />
       </g>
       <circle cx="400" cy="172" r="46" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -431,8 +431,8 @@ export function Waterbird({ zones, size = 160, ground = true, flying = false }) 
       {!flying && (
         <>
         <g stroke="var(--z-legs)" strokeWidth="7" strokeLinecap="round">
-          <path d="M 266 306 L 258 392" className="bird-leg-a" fill="none" />
-          <path d="M 326 304 L 336 392" className="bird-leg-b" fill="none" />
+          <path d="M 266 306 L 258 392" className="bird-leg-a" style={{ transformOrigin: '266px 306px' }} fill="none" />
+          <path d="M 326 304 L 336 392" className="bird-leg-b" style={{ transformOrigin: '326px 304px' }} fill="none" />
         </g>
         <ThreeToeFeet x1={258} x2={336} y={390} />
         </>
@@ -443,7 +443,7 @@ export function Waterbird({ zones, size = 160, ground = true, flying = false }) 
       <path d="M 204 208 C 190 160 258 124 328 132 C 392 140 432 186 424 234 C 416 276 366 314 296 314 C 236 314 202 278 198 240 C 196 226 198 216 204 208 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-waterbird)">
-        <path d="M 228 238 C 260 222 300 230 322 268 C 300 290 258 296 232 282 C 220 262 220 248 228 238 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 228 238 C 260 222 300 230 322 268 C 300 290 258 296 232 282 C 220 262 220 248 228 238 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '228px 238px' }} fill="var(--z-wing)" />
         <ellipse cx="306" cy="278" rx="70" ry="54" fill="var(--z-breast)" />
       </g>
       <circle cx="416" cy="60" r="40" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -475,19 +475,19 @@ export function Raptor({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
             <g stroke="var(--z-legs)" strokeWidth="11" strokeLinecap="round">
-              <path d="M 258 316 L 250 380" className="bird-leg-a" fill="none" />
-              <path d="M 314 314 L 324 380" className="bird-leg-b" fill="none" />
+              <path d="M 258 316 L 250 380" className="bird-leg-a" style={{ transformOrigin: '258px 316px' }} fill="none" />
+              <path d="M 314 314 L 324 380" className="bird-leg-b" style={{ transformOrigin: '314px 314px' }} fill="none" />
             </g>
             <g stroke="var(--z-legs)" strokeWidth="5" strokeLinecap="round">
-              <path d="M 250 380 C 232 388 220 396 210 406 M 250 380 L 250 400 M 250 380 C 268 388 280 396 290 406" className="bird-leg-a" fill="none" />
-              <path d="M 324 380 C 306 388 294 396 284 406 M 324 380 L 324 400 M 324 380 C 342 388 354 396 364 406" className="bird-leg-b" fill="none" />
+              <path d="M 250 380 C 232 388 220 396 210 406 M 250 380 L 250 400 M 250 380 C 268 388 280 396 290 406" className="bird-leg-a" style={{ transformOrigin: '250px 380px' }} fill="none" />
+              <path d="M 324 380 C 306 388 294 396 284 406 M 324 380 L 324 400 M 324 380 C 342 388 354 396 364 406" className="bird-leg-b" style={{ transformOrigin: '324px 380px' }} fill="none" />
             </g>
         </>
       )}
       <path d="M 196 210 C 182 158 254 116 330 124 C 398 132 442 182 434 234 C 426 282 372 326 296 326 C 230 326 194 284 190 240 C 188 224 190 214 196 210 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-raptor)">
-        <path d="M 212 196 C 254 178 306 188 332 232 C 306 258 254 266 218 250 C 204 226 204 208 212 196 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 212 196 C 254 178 306 188 332 232 C 306 258 254 266 218 250 C 204 226 204 208 212 196 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '212px 196px' }} fill="var(--z-wing)" />
         <ellipse cx="300" cy="268" rx="76" ry="58" fill="var(--z-breast)" />
       </g>
       <circle cx="386" cy="168" r="58" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
@@ -521,8 +521,8 @@ export function Starling({ zones, size = 160, ground = true, flying = false }) {
       {!flying && (
         <>
             <g stroke="var(--z-legs)" strokeWidth="7" strokeLinecap="round">
-              <path d="M 270 300 L 262 380" className="bird-leg-a" fill="none" />
-              <path d="M 314 298 L 324 380" className="bird-leg-b" fill="none" />
+              <path d="M 270 300 L 262 380" className="bird-leg-a" style={{ transformOrigin: '270px 300px' }} fill="none" />
+              <path d="M 314 298 L 324 380" className="bird-leg-b" style={{ transformOrigin: '314px 298px' }} fill="none" />
             </g>
             <ThreeToeFeet x1={262} x2={324} />
         </>
@@ -530,7 +530,7 @@ export function Starling({ zones, size = 160, ground = true, flying = false }) {
       <path d="M 222 216 C 210 176 268 140 326 146 C 382 152 416 192 410 234 C 404 272 362 306 300 306 C 246 306 218 276 214 242 C 212 232 214 224 222 216 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-starling)">
-        <path d="M 240 192 C 270 178 306 186 326 220 C 306 240 270 246 244 234 C 232 216 232 202 240 192 Z" className={flying ? 'bird-wing-flap' : undefined} fill="var(--z-wing)" />
+        <path d="M 240 192 C 270 178 306 186 326 220 C 306 240 270 246 244 234 C 232 216 232 202 240 192 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '240px 192px' }} fill="var(--z-wing)" />
         <ellipse cx="316" cy="258" rx="60" ry="44" fill="var(--z-breast)" />
       </g>
       <circle cx="414" cy="178" r="56" fill="var(--z-head)" stroke={INK} strokeWidth="3" />

@@ -4673,13 +4673,18 @@ button.tweety-nest-base.tapped {
 
 /* Mid-flight wing flap — tags just the wing zone (see birdTemplates.jsx's
    `flying` prop), not the whole bird, so the body can hold its glide angle
-   while the wing beats. Pivots from the wing's own top edge (roughly where
-   it meets the body) rather than its centre, so it reads as flapping from
-   the shoulder instead of just wobbling in place. */
+   while the wing beats. Pivots from the wing's own shoulder point (roughly
+   where it meets the body) rather than its centre, so it reads as flapping
+   from the shoulder instead of just wobbling in place.
+   Pivot used to be `transform-box: fill-box; transform-origin: 50% 0%` —
+   relative to each element's own bounding box. fill-box support for SVG
+   transform-origin has had a rockier history on mobile Safari/WebKit than on
+   desktop Chrome, which is exactly where this app runs as a PWA — so each
+   wing path now sets its own transform-origin inline as an absolute SVG
+   user-space coordinate (see birdTemplates.jsx), which only depends on the
+   default `transform-box: view-box` every SVG element already supports. */
 .bird-wing-flap {
   animation: garden-bird-wingflap 0.32s ease-in-out infinite;
-  transform-box: fill-box;
-  transform-origin: 50% 0%;
 }
 @keyframes garden-bird-wingflap {
   0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -4698,12 +4703,15 @@ button.tweety-nest-base.tapped {
    garden-branch-wander (see below), carrying its hopDur/hopDelay as the
    --wander-dur/--wander-delay custom properties referenced below, so the
    steps land in lockstep with the body's actual travel, not a separate
-   clock. Each leg pivots from its own top/hip point (transform-origin,
-   fill-box) and swings opposite its partner. */
-.bird-leg-a, .bird-leg-b {
-  transform-box: fill-box;
-  transform-origin: 50% 0%;
-}
+   clock. Each leg pivots from its own top/hip point and swings opposite its
+   partner — the pivot used to be `transform-box: fill-box; transform-origin:
+   50% 0%` here, but fill-box support for SVG transform-origin has had a
+   rockier history on mobile Safari/WebKit than on desktop Chrome (this app
+   runs as a PWA, mostly on her phone), so each leg path now sets its own
+   transform-origin inline as an absolute SVG user-space coordinate matching
+   its own hip joint (see birdTemplates.jsx) — no transform-box override
+   needed, since that's exactly what the default `transform-box: view-box`
+   every SVG element already supports measures against. */
 .garden-bird-walking .bird-leg-a,
 .garden-bird-walking .bird-leg-b {
   animation-timing-function: ease-in-out;
