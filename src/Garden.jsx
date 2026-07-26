@@ -607,8 +607,8 @@ const BLOOM_KIND_TEMPLATE = {
 // (e.g. the 'aloe' template spans tiny spiral-aloe rosettes to towering
 // mountain-aloe stems) — most species just take this default.
 const TEMPLATE_SCALE = {
-  'ground-cover': 0.65,
-  succulent: 0.65,
+  'ground-cover': 0.7,
+  succulent: 0.75,
   herb: 0.8,
   fern: 0.8,
   'grass-tuft': 0.85,
@@ -616,9 +616,9 @@ const TEMPLATE_SCALE = {
   'bulb-flower': 1,
   protea: 1,
   aloe: 1,
-  'climbing-vine': 1,
-  palm: 1.25,
-  'tree-small': 1.4,
+  'climbing-vine': 0.8,
+  palm: 1.15,
+  'tree-small': 1.25,
 }
 
 // A lighter shade of a hex colour, for the template's secondary/back-layer
@@ -791,7 +791,7 @@ function PlantArt({ type, stageKey, family, commonName, seed }) {
     // and per-species overrides in plantVisual) — the anchor point (bottom
     // centre, via the x/y offsets below) stays fixed, so only the sprite's
     // visual size changes, not its placement in the bed.
-    const size = 60 * (scale ?? 1)
+    const size = 50 * (scale ?? 1)
     return (
       <foreignObject x={-size / 2} y={-size * 1.22} width={size} height={size * 1.3} style={{ overflow: 'visible' }}>
         <GardenPlant template={template} zones={zones} size={size} variation={variation} />
