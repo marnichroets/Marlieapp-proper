@@ -668,11 +668,14 @@ const PERSONAL_PLANT_COLOUR_MAP = {
   },
   'easter lily': {
     // Template was already right — the "thin stick with a star on top" look
-    // came from a too-tall, too-narrow variation. Shorter + wider leaves and
-    // a bigger bloom reads as a proper medium trumpet-flowered plant instead.
+    // came from a too-tall, too-narrow variation. Shorter + wider leaves reads
+    // as a proper medium trumpet-flowered plant instead. That fix alone still
+    // read too prominent next to the shrubs (flowerSize 1.5 + default scale) —
+    // toned the bloom down and capped the overall size a notch below a shrub.
     template: 'bulb-flower',
+    scale: 0.85,
     zones: { stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5e9a5a', petal: '#fbfaf3', center: '#f2c230', soil: '#7a5a3a' },
-    variation: { leafCount: 4, leafWidth: 1.6, height: 0.9, flowerCount: 1, flowerSize: 1.5 },
+    variation: { leafCount: 4, leafWidth: 1.6, height: 0.9, flowerCount: 1, flowerSize: 1 },
   },
   succulent: {
     template: 'succulent',
@@ -872,6 +875,14 @@ function PerchBird({ c, active, setActiveLabelId }) {
   }
   const size = 40
   const { template, zones } = birdVisual(c.speciesId)
+  // The branch/perch line under a bird's feet (see GardenBird's `ground`
+  // prop) should only draw when she's actually standing on a real surface —
+  // a branch, a feeder tray, a bench seat (see PERCH_Y_OFFSET, the same set
+  // of items that get a raised perch position for the same reason). Any
+  // other planting (flower bed, veg patch, shrub, fence, birdhouse, …) is
+  // ground level — a floating branch bar there looked like she was standing
+  // on a plank.
+  const hasPerchSurface = Object.prototype.hasOwnProperty.call(PERCH_Y_OFFSET, c.itemId)
   // She's actually travelling between waypoints only when on the normal
   // branch-to-branch wander — not while seated on the bench, and not while
   // roosting for the night (composeNight zeroes the waypoints but still runs
@@ -911,7 +922,7 @@ function PerchBird({ c, active, setActiveLabelId }) {
             style={c.peck ? { animationDelay: `${c.peckDelay ?? 2}s` } : undefined}
           >
             <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
-              <GardenBird template={template} zones={zones} size={size} />
+              <GardenBird template={template} zones={zones} size={size} ground={hasPerchSurface} />
             </foreignObject>
           </g>
         </g>
@@ -1130,7 +1141,7 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
       const peck = p.itemId === 'feeder' && Math.random() < 0.4
       const benchsit = p.itemId === 'bench' && Math.random() < 0.5
       list.push({
-        id: nid(), type: 'bird', x: p.x, y: perchY(p),
+        id: nid(), type: 'bird', x: p.x, y: perchY(p), itemId: p.itemId,
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
         speciesId: b && b.id,
         delay: rand(0, 2.6), dur: rand(1.4, 2.1), // little breathing bob
@@ -1187,7 +1198,7 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
     shuffle(land).slice(0, nRoost).forEach((p) => {
       const b = pickBird(collection, false)
       list.push({
-        id: nid(), type: 'bird', x: p.x, y: perchY(p),
+        id: nid(), type: 'bird', x: p.x, y: perchY(p), itemId: p.itemId,
         name: b && b.name, companion: b && b.companion, tint: b && b.tint,
         speciesId: b && b.id,
         delay: rand(0, 2.6), dur: rand(2.2, 3.2), // slower breathing bob, asleep

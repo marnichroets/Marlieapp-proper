@@ -78,6 +78,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'watsonia': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5a9a5a',
       petal: '#e07a9a', center: '#f2d060', soil: '#7a5a3a',
@@ -89,6 +90,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'freesia': {
     template: 'bulb-flower',
+    scale: 0.83, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#f2e6a0', center: '#f2d060', soil: '#7a5a3a',
@@ -100,6 +102,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'agapanthus': {
     template: 'bulb-flower',
+    scale: 0.91, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5a9a5a',
       petal: '#7a6fd0', center: '#f2d060', soil: '#7a5a3a',
@@ -144,6 +147,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'red-hot-poker': {
     template: 'bulb-flower',
+    scale: 0.91, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#e8722a', center: '#f2d060', soil: '#7a5a3a',
@@ -323,6 +327,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'red-disa': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#39743f', leafSecondary: '#549454',
       petal: '#c0392b', center: '#f2d060', soil: '#7a5a3a',
@@ -435,6 +440,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'wild-iris': {
     template: 'bulb-flower',
+    scale: 0.83, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#336e39', leafSecondary: '#4e8e4e',
       petal: '#e8e0f0', center: '#8a2a3a', soil: '#7a5a3a',
@@ -612,6 +618,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'baboon-flower': {
     template: 'bulb-flower',
+    scale: 0.71, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#7a6fd0', center: '#f2d060', soil: '#7a5a3a',
@@ -634,6 +641,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'nerine': {
     template: 'bulb-flower',
+    scale: 0.83, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#39743f', leafSecondary: '#549454',
       petal: '#e0399a', center: '#f2d060', soil: '#7a5a3a',
@@ -645,6 +653,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'wild-gladiolus': {
     template: 'bulb-flower',
+    scale: 0.71, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5a9a5a',
       petal: '#d9607a', center: '#f2d060', soil: '#7a5a3a',
@@ -713,6 +722,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'summer-hyacinth': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#45804b', leafSecondary: '#60a060',
       petal: '#f5f0e0', center: '#f2d060', soil: '#7a5a3a',
@@ -735,6 +745,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'poison-bulb': {
     template: 'bulb-flower',
+    scale: 0.67, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#336e39', leafSecondary: '#4e8e4e',
       petal: '#e8c8d0', center: '#f2d060', soil: '#7a5a3a',
@@ -746,6 +757,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'cape-cowslip': {
     template: 'bulb-flower',
+    scale: 0.91, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#336e39', leafSecondary: '#4e8e4e',
       petal: '#d9682a', center: '#c9d060', soil: '#7a5a3a',
@@ -757,6 +769,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'vlei-lily': {
     template: 'bulb-flower',
+    scale: 0.91, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#e08aa0', center: '#f2d060', soil: '#7a5a3a',
@@ -790,6 +803,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'candelabra-lily': {
     template: 'bulb-flower',
+    scale: 0.83, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#336e39', leafSecondary: '#4e8e4e',
       petal: '#d9607a', center: '#f2d060', soil: '#7a5a3a',
@@ -824,6 +838,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'chincherinchee': {
     template: 'bulb-flower',
+    scale: 0.91, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#f5f0e0', center: '#f2d060', soil: '#7a5a3a',
@@ -835,6 +850,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'cape-tulip': {
     template: 'bulb-flower',
+    scale: 0.71, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5a9a5a',
       petal: '#a89ad0', center: '#f2d060', soil: '#7a5a3a',
@@ -957,6 +973,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'waterfall-gladiolus': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#c0392b', center: '#f2d060', soil: '#7a5a3a',
@@ -1035,6 +1052,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'march-lily': {
     template: 'bulb-flower',
+    scale: 0.67, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#45804b', leafSecondary: '#60a060',
       petal: '#e07a9a', center: '#f2d060', soil: '#7a5a3a',
@@ -1057,6 +1075,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'pineapple-lily': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#d8e0a0', center: '#f2d060', soil: '#7a5a3a',
@@ -1890,6 +1909,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'bloodroot': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#c0433a', center: '#f2d060', soil: '#7a5a3a',
@@ -1901,6 +1921,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'peacock-moraea': {
     template: 'bulb-flower',
+    scale: 0.77, // tall flower spike — capped so it doesn't read taller than a shrub
     zones: {
       stem: '#4f9a55', leafMain: '#4b8651', leafSecondary: '#66a666',
       petal: '#5a8fc9', center: '#f2d060', soil: '#7a5a3a',
