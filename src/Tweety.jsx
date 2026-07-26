@@ -27,6 +27,71 @@ import {
   playChirp,
 } from './tweetyData'
 import { useEffect, useMemo, useState } from 'react'
+import { GardenBird } from './birdTemplates'
+import { BIRD_COLOUR_MAP } from './birdColourMap'
+
+// Tweety is a Cape Robin-Chat — same species-accurate template/colour system
+// the garden's visiting birds use (see birdTemplates.jsx/birdColourMap.js),
+// replacing the old hand-drawn cartoon TweetyBird on the home card.
+const TWEETY_SPECIES_KEY = 'cape-robin-chat'
+
+// Real-time growth only has 5 milestones today (see GROWTH_STAGES in
+// tweetyData.js: chick/fledgling/young/adult/crowned) — the original design
+// brief described 6 ("juvenile"/"sub-adult" as separate steps), but that would
+// mean adding a real new growth milestone (day thresholds, tests, etc.), well
+// beyond a visual-scaling pass. 'young' — the one stage covering both — gets
+// 0.8, the midpoint of the brief's juvenile (0.75) and sub-adult (0.85).
+const TWEETY_STAGE_SCALE = {
+  chick: 0.5,
+  fledgling: 0.65,
+  young: 0.8,
+  adult: 1,
+  crowned: 1,
+}
+
+// How much each young stage's colours are lightened toward white — baby
+// birds read as duller/paler than the fully-coloured adult plumage. 0 at
+// adult/crowned (full real Cape Robin-Chat colour).
+const TWEETY_STAGE_MUTE = {
+  chick: 0.35,
+  fledgling: 0.22,
+  young: 0.1,
+  adult: 0,
+  crowned: 0,
+}
+
+// Same blend-toward-white used for the garden plant templates' secondary-leaf
+// tone (see Garden.jsx's lightenHex) — duplicated locally rather than shared
+// across files for one small pure function.
+function lightenHex(hex, amount) {
+  const n = parseInt(String(hex).replace('#', ''), 16)
+  const mix = (v) => Math.round(v + (255 - v) * amount)
+  const r = mix((n >> 16) & 255)
+  const g = mix((n >> 8) & 255)
+  const b = mix(n & 255)
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
+}
+
+function mutedZones(zones, amount) {
+  if (!amount) return zones
+  return Object.fromEntries(Object.entries(zones).map(([key, value]) => [key, lightenHex(value, amount)]))
+}
+
+// A small crown overlay for the crowned-adult stage — GardenBird's templates
+// have no crown of their own (they're shared with the garden's visiting
+// birds), so this sits as a separate absolutely-positioned element above the
+// head rather than inside birdTemplates.jsx.
+function TweetyCrown() {
+  return (
+    <svg viewBox="0 0 40 28" className="tweety-garden-crown" aria-hidden="true">
+      <path
+        d="M4 24 L4 12 L12 18 L20 6 L28 18 L36 12 L36 24 Z"
+        fill="#f2c230" stroke="#8a6a1a" strokeWidth="1.5" strokeLinejoin="round"
+      />
+      <circle cx="20" cy="6" r="2.6" fill="#f2c230" stroke="#8a6a1a" strokeWidth="1.2" />
+    </svg>
+  )
+}
 
 // ---- wearable layers (hats, accessories, outfits) --------------------------
 // Drawn inside Tweety's 100×100 viewBox. Head sits around y30–46, eyes at y50,
@@ -916,6 +981,8 @@ const GIFT_REACTIONS = {
 
 export function TweetyHomeCard({
   tweety,
+  // reused once GardenBird's mood posture/dance animation is wired in a later overhaul step
+  // eslint-disable-next-line no-unused-vars
   dancing = false,
   legacyNestTier = 'basic',
   rainbow = false,
@@ -934,6 +1001,8 @@ export function TweetyHomeCard({
   const win = care.window
   const next = nextCareWindow()
   const windowsDone = windowsDoneToday(tweety)
+  // reused once GardenBird renders worn wardrobe items in a later overhaul step
+  // eslint-disable-next-line no-unused-vars
   const worn = tweety?.wardrobe?.worn || null
   const ownedGiftIds = useMemo(() => new Set(gifts.map((g) => g.id)), [gifts])
 
@@ -973,6 +1042,9 @@ export function TweetyHomeCard({
   const growth = tweetyGrowth(tweety)
   const progress = tweetyGrowthProgress(tweety)
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
+  const stageScale = TWEETY_STAGE_SCALE[birdLevel] ?? 1
+  const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
+  const tweetyZones = mutedZones(BIRD_COLOUR_MAP[TWEETY_SPECIES_KEY].zones, stageMute)
 
   // Luxury Birdhouse fully replaces the nest; Cozy Nest Upgrade is the step
   // below that; anything gifted from the admin-only legacy Bird Store (rare)
@@ -1006,11 +1078,15 @@ export function TweetyHomeCard({
     const reaction = GIFT_REACTIONS[id]
     if (reaction) playChirp(reaction.sound)
   }
+  // reused once dance/preen/sway reactions are wired to GardenBird in a later overhaul step
+  // eslint-disable-next-line no-unused-vars
   const tapReaction = justTapped ? GIFT_REACTIONS[justTapped] : null
 
   // Small Mirror: every so often Tweety catches her reflection and preens for
   // a few seconds — a little bit of "alive" behaviour, not player-triggered.
   const hasMirror = ownedGiftIds.has('mirror')
+  // reused once dance/preen/sway reactions are wired to GardenBird in a later overhaul step
+  // eslint-disable-next-line no-unused-vars
   const [preening, setPreening] = useState(false)
   useEffect(() => {
     if (!hasMirror) return undefined
@@ -1157,16 +1233,16 @@ export function TweetyHomeCard({
               🪞
             </button>
           )}
-          <TweetyBird
-            level={birdLevel}
-            mood={mood}
-            dancing={dancing || tapReaction?.motion === 'dance'}
-            preening={preening || tapReaction?.motion === 'preen'}
-            sway={tapReaction?.motion === 'sway'}
-            size={132}
-            companion={tweety?.companion}
-            worn={worn}
-          />
+          {/* Tweety visual overhaul — steps 1-2: the species-accurate
+              GardenBird template (same system the garden's visiting birds
+              use), scaled and muted by her real growth stage, plus a small
+              crown once she's fully grown. Mood posture, gift-icon layout
+              and the dance/preen/sway animations are still follow-up steps,
+              not wired here yet. */}
+          <span className="tweety-bird" aria-hidden="true">
+            <GardenBird template="songbird-small" zones={tweetyZones} size={110 * stageScale} />
+            {birdLevel === 'crowned' && <TweetyCrown />}
+          </span>
           {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
           {nestTier === 'basic' ? (
             <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
