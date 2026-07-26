@@ -927,7 +927,6 @@ export function TweetyHomeCard({
   onOpenStats,
   onReleaseToGarden,
   onSettleHappiness,
-  onGiftTap,
 }) {
   const name = tweety?.name || 'Tweety'
   const species = companionSpecies(tweety?.companion)
@@ -986,13 +985,14 @@ export function TweetyHomeCard({
       ? 'cosy'
       : 'basic'
 
-  // Every gift is a tap-for-delight moment (no persisted state, always safe).
+  // Every gift is a tap-for-delight moment (no persisted state, always safe) —
+  // brightens her mood for the moment only, never a real happiness gain (that
+  // would let a store item be spam-tapped to 100% happiness in one sitting).
   // Chimes and music box keep their own signature chirp sequences; every
   // other item plays a single chirp + motion straight off GIFT_REACTIONS.
   function tapGift(id) {
     setJustTapped(id)
     window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
-    onGiftTap?.()
     if (id === 'chimes') {
       playChirp('play')
       setTimeout(() => playChirp('water'), 160)

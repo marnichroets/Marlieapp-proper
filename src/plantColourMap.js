@@ -221,6 +221,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'bitter-aloe': {
     template: 'aloe',
+    scale: 1.2, // Aloe ferox grows a tall single stem 2-3m high
     zones: {
       stem: '#8a7a52', leafMain: '#829574', leafSecondary: '#9eab92',
       petal: '#e0672a', center: '#e8c76a', soil: '#7a5a3a',
@@ -232,6 +233,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'spekboom': {
     template: 'succulent',
+    scale: 0.85, // grows into a large shrub/small tree, bigger than a typical small succulent
     zones: {
       stem: '#8a9a7a', leafMain: '#6a9a5a', leafSecondary: '#afc1a2',
       petal: '#e07a9a', center: '#ffe07a', soil: '#7a5a3a',
@@ -243,6 +245,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'century-plant': {
     template: 'aloe',
+    scale: 1.15, // Agave rosette can spread 1-2m wide with a towering flower spike
     zones: {
       stem: '#8a7a52', leafMain: '#8a9a7a', leafSecondary: '#98a58c',
       petal: '#c9d060', center: '#a8b060', soil: '#7a5a3a',
@@ -375,6 +378,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'krantz-aloe': {
     template: 'aloe',
+    scale: 1.15, // large clumping shrub, 2-3m
     zones: {
       stem: '#8a7a52', leafMain: '#829574', leafSecondary: '#9eab92',
       petal: '#e0602a', center: '#e8c76a', soil: '#7a5a3a',
@@ -386,6 +390,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'mountain-aloe': {
     template: 'aloe',
+    scale: 1.25, // one of the tallest single-stemmed aloes
     zones: {
       stem: '#8a7a52', leafMain: '#829574', leafSecondary: '#9eab92',
       petal: '#d9682a', center: '#e8c76a', soil: '#7a5a3a',
@@ -507,6 +512,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'coral-aloe': {
     template: 'aloe',
+    scale: 0.85, // low-growing, compact rosette
     zones: {
       stem: '#8a7a52', leafMain: '#a8b090', leafSecondary: '#a4b198',
       petal: '#e0805a', center: '#e8c76a', soil: '#7a5a3a',
@@ -672,6 +678,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'spiral-aloe': {
     template: 'aloe',
+    scale: 0.65, // small compact rosette, rarely more than 30-40cm
     zones: {
       stem: '#8a7a52', leafMain: '#829574', leafSecondary: '#9eab92',
       petal: '#d9682a', center: '#e8c76a', soil: '#7a5a3a',
@@ -683,6 +690,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'tiger-aloe': {
     template: 'aloe',
+    scale: 0.65, // small, stemless rosette
     zones: {
       stem: '#8a7a52', leafMain: '#889b7a', leafSecondary: '#c8d0c0',
       petal: '#d9682a', center: '#e8c76a', soil: '#7a5a3a',
@@ -793,6 +801,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'snake-aloe': {
     template: 'aloe',
+    scale: 0.85, // medium rosette
     zones: {
       stem: '#8a7a52', leafMain: '#708362', leafSecondary: '#8c9980',
       petal: '#a8b06a', center: '#e8c76a', soil: '#7a5a3a',
@@ -837,6 +846,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'soap-aloe': {
     template: 'aloe',
+    scale: 0.9, // medium-sized clumping rosette
     zones: {
       stem: '#8a7a52', leafMain: '#889b7a', leafSecondary: '#a4b198',
       petal: '#d9602a', center: '#e8c76a', soil: '#7a5a3a',
@@ -991,6 +1001,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'lace-aloe': {
     template: 'aloe',
+    scale: 0.65, // small, low-growing rosette
     zones: {
       stem: '#8a7a52', leafMain: '#829574', leafSecondary: '#9eab92',
       petal: '#d9682a', center: '#e8c76a', soil: '#7a5a3a',
@@ -1312,6 +1323,7 @@ export const PLANT_COLOUR_MAP = {
   },
   'prickly-pear': {
     template: 'succulent',
+    scale: 0.95, // stacked pads grow into a large shrub/small tree, well beyond a typical small succulent
     zones: {
       stem: '#8a9a7a', leafMain: '#90a080', leafSecondary: '#a9bb9c',
       petal: '#ee6090', center: '#ffe07a', soil: '#7a5a3a',
@@ -1718,7 +1730,12 @@ export const PLANT_COLOUR_MAP = {
     },
   },
   'sausage-tree': {
+    // NOTE: pre-existing template mismatch — this is a large tree (Kigelia
+    // africana) but is templated 'herb' (renders as a small bushy sprig
+    // shape, not a tree). scale below at least sizes it correctly; the
+    // template itself is unchanged, out of scope for this fix.
     template: 'herb',
+    scale: 1.4,
     zones: {
       stem: '#7a8a5a', leafMain: '#709058', leafSecondary: '#90a676',
       petal: '#a080ce', center: '#f2c230', soil: '#7a5a3a',
@@ -2103,7 +2120,12 @@ export const PLANT_COLOUR_MAP = {
     },
   },
   'breede-river-yellowwood': {
+    // NOTE: pre-existing template mismatch — this is a tree (Podocarpus
+    // elongatus) but is templated 'grass-tuft' (renders as a reed clump, not
+    // a tree). scale below at least sizes it correctly; the template itself
+    // is unchanged, out of scope for this fix.
     template: 'grass-tuft',
+    scale: 1.4,
     zones: {
       stem: '#8a9a5a', leafMain: '#80a055', leafSecondary: '#a9bb74',
       petal: '#e8c93a', center: '#e8dcb0', soil: '#7a5a3a',

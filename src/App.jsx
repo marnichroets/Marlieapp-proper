@@ -502,11 +502,12 @@ const COINS = {
   eggHatch: 300, // one-time bonus when a mystery egg finishes hatching
 }
 
-// How much the happiness bar rises per action.
+// How much the happiness bar rises per action. Kept deliberately small so
+// reaching 100% takes consistent daily care over several days rather than
+// one session of spam-tapping gifts/care buttons.
 const HAPPINESS_GAIN = {
-  care: 15, // per feed/water/play action
-  giftTap: 5, // tapping an owned Tweety Store item for a reaction
-  storePurchase: 20, // buying a new Tweety Store item
+  care: 8, // per feed/water/play action
+  storePurchase: 12, // buying a new Tweety Store item
   streakBonus: 10, // on top of `care`, when that action also completes a streak bonus
 }
 
@@ -3204,15 +3205,27 @@ function App() {
   // careTweety's `immediate` commit) can trigger this right away instead of
   // waiting out the full debounce, without duplicating the conflict logic.
   async function syncStateToBackend(state) {
-    if (readOnly || !session) return
-    if (account !== 'pooks' && account !== 'marnich') return
+    // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
+    console.log('syncStateToBackend called', { readOnly, session: Boolean(session), account })
+    if (readOnly || !session) {
+      console.log('syncStateToBackend bailed: readOnly or no session', { readOnly, session: Boolean(session) })
+      return
+    }
+    if (account !== 'pooks' && account !== 'marnich') {
+      console.log('syncStateToBackend bailed: account not pooks/marnich', { account })
+      return
+    }
     const res = await saveRemoteState(account, state, stateVersionRef.current)
+    console.log('syncStateToBackend saveRemoteState result', res)
     if (res && !res.conflict) {
       stateVersionRef.current = res.version
       lastSyncedRef.current = state
       return
     }
-    if (!res || !res.conflict) return
+    if (!res || !res.conflict) {
+      console.log('syncStateToBackend save FAILED (network/offline) — write was NOT persisted to backend', res)
+      return
+    }
     const remote = await fetchRemoteState(account)
     if (!remote || !remote.state) return
     const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
@@ -3227,6 +3240,7 @@ function App() {
     // client gets the benefit of the doubt.
     const versionGap = remote.version - stateVersionRef.current
     if (!hasUnsavedLocalEdits || versionGap > 1) {
+      console.log('syncStateToBackend adopting remote over local after conflict', { hasUnsavedLocalEdits, versionGap })
       adoptState(account, remote.state, remote.version)
       return
     }
@@ -3288,6 +3302,10 @@ function App() {
         if (cancelled) return
         const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
         if (shouldAdoptRemote(remote, stateVersionRef.current, hasUnsavedLocalEdits)) {
+          // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
+          console.log('auto-adopt poll: adopting remote state', {
+            hasUnsavedLocalEdits, remoteVersion: remote?.version, baseVersion: stateVersionRef.current,
+          })
           adoptState(account, remote.state, remote.version)
         }
       })
@@ -3369,6 +3387,12 @@ function App() {
       // old balance, and the same class of bug that froze the daily messages).
       // Same protection the auto-adopt poll uses.
       if (dataRef.current !== lastSyncedRef.current) return
+      // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
+      // NOTE: this mount-time adopt has no way to know if a PREVIOUS session's
+      // care action never actually reached the backend (e.g. saveRemoteState
+      // failed silently offline) — it will happily adopt that stale remote
+      // copy right over a locally-correct, un-synced localStorage cache.
+      console.log('mount-time fetch: adopting remote state on load', { remoteVersion: remote.version })
       adoptState(acct, remote.state, remote.version)
     })
     return () => {
@@ -3859,7 +3883,7 @@ function App() {
       }
     }
 
-    // Happiness: +15 for the care action, plus +10 more if it also completed
+    // Happiness: +8 for the care action, plus +10 more if it also completed
     // a streak bonus above.
     const happinessGain = HAPPINESS_GAIN.care + (bonusNote ? HAPPINESS_GAIN.streakBonus : 0)
     const nextHappiness = happinessDelta(data.tweety, happinessGain)
@@ -3889,6 +3913,8 @@ function App() {
       },
       { immediate: true },
     )
+    // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
+    console.log('immediate save fired', { field, readOnly, session: Boolean(session), account })
   }
 
   // Settle passive happiness decay once per mount — this card fully
@@ -3909,20 +3935,6 @@ function App() {
       lastSyncedRef.current = next
       return next
     })
-  }
-
-  // Tapping an owned Tweety Store item (TweetyHomeCard's tapGift) is a small,
-  // frequent bump — bypasses commit() (no toast; that'd be spammy for a
-  // casual repeatable tap) and saves directly, same mechanism as the
-  // immediate care-action save.
-  function bumpHappinessFromGiftTap() {
-    if (readOnly) return
-    const next = {
-      ...data,
-      tweety: { ...data.tweety, ...happinessDelta(data.tweety, HAPPINESS_GAIN.giftTap) },
-    }
-    setData(next)
-    syncStateToBackend(next)
   }
 
   function renameTweety(name) {
@@ -6503,7 +6515,6 @@ function App() {
             readOnly={readOnly}
             markMagazineIssueSeen={markMagazineIssueSeen}
             onSettleHappiness={settleHappinessDecay}
-            onGiftTap={bumpHappinessFromGiftTap}
             goToPlants={() => {
               setExploreMode('plants')
               setActivePage('explore')
@@ -7381,7 +7392,6 @@ function HomePage({
   missedYou,
   careTweety,
   onSettleHappiness,
-  onGiftTap,
   releaseAviaryBird,
   tapWorldEvent,
   resolveWorldEvent,
@@ -7552,7 +7562,6 @@ function HomePage({
               onOpenStats={() => goTo('tweety')}
               onReleaseToGarden={onReleaseToGarden}
               onSettleHappiness={onSettleHappiness}
-              onGiftTap={onGiftTap}
             />
           ) : (
             <AwaitingCompanionCard tweety={data.tweety} />

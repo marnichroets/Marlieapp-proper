@@ -600,6 +600,27 @@ const BLOOM_KIND_TEMPLATE = {
   generic: 'flowering-shrub',
 }
 
+// Default real-world-proportion scale per template, so a ground-cover mat
+// and a full-grown tree don't render as the same size sprite. Overridden
+// per-species in PLANT_COLOUR_MAP/PERSONAL_PLANT_COLOUR_MAP (via `scale`)
+// only where a species' real size is a clear outlier for its template shape
+// (e.g. the 'aloe' template spans tiny spiral-aloe rosettes to towering
+// mountain-aloe stems) — most species just take this default.
+const TEMPLATE_SCALE = {
+  'ground-cover': 0.65,
+  succulent: 0.65,
+  herb: 0.8,
+  fern: 0.8,
+  'grass-tuft': 0.85,
+  'flowering-shrub': 1,
+  'bulb-flower': 1,
+  protea: 1,
+  aloe: 1,
+  'climbing-vine': 1,
+  palm: 1.25,
+  'tree-small': 1.4,
+}
+
 // A lighter shade of a hex colour, for the template's secondary/back-layer
 // foliage zone — plantFoliageColor only gives one foliage tone, but every
 // template wants two (front/back layers) so the plant reads as textured
@@ -703,8 +724,15 @@ const PERSONAL_PLANT_COLOUR_MAP = {
     zones: { stem: '#5f7a45', leafMain: '#356b3d', leafSecondary: '#4f9a55', petal: '#e8ead0', center: '#e8c060', soil: '#6b5638' },
     variation: { leafCount: 7, leafWidth: 1.6, height: 1.15, flowerCount: 0, flowerSize: 1 },
   },
-  'white bird-of-paradise tree': {
+  // NOTE: key must match the exact commonName Pooks' actual planting carries
+  // ("White bird of-paradise tree" — that odd "bird of-paradise" punctuation,
+  // not the more standard "bird-of-paradise", is what her identified species
+  // record actually contains). A prior version of this key used the more
+  // grammatically standard hyphenation and silently never matched her real
+  // planting, falling through to the generic classifier instead.
+  'white bird of-paradise tree': {
     template: 'bulb-flower',
+    scale: 1.3, // Strelitzia nicolai grows tree-sized (6-10m), well beyond a typical bulb-flower
     zones: { stem: '#5f7a52', leafMain: '#2f6a3a', leafSecondary: '#4f9a55', petal: '#f5f0e0', center: '#3a2a6a', soil: '#7a5a3a' },
     variation: { leafCount: 3, leafWidth: 1.4, height: 1.3, flowerCount: 1, flowerSize: 1.3, hasStem: true },
   },
@@ -713,19 +741,30 @@ const PERSONAL_PLANT_COLOUR_MAP = {
 function plantVisual(commonName, family) {
   const species = commonName && SPECIES_BY_COMMON_NAME.get(String(commonName).trim().toLowerCase())
   const curated = species && PLANT_COLOUR_MAP[species.id]
-  if (curated) return { template: curated.template, zones: curated.zones, variation: curated.variation }
+  if (curated) {
+    return {
+      template: curated.template, zones: curated.zones, variation: curated.variation,
+      scale: curated.scale ?? TEMPLATE_SCALE[curated.template] ?? 1,
+    }
+  }
 
   const personal = commonName && PERSONAL_PLANT_COLOUR_MAP[String(commonName).trim().toLowerCase()]
-  if (personal) return { template: personal.template, zones: personal.zones, variation: personal.variation }
+  if (personal) {
+    return {
+      template: personal.template, zones: personal.zones, variation: personal.variation,
+      scale: personal.scale ?? TEMPLATE_SCALE[personal.template] ?? 1,
+    }
+  }
 
   const kind = plantBloomKind(commonName, family)
   const seedKey = commonName || family
   if (kind === 'generic' && !seedKey) {
-    return { template: 'flowering-shrub', zones: GENERIC_PLANT_ZONES, variation: {} }
+    return { template: 'flowering-shrub', zones: GENERIC_PLANT_ZONES, variation: {}, scale: TEMPLATE_SCALE['flowering-shrub'] }
   }
   const leafMain = plantFoliageColor(commonName, family)
+  const template = BLOOM_KIND_TEMPLATE[kind] || 'flowering-shrub'
   return {
-    template: BLOOM_KIND_TEMPLATE[kind] || 'flowering-shrub',
+    template,
     zones: {
       stem: kind === 'aloe' || kind === 'succulent' ? '#8a9a7a' : '#6b5638',
       leafMain,
@@ -735,6 +774,7 @@ function plantVisual(commonName, family) {
       soil: '#7a5a3a',
     },
     variation: fallbackVariation(seedKey),
+    scale: TEMPLATE_SCALE[template] ?? 1,
   }
 }
 
@@ -746,8 +786,12 @@ const FLOWERING_STAGES = new Set(['bloom', 'bed-full', 'shrub-bloom'])
 
 function PlantArt({ type, stageKey, family, commonName, seed }) {
   if (isSpeciesPlanting(type) && stageKey === 'bloom') {
-    const { template, zones, variation } = plantVisual(commonName, family)
-    const size = 60
+    const { template, zones, variation, scale } = plantVisual(commonName, family)
+    // size scales by the species' real-world proportions (see TEMPLATE_SCALE
+    // and per-species overrides in plantVisual) — the anchor point (bottom
+    // centre, via the x/y offsets below) stays fixed, so only the sprite's
+    // visual size changes, not its placement in the bed.
+    const size = 60 * (scale ?? 1)
     return (
       <foreignObject x={-size / 2} y={-size * 1.22} width={size} height={size * 1.3} style={{ overflow: 'visible' }}>
         <GardenPlant template={template} zones={zones} size={size} variation={variation} />
