@@ -130,6 +130,17 @@ export const SPECIAL_COUNCIL_MESSAGES = {
     'Field Agent Pooks has touched down in Johannesburg — one more sleep before the Potchefstroom Division welcomes her home. The Council recommends rest, and possibly snacks.',
   '2026-06-29':
     'Welcome back to the Potchefstroom Division, Field Agent. The Council trusts the Cape Town deployment was a success. Debrief required immediately — or whenever you’ve unpacked. We are not unreasonable.',
+
+  // A one-off letter from the Plant Division, with its own title/sender —
+  // an object entry instead of a plain string, so it replaces the daily
+  // dispatch with its own look rather than borrowing the Council's.
+  '2026-07-27': {
+    sender: 'The Plant Division 🌿',
+    icon: '🌿',
+    title: '🌿 A Note from the Plant Division',
+    body:
+      'Dear Agent Pooks,\n\nThe Plant Division doesn\'t usually write letters. We\'re more of a \'stand quietly in the sun and photosynthesise\' kind of department. But today we wanted to make an exception.\n\nWe\'ve been watching your field work — every plant you\'ve identified, every seed you\'ve planted, every time you\'ve stopped to look a little closer at something growing. And we wanted you to know: we notice.\n\nThe Bird Council gets all the attention (they\'re louder, obviously), but between us — the real magic is in the roots. And you, Agent Pooks, have very good roots.\n\nKeep growing. Keep exploring. Keep being exactly who you are.\n\nWith sunlight and admiration,\nThe Plant Division 🌿\nSouthern Hemisphere Botanical Council\n\nP.S. We\'ve enclosed your official certificate of botanical field competence. It was supposed to arrive weeks ago but the delivery weaver got distracted by a nest near Lichtenburg. Typical.',
+  },
 }
 
 // The special good-luck message for a given day key, or null on any normal day.
@@ -171,10 +182,23 @@ export function councilDispatchForDay(messagesMeta = {}, todayKey) {
   const special = specialCouncilMessage(todayKey)
   const prevShown = messagesMeta?.shownCouncil || []
   const rotation = special ? null : nextCouncilMessage(prevShown)
-  const text = special || rotation.text
   const shown = special ? prevShown : rotation.shown
+  // A special entry is normally plain text delivered as the usual Council
+  // dispatch, but it may instead be an object with its own sender/title —
+  // e.g. a one-off letter from another division — in which case we use that
+  // dress-up rather than the default Council look.
+  const message =
+    special && typeof special === 'object'
+      ? createMessage({
+          type: 'council',
+          sender: special.sender || COUNCIL_SENDER.name,
+          icon: special.icon || COUNCIL_SENDER.icon,
+          title: special.title || 'Your daily Council dispatch',
+          body: special.body,
+        })
+      : councilDailyMessage(special || rotation.text)
   return {
-    message: councilDailyMessage(text),
+    message,
     meta: { ...messagesMeta, lastCouncilDay: todayKey, shownCouncil: shown },
   }
 }
