@@ -981,8 +981,6 @@ const GIFT_REACTIONS = {
 
 export function TweetyHomeCard({
   tweety,
-  // reused once GardenBird's mood posture/dance animation is wired in a later overhaul step
-  // eslint-disable-next-line no-unused-vars
   dancing = false,
   legacyNestTier = 'basic',
   rainbow = false,
@@ -1038,7 +1036,10 @@ export function TweetyHomeCard({
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
   const happiness = typeof tweety?.happiness === 'number' ? tweety.happiness : 70
-  const happinessFace = HAPPINESS_MOOD_FACE[happinessMood(happiness)]
+  // happy/content/lonely/sad — the same 4-value mood happinessFace already
+  // reads off, reused as the bird's idle body-language posture below.
+  const posture = happinessMood(happiness)
+  const happinessFace = HAPPINESS_MOOD_FACE[posture]
   const growth = tweetyGrowth(tweety)
   const progress = tweetyGrowthProgress(tweety)
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
@@ -1078,15 +1079,11 @@ export function TweetyHomeCard({
     const reaction = GIFT_REACTIONS[id]
     if (reaction) playChirp(reaction.sound)
   }
-  // reused once dance/preen/sway reactions are wired to GardenBird in a later overhaul step
-  // eslint-disable-next-line no-unused-vars
   const tapReaction = justTapped ? GIFT_REACTIONS[justTapped] : null
 
   // Small Mirror: every so often Tweety catches her reflection and preens for
   // a few seconds — a little bit of "alive" behaviour, not player-triggered.
   const hasMirror = ownedGiftIds.has('mirror')
-  // reused once dance/preen/sway reactions are wired to GardenBird in a later overhaul step
-  // eslint-disable-next-line no-unused-vars
   const [preening, setPreening] = useState(false)
   useEffect(() => {
     if (!hasMirror) return undefined
@@ -1102,6 +1099,23 @@ export function TweetyHomeCard({
     scheduleNext()
     return () => window.clearTimeout(preenTimer)
   }, [hasMirror])
+
+  // Which wrapper animation plays right now, in priority order: a
+  // care/store-triggered happy dance beats whatever the just-tapped gift
+  // asked for, which beats Mirror's occasional idle preen. None of these
+  // means the bird just holds its mood posture (tweety-posture-*, below).
+  const tapMotion = tapReaction?.motion
+  const motionClass = dancing
+    ? 'tweety-dance'
+    : tapMotion === 'dance'
+      ? 'tweety-dance'
+      : tapMotion === 'preen'
+        ? 'tweety-preen'
+        : tapMotion === 'sway'
+          ? 'tweety-gift-sway'
+          : preening
+            ? 'tweety-preen'
+            : ''
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -1233,13 +1247,17 @@ export function TweetyHomeCard({
               🪞
             </button>
           )}
-          {/* Tweety visual overhaul — steps 1-2: the species-accurate
-              GardenBird template (same system the garden's visiting birds
-              use), scaled and muted by her real growth stage, plus a small
-              crown once she's fully grown. Mood posture, gift-icon layout
-              and the dance/preen/sway animations are still follow-up steps,
-              not wired here yet. */}
-          <span className="tweety-bird" aria-hidden="true">
+          {/* Tweety visual overhaul — steps 1-3: the species-accurate
+              GardenBird template, scaled/muted by her real growth stage,
+              plus a small crown once fully grown. The wrapper also carries
+              her idle mood posture (tweety-posture-*) and, temporarily,
+              whichever dance/preen/sway reaction is playing (motionClass) —
+              the same CSS classes the old cartoon body used, just applied
+              to this wrapper instead. */}
+          <span
+            className={`tweety-bird${motionClass ? ` ${motionClass}` : ''} tweety-posture-${posture}`}
+            aria-hidden="true"
+          >
             <GardenBird template="songbird-small" zones={tweetyZones} size={110 * stageScale} />
             {birdLevel === 'crowned' && <TweetyCrown />}
           </span>
