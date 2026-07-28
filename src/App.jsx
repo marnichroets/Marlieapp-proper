@@ -3241,18 +3241,13 @@ function App() {
   // careTweety's `immediate` commit) can trigger this right away instead of
   // waiting out the full debounce, without duplicating the conflict logic.
   async function syncStateToBackend(state, { isRetry = false } = {}) {
-    // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
-    console.log('syncStateToBackend called', { readOnly, session: Boolean(session), account, isRetry })
     if (readOnly || !session) {
-      console.log('syncStateToBackend bailed: readOnly or no session', { readOnly, session: Boolean(session) })
       return
     }
     if (account !== 'pooks' && account !== 'marnich') {
-      console.log('syncStateToBackend bailed: account not pooks/marnich', { account })
       return
     }
     const res = await saveRemoteState(account, state, stateVersionRef.current)
-    console.log('syncStateToBackend saveRemoteState result', res)
     if (res && !res.conflict) {
       stateVersionRef.current = res.version
       lastSyncedRef.current = state
@@ -3266,11 +3261,9 @@ function App() {
       // the feed-glitch: a later reload's mount-time fetch would then have no way
       // to know the backend copy it's about to adopt is stale).
       if (!isRetry) {
-        console.log('syncStateToBackend save failed — retrying once in 2.5s')
         window.setTimeout(() => syncStateToBackend(state, { isRetry: true }), 2500)
         return
       }
-      console.log('syncStateToBackend save FAILED after retry — marking pending sync', res)
       markPendingSync(account)
       return
     }
@@ -3291,7 +3284,6 @@ function App() {
     // client gets the benefit of the doubt.
     const versionGap = remote.version - stateVersionRef.current
     if (!hasUnsavedLocalEdits || versionGap > 1) {
-      console.log('syncStateToBackend adopting remote over local after conflict', { hasUnsavedLocalEdits, versionGap })
       adoptState(account, remote.state, remote.version)
       return
     }
@@ -3356,10 +3348,6 @@ function App() {
         if (cancelled) return
         const hasUnsavedLocalEdits = dataRef.current !== lastSyncedRef.current
         if (shouldAdoptRemote(remote, stateVersionRef.current, hasUnsavedLocalEdits)) {
-          // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
-          console.log('auto-adopt poll: adopting remote state', {
-            hasUnsavedLocalEdits, remoteVersion: remote?.version, baseVersion: stateVersionRef.current,
-          })
           adoptState(account, remote.state, remote.version)
         }
       })
@@ -3444,7 +3432,6 @@ function App() {
         // never adopt remote here, and force syncStateToBackend to treat this
         // session's freshly loaded local state as unsaved so it pushes it up
         // rather than silently comparing it away as "nothing to save".
-        console.log('mount-time fetch: pending sync flag set — pushing local state instead of adopting remote', { remoteVersion: remote.version })
         stateVersionRef.current = remote.version
         lastSyncedRef.current = null
         syncStateToBackend(dataRef.current)
@@ -3456,7 +3443,6 @@ function App() {
       // old balance, and the same class of bug that froze the daily messages).
       // Same protection the auto-adopt poll uses.
       if (dataRef.current !== lastSyncedRef.current) return
-      console.log('mount-time fetch: adopting remote state on load', { remoteVersion: remote.version })
       adoptState(acct, remote.state, remote.version)
     })
     return () => {
@@ -3983,8 +3969,6 @@ function App() {
       },
       { immediate: true },
     )
-    // TEMP DEBUG (feed-glitch investigation) — remove once confirmed fixed.
-    console.log('immediate save fired', { field, readOnly, session: Boolean(session), account })
   }
 
   // Settle passive happiness decay once per mount — this card fully

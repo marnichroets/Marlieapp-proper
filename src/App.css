@@ -215,7 +215,7 @@
 .certificate,
 .missed-card,
 .memory-card {
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: var(--radius);
   /* A faint paper-grain texture (two tiny offset radial dots, tiled) under the
      usual white wash — reads as a soft journal-page surface at normal zoom
@@ -565,7 +565,7 @@
 }
 
 .secondary-btn {
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: 12px;
   background: var(--parchment);
   color: var(--leaf-dark);
@@ -797,7 +797,7 @@ textarea:focus {
 .checked-off-banner {
   display: grid;
   gap: 6px;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: 16px;
   background: var(--paper);
   padding: 14px;
@@ -822,7 +822,7 @@ textarea:focus {
   display: grid;
   align-content: start;
   gap: 12px;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: var(--radius);
   background: var(--paper);
   padding: 14px;
@@ -1221,7 +1221,7 @@ textarea:focus {
   grid-template-rows: auto 1fr;
   gap: 0;
   overflow: hidden;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: var(--radius);
   background: var(--paper);
   box-shadow: var(--shadow);
@@ -1371,7 +1371,7 @@ textarea:focus {
   grid-column: 1 / -1;
   min-height: 330px;
   overflow: hidden;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: 28px;
   background: var(--paper);
   box-shadow: var(--shadow);
@@ -1649,7 +1649,7 @@ textarea:focus {
   gap: 18px;
   width: min(620px, 100%);
   overflow: hidden;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: 28px;
   background: var(--paper);
   box-shadow: var(--shadow-strong);
@@ -1774,7 +1774,7 @@ textarea:focus {
   display: grid;
   gap: 5px;
   width: min(460px, calc(100% - 24px));
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: 18px;
   background: var(--paper);
   box-shadow: var(--shadow-strong);
@@ -2844,7 +2844,7 @@ textarea:focus {
   gap: 8px;
   align-content: start;
   text-align: left;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: var(--radius);
   background: var(--paper);
   box-shadow: var(--shadow);
@@ -4439,7 +4439,7 @@ button.tweety-nest-base.tapped {
   justify-items: center;
   gap: 4px;
   padding: 12px 6px;
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   border-radius: 12px;
   background: var(--parchment);
   font-weight: 800;
@@ -4856,6 +4856,50 @@ button.tweety-nest-base.tapped {
 }
 .g-bee-wing { transform-box: fill-box; transform-origin: center bottom; animation: g-bee-buzz 0.12s linear infinite; }
 @keyframes g-bee-buzz { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.4); } }
+
+/* Ladybug: slow back-and-forth crawl along the ground, no flight. */
+.g-ladybug { animation: g-ladybug-crawl 8s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-ladybug-crawl {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(9px, 0); }
+  50% { transform: translate(16px, -0.5px); }
+  75% { transform: translate(6px, 0); }
+}
+
+/* Dragonfly: quick hover-and-dart hops, with shimmering wings (wing group
+   flickers opacity/scale fast, distinct from the slower butterfly/moth flap). */
+.g-dragonfly { animation: g-dragonfly-dart 3.4s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-dragonfly-dart {
+  0% { transform: translate(0, 0); }
+  15% { transform: translate(14px, -6px); }
+  35% { transform: translate(6px, 8px); }
+  55% { transform: translate(-16px, -4px); }
+  75% { transform: translate(-6px, 6px); }
+  100% { transform: translate(0, 0); }
+}
+.g-dragonfly-wing { transform-box: fill-box; transform-origin: center center; animation: g-dragonfly-shimmer 0.1s linear infinite; }
+@keyframes g-dragonfly-shimmer {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0.7; transform: scaleY(0.85); }
+}
+
+/* Cricket: sits still, then an occasional quick hop — mostly a holding
+   pattern rather than continuous motion. */
+.g-cricket { animation: g-cricket-hop 8s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-cricket-hop {
+  0%, 82%, 100% { transform: translate(0, 0); }
+  87% { transform: translate(5px, -6px); }
+  92% { transform: translate(9px, 0); }
+}
+
+/* Frog: sits still, then an occasional small hop with a squash-and-stretch. */
+.g-frog { animation: g-frog-hop 9s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
+@keyframes g-frog-hop {
+  0%, 80%, 100% { transform: translate(0, 0) scaleY(1); }
+  85% { transform: translate(3px, -8px) scaleY(1.1); }
+  90% { transform: translate(6px, 0) scaleY(0.9); }
+  93% { transform: translate(6px, 0) scaleY(1); }
+}
 
 /* Moth: erratic drift near the moonlight (wings flap via .g-wing). */
 .g-moth { animation: g-moth-move 5s ease-in-out infinite; transform-box: fill-box; }
@@ -6232,7 +6276,7 @@ button.tweety-nest-base.tapped {
   display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
   padding: 14px 18px; border-radius: 18px; cursor: pointer;
   background: linear-gradient(135deg, rgba(138, 174, 126, 0.24), rgba(184, 169, 201, 0.16));
-  border: 1.5px dashed var(--dash);
+  border: 2px dashed var(--dash);
   box-shadow: 0 2px 0 rgba(180, 160, 130, 0.12);
   transition: transform 0.15s ease;
 }

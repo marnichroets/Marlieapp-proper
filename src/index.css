@@ -5,7 +5,7 @@
   --ink: #3d3530;
   --ink-strong: #2b2420;
   --muted: #8a7e76;
-  --leaf: #8aae7e;
+  --leaf: #7ba36e;
   --leaf-dark: #6b8f62;
   --mint: rgba(138, 174, 126, 0.2);
   --honey: #e8c97a;
@@ -13,10 +13,10 @@
   --rose: #d4a0a0;
   --lavender: #b8a9c9;
   --line: #e8dfd0;
-  --dash: #c4b59a;
+  --dash: #b5a58c;
   --radius: 16px;
   --radius-inner: 12px;
-  --shadow: 2px 3px 8px rgba(180, 160, 130, 0.12);
+  --shadow: 2px 3px 8px rgba(180, 160, 130, 0.12), inset 0 1px 3px rgba(180, 160, 130, 0.15);
   --shadow-strong: 4px 6px 20px rgba(180, 160, 130, 0.22);
   --sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
@@ -30,9 +30,17 @@
 
   color: var(--ink);
   background:
+    /* A very subtle paper-grain overlay (two tiny offset radial dots, tiled)
+       over the whole page — same technique as the per-card grain in
+       App.css's .soft-card rule, just fainter since it covers a much
+       larger, less-focal area. */
+    radial-gradient(rgba(196, 181, 154, 0.05) 1px, transparent 1px),
+    radial-gradient(rgba(196, 181, 154, 0.035) 1px, transparent 1px),
     radial-gradient(circle at top left, rgba(232, 201, 122, 0.28), transparent 34rem),
     radial-gradient(circle at top right, rgba(212, 160, 160, 0.14), transparent 30rem),
     linear-gradient(180deg, #fdf6ec 0%, #faf1e2 48%, #f5ead3 100%);
+  background-size: 15px 15px, 11px 11px, auto, auto, auto;
+  background-position: 0 0, 6px 8px, 0 0, 0 0, 0 0;
   font-family: var(--sans);
   font-size: 16px;
   font-synthesis: none;
@@ -88,6 +96,7 @@ h3 {
   font-family: var(--serif);
   font-weight: 700;
   letter-spacing: -0.01em;
+  color: #2e2620;
 }
 
 #root {

@@ -336,6 +336,80 @@ function Bee({ c }) {
   )
 }
 
+// A ladybug crawling slowly near the plants by day — small back-and-forth
+// ground drift (CSS), no flight.
+function Ladybug({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-ladybug" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 8}s` }}>
+        <ellipse cx="0" cy="0" rx="3.6" ry="2.8" fill="#c94a3a" stroke="#2a2016" strokeWidth="0.5" />
+        <line x1="0" y1="-2.8" x2="0" y2="2.8" stroke="#2a2016" strokeWidth="0.5" />
+        <circle cx="-1.6" cy="-0.8" r="0.6" fill="#2a2016" />
+        <circle cx="1.6" cy="-0.8" r="0.6" fill="#2a2016" />
+        <circle cx="-1.2" cy="1" r="0.6" fill="#2a2016" />
+        <circle cx="1.2" cy="1" r="0.6" fill="#2a2016" />
+        <circle cx="0" cy="-2.7" r="1.1" fill="#2a2016" />
+        <line x1="-0.5" y1="-3.5" x2="-1.3" y2="-4.3" stroke="#2a2016" strokeWidth="0.4" strokeLinecap="round" />
+        <line x1="0.5" y1="-3.5" x2="1.3" y2="-4.3" stroke="#2a2016" strokeWidth="0.4" strokeLinecap="round" />
+      </g>
+    </g>
+  )
+}
+
+// A dragonfly darting near the bird bath / flower patch by day — quick
+// hover-and-dart hops (CSS) with shimmering transparent wings.
+function Dragonfly({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-dragonfly" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 3.4}s` }}>
+        <g className="g-dragonfly-wing" style={{ animationDelay: `${c.wingDelay || 0}s` }}>
+          <ellipse cx="-3" cy="-1.6" rx="4.2" ry="1.4" fill="#dff3f6" opacity="0.55" transform="rotate(-18 -3 -1.6)" />
+          <ellipse cx="3" cy="-1.6" rx="4.2" ry="1.4" fill="#dff3f6" opacity="0.55" transform="rotate(18 3 -1.6)" />
+          <ellipse cx="-2.4" cy="0.6" rx="3.4" ry="1.1" fill="#dff3f6" opacity="0.45" transform="rotate(-12 -2.4 0.6)" />
+          <ellipse cx="2.4" cy="0.6" rx="3.4" ry="1.1" fill="#dff3f6" opacity="0.45" transform="rotate(12 2.4 0.6)" />
+        </g>
+        <ellipse cx="0" cy="1.4" rx="1.3" ry="5.6" fill="#3f8f7a" />
+        <circle cx="0" cy="-3.6" r="1.5" fill="#2c6a58" />
+      </g>
+    </g>
+  )
+}
+
+// A cricket sitting in the grass, mostly still with an occasional hop (CSS)
+// — evenings and, more often, at night.
+function Cricket({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-cricket" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 8}s` }}>
+        <ellipse cx="0" cy="0" rx="3.2" ry="2.1" fill="#6b7a42" stroke="#2e3320" strokeWidth="0.5" />
+        <circle cx="-2.6" cy="-0.6" r="1.1" fill="#5c6a38" />
+        <path d="M0.6 0.6 Q4.2 2.4 6.4 6.6" stroke="#4a5730" strokeWidth="0.7" fill="none" strokeLinecap="round" />
+        <path d="M-0.2 0.8 Q3 2.8 4.8 7.2" stroke="#4a5730" strokeWidth="0.7" fill="none" strokeLinecap="round" />
+        <line x1="-3.4" y1="-1" x2="-5.6" y2="-3" stroke="#4a5730" strokeWidth="0.4" strokeLinecap="round" />
+        <line x1="-3.2" y1="-0.4" x2="-5.6" y2="-1.6" stroke="#4a5730" strokeWidth="0.4" strokeLinecap="round" />
+      </g>
+    </g>
+  )
+}
+
+// A frog sitting near the bird bath / flower patch at night, with an
+// occasional small hop (CSS).
+function Frog({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-frog" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 9}s` }}>
+        <ellipse cx="0" cy="1" rx="5.4" ry="3.6" fill="#5c9a52" stroke="#33562e" strokeWidth="0.6" />
+        <circle cx="-2.4" cy="-2.6" r="1.6" fill="#5c9a52" stroke="#33562e" strokeWidth="0.6" />
+        <circle cx="2.4" cy="-2.6" r="1.6" fill="#5c9a52" stroke="#33562e" strokeWidth="0.6" />
+        <circle cx="-2.4" cy="-2.8" r="0.7" fill="#20301c" />
+        <circle cx="2.4" cy="-2.8" r="0.7" fill="#20301c" />
+        <ellipse cx="-4.4" cy="3" rx="1.6" ry="0.9" fill="#5c9a52" stroke="#33562e" strokeWidth="0.5" />
+        <ellipse cx="4.4" cy="3" rx="1.6" ry="0.9" fill="#5c9a52" stroke="#33562e" strokeWidth="0.5" />
+      </g>
+    </g>
+  )
+}
+
 // ---- per-item artwork (base at origin (0,0), growing upward; pond is flat) --
 // Three iconic SA tree looks, picked deterministically per planting (so the
 // same tree always looks the same, but different plantings vary): a fever
@@ -1077,6 +1151,10 @@ function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
     case 'flybird': return <FlyBird c={c} />
     case 'butterfly': return <Butterfly c={c} />
     case 'bee': return <Bee c={c} />
+    case 'ladybug': return <Ladybug c={c} />
+    case 'dragonfly': return <Dragonfly c={c} />
+    case 'cricket': return <Cricket c={c} />
+    case 'frog': return <Frog c={c} />
     case 'firefly': return <Firefly c={c} />
     case 'moth': return <Moth c={c} />
     case 'owl': return <OwlPerch c={c} />
@@ -1126,7 +1204,7 @@ function makeFlyBird(a, b, bird) {
   }
 }
 
-function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 }) {
+function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 }, phase) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   let all = perches
@@ -1197,6 +1275,16 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
   // bees near the beds
   const nBee = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 4)
   for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
+  // ladybugs crawling near the plants — same probability shape as bees
+  const nLadybug = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 4)
+  for (let i = 0; i < nLadybug; i += 1) list.push({ id: nid(), type: 'ladybug', x: rand(bounds.x0 + 30, bounds.x1 - 30), y: rand(210, 232), delay: rand(0, 4), dur: rand(6, 9) })
+  // dragonflies darting near the bird bath / flower patch
+  const nDragonfly = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
+  for (let i = 0; i < nDragonfly; i += 1) list.push({ id: nid(), type: 'dragonfly', x: rand(bounds.x0 + 30, bounds.x1 - 30), y: rand(140, 200), delay: rand(0, 4), dur: rand(2.8, 4), wingDelay: rand(0, 0.1) })
+  // a cricket, sometimes, late in the day (evening) — mostly a nighttime creature (see composeNight)
+  if (phase === 'evening' && (showcase || Math.random() < 0.4)) {
+    list.push({ id: nid(), type: 'cricket', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(222, 236), delay: rand(0, 3), dur: rand(6, 9) })
+  }
   // never an empty daytime scene
   if (!list.length) list.push({ id: nid(), type: 'butterfly', x: (bounds.x0 + bounds.x1) / 2, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
   return list
@@ -1235,6 +1323,14 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
   if (land.length && (showcase || Math.random() < 0.6)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y, delay: rand(0, 3), dur: rand(2.8, 3.8) }) }
   // a hedgehog, sometimes
   if (showcase || Math.random() < 0.55) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2), dur: rand(10, 13) })
+  // crickets in the grass — her main appearance (see composeDay for the rarer evening cameo)
+  const nCricket = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
+  for (let i = 0; i < nCricket; i += 1) list.push({ id: nid(), type: 'cricket', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(222, 236), delay: rand(0, 3), dur: rand(6, 9) })
+  // a frog, sometimes, near the bird bath / flower patch
+  if (showcase || Math.random() < 0.5) {
+    const p = land.length ? pick(land) : null
+    list.push({ id: nid(), type: 'frog', x: p ? p.x : rand(bounds.x0 + 40, bounds.x1 - 40), y: p ? p.y : 226, delay: rand(0, 3), dur: rand(7, 10) })
+  }
   // moths near the moonlight
   const nMoth = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5)
   for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(55, 140), delay: rand(0, 5), dur: rand(4.2, 6), flapDur: rand(0.28, 0.42), flapDelay: rand(0, 0.35) })
@@ -1461,14 +1557,14 @@ export function GardenPage({
       setCreatures(
         isNight
           ? composeNight(grownPerches, collection, showcase, worldBounds)
-          : composeDay(grownPerches, collection, showcase, worldBounds),
+          : composeDay(grownPerches, collection, showcase, worldBounds, phase),
       )
     }
     rollRef.current = roll
     const t0 = setTimeout(() => roll(false), 0)        // initial scene (deferred)
     const iv = window.setInterval(() => roll(false), 16000) // keep it shifting
     return () => { alive = false; clearTimeout(t0); window.clearInterval(iv) }
-  }, [grownPerches, collection, isNight, worldBounds])
+  }, [grownPerches, collection, isNight, worldBounds, phase])
 
   // Sunset Bench: Tweety sometimes visits and sits a while — re-rolled on the
   // same cadence as the rest of the living scene, so it isn't a fixed timer.
