@@ -103,6 +103,17 @@ function hashSeed(str) {
   return h
 }
 
+// Depth-based scale for an item's Y position on the ground plane: further
+// back (near GARDEN_REGION.y0) reads slightly smaller, nearer the viewer
+// (near GARDEN_REGION.y1) slightly larger — simple atmospheric-perspective
+// cue, multiplicative with each item's own size, not a replacement for it.
+// Clamped so anything outside the plantable band (e.g. a fixed-baseline
+// creature) still gets a sane 0.85-1.15 value instead of extrapolating.
+function depthScale(y) {
+  const t = (y - GARDEN_REGION.y0) / (GARDEN_REGION.y1 - GARDEN_REGION.y0)
+  return 0.85 + Math.max(0, Math.min(1, t)) * 0.3
+}
+
 // A resident's two wander waypoints, in polar form so BOTH the distance from
 // home (always 14-24px, never a barely-there twitch) and the angular gap
 // between the two points (always 100-260°, so point 2 never lands right on
@@ -230,7 +241,12 @@ function OwlPerch({ c }) {
   return (
     <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
       <ellipse cx="0" cy="2" rx="8" ry="2.6" fill="#16233f" opacity="0.3" />
-      <g className="garden-owl" style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 3.2}s` }}><OwlArt /></g>
+      {/* .garden-owl animates `transform` itself (sway), so the depth scale
+          goes on this extra inner, non-animated wrapper instead — a static
+          transform attribute here would just get overridden by the sway. */}
+      <g className="garden-owl" style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 3.2}s` }}>
+        <g transform={`scale(${depthScale(c.y)})`}><OwlArt /></g>
+      </g>
     </g>
   )
 }
@@ -242,7 +258,11 @@ function Hedgehog({ c }) {
     <g className="garden-visitor" transform="translate(0 228)">
       <g className="garden-hedgehog" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 11.5}s` }}>
         <ellipse cx="0" cy="2" rx="11" ry="2.6" fill="#16233f" opacity="0.3" />
-        <g className="garden-hedgehog-body"><HedgehogArt /></g>
+        {/* Fixed baseline (y=228, near the front) — same non-animated-wrapper
+            reasoning as OwlPerch above. */}
+        <g className="garden-hedgehog-body">
+          <g transform={`scale(${depthScale(228)})`}><HedgehogArt /></g>
+        </g>
       </g>
     </g>
   )
@@ -921,9 +941,11 @@ function PerchBird({ c, active, setActiveLabelId }) {
             className={c.peck ? 'garden-bird-peck' : undefined}
             style={c.peck ? { animationDelay: `${c.peckDelay ?? 2}s` } : undefined}
           >
-            <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
-              <GardenBird template={template} zones={zones} size={size} ground={hasPerchSurface} />
-            </foreignObject>
+            <g transform={`scale(${depthScale(c.y)})`}>
+              <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
+                <GardenBird template={template} zones={zones} size={size} ground={hasPerchSurface} />
+              </foreignObject>
+            </g>
           </g>
         </g>
       </g>
@@ -991,9 +1013,11 @@ function SwimBird({ c, active, setActiveLabelId }) {
             className={c.splash ? 'garden-bird-splash' : undefined}
             style={c.splash ? { animationDelay: `${c.splashDelay ?? 2}s` } : undefined}
           >
-            <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
-              <GardenBird template={template} zones={zones} size={size} />
-            </foreignObject>
+            <g transform={`scale(${depthScale(c.y)})`}>
+              <foreignObject x={-size / 2} y={-size * 0.634} width={size} height={size * 0.742} style={{ overflow: 'visible' }}>
+                <GardenBird template={template} zones={zones} size={size} />
+              </foreignObject>
+            </g>
           </g>
         </g>
       </g>
@@ -1518,6 +1542,17 @@ export function GardenPage({
   const placingItem = placingType ? gardenItem(placingType) : null
   const placingAny = Boolean(placingType)
 
+  // Depth z-order: further-up (further away) creatures/residents render
+  // first, nearer ones last — same "lower Y draws on top" rule as plantings
+  // above, just applied to these two separate render layers so a close
+  // creature/resident can never be hidden behind a far one within its own
+  // layer. (Creatures still render as a whole layer in front of plantings,
+  // and residents in front of creatures — that stacking is unchanged.)
+  const sortedCreatures = [...creatures].sort(
+    (a, b) => (a.y ?? a.fromY ?? 200) - (b.y ?? b.fromY ?? 200),
+  )
+  const sortedResidents = [...residents].sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
+
   return (
     <div className="page-grid garden-page">
       <section className="soft-card full-span">
@@ -1561,6 +1596,13 @@ export function GardenPage({
               <stop offset="0" stopColor="#dcecc0" />
               <stop offset="1" stopColor="#c3e0a0" />
             </linearGradient>
+            {/* Third, palest/farthest hill band — between the hazy ridge and
+                the mid band — so the terrain rolls in three steps of depth
+                instead of two, palest-and-coolest furthest back. */}
+            <linearGradient id="gardenGrassFar" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#eef3da" />
+              <stop offset="1" stopColor="#d7e8bd" />
+            </linearGradient>
             <linearGradient id="gardenGrassNear" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#96c977" />
               <stop offset="1" stopColor="#79b25f" />
@@ -1595,8 +1637,15 @@ export function GardenPage({
           <GardenSky phase={phase} />
           {/* distant hazy ridge — atmospheric perspective, drawn behind both
               proper ground layers so the scene reads with real depth */}
-          <path d="M0 138 q60 -18 150 -6 q100 14 250 -10 V260 H0 Z" fill={DISTANT_HILLS[phase]} opacity="0.55" />
+          <path
+            d="M0 138 q60 -18 150 -6 q100 14 250 -10 V260 H0 Z"
+            fill={DISTANT_HILLS[phase]}
+            style={{ filter: 'blur(1px) opacity(0.7)' }}
+          />
           <rect x={viewBox.minX} y="118" width={viewBox.width} height="34" fill="url(#gardenHorizonHaze)" style={{ pointerEvents: 'none' }} />
+          {/* far rolling-hill band — palest/coolest, sits between the ridge
+              and the mid band for a third step of depth */}
+          <path d="M0 145 q80 -20 170 -8 q110 12 220 -6 V260 H0 Z" fill="url(#gardenGrassFar)" />
           <path d="M0 150 q70 -30 160 -12 q90 18 240 -8 V260 H0 Z" fill="url(#gardenGrassMid)" />
           <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="url(#gardenGrassNear)" />
           {/* a soft meandering path for charm */}
@@ -1671,28 +1720,30 @@ export function GardenPage({
                   onMouseLeave={placingAny ? undefined : () => setActiveLabelId((cur) => (cur === p.id ? null : cur))}
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
-                  <g
-                    className={swaying ? 'garden-plant-sway' : undefined}
-                    style={swaying ? {
-                      animationDelay: `${hashSeed(`${p.id}:swaydelay`) % 4}s`,
-                      animationDuration: `${6 + (hashSeed(`${p.id}:swaydur`) % 3)}s`,
-                    } : undefined}
-                  >
+                  <g transform={`scale(${depthScale(y)})`}>
                     <g
-                      className={blooming ? 'garden-plant-bloom' : undefined}
-                      style={blooming ? {
-                        animationDelay: `${hashSeed(`${p.id}:bloomdelay`) % 3}s`,
-                        animationDuration: `${3 + (hashSeed(`${p.id}:bloomdur`) % 2)}s`,
+                      className={swaying ? 'garden-plant-sway' : undefined}
+                      style={swaying ? {
+                        animationDelay: `${hashSeed(`${p.id}:swaydelay`) % 4}s`,
+                        animationDuration: `${6 + (hashSeed(`${p.id}:swaydur`) % 3)}s`,
                       } : undefined}
                     >
-                      <PlantArt type={p.type} stageKey={stageKey} family={p.family} commonName={p.commonName} seed={p.id} />
+                      <g
+                        className={blooming ? 'garden-plant-bloom' : undefined}
+                        style={blooming ? {
+                          animationDelay: `${hashSeed(`${p.id}:bloomdelay`) % 3}s`,
+                          animationDuration: `${3 + (hashSeed(`${p.id}:bloomdur`) % 2)}s`,
+                        } : undefined}
+                      >
+                        <PlantArt type={p.type} stageKey={stageKey} family={p.family} commonName={p.commonName} seed={p.id} />
+                      </g>
                     </g>
+                    {treeHasNest(p) && NEST_SPOT[p.type] && (
+                      <g transform={`translate(${NEST_SPOT[p.type].x} ${NEST_SPOT[p.type].y})`}>
+                        <NestArt />
+                      </g>
+                    )}
                   </g>
-                  {treeHasNest(p) && NEST_SPOT[p.type] && (
-                    <g transform={`translate(${NEST_SPOT[p.type].x} ${NEST_SPOT[p.type].y})`}>
-                      <NestArt />
-                    </g>
-                  )}
                   {!placingAny && activeLabelId === p.id && (
                     <GardenNameLabel text={p.commonName || gardenItem(p.type)?.name} y={-46} />
                   )}
@@ -1728,7 +1779,7 @@ export function GardenPage({
           {/* the living scene: a random mix of creatures, all at once, layered
               in front of the plantings (birds, butterflies, bees by day;
               fireflies, owl, hedgehog, moths, a bat by night) */}
-          {!placingAny && creatures.map((c) => (
+          {!placingAny && sortedCreatures.map((c) => (
             <SceneCreature key={c.id} c={c} activeLabelId={activeLabelId} setActiveLabelId={setActiveLabelId} />
           ))}
 
@@ -1757,7 +1808,7 @@ export function GardenPage({
             className="garden-residents"
             style={{ width: viewBox.width * unitPx, height: viewBox.height * unitPx }}
           >
-            {residents.map((r) => {
+            {sortedResidents.map((r) => {
               // Stable per-resident timing (not re-randomized every render): a
               // cheap hash of the id seeds delay/duration so she never looks
               // frozen, and no two residents ever sway in lockstep.
@@ -1786,7 +1837,11 @@ export function GardenPage({
                       className="garden-resident-sway"
                       style={{ animationDelay: `${seed % 4}s`, animationDuration: `${3.4 + (seed % 5) * 0.3}s` }}
                     >
-                      <TweetyBird level="crowned" companion={r.companionId} size={44} />
+                      {/* .garden-resident-sway animates `transform` itself, so
+                          the depth scale goes on this extra inner span. */}
+                      <span style={{ display: 'inline-block', transform: `scale(${depthScale(r.y ?? 0)})` }}>
+                        <TweetyBird level="crowned" companion={r.companionId} size={44} />
+                      </span>
                     </span>
                     {activeLabelId === r.id && <span className="garden-resident-name">{r.name}</span>}
                     {reaction === 'pet' && (
