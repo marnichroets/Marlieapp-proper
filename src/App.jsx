@@ -2691,6 +2691,10 @@ function App() {
   const [birdProfile, setBirdProfile] = useState(null)
   const [plantProfileId, setPlantProfileId] = useState(null)
   const [tweetyDancing, setTweetyDancing] = useState(false)
+  // Which store item id just landed in the room scene — drives its one-shot
+  // pop-in animation (see .room-slot.gift-pop in App.css). Cleared a moment
+  // after the animation finishes so a later purchase can retrigger it.
+  const [justPurchasedItem, setJustPurchasedItem] = useState(null)
   const [weeklyTip, setWeeklyTip] = useState(false)
   // When true, the release ceremony overlay (a farewell) is shown for a
   // crowned companion graduating to the garden. As soon as it finishes she's
@@ -5977,6 +5981,8 @@ function App() {
       setConfetti(Date.now())
       setTweetyDancing(true)
       window.setTimeout(() => setTweetyDancing(false), 2600)
+      setJustPurchasedItem(item.id)
+      window.setTimeout(() => setJustPurchasedItem((cur) => (cur === item.id ? null : cur)), 700)
       commit(
         {
           ...data,
@@ -5994,6 +6000,10 @@ function App() {
     }
 
     setConfetti(Date.now())
+    setTweetyDancing(true)
+    window.setTimeout(() => setTweetyDancing(false), 2600)
+    setJustPurchasedItem(item.id)
+    window.setTimeout(() => setJustPurchasedItem((cur) => (cur === item.id ? null : cur)), 700)
     commit(
       {
         ...data,
@@ -6556,6 +6566,7 @@ function App() {
             season={season}
             tweetyView={tweetyView}
             tweetyDancing={tweetyDancing}
+            justPurchasedItem={justPurchasedItem}
             missedYou={missedYou}
             careTweety={careTweety}
             releaseAviaryBird={releaseAviaryBird}
@@ -7443,6 +7454,7 @@ function HomePage({
   season,
   tweetyView,
   tweetyDancing,
+  justPurchasedItem,
   missedYou,
   careTweety,
   onSettleHappiness,
@@ -7602,6 +7614,7 @@ function HomePage({
             <TweetyHomeCard
               tweety={data.tweety}
               dancing={tweetyDancing}
+              justPurchasedItem={justPurchasedItem}
               legacyNestTier={tweetyView.nestTier}
               rainbow={tweetyView.rainbow}
               loveLetter={tweetyView.loveLetter}

@@ -959,6 +959,218 @@ const GROWTH_TO_LEVEL = {
   crowned: 'crowned',
 }
 
+// ---- Tweety Store item illustrations -----------------------------------
+// Small flat SVGs, one per store item, each drawn resting at its own natural
+// tilt/angle so the room-slot wrapper (see .room-slot in App.css) never needs
+// to juggle a "resting transform" underneath its pop-in/tap animations — the
+// wrapper always starts from rotate(0) and the artwork itself supplies the
+// character. 64×64 viewBox unless noted, matching the room's small-icon scale.
+function IconWindow() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="6" y="4" width="52" height="52" rx="6" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="2.5" />
+      <rect x="12" y="10" width="40" height="40" rx="3" fill="var(--sky)" />
+      <rect x="30.5" y="10" width="3" height="40" fill="var(--wood)" />
+      <rect x="12" y="28.5" width="40" height="3" fill="var(--wood)" />
+      <path d="M16 15 L27 26" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+      <circle cx="18" cy="55" r="3.6" fill="var(--leaf)" />
+      <path d="M18 55 q-3 -6 -1 -10" stroke="var(--leaf-dark)" strokeWidth="2" fill="none" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconMirror() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <ellipse cx="32" cy="34" rx="20" ry="24" fill="var(--lavender-dark)" />
+      <ellipse cx="32" cy="34" rx="15" ry="19" fill="#eef3f6" />
+      <path d="M22 20 q10 -6 20 2" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6" />
+      <rect x="29" y="6" width="6" height="8" rx="2" fill="var(--lavender-dark)" />
+      <circle cx="32" cy="6" r="2.4" fill="var(--honey-dark)" />
+    </svg>
+  )
+}
+
+function IconChimes() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <line x1="32" y1="2" x2="32" y2="10" stroke="var(--wood-dark)" strokeWidth="2" />
+      <rect x="14" y="10" width="36" height="6" rx="3" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <g stroke="var(--wood-dark)" strokeWidth="1.5">
+        <line x1="20" y1="16" x2="20" y2="34" />
+        <line x1="32" y1="16" x2="32" y2="44" />
+        <line x1="44" y1="16" x2="44" y2="30" />
+      </g>
+      <circle cx="20" cy="38" r="5" fill="var(--rose)" />
+      <circle cx="32" cy="48" r="5.5" fill="var(--honey)" />
+      <circle cx="44" cy="34" r="4.6" fill="var(--leaf)" />
+    </svg>
+  )
+}
+
+function IconPerch() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="2" y="34" width="58" height="7" rx="3.5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="2" transform="rotate(-14 32 37)" />
+      <path d="M14 30 q-4 -8 2 -13" stroke="var(--leaf-dark)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <ellipse cx="15" cy="16" rx="6" ry="3.4" fill="var(--leaf)" transform="rotate(-30 15 16)" />
+      <path d="M46 46 q4 6 -1 12" stroke="var(--leaf-dark)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <ellipse cx="46" cy="59" rx="6" ry="3.2" fill="var(--leaf)" transform="rotate(35 46 59)" />
+    </svg>
+  )
+}
+
+function IconRibbon() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 30 L10 14 Q4 26 20 32 Z" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="2" />
+      <path d="M32 30 L54 14 Q60 26 44 32 Z" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="2" />
+      <path d="M32 30 L22 54 L30 50 Z" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="2" />
+      <path d="M32 30 L42 54 L34 50 Z" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="2" />
+      <circle cx="32" cy="30" r="6.5" fill="var(--rose-dark)" />
+    </svg>
+  )
+}
+
+function IconMusicBox() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="4" y="46" width="56" height="6" rx="2" fill="var(--wood-dark)" />
+      <rect x="14" y="28" width="36" height="20" rx="3" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="2" />
+      <rect x="14" y="24" width="36" height="8" rx="3" fill="var(--honey-dark)" stroke="var(--wood-dark)" strokeWidth="2" />
+      <circle cx="48" cy="38" r="3.2" fill="var(--wood-dark)" />
+      <path d="M27 6 v14 M27 6 q6 -2 6 3 q0 5 -6 3" stroke="var(--ink)" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <circle cx="25.4" cy="21" r="2.6" fill="var(--ink)" />
+    </svg>
+  )
+}
+
+function IconHerbs() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <line x1="32" y1="2" x2="32" y2="16" stroke="var(--wood-dark)" strokeWidth="2" />
+      <g strokeLinecap="round">
+        <path d="M32 16 L18 50" stroke="var(--leaf)" strokeWidth="6" />
+        <path d="M32 16 L32 54" stroke="var(--leaf-dark)" strokeWidth="6" />
+        <path d="M32 16 L46 50" stroke="var(--leaf)" strokeWidth="6" />
+        <path d="M32 16 L24 46" stroke="var(--lavender)" strokeWidth="5" />
+        <path d="M32 16 L40 46" stroke="var(--lavender)" strokeWidth="5" />
+      </g>
+      <rect x="26" y="13" width="12" height="6" rx="2" fill="var(--honey-dark)" />
+    </svg>
+  )
+}
+
+function IconFeedingBowl() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <ellipse cx="32" cy="46" rx="24" ry="8" fill="var(--wood-dark)" opacity="0.18" />
+      <path d="M8 34 a24 16 0 0 0 48 0 Z" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="2.5" />
+      <ellipse cx="32" cy="34" rx="24" ry="7" fill="var(--paper)" stroke="var(--rose-dark)" strokeWidth="2.5" />
+      <circle cx="24" cy="34" r="2.4" fill="var(--honey-dark)" />
+      <circle cx="32" cy="35.5" r="2.4" fill="var(--honey-dark)" />
+      <circle cx="40" cy="34" r="2.4" fill="var(--honey-dark)" />
+    </svg>
+  )
+}
+
+function IconTreats() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M16 24 h32 l-4 30 a4 4 0 0 1 -4 4 h-16 a4 4 0 0 1 -4 -4 Z" fill="var(--honey-dark)" stroke="var(--wood-dark)" strokeWidth="2" />
+      <path d="M16 24 q16 -14 32 0" fill="none" stroke="var(--wood-dark)" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M27 12 q5 6 0 12" fill="none" stroke="var(--wood-dark)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="40" r="5.5" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function IconWaterTank() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="16" y="10" width="32" height="44" rx="8" fill="var(--sky)" opacity="0.55" stroke="var(--sky-dark)" strokeWidth="2.5" />
+      <path d="M16 34 h32 v14 a8 8 0 0 1 -8 8 h-16 a8 8 0 0 1 -8 -8 Z" fill="var(--sky)" opacity="0.9" />
+      <rect x="20" y="4" width="24" height="8" rx="3" fill="var(--sky-dark)" />
+      <path d="M50 20 q6 6 0 12 q-6 -6 0 -12 Z" fill="var(--sky-dark)" />
+    </svg>
+  )
+}
+
+function IconFlowers() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M24 58 L28 30" stroke="var(--leaf-dark)" strokeWidth="2.5" fill="none" />
+      <path d="M32 58 L32 22" stroke="var(--leaf-dark)" strokeWidth="2.5" fill="none" />
+      <path d="M40 58 L36 30" stroke="var(--leaf-dark)" strokeWidth="2.5" fill="none" />
+      <rect x="20" y="54" width="24" height="7" rx="2" fill="var(--rose-dark)" />
+      <g transform="translate(28,26)">
+        <circle cx="0" cy="-6" r="4.2" fill="var(--rose)" /><circle cx="5.6" cy="-2" r="4.2" fill="var(--rose)" />
+        <circle cx="3.4" cy="4.6" r="4.2" fill="var(--rose)" /><circle cx="-3.4" cy="4.6" r="4.2" fill="var(--rose)" />
+        <circle cx="-5.6" cy="-2" r="4.2" fill="var(--rose)" /><circle cx="0" cy="0" r="3.4" fill="var(--honey-dark)" />
+      </g>
+      <g transform="translate(36,18)">
+        <circle cx="0" cy="-5.6" r="3.8" fill="var(--honey)" /><circle cx="5" cy="-1.8" r="3.8" fill="var(--honey)" />
+        <circle cx="3" cy="4" r="3.8" fill="var(--honey)" /><circle cx="-3" cy="4" r="3.8" fill="var(--honey)" />
+        <circle cx="-5" cy="-1.8" r="3.8" fill="var(--honey)" /><circle cx="0" cy="0" r="3" fill="var(--rose-dark)" />
+      </g>
+      <g transform="translate(24,34) scale(0.85)">
+        <circle cx="0" cy="-5.6" r="3.8" fill="var(--lavender)" /><circle cx="5" cy="-1.8" r="3.8" fill="var(--lavender)" />
+        <circle cx="3" cy="4" r="3.8" fill="var(--lavender)" /><circle cx="-3" cy="4" r="3.8" fill="var(--lavender)" />
+        <circle cx="-5" cy="-1.8" r="3.8" fill="var(--lavender)" /><circle cx="0" cy="0" r="3" fill="var(--honey-dark)" />
+      </g>
+    </svg>
+  )
+}
+
+function IconBlanket() {
+  return (
+    <svg viewBox="0 0 120 40" aria-hidden="true">
+      <path d="M4 10 Q60 -6 116 10 L116 24 Q60 36 4 24 Z" fill="var(--honey)" stroke="var(--honey-dark)" strokeWidth="2" />
+      <path d="M10 14 Q60 2 110 14" stroke="var(--honey-dark)" strokeWidth="1.6" fill="none" opacity="0.6" />
+      <path d="M10 20 Q60 10 110 20" stroke="var(--honey-dark)" strokeWidth="1.6" fill="none" opacity="0.6" />
+      <path d="M12 26 Q60 18 108 26" stroke="var(--rose)" strokeWidth="1.6" fill="none" opacity="0.7" />
+    </svg>
+  )
+}
+
+// A fixed, always-rendered spot in the room scene. Unowned items stay visible
+// as a faint, desaturated ghost of the real thing — "room to fill", never a
+// gap — and only become a tappable button once she actually owns them.
+function RoomItem({ className, title, icon, owned, popping, tapped, onTap }) {
+  const cls = `room-slot ${className}${owned ? ' owned' : ' empty'}${popping ? ' gift-pop' : ''}${tapped ? ' tapped' : ''}`
+  if (!owned) {
+    return (
+      <div className={cls} aria-hidden="true">
+        {icon}
+      </div>
+    )
+  }
+  return (
+    <button type="button" className={cls} title={title} onClick={onTap}>
+      {icon}
+    </button>
+  )
+}
+
+// The room map itself — each entry a fixed, named spot (see .slot-* in
+// App.css for the actual position), matching the brief's "designated spots"
+// layout: window upper-left, mirror + chimes upper-right, perch + ribbon left
+// of the nest, music box + herbs to its right, bowl + treats on the ground
+// left, water tank + flowers on the ground right.
+const ROOM_ITEMS = [
+  { id: 'window', className: 'slot-window', title: 'Tiny Window', icon: <IconWindow /> },
+  { id: 'mirror', className: 'slot-mirror', title: 'Small Mirror', icon: <IconMirror /> },
+  { id: 'chimes', className: 'slot-chimes', title: 'Tap the wind chimes', icon: <IconChimes /> },
+  { id: 'perch', className: 'slot-perch', title: 'Perch Branch', icon: <IconPerch /> },
+  { id: 'ribbon', className: 'slot-ribbon', title: 'Ribbon Decoration', icon: <IconRibbon /> },
+  { id: 'musicbox', className: 'slot-musicbox', title: 'Tap the music box', icon: <IconMusicBox /> },
+  { id: 'herbs', className: 'slot-herbs', title: 'Herb Bundle', icon: <IconHerbs /> },
+  { id: 'feedingbowl', className: 'slot-feedingbowl', title: 'Feeding Bowl — she always has something to nibble', icon: <IconFeedingBowl /> },
+  { id: 'treats', className: 'slot-treats', title: 'Special Treats — a little bowl she can always nibble from', icon: <IconTreats /> },
+  { id: 'watertank', className: 'slot-watertank', title: 'Large Water Tank — never runs dry', icon: <IconWaterTank /> },
+  { id: 'flowers', className: 'slot-flowers', title: 'Flower Bouquet', icon: <IconFlowers /> },
+]
+
 // Tweety Store gifts: tap any owned item for a chirp + a matching motion.
 // 'dance' reuses the existing happy-dance bounce, 'sway' is the gentler
 // gift-tap motion, 'preen' reuses the existing self-preening wobble.
@@ -982,6 +1194,7 @@ const GIFT_REACTIONS = {
 export function TweetyHomeCard({
   tweety,
   dancing = false,
+  justPurchasedItem = null,
   legacyNestTier = 'basic',
   rainbow = false,
   loveLetter = '',
@@ -1132,166 +1345,85 @@ export function TweetyHomeCard({
 
       <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
-        {nestTier === 'treehouse' && (
-          <button
-            type="button"
-            className={`nest-decor nest-tree${justTapped === 'birdhouse' ? ' tapped' : ''}`}
-            title="Luxury Birdhouse"
-            onClick={() => tapGift('birdhouse')}
-          >
-            🌳
-          </button>
-        )}
-        {boosted && <div className="gift-boost-sparkle" title="Treats Bag boost — happy all day" aria-hidden="true">✨</div>}
 
-        {ownedGiftIds.has('feedingbowl') && (
-          <button
-            type="button"
-            className={`gift-feedingbowl${justTapped === 'feedingbowl' ? ' tapped' : ''}`}
-            title="Feeding Bowl — she always has something to nibble"
-            onClick={() => tapGift('feedingbowl')}
-          >
-            🥣
-          </button>
-        )}
+        {/* A cosy little room, not a scatter of emoji — every store item gets
+            a fixed, named spot (see ROOM_ITEMS above), rendered even before
+            she owns it as a faint "room to fill" outline. */}
+        <div className="tweety-room">
+          {ROOM_ITEMS.map((it) => {
+            // Treats is a repeatable consumable, never added to the permanent
+            // gifts list — its bowl only appears while today's boost is
+            // active (plus any legacy one-off 'treats' id, kept recognized).
+            const owned = it.id === 'treats' ? boosted || ownedGiftIds.has('treats') : ownedGiftIds.has(it.id)
+            return (
+              <RoomItem
+                key={it.id}
+                className={it.className}
+                title={it.title}
+                icon={it.icon}
+                owned={owned}
+                popping={justPurchasedItem === it.id}
+                tapped={justTapped === it.id}
+                onTap={() => tapGift(it.id)}
+              />
+            )
+          })}
 
-        {ownedGiftIds.has('watertank') && (
-          <button
-            type="button"
-            className={`gift-watertank${justTapped === 'watertank' ? ' tapped' : ''}`}
-            title="Large Water Tank — never runs dry"
-            onClick={() => tapGift('watertank')}
-          >
-            💧
-          </button>
-        )}
-
-        {ownedGiftIds.has('treats') && (
-          <button
-            type="button"
-            className={`gift-treatsbowl${justTapped === 'treats' ? ' tapped' : ''}`}
-            title="Special Treats — a little bowl she can always nibble from"
-            onClick={() => tapGift('treats')}
-          >
-            🍓
-          </button>
-        )}
-
-        {ownedGiftIds.has('flowers') && (
-          <button
-            type="button"
-            className={`gift-flowers${justTapped === 'flowers' ? ' tapped' : ''}`}
-            title="Flower Bouquet"
-            onClick={() => tapGift('flowers')}
-          >
-            🌸
-          </button>
-        )}
-
-        <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
-          {ownedGiftIds.has('blanket') && (
-            <button
-              type="button"
-              className={`gift-blanket${justTapped === 'blanket' ? ' tapped' : ''}`}
-              title="Cozy Nest Blanket"
-              onClick={() => tapGift('blanket')}
-            />
-          )}
-          {ownedGiftIds.has('herbs') && (
-            <button
-              type="button"
-              className={`gift-herbs${justTapped === 'herbs' ? ' tapped' : ''}`}
-              title="Herb Bundle"
-              onClick={() => tapGift('herbs')}
+          <div className={`tweety-nest${rainbow ? ' tweety-rainbow' : ''}`}>
+            {boosted && <div className="gift-boost-sparkle" title="Treats Bag boost — happy all day" aria-hidden="true">✨</div>}
+            {/* Cozy Nest Blanket is its own purchase, independent of the
+                nest-tier upgrade below — a warm lining that can sit under
+                any tier, basic through birdhouse. */}
+            <div className={`tweety-blanket${ownedGiftIds.has('blanket') ? ' owned' : ' empty'}${justPurchasedItem === 'blanket' ? ' gift-pop' : ''}`}>
+              {ownedGiftIds.has('blanket') ? (
+                <button
+                  type="button"
+                  className={`tweety-blanket-btn${justTapped === 'blanket' ? ' tapped' : ''}`}
+                  title="Cozy Nest Blanket"
+                  onClick={() => tapGift('blanket')}
+                >
+                  <IconBlanket />
+                </button>
+              ) : (
+                <span aria-hidden="true"><IconBlanket /></span>
+              )}
+            </div>
+            {/* Tweety visual overhaul — steps 1-3: the species-accurate
+                GardenBird template, scaled/muted by her real growth stage,
+                plus a small crown once fully grown. The wrapper also carries
+                her idle mood posture (tweety-posture-*) and, temporarily,
+                whichever dance/preen/sway reaction is playing (motionClass) —
+                the same CSS classes the old cartoon body used, just applied
+                to this wrapper instead. */}
+            <span
+              className={`tweety-bird${motionClass ? ` ${motionClass}` : ''} tweety-posture-${posture}`}
+              aria-hidden="true"
             >
-              🌿
-            </button>
-          )}
-          {ownedGiftIds.has('perch') && (
-            <button
-              type="button"
-              className={`gift-perch${justTapped === 'perch' ? ' tapped' : ''}`}
-              title="Perch Branch"
-              onClick={() => tapGift('perch')}
-            >
-              🪵
-            </button>
-          )}
-          {ownedGiftIds.has('window') && (
-            <button
-              type="button"
-              className={`gift-window${justTapped === 'window' ? ' tapped' : ''}`}
-              title="Tiny Window"
-              onClick={() => tapGift('window')}
-            >
-              🪟
-            </button>
-          )}
-          {ownedGiftIds.has('ribbon') && (
-            <button
-              type="button"
-              className={`gift-ribbon${justTapped === 'ribbon' ? ' tapped' : ''}`}
-              title="Ribbon Decoration"
-              onClick={() => tapGift('ribbon')}
-            >
-              🎀
-            </button>
-          )}
-          {ownedGiftIds.has('mirror') && (
-            <button
-              type="button"
-              className={`gift-mirror${justTapped === 'mirror' ? ' tapped' : ''}`}
-              title="Small Mirror"
-              onClick={() => tapGift('mirror')}
-            >
-              🪞
-            </button>
-          )}
-          {/* Tweety visual overhaul — steps 1-3: the species-accurate
-              GardenBird template, scaled/muted by her real growth stage,
-              plus a small crown once fully grown. The wrapper also carries
-              her idle mood posture (tweety-posture-*) and, temporarily,
-              whichever dance/preen/sway reaction is playing (motionClass) —
-              the same CSS classes the old cartoon body used, just applied
-              to this wrapper instead. */}
-          <span
-            className={`tweety-bird${motionClass ? ` ${motionClass}` : ''} tweety-posture-${posture}`}
-            aria-hidden="true"
-          >
-            <GardenBird template="songbird-small" zones={tweetyZones} size={110 * stageScale} />
-            {birdLevel === 'crowned' && <TweetyCrown />}
-          </span>
-          {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
-          {nestTier === 'basic' ? (
-            <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
-          ) : (
-            <button
-              type="button"
-              className={`tweety-nest-base nest-base-${nestTier}${justTapped === (nestTier === 'treehouse' ? 'birdhouse' : 'cozynest') ? ' tapped' : ''}`}
-              title={nestTier === 'treehouse' ? 'Luxury Birdhouse' : 'Cozy Nest Upgrade'}
-              onClick={() => tapGift(nestTier === 'treehouse' ? 'birdhouse' : 'cozynest')}
-            />
-          )}
-          {ownedGiftIds.has('chimes') && (
-            <button
-              type="button"
-              className={`gift-chimes${justTapped === 'chimes' ? ' tapped' : ''}`}
-              title="Tap the wind chimes"
-              onClick={() => tapGift('chimes')}
-            >
-              🎐
-            </button>
-          )}
-          {ownedGiftIds.has('musicbox') && (
-            <button
-              type="button"
-              className={`gift-musicbox${justTapped === 'musicbox' ? ' tapped' : ''}`}
-              title="Tap the music box"
-              onClick={() => tapGift('musicbox')}
-            >
-              🎵
-            </button>
-          )}
+              <GardenBird template="songbird-small" zones={tweetyZones} size={110 * stageScale} />
+              {birdLevel === 'crowned' && <TweetyCrown />}
+            </span>
+            {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
+            {nestTier === 'basic' ? (
+              <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                className={`tweety-nest-base nest-base-${nestTier}${justTapped === (nestTier === 'treehouse' ? 'birdhouse' : 'cozynest') ? ' tapped' : ''}${justPurchasedItem === (nestTier === 'treehouse' ? 'birdhouse' : 'cozynest') ? ' gift-pop' : ''}`}
+                title={nestTier === 'treehouse' ? 'Luxury Birdhouse' : 'Cozy Nest Upgrade'}
+                onClick={() => tapGift(nestTier === 'treehouse' ? 'birdhouse' : 'cozynest')}
+              />
+            )}
+            {nestTier === 'treehouse' && (
+              <button
+                type="button"
+                className={`nest-decor nest-tree${justTapped === 'birdhouse' ? ' tapped' : ''}${justPurchasedItem === 'birdhouse' ? ' gift-pop' : ''}`}
+                title="Luxury Birdhouse"
+                onClick={() => tapGift('birdhouse')}
+              >
+                🌳
+              </button>
+            )}
+          </div>
         </div>
         <span className="tweety-level-pill">{growth.label}</span>
         <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
