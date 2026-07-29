@@ -2680,6 +2680,11 @@ function App() {
   // Last known backend version of the active account's state, so debounced saves
   // can bump it monotonically and we can tell our cache from a fresher remote.
   const stateVersionRef = useRef(0)
+  // Serializes every syncStateToBackend run (debounced autosave, immediate
+  // high-value saves, and the pending-sync recovery) behind a single chain —
+  // see queueSync below. Only one save, including its full 409 conflict
+  // resolution, is ever in flight at a time.
+  const syncQueueRef = useRef(Promise.resolve())
   // Has the active account already seen the one-time cinematic intro? Read
   // immediately on app load so a refresh/navigation never replays it.
   const [introSeen, setIntroSeen] = useState(() =>
@@ -3231,26 +3236,29 @@ function App() {
     }
   }, [data, account, readOnly])
 
-  // Posts `state` to the backend and reconciles a 409 version conflict (see
-  // backend/main.py::_save_player_state): this save was based on a version
-  // that's no longer current, because another device or a manual admin fix
-  // moved the account ahead of it. Re-fetch the authoritative state — if we
-  // have no genuine local edits on top of it, adopt it outright (this is
-  // exactly the case that used to get silently clobbered, causing the
-  // mystery-egg/companion corruption on 2026-07-12/13). If we do have real
-  // local edits, re-save them once on top of the fresh version rather than
-  // dropping the write forever.
+  // Posts the CURRENT state — read fresh from dataRef.current the moment this
+  // actually runs, never a snapshot from whenever it was requested — and
+  // reconciles a 409 version conflict (see backend/main.py::_save_player_state):
+  // this save was based on a version that's no longer current, because another
+  // device or a manual admin fix moved the account ahead of it. Re-fetch the
+  // authoritative state — if we have no genuine local edits on top of it,
+  // adopt it outright (this is exactly the case that used to get silently
+  // clobbered, causing the mystery-egg/companion corruption on 2026-07-12/13).
+  // If we do have real local edits, re-save them once on top of the fresh
+  // version rather than dropping the write forever.
   //
-  // Factored out of the debounce effect below so a high-value action (see
-  // careTweety's `immediate` commit) can trigger this right away instead of
-  // waiting out the full debounce, without duplicating the conflict logic.
-  async function syncStateToBackend(state, { isRetry = false } = {}) {
+  // ALWAYS call this through queueSync below, never directly — see there for
+  // why. Factored out of the debounce effect below so a high-value action
+  // (see careTweety's `immediate` commit) can trigger this right away instead
+  // of waiting out the full debounce, without duplicating the conflict logic.
+  async function syncStateToBackend({ isRetry = false } = {}) {
     if (readOnly || !session) {
       return
     }
     if (account !== 'pooks' && account !== 'marnich') {
       return
     }
+    const state = dataRef.current
     const res = await saveRemoteState(account, state, stateVersionRef.current)
     if (res && !res.conflict) {
       stateVersionRef.current = res.version
@@ -3263,9 +3271,12 @@ function App() {
       // swallows the failure silently, so without this retry+flag a single blip
       // loses the write with no record of it ever happening (the root cause behind
       // the feed-glitch: a later reload's mount-time fetch would then have no way
-      // to know the backend copy it's about to adopt is stale).
+      // to know the backend copy it's about to adopt is stale). Queued as a fresh
+      // turn (not awaited here) so this one 2.5s wait doesn't stall any save
+      // requested in the meantime — it'll pick up whatever's current when its
+      // turn comes.
       if (!isRetry) {
-        window.setTimeout(() => syncStateToBackend(state, { isRetry: true }), 2500)
+        window.setTimeout(() => queueSync({ isRetry: true }), 2500)
         return
       }
       markPendingSync(account)
@@ -3301,17 +3312,33 @@ function App() {
     }
   }
 
+  // Single entry point for every save. Chaining onto syncQueueRef means a
+  // save requested while one is already running (a network round-trip, a 409
+  // conflict's re-fetch-and-retry, all of it) waits for that run to fully
+  // settle — success, failure, or conflict resolution — before starting its
+  // own, and only then reads dataRef/stateVersionRef, so it always acts on
+  // the latest state instead of whatever was current back when it was
+  // requested. This is what stops concurrent care-taps (or a store purchase
+  // racing the autosave) from corrupting each other's view of the backend
+  // version and adopting a stale remote snapshot over newer local progress.
+  function queueSync(options) {
+    syncQueueRef.current = syncQueueRef.current
+      .catch(() => {})
+      .then(() => syncStateToBackend(options))
+  }
+
   // Source of truth: debounce-save the active account's state to the backend so
   // it follows her login onto any device. The localStorage write above stays as
   // the offline cache. Never runs while viewing Pooks' read-only mirror.
   useEffect(() => {
     if (readOnly || !session) return undefined
     if (account !== 'pooks' && account !== 'marnich') return undefined
-    const timer = window.setTimeout(() => syncStateToBackend(data), 10000)
+    const timer = window.setTimeout(() => queueSync(), 10000)
     return () => window.clearTimeout(timer)
-    // syncStateToBackend is a fresh closure every render but only meaningfully
-    // depends on account/readOnly/session — already listed — so including it
-    // here would just reset this 10s timer on every unrelated re-render.
+    // queueSync/syncStateToBackend are fresh closures every render but only
+    // meaningfully depend on account/readOnly/session — already listed — so
+    // including them here would just reset this 10s timer on every unrelated
+    // re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, account, readOnly, session])
 
@@ -3438,7 +3465,7 @@ function App() {
         // rather than silently comparing it away as "nothing to save".
         stateVersionRef.current = remote.version
         lastSyncedRef.current = null
-        syncStateToBackend(dataRef.current)
+        queueSync()
         return
       }
       // Don't clobber edits the user made WHILE this fetch was in flight — e.g.
@@ -4632,6 +4659,7 @@ function App() {
         body: `${item.emoji} ${item.name}${free ? ' — sent with love by Marnich! 💛' : ' is ready to wear.'}`,
         tone: free ? 'success' : 'calm',
       },
+      { immediate: true },
     )
   }
 
@@ -5205,10 +5233,18 @@ function App() {
     const unlockSummary = giftsEnabled ? getUnlockSummary(data, recalculated) : ''
     const unlockedRewards = giftsEnabled ? getNewlyUnlockedRewards(data, recalculated) : []
     setData(recalculated)
+    // Mirror into dataRef synchronously, not just via the render-body copy
+    // below (`dataRef.current = data`) — an immediate save's queued turn can
+    // run as soon as the next microtask, and this way it reads `recalculated`
+    // deterministically instead of depending on React having already
+    // re-rendered by then.
+    dataRef.current = recalculated
     // High-value care actions (careTweety) opt into an immediate save instead
     // of waiting the full 10s debounce — see the mobile-backgrounding
-    // reversion bug this fixes.
-    if (immediate) syncStateToBackend(recalculated)
+    // reversion bug this fixes. Goes through queueSync (not called directly)
+    // so it reads dataRef.current fresh rather than racing any other
+    // in-flight save.
+    if (immediate) queueSync()
     if (unlockedRewards.length) {
       setRewardUnlockQueue((current) => [...current, ...unlockedRewards])
       // Email Marnich about each freshly unlocked gift.
