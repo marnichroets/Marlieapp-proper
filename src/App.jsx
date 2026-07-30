@@ -36,6 +36,7 @@ import {
 } from './Tweety'
 import { ReleaseCeremony } from './ReleaseCeremony'
 import { GardenPage } from './Garden'
+import { GreenhousePage } from './Greenhouse'
 import {
   defaultGarden,
   gardenItem,
@@ -6641,6 +6642,9 @@ function App() {
             plantableSpecies={plantableSpecies}
           />
         )}
+        {activePage === 'greenhouse' && (account === 'pooks' || account === 'marnich') && (
+          <GreenhousePage onBack={goBack} />
+        )}
         {activePage === 'sanctuary' && (
           <SanctuaryPage
             tweety={data.tweety}
@@ -7686,6 +7690,15 @@ function HomePage({
               <small>Watch it grow — plant, tend, and visit the birds who call it home.</small>
             </span>
             <span className="garden-home-arrow" aria-hidden="true">→</span>
+          </button>
+
+          <button className="greenhouse-home-card" type="button" onClick={() => goTo('greenhouse')}>
+            <span className="greenhouse-home-emoji" aria-hidden="true">🌿</span>
+            <span className="greenhouse-home-text">
+              <strong>My Greenhouse</strong>
+              <small>A warm little glasshouse — grow potted plants from her own species.</small>
+            </span>
+            <span className="greenhouse-home-arrow" aria-hidden="true">→</span>
           </button>
 
           {/* On mobile these three cards are hidden to keep the home screen

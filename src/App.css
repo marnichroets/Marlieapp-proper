@@ -6079,6 +6079,31 @@ button.tweety-nest-base.gift-pop {
   .room-tweety, .room-fire-flame, .room-fire-glow, .room-fairy circle, .room-note { animation: none; }
 }
 
+/* greenhouse */
+.greenhouse-stage { text-align: center; }
+.greenhouse-scene {
+  position: relative; height: 200px; margin: 10px 0; border-radius: 16px;
+  overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06), 0 6px 18px rgba(120,90,50,0.18);
+}
+.greenhouse-svg { display: block; width: 100%; height: 100%; }
+
+/* Prominent Home entry point for the Greenhouse, matching the Garden card's
+   dashed-invite styling but in warm glasshouse tones. */
+.greenhouse-home-card {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 14px 18px; border-radius: 18px; cursor: pointer;
+  background: linear-gradient(135deg, rgba(232, 201, 122, 0.26), rgba(174, 208, 218, 0.18));
+  border: 2px dashed var(--dash);
+  box-shadow: 0 2px 0 rgba(180, 160, 130, 0.12);
+  transition: transform 0.15s ease;
+}
+.greenhouse-home-card:hover { transform: translateY(-1px); }
+.greenhouse-home-emoji { font-size: 2rem; animation: av-hop 2.4s ease-in-out infinite; }
+.greenhouse-home-text { flex: 1; }
+.greenhouse-home-text strong { display: block; color: var(--ink-strong); font-size: 1.02rem; }
+.greenhouse-home-text small { color: var(--muted); font-weight: 600; }
+.greenhouse-home-arrow { font-size: 1.3rem; color: #c9a758; }
+
 /* sanctuary empty state */
 .sanctuary-empty { text-align: center; }
 .sanctuary-empty-svg {
