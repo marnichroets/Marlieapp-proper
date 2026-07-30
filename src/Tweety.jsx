@@ -1133,6 +1133,78 @@ function IconBlanket() {
   )
 }
 
+// The room's actual background — wood-panelled wall, a real window (sky +
+// windowsill plant, no cross-bars so it never reads as "barred"), and a
+// planked floor. Purely decorative: sits behind every ROOM_ITEMS slot and
+// the nest (z-index 0, pointer-events none), so it never touches item
+// positions, ownership, or tap handling — just fixes the flat, cold-looking
+// backdrop Pooks was seeing (see the 2026-07-29 "looks like a prison" note).
+function RoomBackdrop() {
+  return (
+    <svg
+      className="room-backdrop-svg"
+      viewBox="0 0 300 240"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id="roomWarmGlow" cx="0.5" cy="0" r="0.75">
+          <stop offset="0" stopColor="#ffe0a0" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#ffe0a0" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="roomSkyG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#cfe9f7" />
+          <stop offset="1" stopColor="#eaf6fb" />
+        </linearGradient>
+      </defs>
+
+      {/* warm wood-panelled wall */}
+      <rect x="0" y="0" width="300" height="149" fill="#f5efe4" />
+      {[20, 40, 60, 80, 100, 120, 140].map((y) => (
+        <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#a9713f" strokeOpacity="0.12" strokeWidth="1" />
+      ))}
+      <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow)" />
+
+      {/* a real window — plain rounded frame, sky, no bars */}
+      <rect x="108" y="16" width="84" height="58" rx="10" fill="#b8863e" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="url(#roomSkyG)" />
+      <ellipse cx="138" cy="38" rx="12" ry="5" fill="#ffffff" opacity="0.75" />
+      <ellipse cx="158" cy="47" rx="15" ry="5.5" fill="#ffffff" opacity="0.7" />
+      {/* windowsill with a tiny potted plant */}
+      <rect x="102" y="74" width="96" height="7" rx="2" fill="#a9713f" />
+      <g>
+        <path d="M154 61 L146 72 L150 72 L156 63 Z" fill="#7ba36e" />
+        <path d="M158 58 L152 72 L156 72 L161 60 Z" fill="#6b8f62" />
+        <path d="M160 63 L156 72 L160 72 L163 65 Z" fill="#7ba36e" />
+        <path d="M150 72 L162 72 L160 79 L152 79 Z" fill="#c96f4a" stroke="#a1512f" strokeWidth="1" />
+      </g>
+
+      {/* planked floor, alternating warm tones with thin gaps between boards */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect
+          key={i}
+          x="0"
+          y={149 + i * 18.2}
+          width="300"
+          height="18"
+          fill={i % 2 === 0 ? '#c79358' : '#b8814a'}
+        />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <line
+          key={i}
+          x1="0"
+          y1={149 + i * 18.2}
+          x2="300"
+          y2={149 + i * 18.2}
+          stroke="#00000018"
+          strokeWidth="1"
+        />
+      ))}
+    </svg>
+  )
+}
+
 // A fixed, always-rendered spot in the room scene. Unowned items stay visible
 // as a faint, desaturated ghost of the real thing — "room to fill", never a
 // gap — and only become a tappable button once she actually owns them.
@@ -1350,6 +1422,9 @@ export function TweetyHomeCard({
             a fixed, named spot (see ROOM_ITEMS above), rendered even before
             she owns it as a faint "room to fill" outline. */}
         <div className="tweety-room">
+          <div className="room-backdrop" aria-hidden="true">
+            <RoomBackdrop />
+          </div>
           {ROOM_ITEMS.map((it) => {
             // Treats is a repeatable consumable, never added to the permanent
             // gifts list — its bowl only appears while today's boost is
