@@ -6082,7 +6082,7 @@ button.tweety-nest-base.gift-pop {
 /* greenhouse */
 .greenhouse-stage { text-align: center; }
 .greenhouse-scene {
-  position: relative; height: 200px; margin: 10px 0; border-radius: 16px;
+  position: relative; height: 260px; margin: 10px 0; border-radius: 16px;
   overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06), 0 6px 18px rgba(120,90,50,0.18);
 }
 .greenhouse-svg { display: block; width: 100%; height: 100%; }
@@ -6103,6 +6103,52 @@ button.tweety-nest-base.gift-pop {
 .greenhouse-home-text strong { display: block; color: var(--ink-strong); font-size: 1.02rem; }
 .greenhouse-home-text small { color: var(--muted); font-weight: 600; }
 .greenhouse-home-arrow { font-size: 1.3rem; color: #c9a758; }
+
+/* ---- Step 2: the interaction system --------------------------------------- */
+.greenhouse-status-row {
+  display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;
+  font-weight: 700; color: var(--leaf-dark); font-size: 0.92rem; margin: 2px 0 4px;
+}
+.greenhouse-water-all { margin: 8px auto 4px; display: block; }
+
+.greenhouse-picker, .greenhouse-selected { text-align: center; }
+.greenhouse-selected h3 { margin: 2px 0 6px; }
+.greenhouse-selected-actions {
+  display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 8px;
+}
+
+/* Grow Light's warm wash above each shelf — a slow, gentle pulse so it reads
+   as "on" without competing with the water-drop / bloom animations. */
+.gh-growlight-glow { animation: gh-glow-pulse 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes gh-glow-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+/* Tap-to-water feedback: a droplet falls from just above the pot into the
+   soil, then a brief splash burst. Both halves are timed to finish inside
+   the ~700ms the caller keeps this element mounted (see GreenhousePage's
+   playWaterAnim). */
+.gh-waterdrop { pointer-events: none; }
+.gh-waterdrop-fall {
+  animation: gh-drop-fall 0.5s ease-in forwards;
+  transform-box: fill-box; transform-origin: center;
+}
+@keyframes gh-drop-fall {
+  0% { transform: translateY(-24px); opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+.gh-waterdrop-splash {
+  opacity: 0;
+  animation: gh-splash 0.32s ease-out 0.42s forwards;
+  transform-box: fill-box; transform-origin: center;
+}
+@keyframes gh-splash {
+  0% { opacity: 0.9; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
 
 /* sanctuary empty state */
 .sanctuary-empty { text-align: center; }

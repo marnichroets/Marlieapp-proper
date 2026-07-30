@@ -52,6 +52,26 @@ import {
   expansionItem,
 } from './gardenData'
 import {
+  defaultGreenhouse,
+  defaultPot,
+  plantableGreenhouseSpecies,
+  slotById,
+  MAX_SLOTS,
+  SLOT_COST,
+  potStyleItem,
+  toolItem,
+  hasTool,
+  ownedToolUses,
+  canWaterPot,
+  canMistPot,
+  computeHealth,
+  waterPots,
+  finalizeWatering,
+  ageGreenhouseByOneDay,
+  SPRAY_HEALTH_BONUS,
+  TRIM_COINS,
+} from './greenhouseData'
+import {
   defaultTweety,
   tweetyToday,
   tweetyStreak,
@@ -2089,6 +2109,7 @@ function buildDefaultState() {
     store: defaultStore(),
     games: defaultGames(),
     garden: defaultGarden(),
+    greenhouse: defaultGreenhouse(),
     weeklyQuizClaimedWeek: null,
     weeklyPlantQuizClaimedWeek: null,
     // Which 3-day magazine issue (issue.week) the new-issue Home popup has
@@ -2333,6 +2354,10 @@ function normalizeLoadedState(saved) {
           ...(base.garden.shopUnlocked || []),
           ...(saved.garden?.shopUnlocked || []),
         ])),
+      },
+      greenhouse: {
+        ...base.greenhouse,
+        ...(saved.greenhouse || {}),
       },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
@@ -2815,6 +2840,13 @@ function App() {
     )
     return (data.plantLibrary || []).filter((p) => !plantedKeys.has(p.speciesKey))
   }, [data.plantLibrary, data.garden?.plantings])
+
+  // Same idea for the Greenhouse's own picker — a species already potted
+  // (alive or dead) isn't offered again until she clears that pot.
+  const plantableForGreenhouse = useMemo(
+    () => plantableGreenhouseSpecies(data.plantLibrary, data.greenhouse),
+    [data.plantLibrary, data.greenhouse],
+  )
 
   const tweetyView = useMemo(() => {
     const today = tweetyToday(data.tweety)
@@ -4464,6 +4496,249 @@ function App() {
     )
   }
 
+  // ----- Greenhouse (indoor potted-plant care loop) --------------------------
+  // Tapping an empty slot only opens the species picker when there's actually
+  // something to pot — these two informational toasts cover the "nothing to
+  // plant yet" cases, fired from GreenhousePage before it ever opens the
+  // picker (see onNothingToPlant).
+  function greenhouseNothingToPlant(reason) {
+    if (reason === 'no-plants') {
+      setToast({ title: 'No plants yet', body: 'Explore the wild to discover plants!', tone: 'calm' })
+    } else {
+      setToast({ title: 'No seeds yet', body: 'Discover a new species to earn seeds 🌱', tone: 'calm' })
+    }
+  }
+
+  // Pot a real identified species from the Seed Pouch into a specific empty
+  // slot — costs 1 seed only (cheaper commitment than the outdoor Garden's
+  // seed+coins planting, since a pot is easy to clear and replant later).
+  function potGreenhouseSpecies(slotId, speciesKey) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const slot = slotById(slotId)
+    if (!slot || slotId >= (greenhouse.unlockedSlots || 0)) return
+    if ((greenhouse.pots || []).some((p) => p.slot === slotId)) return
+    if (data.seeds <= 0) return
+    const species = data.plantLibrary.find((p) => p.speciesKey === speciesKey)
+    if (!species) return
+    if ((greenhouse.pots || []).some((p) => p.plantId === speciesKey)) return
+    const pot = defaultPot({
+      id: createId('pot'),
+      slot: slotId,
+      plantId: speciesKey,
+      plantName: species.commonName,
+      family: species.family,
+      potStyle: greenhouse.selectedPotStyle,
+    })
+    commit(
+      { ...data, seeds: data.seeds - 1, greenhouse: { ...greenhouse, pots: [...(greenhouse.pots || []), pot] } },
+      { title: `Planted ${species.commonName}! 🌱`, body: 'Water it daily to watch it grow into the real thing.' },
+      { immediate: true },
+    )
+  }
+
+  function waterGreenhousePot(slotId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const pot = (greenhouse.pots || []).find((p) => p.slot === slotId)
+    if (!pot || !canWaterPot(pot)) return
+    const today = saDateKey()
+    const watered = waterPots(greenhouse, [pot], today)
+    const { greenhouse: nextGreenhouse, coinTotal, notes } = finalizeWatering(greenhouse, watered, today)
+    commit(
+      { ...data, featherCoins: data.featherCoins + coinTotal, greenhouse: nextGreenhouse },
+      { title: 'Watered 💧', body: [`You watered your ${pot.plantName}.`, ...notes].join(' '), tone: 'calm' },
+      { immediate: true },
+    )
+  }
+
+  function waterAllGreenhousePots() {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const waterable = (greenhouse.pots || []).filter((p) => canWaterPot(p))
+    if (!waterable.length) {
+      setToast({ title: 'All done 💧', body: 'Every pot is already watered today.', tone: 'calm' })
+      return
+    }
+    const today = saDateKey()
+    const watered = waterPots(greenhouse, waterable, today)
+    const { greenhouse: nextGreenhouse, coinTotal, notes } = finalizeWatering(greenhouse, watered, today)
+    commit(
+      { ...data, featherCoins: data.featherCoins + coinTotal, greenhouse: nextGreenhouse },
+      {
+        title: 'Watered all 💧',
+        body: [`Watered ${waterable.length} pot${waterable.length === 1 ? '' : 's'}.`, ...notes].join(' '),
+        tone: 'calm',
+      },
+      { immediate: true },
+    )
+  }
+
+  // Requires Scissors (bought from the shop). +5 coins, clears the overgrown
+  // flag and the extra daily health penalty that comes with leaving it.
+  function trimGreenhousePot(slotId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const pot = (greenhouse.pots || []).find((p) => p.slot === slotId)
+    if (!pot || pot.dead || !pot.needsTrimming) return
+    if (!hasTool(greenhouse, 'scissors')) {
+      setToast({ title: 'Need scissors ✂️', body: 'Buy scissors from the greenhouse shop to trim overgrown pots.', tone: 'warning' })
+      return
+    }
+    const today = saDateKey()
+    let nextPot = { ...pot, needsTrimming: false, lastTrimDate: today }
+    nextPot.health = computeHealth(nextPot, today)
+    const nextGreenhouse = { ...greenhouse, pots: greenhouse.pots.map((p) => (p.id === pot.id ? nextPot : p)) }
+    commit(
+      { ...data, featherCoins: data.featherCoins + TRIM_COINS, greenhouse: nextGreenhouse },
+      { title: 'Trimmed ✂️', body: `Tidied up your ${pot.plantName}. +${TRIM_COINS} coins.`, tone: 'success' },
+      { immediate: true },
+    )
+  }
+
+  // Requires the Spray Bottle. Once per SA day per plant, +10 bonus health on
+  // top of whatever watering already gave it.
+  function mistGreenhousePot(slotId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const pot = (greenhouse.pots || []).find((p) => p.slot === slotId)
+    if (!pot || pot.dead || !canMistPot(pot)) return
+    if (!hasTool(greenhouse, 'spray-bottle')) {
+      setToast({ title: 'Need a spray bottle 💦', body: 'Buy a spray bottle from the greenhouse shop first.', tone: 'warning' })
+      return
+    }
+    const today = saDateKey()
+    const nextPot = {
+      ...pot,
+      lastMistDate: today,
+      health: Math.min(100, computeHealth(pot, today) + SPRAY_HEALTH_BONUS),
+    }
+    const nextGreenhouse = { ...greenhouse, pots: greenhouse.pots.map((p) => (p.id === pot.id ? nextPot : p)) }
+    commit(
+      { ...data, greenhouse: nextGreenhouse },
+      { title: 'Misted 💦', body: `+${SPRAY_HEALTH_BONUS} bonus health for your ${pot.plantName}.`, tone: 'calm' },
+      { immediate: true },
+    )
+  }
+
+  // A dead plant just sits there (grey/brown) until she taps it to clear the
+  // slot — never auto-removed, so the "oh no" moment isn't also a surprise
+  // empty slot.
+  function removeDeadGreenhousePot(slotId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const pot = (greenhouse.pots || []).find((p) => p.slot === slotId)
+    if (!pot || !pot.dead) return
+    const nextGreenhouse = { ...greenhouse, pots: greenhouse.pots.filter((p) => p.id !== pot.id) }
+    commit(
+      { ...data, greenhouse: nextGreenhouse },
+      { title: 'Pot cleared', body: 'Ready for something new whenever she is.', tone: 'calm' },
+      { immediate: true },
+    )
+  }
+
+  function buyGreenhouseSlot() {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    if (greenhouse.unlockedSlots >= MAX_SLOTS) return
+    if (data.featherCoins < SLOT_COST) {
+      setToast({ title: 'Not enough coins yet', body: `Unlocking a pot slot costs ${SLOT_COST} 🪙.`, tone: 'warning' })
+      return
+    }
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - SLOT_COST,
+        greenhouse: { ...greenhouse, unlockedSlots: greenhouse.unlockedSlots + 1 },
+      },
+      { title: 'Pot slot unlocked! 🪴', body: 'A new spot on the shelf is ready for planting.' },
+      { immediate: true },
+    )
+  }
+
+  function buyGreenhousePotStyle(styleId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const style = potStyleItem(styleId)
+    if (!style || (greenhouse.ownedPotStyles || []).includes(styleId)) return
+    if (data.featherCoins < style.cost) {
+      setToast({ title: 'Not enough coins yet', body: `${style.name} costs ${style.cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - style.cost,
+        greenhouse: {
+          ...greenhouse,
+          ownedPotStyles: [...greenhouse.ownedPotStyles, styleId],
+          selectedPotStyle: styleId,
+        },
+      },
+      { title: `${style.name} unlocked! 🪴`, body: "Selected as her pot style — new plantings will use it." },
+      { immediate: true },
+    )
+  }
+
+  // Switching style only ever affects pots planted from now on — existing
+  // pots keep whatever style they were planted with (see potGreenhouseSpecies).
+  function selectGreenhousePotStyle(styleId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    if (!(greenhouse.ownedPotStyles || []).includes(styleId)) return
+    commit(
+      { ...data, greenhouse: { ...greenhouse, selectedPotStyle: styleId } },
+      { title: 'Pot style selected', body: 'New plantings will use it.', tone: 'calm' },
+      { immediate: true },
+    )
+  }
+
+  function buyGreenhouseTool(toolId) {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const tool = toolItem(toolId)
+    if (!tool) return
+    if (!tool.consumable && hasTool(greenhouse, toolId)) return
+    if (tool.consumable && ownedToolUses(greenhouse, toolId) > 0) return
+    if (data.featherCoins < tool.cost) {
+      setToast({ title: 'Not enough coins yet', body: `${tool.name} costs ${tool.cost} 🪙.`, tone: 'warning' })
+      return
+    }
+    const ownedTools = tool.consumable
+      ? [...(greenhouse.ownedTools || []).filter((t) => t.id !== toolId), { id: toolId, uses: tool.uses }]
+      : [...(greenhouse.ownedTools || []), { id: toolId, uses: null }]
+    commit(
+      { ...data, featherCoins: data.featherCoins - tool.cost, greenhouse: { ...greenhouse, ownedTools } },
+      {
+        title: `${tool.name} ${tool.emoji}`,
+        body: tool.consumable ? `${tool.uses} uses ready in your greenhouse toolkit.` : 'Added to your greenhouse toolkit.',
+      },
+      { immediate: true },
+    )
+  }
+
+  // Recomputes every pot's health from its care record and applies decay —
+  // run once when the Greenhouse page mounts (see GreenhousePage's
+  // onMountRecalc), never on a timer, so opening the page is what "checks
+  // in" on the plants. Purely derived (computeHealth never mutates in
+  // place), so this is safe to call as often as she visits with zero risk of
+  // double-decaying a pot.
+  function recalcGreenhouseHealth() {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const today = saDateKey()
+    let changed = false
+    const newlyDead = []
+    const nextPots = (greenhouse.pots || []).map((pot) => {
+      if (pot.dead) return pot
+      const health = computeHealth(pot, today)
+      if (health === pot.health) return pot
+      changed = true
+      if (health <= 0) {
+        newlyDead.push(pot)
+        return { ...pot, health: 0, dead: true }
+      }
+      return { ...pot, health }
+    })
+    if (!changed) return
+    commit(
+      { ...data, greenhouse: { ...greenhouse, pots: nextPots } },
+      newlyDead.length
+        ? { title: 'Oh no! 😢', body: newlyDead.map((p) => `Your ${p.plantName} didn't make it 😢`).join(' '), tone: 'warning' }
+        : { title: 'Greenhouse checked 🌿', body: 'Checked in on your plants.', tone: 'calm' },
+      { immediate: true },
+    )
+  }
+
   // Buy a garden resident a treat: a small, repeatable coin sink (unlike the
   // one-off shop items) that plays a happy-eating reaction on her sprite.
   // Returns true/false so GardenPage only plays the animation on a real
@@ -4810,16 +5085,23 @@ function App() {
     // rapid-tested the same way.
     const mysteryEgg = data.mysteryEgg ? { ...data.mysteryEgg, lastWarmDay: '' } : data.mysteryEgg
 
+    // Age the greenhouse too: every date it tracks (plantedDate, wateredDays,
+    // lastTrimDate, lastMistDate, lastWaterDate) shifts back a day, so health
+    // decay, the trim penalty and the water streak can all be tested in
+    // minutes instead of days — see ageGreenhouseByOneDay in greenhouseData.js.
+    const greenhouse = data.greenhouse ? ageGreenhouseByOneDay(data.greenhouse) : data.greenhouse
+
     setData((c) => ({
       ...c,
       tweety: nextTweety,
       dailyChallengeCompletions: nextCompletions,
       garden,
+      greenhouse,
       mysteryEgg,
     }))
     setToast({
       title: 'Fast-forwarded 1 day ⏩',
-      body: `${note} Care windows, daily challenge, garden watering + mystery egg reset.`.trim(),
+      body: `${note} Care windows, daily challenge, garden + greenhouse watering, and mystery egg reset.`.trim(),
       tone: 'success',
     })
   }
@@ -6643,7 +6925,26 @@ function App() {
           />
         )}
         {activePage === 'greenhouse' && (account === 'pooks' || account === 'marnich') && (
-          <GreenhousePage onBack={goBack} />
+          <GreenhousePage
+            onBack={goBack}
+            greenhouse={data.greenhouse || defaultGreenhouse()}
+            plantLibrary={data.plantLibrary}
+            plantableSpecies={plantableForGreenhouse}
+            seeds={data.seeds}
+            coins={data.featherCoins}
+            onPlant={potGreenhouseSpecies}
+            onNothingToPlant={greenhouseNothingToPlant}
+            onWater={waterGreenhousePot}
+            onWaterAll={waterAllGreenhousePots}
+            onTrim={trimGreenhousePot}
+            onMist={mistGreenhousePot}
+            onRemoveDead={removeDeadGreenhousePot}
+            onBuySlot={buyGreenhouseSlot}
+            onBuyPotStyle={buyGreenhousePotStyle}
+            onSelectPotStyle={selectGreenhousePotStyle}
+            onBuyTool={buyGreenhouseTool}
+            onMountRecalc={recalcGreenhouseHealth}
+          />
         )}
         {activePage === 'sanctuary' && (
           <SanctuaryPage

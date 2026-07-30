@@ -10,6 +10,8 @@
 // are buyable, `elements`/`residents` are reserved for promoted features and
 // graduated companions. See the marlie-bird-garden-plan memory.
 import { saDateKey } from './saDate'
+import { SA_PLANT_LIBRARY, plantBloomKind, plantBloomColor, plantFoliageColor } from './plantData'
+import { PLANT_COLOUR_MAP } from './plantColourMap'
 
 // Cost of a treat for a resident (pet is always free). Cheap and repeatable —
 // a small daily-coin sink, not a rare purchase like the shop items above.
@@ -400,4 +402,260 @@ export function canPlaceResidentAt(x, y, residents = [], expansions = []) {
   const inRegion = regions.some((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1)
   if (!inRegion) return false
   return residents.every((r) => Math.hypot((r.x ?? -999) - x, (r.y ?? -999) - y) >= 36)
+}
+
+// ---- species-accurate plant visuals ----------------------------------------
+// Resolves a real identified species (by commonName/family) to an illustrated
+// GardenPlant template + colour zones + shape variation (see
+// plantTemplates.jsx). Lives here rather than in Garden.jsx so it stays pure
+// data/logic (no components — Fast Refresh friendly) and so both the outdoor
+// Garden's species plantings AND the Greenhouse's potted plants (see
+// Greenhouse.jsx) can share one resolver instead of two copies drifting
+// apart. Three tiers, most-accurate first:
+//  1. A curated SA_PLANT_LIBRARY species (matched by commonName) with a
+//     hand-researched real-colour entry in PLANT_COLOUR_MAP — exact template
+//     + exact colours.
+//  2. Anything else (most real plantings: she identifies whatever she
+//     actually photographs, not just the 207 SA species catalogued for the
+//     Explore/Magazine tab) — reuse plantBloomKind's keyword/family
+//     classifier to still pick the closest-shaped template (a Monstera still
+//     reads as a big-leaved climber, a Moth Orchid still reads as a showy
+//     single bloom), tinted with plantBloomColor/plantFoliageColor.
+//  3. Truly unclassifiable — flowering-shrub in plain generic green.
+// No photos, ever — every rendering stays one consistent hand-drawn
+// illustrated world.
+const GENERIC_PLANT_ZONES = {
+  stem: '#6b5638', leafMain: '#3e6e33', leafSecondary: '#5e8e4c',
+  petal: '#f5f0e0', center: '#f2c230', soil: '#7a5a3a',
+}
+
+// plantBloomKind's shape vocabulary doesn't map 1:1 onto plantTemplates.jsx's
+// 12 illustrated templates (there's no dedicated orchid/houseplant/fynbos
+// template shape) — this picks the closest visual match for each, mirroring
+// how those same species read in the hand-curated PLANT_COLOUR_MAP entries
+// (e.g. Red Disa, an orchid, is templated as 'bulb-flower'; Bird of Paradise,
+// a strelitzia, is also 'bulb-flower').
+const BLOOM_KIND_TEMPLATE = {
+  aloe: 'aloe',
+  protea: 'protea',
+  agapanthus: 'bulb-flower',
+  bulbine: 'bulb-flower',
+  strelitzia: 'bulb-flower',
+  succulent: 'succulent',
+  orchid: 'bulb-flower',
+  palm: 'palm',
+  houseplant: 'climbing-vine',
+  fynbos: 'herb',
+  generic: 'flowering-shrub',
+}
+
+// Default real-world-proportion scale per template, so a ground-cover mat
+// and a full-grown tree don't render as the same size sprite. Overridden
+// per-species in PLANT_COLOUR_MAP/PERSONAL_PLANT_COLOUR_MAP (via `scale`)
+// only where a species' real size is a clear outlier for its template shape
+// (e.g. the 'aloe' template spans tiny spiral-aloe rosettes to towering
+// mountain-aloe stems) — most species just take this default.
+const TEMPLATE_SCALE = {
+  'ground-cover': 0.7,
+  succulent: 0.75,
+  herb: 0.8,
+  fern: 0.8,
+  'grass-tuft': 0.85,
+  'flowering-shrub': 1,
+  'bulb-flower': 1,
+  protea: 1,
+  aloe: 1,
+  'climbing-vine': 0.8,
+  palm: 1.15,
+  'tree-small': 1.25,
+}
+
+// A lighter shade of a hex colour, for the template's secondary/back-layer
+// foliage zone — plantFoliageColor only gives one foliage tone, but every
+// template wants two (front/back layers) so the plant reads as textured
+// instead of flat.
+function lightenHex(hex, amount = 0.35) {
+  const n = parseInt(String(hex).replace('#', ''), 16)
+  const mix = (v) => Math.round(v + (255 - v) * amount)
+  const r = mix((n >> 16) & 255)
+  const g = mix((n >> 8) & 255)
+  const b = mix(n & 255)
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
+}
+
+const SPECIES_BY_COMMON_NAME = new Map(
+  SA_PLANT_LIBRARY.map((p) => [p.commonName.trim().toLowerCase(), p]),
+)
+
+// Cheap deterministic string hash — a duplicate of Garden.jsx's own hashSeed
+// (kept local rather than imported so this file has zero component-file
+// dependencies). Used to give a non-curated species a shape distinct from
+// its template-mates instead of every fallback plant reading as one
+// identical clone, keyed on her own name for it so it's stable across
+// renders/reloads.
+function hashSeed(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i += 1) h = (h * 31 + str.charCodeAt(i)) >>> 0
+  return h
+}
+
+function fallbackVariation(seedKey) {
+  const unit = (salt) => (hashSeed(`${seedKey}:${salt}`) % 1000) / 1000
+  const between = (salt, lo, hi) => lo + unit(salt) * (hi - lo)
+  return {
+    leafCount: Math.round(between('leafCount', 3, 8)),
+    leafAngle: Math.round(between('leafAngle', 30, 90)),
+    leafWidth: Math.round(between('leafWidth', 0.8, 1.3) * 10) / 10,
+    height: Math.round(between('height', 0.75, 1.3) * 10) / 10,
+    flowerCount: Math.round(between('flowerCount', 2, 8)),
+    flowerSize: Math.round(between('flowerSize', 0.7, 1.2) * 10) / 10,
+    hasStem: unit('hasStem') < 0.5,
+  }
+}
+
+// Pooks' actual real-world plantings (from her Seed Pouch photo IDs) that
+// aren't part of the curated 207-species SA_PLANT_LIBRARY — checked by exact
+// common name, same idea as PLANT_COLOUR_MAP but for her personal houseplant
+// collection instead of the SA Explore/Magazine catalog. Keeps
+// plantBloomKind's keyword guessing as the fallback for anything NOT listed
+// here, rather than growing that catalog with non-SA species.
+const PERSONAL_PLANT_COLOUR_MAP = {
+  'splendid paphiopedilum': {
+    template: 'bulb-flower',
+    zones: { stem: '#4f7a52', leafMain: '#2f6a3a', leafSecondary: '#4a8a4a', petal: '#7a2f3a', center: '#d8c860', soil: '#7a5a3a' },
+    variation: { leafCount: 2, leafWidth: 1.3, height: 0.7, flowerCount: 1, flowerSize: 1.3 },
+  },
+  monstera: {
+    // Real Monstera deliciosa is bushy and wide (big leaves radiating from a
+    // low base), not a climbing vine as typically grown/potted — flowering-
+    // shrub's filled leaf-clumps (flowerCount:0, no blooms) reads as a leafy
+    // bush far better than climbing-vine's thin-stem-with-leaves shape.
+    template: 'flowering-shrub',
+    zones: { stem: '#5f7a45', leafMain: '#2f6a3a', leafSecondary: '#4f9a55', petal: '#e8ead0', center: '#e8c060', soil: '#6b5638' },
+    variation: { leafCount: 8, leafWidth: 1.5, height: 1.25, flowerCount: 0, flowerSize: 1 },
+  },
+  'air plant': {
+    template: 'succulent',
+    zones: { stem: '#8a9a7a', leafMain: '#9fae8a', leafSecondary: '#c3d0b0', petal: '#a878c9', center: '#e8a0c0', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 90, leafWidth: 0.6, height: 0.6, flowerCount: 1, flowerSize: 0.6, hasStem: false },
+  },
+  'elephant bush': {
+    template: 'succulent',
+    zones: { stem: '#8a5a3a', leafMain: '#4a8a5a', leafSecondary: '#6aa86a', petal: '#f0a8c0', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 60, leafWidth: 0.75, height: 0.9, flowerCount: 0, flowerSize: 0.6, hasStem: true },
+  },
+  'moth orchid': {
+    template: 'bulb-flower',
+    zones: { stem: '#5a6a4a', leafMain: '#2f6a3a', leafSecondary: '#4a8a4a', petal: '#d17ad6', center: '#7a2f6a', soil: '#6b5638' },
+    variation: { leafCount: 2, leafWidth: 1.2, height: 0.85, flowerCount: 5, flowerSize: 1.2 },
+  },
+  'easter lily': {
+    // Template was already right — the "thin stick with a star on top" look
+    // came from a too-tall, too-narrow variation. Shorter + wider leaves reads
+    // as a proper medium trumpet-flowered plant instead. That fix alone still
+    // read too prominent next to the shrubs (flowerSize 1.5 + default scale) —
+    // toned the bloom down and capped the overall size a notch below a shrub.
+    template: 'bulb-flower',
+    scale: 0.85,
+    zones: { stem: '#4f9a55', leafMain: '#3f7a45', leafSecondary: '#5e9a5a', petal: '#fbfaf3', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 4, leafWidth: 1.6, height: 0.9, flowerCount: 1, flowerSize: 1 },
+  },
+  succulent: {
+    template: 'succulent',
+    zones: { stem: '#8a6a42', leafMain: '#4a2f42', leafSecondary: '#6a4a5e', petal: '#f2e090', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 75, leafWidth: 1, height: 1, flowerCount: 2, flowerSize: 0.8, hasStem: true },
+  },
+  'blue fingers': {
+    // Real Blue Chalksticks/Blue fingers (Curio/Senecio) trails and spreads
+    // rather than forming an upright rosette — matches how the same species
+    // ("blue-chalk-sticks") is already classified in the main SA library.
+    template: 'ground-cover',
+    zones: { stem: '#8a9a8a', leafMain: '#8fa3ad', leafSecondary: '#b8cdd6', petal: '#f5f0e0', center: '#e8d896', soil: '#7a5a3a' },
+    variation: { leafCount: 7, leafAngle: 55, leafWidth: 0.55, height: 0.85, flowerCount: 1, flowerSize: 0.6, hasStem: true },
+  },
+  'bushveld kalanchoe': {
+    // Template stays succulent — real Kalanchoe sexangularis is an upright
+    // branching succulent shrub rather than a flat rosette, so give it a
+    // visible stem and a taller habit instead of reassigning templates.
+    template: 'succulent',
+    zones: { stem: '#6a8a5a', leafMain: '#5a9a5a', leafSecondary: '#7cb87c', petal: '#e8663a', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 5, leafAngle: 65, leafWidth: 1.1, height: 1.05, flowerCount: 10, flowerSize: 0.7, hasStem: true },
+  },
+  'french rose': {
+    template: 'flowering-shrub',
+    zones: { stem: '#6b7d4a', leafMain: '#3f7a45', leafSecondary: '#5e9a5a', petal: '#e8789e', center: '#f2c230', soil: '#7a5a3a' },
+    variation: { leafCount: 6, leafAngle: 55, leafWidth: 1, height: 1, flowerCount: 10, flowerSize: 1, hasStem: true },
+  },
+  'queen palm': {
+    template: 'palm',
+    zones: { stem: '#a88a5a', leafMain: '#4f9a55', leafSecondary: '#7bc9a8', petal: '#c9a25a', center: '#e8a45c', soil: '#7a5a3a' },
+    variation: { leafCount: 8, leafAngle: 100, leafWidth: 1.05, height: 1.2, flowerCount: 2, flowerSize: 1 },
+  },
+  philodendron: {
+    // This is P. bipinnatifidum — a self-heading bushy philodendron with huge
+    // leaves radiating from a low base, not a climbing vine. flowering-shrub
+    // (filled leaf-clumps) is a better fit than herb, whose thin sprig-line
+    // leaves would read even less like a big-leaved aroid than the vine did.
+    template: 'flowering-shrub',
+    zones: { stem: '#5f7a45', leafMain: '#356b3d', leafSecondary: '#4f9a55', petal: '#e8ead0', center: '#e8c060', soil: '#6b5638' },
+    variation: { leafCount: 7, leafWidth: 1.6, height: 1.15, flowerCount: 0, flowerSize: 1 },
+  },
+  // NOTE: key must match the exact commonName Pooks' actual planting carries
+  // ("White bird of-paradise tree" — that odd "bird of-paradise" punctuation,
+  // not the more standard "bird-of-paradise", is what her identified species
+  // record actually contains). A prior version of this key used the more
+  // grammatically standard hyphenation and silently never matched her real
+  // planting, falling through to the generic classifier instead.
+  //
+  // This is Strelitzia nicolai — the exact same species as "Wild Banana" in
+  // the main SA library (see plantColourMap.js's 'wild-banana' entry), which
+  // is already correctly templated as palm (tall stalks, big paddle leaves,
+  // tree-like) rather than bulb-flower. Reassigned here to match, and no
+  // custom `scale` override — it takes palm's plain TEMPLATE_SCALE default,
+  // same as Wild Banana.
+  'white bird of-paradise tree': {
+    template: 'palm',
+    zones: { stem: '#5f7a52', leafMain: '#2f6a3a', leafSecondary: '#4f9a55', petal: '#f5f0e0', center: '#3a2a6a', soil: '#7a5a3a' },
+    variation: { leafCount: 3, leafWidth: 1.4, height: 1.3, flowerCount: 1, flowerSize: 1.3, hasStem: true },
+  },
+}
+
+export function plantVisual(commonName, family) {
+  const species = commonName && SPECIES_BY_COMMON_NAME.get(String(commonName).trim().toLowerCase())
+  const curated = species && PLANT_COLOUR_MAP[species.id]
+  if (curated) {
+    return {
+      template: curated.template, zones: curated.zones, variation: curated.variation,
+      scale: curated.scale ?? TEMPLATE_SCALE[curated.template] ?? 1,
+    }
+  }
+
+  const personal = commonName && PERSONAL_PLANT_COLOUR_MAP[String(commonName).trim().toLowerCase()]
+  if (personal) {
+    return {
+      template: personal.template, zones: personal.zones, variation: personal.variation,
+      scale: personal.scale ?? TEMPLATE_SCALE[personal.template] ?? 1,
+    }
+  }
+
+  const kind = plantBloomKind(commonName, family)
+  const seedKey = commonName || family
+  if (kind === 'generic' && !seedKey) {
+    return { template: 'flowering-shrub', zones: GENERIC_PLANT_ZONES, variation: {}, scale: TEMPLATE_SCALE['flowering-shrub'] }
+  }
+  const leafMain = plantFoliageColor(commonName, family)
+  const template = BLOOM_KIND_TEMPLATE[kind] || 'flowering-shrub'
+  return {
+    template,
+    zones: {
+      stem: kind === 'aloe' || kind === 'succulent' ? '#8a9a7a' : '#6b5638',
+      leafMain,
+      leafSecondary: lightenHex(leafMain),
+      petal: plantBloomColor(commonName, family),
+      center: kind === 'protea' ? '#3d2a22' : '#f2c230',
+      soil: '#7a5a3a',
+    },
+    variation: fallbackVariation(seedKey),
+    scale: TEMPLATE_SCALE[template] ?? 1,
+  }
 }
