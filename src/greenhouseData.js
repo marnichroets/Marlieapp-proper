@@ -6,6 +6,7 @@
 // free placement, a health/decay clock, and a trimming chore — since the
 // greenhouse is a small cosy room she tends closely, not an open lawn.
 import { saDateKey, saDateKeyOffset } from './saDate'
+import { plantVisual } from './gardenData'
 
 // ---- slots -------------------------------------------------------------
 // Two physical shelves in the scene (see GreenhouseScene in Greenhouse.jsx):
@@ -255,12 +256,27 @@ export function defaultPot({ id, slot, plantId, plantName, family, potStyle, tod
   }
 }
 
+// Templates too big to live in a pot on a shelf (palm = towering stalks like
+// Wild Banana/Queen Palm, tree-small = full trees, climbing-vine = sprawling
+// trailers) — these belong outdoors in the Garden, which has no size limit.
+// Every other template (succulent, ground-cover, herb, fern, bulb-flower,
+// flowering-shrub, grass-tuft, aloe, protea) reads fine at pot scale.
+const GREENHOUSE_TOO_BIG_TEMPLATES = new Set(['palm', 'tree-small', 'climbing-vine'])
+
 // Species not yet potted anywhere in the greenhouse (alive or dead — the
-// slot's record stands until she clears it) — what the empty-slot picker
-// offers to plant.
+// slot's record stands until she clears it) and small enough to actually fit
+// in a pot — what the empty-slot picker offers to plant. Template comes from
+// plantVisual's same three-tier resolver the Garden/Greenhouse art already
+// uses (curated species entry, then Pooks' personal collection, then the
+// plantBloomKind keyword/family fallback), so a species excluded here is
+// excluded for exactly the same shape reason it would render tall/sprawling.
 export function plantableGreenhouseSpecies(plantLibrary, greenhouse) {
   const pottedKeys = new Set((greenhouse?.pots || []).map((p) => p.plantId))
-  return (plantLibrary || []).filter((p) => !pottedKeys.has(p.speciesKey))
+  return (plantLibrary || []).filter((p) => {
+    if (pottedKeys.has(p.speciesKey)) return false
+    const { template } = plantVisual(p.commonName, p.family)
+    return !GREENHOUSE_TOO_BIG_TEMPLATES.has(template)
+  })
 }
 
 // ---- watering (shared by the single-pot and Water All actions) -----------

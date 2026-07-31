@@ -489,6 +489,7 @@ export function GreenhousePage({
         <section className="soft-card full-span greenhouse-picker">
           <p className="eyebrow">Choose a plant for this pot</p>
           <p className="fine-print">Costs 1 seed 🌱 — she'll grow into the real species you photographed.</p>
+          <p className="fine-print greenhouse-picker-note">🌿 Small plants only — trees and vines go in the garden!</p>
           <div className="garden-shop-row">
             {plantableSpecies.map((species) => (
               <button
