@@ -58,6 +58,10 @@ import {
   slotById,
   MAX_SLOTS,
   SLOT_COST,
+  ROOM_SLOT_COUNT,
+  ROOM2_COST,
+  hasRoom2,
+  isSlotLocked,
   potStyleItem,
   toolItem,
   hasTool,
@@ -2355,10 +2359,16 @@ function normalizeLoadedState(saved) {
           ...(saved.garden?.shopUnlocked || []),
         ])),
       },
-      greenhouse: {
-        ...base.greenhouse,
-        ...(saved.greenhouse || {}),
-      },
+      greenhouse:
+        // One-time reset: clear out whatever pots Pooks had planted so the
+        // greenhouse starts fresh. Gated on settings.greenhouseResetV1 so it
+        // only ever fires once — after that, her pots persist normally.
+        !saved.settings?.greenhouseResetV1 && (saved.greenhouse?.pots || []).length > 0
+          ? defaultGreenhouse()
+          : {
+              ...base.greenhouse,
+              ...(saved.greenhouse || {}),
+            },
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       plantLibrary: Array.isArray(saved.plantLibrary) ? saved.plantLibrary : base.plantLibrary,
@@ -2378,6 +2388,7 @@ function normalizeLoadedState(saved) {
       settings: {
         ...base.settings,
         ...(saved.settings || {}),
+        greenhouseResetV1: true,
         releaseFlags: {
           ...base.settings.releaseFlags,
           ...(saved.settings?.releaseFlags || {}),
@@ -4515,7 +4526,7 @@ function App() {
   function potGreenhouseSpecies(slotId, speciesKey) {
     const greenhouse = data.greenhouse || defaultGreenhouse()
     const slot = slotById(slotId)
-    if (!slot || slotId >= (greenhouse.unlockedSlots || 0)) return
+    if (!slot || isSlotLocked(greenhouse, slot)) return
     if ((greenhouse.pots || []).some((p) => p.slot === slotId)) return
     if (data.seeds <= 0) return
     const species = data.plantLibrary.find((p) => p.speciesKey === speciesKey)
@@ -4631,9 +4642,14 @@ function App() {
     )
   }
 
-  function buyGreenhouseSlot() {
+  // room defaults to 1 (room 2 only ever reachable once bought — see
+  // buyGreenhouseRoom2 — so its own unlock button is only rendered then).
+  function buyGreenhouseSlot(room = 1) {
     const greenhouse = data.greenhouse || defaultGreenhouse()
-    if (greenhouse.unlockedSlots >= MAX_SLOTS) return
+    const inRoom2 = room === 2
+    if (inRoom2 && !hasRoom2(greenhouse)) return
+    const current = inRoom2 ? (greenhouse.unlockedSlotsRoom2 || 0) : greenhouse.unlockedSlots
+    if (current >= ROOM_SLOT_COUNT) return
     if (data.featherCoins < SLOT_COST) {
       setToast({ title: 'Not enough coins yet', body: `Unlocking a pot slot costs ${SLOT_COST} 🪙.`, tone: 'warning' })
       return
@@ -4642,9 +4658,35 @@ function App() {
       {
         ...data,
         featherCoins: data.featherCoins - SLOT_COST,
-        greenhouse: { ...greenhouse, unlockedSlots: greenhouse.unlockedSlots + 1 },
+        greenhouse: {
+          ...greenhouse,
+          ...(inRoom2 ? { unlockedSlotsRoom2: current + 1 } : { unlockedSlots: current + 1 }),
+        },
       },
       { title: 'Pot slot unlocked! 🪴', body: 'A new spot on the shelf is ready for planting.' },
+      { immediate: true },
+    )
+  }
+
+  // Only offered once room 1's 8 slots are all unlocked. Adds a second,
+  // identically-laid-out room to the right of the first (swipe the scene to
+  // reach it — see GreenhouseScene's .pannable wrap) with its own 8 pot slots,
+  // starting fully locked so it's its own progression, not a freebie.
+  function buyGreenhouseRoom2() {
+    const greenhouse = data.greenhouse || defaultGreenhouse()
+    if (hasRoom2(greenhouse)) return
+    if ((greenhouse.unlockedSlots || 0) < MAX_SLOTS) return
+    if (data.featherCoins < ROOM2_COST) {
+      setToast({ title: 'Not enough coins yet', body: `Expanding the greenhouse costs ${ROOM2_COST} 🪙.`, tone: 'warning' })
+      return
+    }
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - ROOM2_COST,
+        greenhouse: { ...greenhouse, roomsUnlocked: 2, unlockedSlotsRoom2: 0 },
+      },
+      { title: 'Greenhouse expanded! 🏡🌿', body: 'A second glasshouse room is ready — swipe right to see it.' },
       { immediate: true },
     )
   }
@@ -6940,6 +6982,7 @@ function App() {
             onMist={mistGreenhousePot}
             onRemoveDead={removeDeadGreenhousePot}
             onBuySlot={buyGreenhouseSlot}
+            onBuyRoom2={buyGreenhouseRoom2}
             onBuyPotStyle={buyGreenhousePotStyle}
             onSelectPotStyle={selectGreenhousePotStyle}
             onBuyTool={buyGreenhouseTool}

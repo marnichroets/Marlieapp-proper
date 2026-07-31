@@ -6082,10 +6082,20 @@ button.tweety-nest-base.gift-pop {
 /* greenhouse */
 .greenhouse-stage { text-align: center; }
 .greenhouse-scene {
-  position: relative; height: 260px; margin: 10px 0; border-radius: 16px;
+  position: relative; margin: 10px 0; border-radius: 16px;
   overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06), 0 6px 18px rgba(120,90,50,0.18);
 }
-.greenhouse-svg { display: block; width: 100%; height: 100%; }
+/* The scene's own explicit pixel width/height (set inline, scaled off the
+   wrap's measured clientWidth — see GreenhouseScene) drives sizing, not this
+   CSS — mirrors .garden-scene-wrap/.pannable so a second room, once bought,
+   adds scrollable width instead of squashing the whole scene down to fit. */
+.greenhouse-scene-wrap {
+  position: relative; line-height: 0; overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.greenhouse-scene-wrap::-webkit-scrollbar { display: none; }
+.greenhouse-scene-wrap.pannable { touch-action: pan-x; }
+.greenhouse-svg { display: block; }
 
 /* Prominent Home entry point for the Greenhouse, matching the Garden card's
    dashed-invite styling but in warm glasshouse tones. */

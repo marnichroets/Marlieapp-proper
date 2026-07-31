@@ -11,24 +11,65 @@ import { saDateKey, saDateKeyOffset } from './saDate'
 // Two physical shelves in the scene (see GreenhouseScene in Greenhouse.jsx):
 // a wall-mounted top shelf (slots 0-3, unlocked from the start) and the
 // potting bench below it (slots 4-7, unlocked via the shop). Positions are
-// scene units (viewBox 0 0 320 260) — the pot's base/rim sits at (x, y).
+// scene units (viewBox 0 0 320 362) — the pot's base/rim sits at (x, y).
+// Shelves sit 102 units lower than the room's early draft to leave headroom
+// above the top shelf: a blooming pot's foliage (STAGE_SIZE.blooming, scaled
+// up to tree-small's 1.25x) reaches ~1.22x its size above its own slot, and
+// the tallest template (palm, e.g. Wild Banana Strelitzia) needs to clear
+// that with room to spare — see PottedPlantArt/GreenhouseScene in
+// Greenhouse.jsx.
 export const POT_SLOTS = [
-  { id: 0, x: 88, y: 98, shelf: 'top' },
-  { id: 1, x: 140, y: 98, shelf: 'top' },
-  { id: 2, x: 192, y: 98, shelf: 'top' },
-  { id: 3, x: 244, y: 98, shelf: 'top' },
-  { id: 4, x: 88, y: 182, shelf: 'bottom' },
-  { id: 5, x: 140, y: 182, shelf: 'bottom' },
-  { id: 6, x: 192, y: 182, shelf: 'bottom' },
-  { id: 7, x: 244, y: 182, shelf: 'bottom' },
+  { id: 0, x: 88, y: 200, shelf: 'top', room: 1, localIndex: 0 },
+  { id: 1, x: 140, y: 200, shelf: 'top', room: 1, localIndex: 1 },
+  { id: 2, x: 192, y: 200, shelf: 'top', room: 1, localIndex: 2 },
+  { id: 3, x: 244, y: 200, shelf: 'top', room: 1, localIndex: 3 },
+  { id: 4, x: 88, y: 284, shelf: 'bottom', room: 1, localIndex: 4 },
+  { id: 5, x: 140, y: 284, shelf: 'bottom', room: 1, localIndex: 5 },
+  { id: 6, x: 192, y: 284, shelf: 'bottom', room: 1, localIndex: 6 },
+  { id: 7, x: 244, y: 284, shelf: 'bottom', room: 1, localIndex: 7 },
 ]
 
+// ---- room 2 (the expansion) ------------------------------------------------
+// A second glasshouse, laid out identically to room 1 (same shelf geometry,
+// its own <svg> panel) but reached by swiping/scrolling right — see
+// GreenhousePage's `.greenhouse-rooms-scroll` in Greenhouse.jsx. Slot ids
+// continue on from room 1 (8-15) so `pots` stays one flat array keyed by a
+// single globally-unique slot id, same as before; `localIndex` (0-7) is what
+// unlock-count comparisons actually use per room (see isSlotLocked).
+export const ROOM2_SLOTS = POT_SLOTS.map((slot) => ({
+  ...slot,
+  id: slot.id + 8,
+  room: 2,
+}))
+
+export const ALL_POT_SLOTS = [...POT_SLOTS, ...ROOM2_SLOTS]
+
 export const BASE_SLOTS = 4
-export const MAX_SLOTS = POT_SLOTS.length
+export const ROOM_SLOT_COUNT = POT_SLOTS.length
+export const MAX_SLOTS = ROOM_SLOT_COUNT // kept for existing room-1-only call sites
 export const SLOT_COST = 500
+export const ROOM2_COST = 2000
 
 export function slotById(id) {
-  return POT_SLOTS.find((s) => s.id === id) || null
+  return ALL_POT_SLOTS.find((s) => s.id === id) || null
+}
+
+// Has she bought the second room yet? Guards every room-2 action/render.
+export function hasRoom2(greenhouse) {
+  return (greenhouse?.roomsUnlocked || 1) >= 2
+}
+
+// Centralizes the "is this slot locked" rule for both rooms so Greenhouse.jsx
+// (padlock rendering) and App.jsx (action guards) can never drift apart:
+// room 1 slots compare directly against unlockedSlots; room 2 slots are
+// locked outright until the room itself is bought, then compare their
+// within-room localIndex against unlockedSlotsRoom2.
+export function isSlotLocked(greenhouse, slot) {
+  if (slot.room === 2) {
+    if (!hasRoom2(greenhouse)) return true
+    return slot.localIndex >= (greenhouse?.unlockedSlotsRoom2 || 0)
+  }
+  return slot.id >= (greenhouse?.unlockedSlots || BASE_SLOTS)
 }
 
 // ---- pot styles (cosmetic, permanent once bought) -----------------------
@@ -173,7 +214,8 @@ export const ALL_BLOOM_COINS = 200
 
 export function allSlotsBlooming(greenhouse) {
   const pots = greenhouse?.pots || []
-  if (pots.length < (greenhouse?.unlockedSlots || BASE_SLOTS)) return false
+  const totalUnlocked = (greenhouse?.unlockedSlots || BASE_SLOTS) + (hasRoom2(greenhouse) ? (greenhouse?.unlockedSlotsRoom2 || 0) : 0)
+  if (pots.length < totalUnlocked) return false
   return pots.length > 0 && pots.every((p) => !p.dead && isBlooming(p))
 }
 
@@ -183,6 +225,8 @@ export function defaultGreenhouse() {
     version: 1,
     pots: [],
     unlockedSlots: BASE_SLOTS,
+    roomsUnlocked: 1,
+    unlockedSlotsRoom2: 0,
     ownedTools: [],
     ownedPotStyles: ['terracotta'],
     selectedPotStyle: 'terracotta',
