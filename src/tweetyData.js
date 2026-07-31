@@ -285,6 +285,15 @@ export function windowsDoneToday(tweety) {
   return CARE_WINDOWS.filter((w) => day[w.key]).length
 }
 
+// Has she fed Tweety at all today (any window, not just the current open
+// one — unlike tweetyCareState.fed, this never goes back to false once a
+// window closes)? Drives how full the Feeding Bowl looks in the room.
+export function tweetyFedToday(tweety) {
+  const fed = tweety?.careAt?.fed
+  if (!fed) return false
+  return String(fed).slice(0, 10) === dayKey(0)
+}
+
 // Has a window already CLOSED today without being completed? (→ a little sad.)
 function missedAWindow(tweety, now = new Date()) {
   const day = tweety?.care?.[dayKey(0)] || {}
@@ -398,6 +407,13 @@ export function tweetyGrowthIndex(tweety) {
   return idx === -1 ? GROWTH_STAGES.length - 1 : idx
 }
 
+// How many of the 5 stage songs she's unlocked so far — growth is monotonic
+// (age only ever goes up) so this is just "current stage index + 1", same as
+// GROWTH_STAGES' own ordering (see TWEETY_SONGS below, keyed the same way).
+export function tweetySongsLearned(tweety) {
+  return tweetyGrowthIndex(tweety) + 1
+}
+
 export function tweetyGrowth(tweety) {
   return GROWTH_STAGES[tweetyGrowthIndex(tweety)]
 }
@@ -494,6 +510,14 @@ export function defaultTweety() {
     treatsBoostUntil: 0, // ms timestamp; Special Treats Bag forces mood 'happy' until then
     happiness: 70, // 0-100 happiness meter (see decayedHappiness/happinessDelta below)
     lastHappinessUpdate: new Date().toISOString(), // decay is computed from here on load
+    // Room themes: the backdrop she's currently showing + every theme bought
+    // so far (see ROOM_THEME_CATALOG in App.jsx and RoomBackdrop in
+    // Tweety.jsx). Persists across companions — it's the room's own decor,
+    // not tied to any one bird.
+    roomTheme: 'cottage',
+    ownedRoomThemes: ['cottage'],
+    // First-tap hint ("🎵 Tap to hear Tweety sing") shows once, ever.
+    songHintSeen: false,
   }
 }
 
@@ -639,6 +663,71 @@ function getCtx() {
 // Gentle interaction sound for Bird Room furniture.
 export function roomSound(kind) {
   playChirp(kind === 'bath' ? 'water' : kind === 'musicbox' ? 'play' : 'feed')
+}
+
+// ---- Tweety's own songs, one per growth stage ------------------------------
+// Each song is an ordered {frequency, duration} note sequence (Hz, seconds),
+// no audio files — just an oscillator per note, same zero-asset approach as
+// playChirp above. Keyed by GROWTH_STAGES' own keys, so tweetyGrowth(tweety)
+// .key always resolves straight to the right song. Gets longer/more melodic
+// with each stage; 'crowned' loosely follows the real Cape Robin-Chat's
+// rising-then-falling warble.
+const TWEETY_SONGS = {
+  chick: [{ frequency: 1200, duration: 0.11 }],
+  fledgling: [
+    { frequency: 920, duration: 0.09 },
+    { frequency: 1300, duration: 0.12 },
+  ],
+  young: [
+    { frequency: 784, duration: 0.11 },
+    { frequency: 988, duration: 0.11 },
+    { frequency: 1175, duration: 0.15 },
+  ],
+  adult: [
+    { frequency: 659, duration: 0.1 },
+    { frequency: 784, duration: 0.1 },
+    { frequency: 988, duration: 0.1 },
+    { frequency: 1175, duration: 0.1 },
+    { frequency: 880, duration: 0.18 },
+  ],
+  crowned: [
+    { frequency: 659, duration: 0.09 },
+    { frequency: 784, duration: 0.09 },
+    { frequency: 988, duration: 0.09 },
+    { frequency: 1175, duration: 0.09 },
+    { frequency: 1319, duration: 0.09 },
+    { frequency: 988, duration: 0.09 },
+    { frequency: 784, duration: 0.12 },
+    { frequency: 659, duration: 0.16 },
+  ],
+}
+
+// Plays the note sequence for a growth stage (falls back to 'chick' for an
+// unknown key) and returns its total duration in seconds, so a caller can
+// time a note-animation to match. Silently no-ops with no Web Audio support.
+export function playTweetySong(stageKey = 'chick') {
+  const ctx = getCtx()
+  const notes = TWEETY_SONGS[stageKey] || TWEETY_SONGS.chick
+  const totalDuration = notes.reduce((sum, n) => sum + n.duration + 0.03, 0)
+  if (!ctx) return totalDuration
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+  const now = ctx.currentTime
+  let t = 0
+  notes.forEach(({ frequency, duration }) => {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(frequency, now + t)
+    gain.gain.setValueAtTime(0.0001, now + t)
+    gain.gain.exponentialRampToValueAtTime(0.2, now + t + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + t + duration)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now + t)
+    osc.stop(now + t + duration + 0.02)
+    t += duration + 0.03
+  })
+  return totalDuration
 }
 
 export function playChirp(kind = 'feed') {

@@ -33,6 +33,7 @@ import {
   CompanionGalleryPage,
   MysteryEggCard,
   AwaitingCompanionCard,
+  RoomBackdrop,
 } from './Tweety'
 import { ReleaseCeremony } from './ReleaseCeremony'
 import { GardenPage } from './Garden'
@@ -797,6 +798,20 @@ const TWEETY_STORE_ITEMS = [
   { id: 'watertank', emoji: '💧', name: 'Large Water Tank', cost: 900, kind: 'comfort', hint: "A water dispenser by the nest — missing an occasional water won't upset her" },
   { id: 'cozynest', emoji: '🏡', name: 'Cozy Nest Upgrade', cost: 1200, kind: 'nest', hint: 'The nest gets a warm, lined, lived-in look' },
   { id: 'birdhouse', emoji: '🏰', name: 'Luxury Birdhouse', cost: 2500, kind: 'nest', hint: "Replaces the nest entirely — Tweety's whole home changes" },
+]
+
+// Room Themes: whole-backdrop swaps for Tweety's home (see RoomBackdrop in
+// Tweety.jsx — every id here must have a matching entry there). Bought once,
+// then freely switchable — unlike TWEETY_STORE_ITEMS this never resets on a
+// new companion (see defaultTweety's roomTheme/ownedRoomThemes comment), so
+// it's kept as its own catalog rather than folded into the item shop.
+const ROOM_THEME_CATALOG = [
+  { id: 'cottage', emoji: '🪵', name: 'Cosy Cottage', cost: 0, hint: 'Warm wood walls, wooden floor, a real daylight window — her home from day one.' },
+  { id: 'winter-cabin', emoji: '❄️', name: 'Winter Cabin', cost: 800, hint: 'Dark log walls, snow through the window, and a fireplace glow on the floor. Tweety gets a tiny scarf.' },
+  { id: 'spring-meadow', emoji: '🌷', name: 'Spring Meadow', cost: 800, hint: 'Pastel green walls with a flower print, and an open window onto a butterfly-filled meadow.' },
+  { id: 'treehouse', emoji: '🌳', name: 'Treehouse', cost: 1000, hint: 'Bamboo walls, a leafy canopy view, rope details, and dappled sunlight.' },
+  { id: 'beach-hut', emoji: '🐚', name: 'Beach Hut', cost: 1000, hint: 'Pale driftwood walls, an ocean sunset through the window, and a sandy floor.' },
+  { id: 'night-sky', emoji: '🌙', name: 'Night Sky', cost: 1200, hint: 'Deep blue walls painted with stars, a moonlit window, and a few soft fireflies.' },
 ]
 
 // Bottom tab bar (6) + everything else tucked behind the settings menu.
@@ -6377,6 +6392,51 @@ function App() {
     )
   }
 
+  // Buy + immediately switch to a Room Theme (mirrors buyGreenhousePotStyle's
+  // buy-and-select-in-one pattern). Free themes (just 'cottage' today) can't
+  // be re-bought — selectRoomTheme below handles switching back to one
+  // already owned.
+  function buyRoomTheme(themeId) {
+    const theme = ROOM_THEME_CATALOG.find((entry) => entry.id === themeId)
+    if (!theme) return
+    const owned = data.tweety?.ownedRoomThemes || ['cottage']
+    if (owned.includes(themeId)) return
+    if (data.featherCoins < theme.cost) return notEnoughCoins()
+    commit(
+      {
+        ...data,
+        featherCoins: data.featherCoins - theme.cost,
+        tweety: {
+          ...data.tweety,
+          ownedRoomThemes: [...owned, themeId],
+          roomTheme: themeId,
+        },
+      },
+      { title: `${theme.emoji} ${theme.name} unlocked!`, body: "Tweety's home has a whole new look." },
+      { immediate: true },
+    )
+  }
+
+  // Switching only ever affects an already-owned theme — free, no coins,
+  // just a preference change, same shape as selectGreenhousePotStyle.
+  function selectRoomTheme(themeId) {
+    const owned = data.tweety?.ownedRoomThemes || ['cottage']
+    if (!owned.includes(themeId)) return
+    commit(
+      { ...data, tweety: { ...data.tweety, roomTheme: themeId } },
+      { title: 'Room theme changed', body: "Tweety's home has a new look.", tone: 'calm' },
+      { immediate: true },
+    )
+  }
+
+  // The song hint ("🎵 Tap to hear Tweety sing") shows once ever — a plain
+  // silent setData is enough (no reward/toast attached), same as
+  // markMagazineIssueSeen.
+  function markSongHintSeen() {
+    if (readOnly) return
+    setData((c) => (c.tweety?.songHintSeen ? c : { ...c, tweety: { ...c.tweety, songHintSeen: true } }))
+  }
+
   function buyDateIdea() {
     if (data.featherCoins < SHOP.dateIdea) return notEnoughCoins()
     const ideas = data.dateIdeas?.length ? data.dateIdeas : defaultDateIdeas
@@ -6940,6 +7000,7 @@ function App() {
             claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
             readOnly={readOnly}
             markMagazineIssueSeen={markMagazineIssueSeen}
+            onHeardSong={markSongHintSeen}
             onSettleHappiness={settleHappinessDecay}
             goToPlants={() => {
               setExploreMode('plants')
@@ -7085,6 +7146,8 @@ function App() {
             buyMysteryBox={buyMysteryBox}
             buyHiddenNote={buyHiddenNote}
             buyTweetyStoreItem={buyTweetyStoreItem}
+            buyRoomTheme={buyRoomTheme}
+            selectRoomTheme={selectRoomTheme}
             buyDateIdea={buyDateIdea}
             buyMilkshakeDate={buyMilkshakeDate}
             buyFeaturedBirdProfile={buyFeaturedBirdProfile}
@@ -7853,6 +7916,7 @@ function HomePage({
   goToPlants,
   readOnly = false,
   markMagazineIssueSeen,
+  onHeardSong,
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -8013,6 +8077,7 @@ function HomePage({
               onOpenStats={() => goTo('tweety')}
               onReleaseToGarden={onReleaseToGarden}
               onSettleHappiness={onSettleHappiness}
+              onHeardSong={onHeardSong}
             />
           ) : (
             <AwaitingCompanionCard tweety={data.tweety} />
@@ -11266,6 +11331,8 @@ function RewardsPage({
   buyMysteryBox,
   buyHiddenNote,
   buyTweetyStoreItem,
+  buyRoomTheme,
+  selectRoomTheme,
   buyDateIdea,
   buyMilkshakeDate,
   buyFeaturedBirdProfile,
@@ -11379,6 +11446,40 @@ function RewardsPage({
                   {owned ? 'Gifted 💛' : `${item.cost} 🪙`}
                 </button>
                 {boostActive && <small className="fine-print">✨ Active until midnight</small>}
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="soft-card full-span room-theme-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Room Themes 🏠</p>
+            <h2>Redecorate Tweety&apos;s home</h2>
+          </div>
+        </div>
+        <div className="shop-grid">
+          {ROOM_THEME_CATALOG.map((theme) => {
+            const ownedThemes = data.tweety?.ownedRoomThemes || ['cottage']
+            const owned = ownedThemes.includes(theme.id)
+            const active = (data.tweety?.roomTheme || 'cottage') === theme.id
+            const affordable = coins >= theme.cost
+            return (
+              <article className={`shop-tile room-theme-tile${active ? ' gifted' : ''}${!owned && !affordable ? ' unaffordable' : ''}`} key={theme.id}>
+                <div className="room-theme-thumb" aria-hidden="true">
+                  <RoomBackdrop theme={theme.id} />
+                </div>
+                <h3>{theme.emoji} {theme.name}</h3>
+                <small>{theme.hint}</small>
+                <button
+                  className="primary-btn wide big-btn"
+                  type="button"
+                  disabled={active || (!owned && !affordable)}
+                  onClick={() => (owned ? selectRoomTheme(theme.id) : buyRoomTheme(theme.id))}
+                >
+                  {active ? 'Active ✓' : owned ? 'Tap to use' : theme.cost === 0 ? 'Free' : `${theme.cost} 🪙`}
+                </button>
               </article>
             )
           })}

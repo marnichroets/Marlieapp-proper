@@ -2990,6 +2990,22 @@ textarea:focus {
   opacity: 0.62;
 }
 
+.room-theme-section .shop-tile.gifted {
+  background: rgba(255, 224, 178, 0.35);
+  border-color: rgba(231, 178, 116, 0.5);
+}
+.room-theme-section .shop-tile.unaffordable {
+  opacity: 0.62;
+}
+.room-theme-thumb {
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.room-theme-thumb .room-backdrop-svg { display: block; width: 100%; height: 100%; }
+
 .shop-emoji {
   font-size: 2.2rem;
   line-height: 1;
@@ -4087,8 +4103,73 @@ textarea:focus {
   position: relative;
   z-index: 1;
   transition: transform 0.3s ease;
+  /* Now a real <button> (tapping her plays her song) — reset the UA chrome
+     so it still reads as plain decoration, not a form control. */
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 .tweety-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* Tiny knitted scarf overlay (Winter Cabin theme only) — sits near the
+   bird's chest/neck regardless of her current growth-stage scale. */
+.tweety-scarf {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 46%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.tweety-scarf svg { display: block; width: 100%; height: auto; }
+
+/* Musical note that floats up from Tweety and fades when she sings. */
+.tweety-song-note {
+  position: absolute;
+  left: 60%;
+  top: 6%;
+  font-size: 1.6rem;
+  pointer-events: none;
+  z-index: 3;
+  animation: tweety-song-note-float 1.8s ease-out forwards;
+}
+@keyframes tweety-song-note-float {
+  0% { transform: translateY(0) scale(0.7); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-6px) scale(1); }
+  100% { transform: translateY(-38px) scale(1.05); opacity: 0; }
+}
+
+.tweety-song-hint {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tweety-cosy-home-label {
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--honey-dark, #a1712e);
+}
+
+/* Perch Branch: an occasional hop up-left toward the perch slot, a moment's
+   sit, then back — offsets are relative to the bird's own box (the nest sits
+   centred/near the room's bottom, the perch slot sits upper-left), so this
+   stays roughly right regardless of card width. */
+.tweety-hop-perch { animation: tweety-hop-perch 3.4s ease-in-out; }
+@keyframes tweety-hop-perch {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  12% { transform: translate(-38%, -58%) scale(0.84); }
+  38% { transform: translate(-46%, -66%) scale(0.82); }
+  70% { transform: translate(-46%, -66%) scale(0.82); }
+  88% { transform: translate(-16%, -22%) scale(0.92); }
+}
 
 /* Crowned-adult overlay (see TweetyCrown in Tweety.jsx) — songbird-small's
    head sits at roughly 70% across / 25% down its own viewBox, so this lines
@@ -4260,6 +4341,60 @@ button.room-slot:hover svg { transform: scale(1.08); }
 .slot-treats { left: 15%; top: 80%; width: 13%; z-index: 4; }
 .slot-watertank { left: 71%; top: 74%; width: 15%; z-index: 4; }
 .slot-flowers { left: 86%; top: 78%; width: 13%; z-index: 4; }
+
+/* Owned-item idle life — small, continuous, never so busy it fights the
+   tap/pop/shake reactions above (which still take over on interaction since
+   they're separately-triggered classes on the same svg). Each item gets a
+   motion that suits its real-world physics: hanging things sway from the
+   top, potted things bob, glass/mirror gets a brightness shimmer instead of
+   movement. */
+.room-slot.slot-chimes.owned svg {
+  transform-origin: 50% 4%;
+  animation: room-item-sway 3.2s ease-in-out infinite;
+}
+.room-slot.slot-herbs.owned svg {
+  transform-origin: 50% 4%;
+  animation: room-item-sway 4s ease-in-out infinite 0.4s;
+}
+.room-slot.slot-flowers.owned svg {
+  transform-origin: 50% 100%;
+  animation: room-item-bob 3.6s ease-in-out infinite;
+}
+.room-slot.slot-mirror.owned svg {
+  animation: room-item-shimmer 4.5s ease-in-out infinite;
+}
+@keyframes room-item-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+@keyframes room-item-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes room-item-shimmer {
+  0%, 100% { filter: brightness(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.16)); }
+  50% { filter: brightness(1.18) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.16)); }
+}
+
+/* Music Box: a faint lingering glow on top of the usual tap-shake, so a
+   recent tap keeps reading as "just played" a little after the shake ends. */
+.room-slot.slot-musicbox.tapped svg {
+  animation: room-item-shake 1.1s ease, room-item-glow 2s ease;
+}
+@keyframes room-item-glow {
+  0% { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.16)); }
+  25% { filter: drop-shadow(0 0 8px rgba(255, 214, 120, 0.85)); }
+  100% { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.16)); }
+}
+
+/* Night Sky theme's fireflies — soft pulsing glow dots. */
+.room-firefly {
+  animation: room-firefly-pulse 2.4s ease-in-out infinite;
+}
+@keyframes room-firefly-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.95; }
+}
 
 .gift-boost-sparkle {
   position: absolute;

@@ -25,10 +25,14 @@ import {
   tweetyGrowthProgress,
   MOOD_FACE,
   playChirp,
+  playTweetySong,
+  tweetySongsLearned,
+  tweetyFedToday,
 } from './tweetyData'
 import { useEffect, useMemo, useState } from 'react'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
+import { saTimePhase } from './saDate'
 
 // Tweety is a Cape Robin-Chat — same species-accurate template/colour system
 // the garden's visiting birds use (see birdTemplates.jsx/birdColourMap.js),
@@ -1061,15 +1065,24 @@ function IconHerbs() {
   )
 }
 
-function IconFeedingBowl() {
+// filled = fed at least once today (see tweetyFedToday) — a full scatter of
+// seeds when true, just a couple of stray leftovers when false, so the bowl
+// itself shows whether she's been fed without reading any text.
+function IconFeedingBowl({ filled = true }) {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true">
       <ellipse cx="32" cy="46" rx="24" ry="8" fill="var(--wood-dark)" opacity="0.18" />
       <path d="M8 34 a24 16 0 0 0 48 0 Z" fill="var(--rose)" stroke="var(--rose-dark)" strokeWidth="2.5" />
       <ellipse cx="32" cy="34" rx="24" ry="7" fill="var(--paper)" stroke="var(--rose-dark)" strokeWidth="2.5" />
-      <circle cx="24" cy="34" r="2.4" fill="var(--honey-dark)" />
-      <circle cx="32" cy="35.5" r="2.4" fill="var(--honey-dark)" />
-      <circle cx="40" cy="34" r="2.4" fill="var(--honey-dark)" />
+      <circle cx="24" cy="34" r="2.4" fill="var(--honey-dark)" opacity={filled ? 1 : 0.15} />
+      <circle cx="32" cy="35.5" r="2.4" fill="var(--honey-dark)" opacity={filled ? 1 : 0.15} />
+      <circle cx="40" cy="34" r="2.4" fill="var(--honey-dark)" opacity={filled ? 1 : 0.15} />
+      {filled && (
+        <>
+          <circle cx="28" cy="32.5" r="1.6" fill="var(--honey-dark)" />
+          <circle cx="36" cy="33" r="1.6" fill="var(--honey-dark)" />
+        </>
+      )}
     </svg>
   )
 }
@@ -1139,22 +1152,39 @@ function IconBlanket() {
 // the nest (z-index 0, pointer-events none), so it never touches item
 // positions, ownership, or tap handling — just fixes the flat, cold-looking
 // backdrop Pooks was seeing (see the 2026-07-29 "looks like a prison" note).
-function RoomBackdrop() {
+//
+// Room Themes: every theme below renders into the SAME 300x240 viewBox with
+// the SAME wall/window/sill/floor footprint (wall 0-149, window box roughly
+// x108-192 y16-74, sill y74-81, floor in 5 planks y149-240) so ROOM_ITEMS'
+// percentage-based slot positions (.slot-* in App.css) line up identically
+// no matter which theme is active — only fills/details change. Gradient/
+// filter ids are suffixed per theme so multiple instances (the live room +
+// every thumbnail in the Room Themes shop) can render side by side without
+// id collisions.
+//
+// Only the default Cottage theme reacts to timePhase (morning/midday =
+// daytime sky+clouds, evening = sunset, night = stars+moon) — see
+// saTimePhase in saDate.js. Every other theme's window view is its own
+// fixed, already-thematic scene (Winter Cabin is always snow, Night Sky is
+// always moon+stars, etc.), so time-of-day only applies where the brief's
+// "current time of day" reading is unambiguous: the plain daylight window.
+function CottageBackdrop({ timePhase = 'midday' }) {
+  const sky =
+    timePhase === 'night'
+      ? { top: '#22345c', bottom: '#3a4f80' }
+      : timePhase === 'evening'
+        ? { top: '#f4986a', bottom: '#fbd8a4' }
+        : { top: '#cfe9f7', bottom: '#eaf6fb' }
   return (
-    <svg
-      className="room-backdrop-svg"
-      viewBox="0 0 300 240"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
+    <>
       <defs>
-        <radialGradient id="roomWarmGlow" cx="0.5" cy="0" r="0.75">
-          <stop offset="0" stopColor="#ffe0a0" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#ffe0a0" stopOpacity="0" />
+        <radialGradient id="roomWarmGlow-cottage" cx="0.5" cy="0" r="0.75">
+          <stop offset="0" stopColor={timePhase === 'night' ? '#6a7ec2' : '#ffe0a0'} stopOpacity="0.5" />
+          <stop offset="1" stopColor={timePhase === 'night' ? '#6a7ec2' : '#ffe0a0'} stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="roomSkyG" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#cfe9f7" />
-          <stop offset="1" stopColor="#eaf6fb" />
+        <linearGradient id="roomSkyG-cottage" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={sky.top} />
+          <stop offset="1" stopColor={sky.bottom} />
         </linearGradient>
       </defs>
 
@@ -1163,13 +1193,29 @@ function RoomBackdrop() {
       {[20, 40, 60, 80, 100, 120, 140].map((y) => (
         <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#a9713f" strokeOpacity="0.12" strokeWidth="1" />
       ))}
-      <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow)" />
+      <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow-cottage)" />
 
       {/* a real window — plain rounded frame, sky, no bars */}
       <rect x="108" y="16" width="84" height="58" rx="10" fill="#b8863e" />
-      <rect x="115" y="23" width="70" height="44" rx="6" fill="url(#roomSkyG)" />
-      <ellipse cx="138" cy="38" rx="12" ry="5" fill="#ffffff" opacity="0.75" />
-      <ellipse cx="158" cy="47" rx="15" ry="5.5" fill="#ffffff" opacity="0.7" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="url(#roomSkyG-cottage)" />
+      {timePhase === 'night' ? (
+        <>
+          <circle cx="163" cy="36" r="8" fill="#f4edc9" />
+          {[[126, 29], [143, 49], [170, 44], [177, 31], [133, 60]].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r="1" fill="#fff" opacity="0.85" />
+          ))}
+        </>
+      ) : timePhase === 'evening' ? (
+        <>
+          <circle cx="140" cy="53" r="10" fill="#fff3d2" opacity="0.9" />
+          <ellipse cx="165" cy="40" rx="11" ry="4.5" fill="#ffe6c2" opacity="0.6" />
+        </>
+      ) : (
+        <>
+          <ellipse cx="138" cy="38" rx="12" ry="5" fill="#ffffff" opacity="0.75" />
+          <ellipse cx="158" cy="47" rx="15" ry="5.5" fill="#ffffff" opacity="0.7" />
+        </>
+      )}
       {/* windowsill with a tiny potted plant */}
       <rect x="102" y="74" width="96" height="7" rx="2" fill="#a9713f" />
       <g>
@@ -1181,26 +1227,294 @@ function RoomBackdrop() {
 
       {/* planked floor, alternating warm tones with thin gaps between boards */}
       {[0, 1, 2, 3, 4].map((i) => (
-        <rect
-          key={i}
-          x="0"
-          y={149 + i * 18.2}
-          width="300"
-          height="18"
-          fill={i % 2 === 0 ? '#c79358' : '#b8814a'}
-        />
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#c79358' : '#b8814a'} />
       ))}
       {[0, 1, 2, 3, 4].map((i) => (
-        <line
-          key={i}
-          x1="0"
-          y1={149 + i * 18.2}
-          x2="300"
-          y2={149 + i * 18.2}
-          stroke="#00000018"
-          strokeWidth="1"
-        />
+        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#00000018" strokeWidth="1" />
       ))}
+      {timePhase === 'night' && <rect x="0" y="0" width="300" height="240" fill="#182544" opacity="0.16" />}
+    </>
+  )
+}
+
+// Winter Cabin (800 coins) — dark log walls, a snowy window view, and a warm
+// fireplace glow pooling on the floor.
+function WinterCabinBackdrop() {
+  return (
+    <>
+      <defs>
+        <linearGradient id="roomSkyG-winter" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c3d6e8" />
+          <stop offset="1" stopColor="#eef5fa" />
+        </linearGradient>
+        <radialGradient id="fireGlow-winter" cx="0.5" cy="1" r="0.85">
+          <stop offset="0" stopColor="#ff9d4d" stopOpacity="0.45" />
+          <stop offset="1" stopColor="#ff9d4d" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="300" height="149" fill="#4a3222" />
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const y = i * 26
+        return (
+          <g key={i}>
+            <rect x="0" y={y} width="300" height="24" rx="12" fill={i % 2 === 0 ? '#5a3d28' : '#654530'} />
+            <circle cx="10" cy={y + 12} r="9" fill="#3d2a1c" opacity="0.5" />
+            <circle cx="290" cy={y + 12} r="9" fill="#3d2a1c" opacity="0.5" />
+          </g>
+        )
+      })}
+
+      <rect x="108" y="16" width="84" height="58" rx="10" fill="#3d2a1c" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="url(#roomSkyG-winter)" />
+      <path d="M115 55 Q135 46 150 54 Q165 44 185 55 L185 67 L115 67 Z" fill="#fbfdff" />
+      {[[122, 30], [140, 40], [155, 28], [170, 38], [178, 48]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="1.4" fill="#fff" opacity="0.9" />
+      ))}
+      <rect x="102" y="74" width="96" height="7" rx="2" fill="#3d2a1c" />
+      <path d="M102 74 Q150 68 198 74 L198 78 Q150 73 102 78 Z" fill="#fbfdff" />
+
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#5c4530' : '#4f3a28'} />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#00000030" strokeWidth="1" />
+      ))}
+      <ellipse cx="70" cy="220" rx="130" ry="60" fill="url(#fireGlow-winter)" />
+    </>
+  )
+}
+
+// A tiny knitted scarf overlay for Winter Cabin — the only theme with a
+// Tweety accessory. Positioned via .tweety-scarf in App.css, absolutely over
+// the bird sprite (see the Winter Cabin note in TweetyHomeCard).
+export function WinterScarf() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M14 24 Q32 34 50 24 L50 32 Q32 42 14 32 Z" fill="#c6473f" stroke="#9c342e" strokeWidth="1.5" />
+      <path d="M24 32 L20 50 L28 48 L26 33 Z" fill="#c6473f" stroke="#9c342e" strokeWidth="1.5" />
+      <line x1="21" y1="42" x2="27" y2="41" stroke="#9c342e" strokeWidth="1.2" />
+      <line x1="20.5" y1="46" x2="26.5" y2="45" stroke="#9c342e" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+// Spring Meadow (800 coins) — pastel green walls with a scattered flower
+// print, an open window onto a meadow with a couple of butterflies.
+function SpringMeadowBackdrop() {
+  const flowerDots = [[30, 30], [80, 60], [220, 25], [260, 90], [40, 110], [270, 50], [15, 70]]
+  return (
+    <>
+      <defs>
+        <linearGradient id="roomSkyG-spring" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#d7f2c2" />
+          <stop offset="1" stopColor="#f3fbe8" />
+        </linearGradient>
+        <radialGradient id="roomWarmGlow-spring" cx="0.5" cy="0" r="0.75">
+          <stop offset="0" stopColor="#fff6c8" stopOpacity="0.6" />
+          <stop offset="1" stopColor="#fff6c8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="300" height="149" fill="#eaf5df" />
+      {flowerDots.map(([x, y], i) => (
+        <g key={i}>
+          {[0, 72, 144, 216, 288].map((a) => (
+            <ellipse
+              key={a}
+              cx={x + 3.2 * Math.cos((a * Math.PI) / 180)}
+              cy={y + 3.2 * Math.sin((a * Math.PI) / 180)}
+              rx="2.2"
+              ry="1.6"
+              fill="#f2a6c6"
+              transform={`rotate(${a} ${x} ${y})`}
+            />
+          ))}
+          <circle cx={x} cy={y} r="1.6" fill="#f2c230" />
+        </g>
+      ))}
+      <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow-spring)" />
+
+      <rect x="108" y="16" width="84" height="58" rx="10" fill="#9dc07a" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="url(#roomSkyG-spring)" />
+      <path d="M115 60 Q140 50 160 58 Q175 50 185 58 L185 67 L115 67 Z" fill="#8fbf5e" />
+      <g>
+        <ellipse cx="130" cy="34" rx="3" ry="2" fill="#f2905c" transform="rotate(-25 130 34)" />
+        <ellipse cx="135" cy="34" rx="3" ry="2" fill="#f2905c" transform="rotate(25 135 34)" />
+        <line x1="132.5" y1="32" x2="132.5" y2="36" stroke="#6b4a2a" strokeWidth="1" />
+      </g>
+      <g>
+        <ellipse cx="170" cy="46" rx="2.6" ry="1.8" fill="#e8a6d6" transform="rotate(-25 170 46)" />
+        <ellipse cx="174.4" cy="46" rx="2.6" ry="1.8" fill="#e8a6d6" transform="rotate(25 174.4 46)" />
+        <line x1="172.2" y1="44.4" x2="172.2" y2="47.6" stroke="#6b4a2a" strokeWidth="1" />
+      </g>
+      <rect x="102" y="74" width="96" height="7" rx="2" fill="#9dc07a" />
+
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#d7edc2' : '#c7e3ae'} />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#00000012" strokeWidth="1" />
+      ))}
+    </>
+  )
+}
+
+// Treehouse (1000 coins) — bamboo-stalk walls, a leafy canopy view with
+// dappled sunlight, and a coiled rope in the corner.
+function TreehouseBackdrop() {
+  return (
+    <>
+      <defs>
+        <radialGradient id="roomWarmGlow-tree" cx="0.5" cy="0" r="0.75">
+          <stop offset="0" stopColor="#fff2a8" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#fff2a8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="300" height="149" fill="#c7b989" />
+      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => {
+        const x = i * 30
+        return (
+          <g key={i}>
+            <rect x={x + 4} y="0" width="20" height="149" rx="10" fill={i % 2 === 0 ? '#b8a468' : '#ad9a5c'} />
+            {[20, 60, 100, 140].map((y) => (
+              <ellipse key={y} cx={x + 14} cy={y} rx="9" ry="3" fill="#9c8a4e" opacity="0.6" />
+            ))}
+          </g>
+        )
+      })}
+      <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow-tree)" />
+
+      <rect x="108" y="16" width="84" height="58" rx="10" fill="#8a7238" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="#4f7a45" />
+      {[[128, 32, 14], [152, 28, 17], [172, 36, 13], [140, 50, 15], [165, 52, 12]].map(([x, y, r], i) => (
+        <ellipse key={i} cx={x} cy={y} rx={r} ry={r * 0.7} fill={i % 2 === 0 ? '#5e9a52' : '#6bab5e'} />
+      ))}
+      {[[135, 30], [158, 38], [145, 48], [172, 42]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="2" fill="#ffe89a" opacity="0.85" />
+      ))}
+      <rect x="102" y="74" width="96" height="7" rx="2" fill="#8a7238" />
+
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#9c8452' : '#8f7847'} />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#00000020" strokeWidth="1" />
+      ))}
+      {/* coiled rope, bottom-left corner */}
+      <g fill="none" stroke="#c9a463" strokeWidth="3">
+        <circle cx="24" cy="222" r="12" />
+        <circle cx="24" cy="222" r="7" />
+      </g>
+      {/* dappled sunlight on the wall */}
+      {[[40, 20, 10], [220, 60, 12], [70, 100, 8], [260, 30, 9]].map(([x, y, r], i) => (
+        <circle key={i} cx={x} cy={y} r={r} fill="#fff6c0" opacity="0.25" />
+      ))}
+    </>
+  )
+}
+
+// Beach Hut (1000 coins) — pale driftwood walls, an ocean-at-sunset window,
+// sandy floor, and a couple of shells.
+function BeachHutBackdrop() {
+  return (
+    <>
+      <defs>
+        <linearGradient id="roomSkyG-beach" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f7a35c" />
+          <stop offset="0.55" stopColor="#f7c98a" />
+          <stop offset="0.56" stopColor="#5aa3a8" />
+          <stop offset="1" stopColor="#2e7a80" />
+        </linearGradient>
+        <radialGradient id="roomWarmGlow-beach" cx="0.5" cy="0" r="0.75">
+          <stop offset="0" stopColor="#ffd8a0" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#ffd8a0" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="300" height="149" fill="#e8ddc8" />
+      {[20, 40, 60, 80, 100, 120, 140].map((y) => (
+        <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#c4b696" strokeWidth="1.4" />
+      ))}
+      <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow-beach)" />
+
+      <rect x="108" y="16" width="84" height="58" rx="10" fill="#cbb98e" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="url(#roomSkyG-beach)" />
+      <circle cx="150" cy="43" r="8" fill="#fff3d2" opacity="0.9" />
+      <rect x="102" y="74" width="96" height="7" rx="2" fill="#cbb98e" />
+
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#e8d5a8' : '#ddc793'} />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <circle key={i} cx={20 + i * 60} cy={149 + i * 18.2 + 10} r="1.2" fill="#c9b078" opacity="0.6" />
+      ))}
+      {/* shells */}
+      <path d="M40 226 q6 -10 12 0 q-6 4 -12 0 Z" fill="#f5e6d3" stroke="#d8c2a0" strokeWidth="1" />
+      <path d="M250 230 q5 -8 10 0 q-5 3 -10 0 Z" fill="#f0d8c8" stroke="#d8ad94" strokeWidth="1" />
+    </>
+  )
+}
+
+// Night Sky (1200 coins) — deep blue walls with painted stars, a moon
+// through the window, and a few pulsing fireflies (.room-firefly in App.css).
+function NightSkyBackdrop() {
+  const stars = [[20, 20], [60, 40], [100, 15], [230, 30], [270, 60], [15, 90], [280, 110], [50, 120], [200, 100], [260, 20]]
+  const fireflies = [[50, 180, '0s'], [220, 200, '0.8s'], [160, 165, '1.6s'], [270, 215, '0.4s']]
+  return (
+    <>
+      <defs>
+        <radialGradient id="roomMoonGlow-night" cx="0.5" cy="0.5" r="0.6">
+          <stop offset="0" stopColor="#8fa3d6" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#8fa3d6" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="300" height="149" fill="#1c2b4a" />
+      {stars.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={1 + (i % 3) * 0.4} fill="#fff" opacity={0.6 + (i % 4) * 0.1} />
+      ))}
+      <ellipse cx="150" cy="10" rx="170" ry="90" fill="url(#roomMoonGlow-night)" />
+
+      <rect x="108" y="16" width="84" height="58" rx="10" fill="#14203a" />
+      <rect x="115" y="23" width="70" height="44" rx="6" fill="#25325a" />
+      <circle cx="160" cy="38" r="10" fill="#f4edc9" />
+      <circle cx="157" cy="35" r="8.5" fill="#25325a" opacity="0.5" />
+      {[[125, 30], [135, 50], [172, 45], [178, 55], [145, 58]].map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="1" fill="#fff" opacity="0.8" />
+      ))}
+      <rect x="102" y="74" width="96" height="7" rx="2" fill="#14203a" />
+
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#2a3a5c' : '#243252'} />
+      ))}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#00000030" strokeWidth="1" />
+      ))}
+      {fireflies.map(([x, y, delay], i) => (
+        <circle key={i} className="room-firefly" cx={x} cy={y} r="2.4" fill="#d7f26a" style={{ animationDelay: delay }} />
+      ))}
+    </>
+  )
+}
+
+const ROOM_BACKDROPS = {
+  cottage: CottageBackdrop,
+  'winter-cabin': WinterCabinBackdrop,
+  'spring-meadow': SpringMeadowBackdrop,
+  treehouse: TreehouseBackdrop,
+  'beach-hut': BeachHutBackdrop,
+  'night-sky': NightSkyBackdrop,
+}
+
+// Exported so the Room Themes shop (App.jsx) can render the exact same art
+// as a small preview thumbnail for each theme, owned or not.
+export function RoomBackdrop({ theme = 'cottage', timePhase = 'midday' }) {
+  const Backdrop = ROOM_BACKDROPS[theme] || CottageBackdrop
+  return (
+    <svg className="room-backdrop-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
+      <Backdrop timePhase={timePhase} />
     </svg>
   )
 }
@@ -1277,6 +1591,7 @@ export function TweetyHomeCard({
   onOpenStats,
   onReleaseToGarden,
   onSettleHappiness,
+  onHeardSong,
 }) {
   const name = tweety?.name || 'Tweety'
   const species = companionSpecies(tweety?.companion)
@@ -1331,6 +1646,12 @@ export function TweetyHomeCard({
   const stageScale = TWEETY_STAGE_SCALE[birdLevel] ?? 1
   const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
   const tweetyZones = mutedZones(BIRD_COLOUR_MAP[TWEETY_SPECIES_KEY].zones, stageMute)
+  const roomTheme = tweety?.roomTheme || 'cottage'
+  const fedToday = tweetyFedToday(tweety)
+  // "Tweety's cosy home ✨" — a small badge once she's actually filled the
+  // room out, not from day one. 5 permanent gifts (not counting the
+  // consumable 'treats' bowl, which comes and goes) reads as "furnished".
+  const cosyHomeEarned = gifts.filter((g) => g.id !== 'treats').length >= 5
 
   // Luxury Birdhouse fully replaces the nest; Cozy Nest Upgrade is the step
   // below that; anything gifted from the admin-only legacy Bird Store (rare)
@@ -1385,10 +1706,44 @@ export function TweetyHomeCard({
     return () => window.clearTimeout(preenTimer)
   }, [hasMirror])
 
+  // Perch Branch: every so often Tweety hops over, sits a moment, and hops
+  // back — same "occasional idle behaviour" pattern as Mirror's preen above,
+  // just its own timing window and its own wrapper class (.tweety-hop-perch
+  // in App.css actually moves the sprite toward the perch slot and back).
+  const hasPerch = ownedGiftIds.has('perch')
+  const [hopping, setHopping] = useState(false)
+  useEffect(() => {
+    if (!hasPerch) return undefined
+    let hopTimer
+    const scheduleNext = () => {
+      const delay = 24000 + Math.random() * 26000
+      hopTimer = window.setTimeout(() => {
+        setHopping(true)
+        window.setTimeout(() => setHopping(false), 3400)
+        scheduleNext()
+      }, delay)
+    }
+    scheduleNext()
+    return () => window.clearTimeout(hopTimer)
+  }, [hasPerch])
+
+  // Tweety's songs: tapping her plays her current growth stage's tune (Web
+  // Audio, see playTweetySong) plus a little floating note that times itself
+  // off the song's own duration. The "tap to hear" hint shows once ever,
+  // persisted via tweety.songHintSeen (see onHeardSong in App.jsx).
+  const [singingNote, setSingingNote] = useState(false)
+  function singSong() {
+    const duration = playTweetySong(growth.key)
+    setSingingNote(true)
+    window.setTimeout(() => setSingingNote(false), duration * 1000 + 500)
+    if (!tweety?.songHintSeen) onHeardSong?.()
+  }
+
   // Which wrapper animation plays right now, in priority order: a
   // care/store-triggered happy dance beats whatever the just-tapped gift
-  // asked for, which beats Mirror's occasional idle preen. None of these
-  // means the bird just holds its mood posture (tweety-posture-*, below).
+  // asked for, which beats Mirror's occasional idle preen, which beats a
+  // Perch hop. None of these means the bird just holds its mood posture
+  // (tweety-posture-*, below).
   const tapMotion = tapReaction?.motion
   const motionClass = dancing
     ? 'tweety-dance'
@@ -1400,7 +1755,9 @@ export function TweetyHomeCard({
           ? 'tweety-gift-sway'
           : preening
             ? 'tweety-preen'
-            : ''
+            : hopping
+              ? 'tweety-hop-perch'
+              : ''
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -1418,24 +1775,29 @@ export function TweetyHomeCard({
       <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
 
+        {cosyHomeEarned && <p className="tweety-cosy-home-label">Tweety&apos;s cosy home ✨</p>}
+
         {/* A cosy little room, not a scatter of emoji — every store item gets
             a fixed, named spot (see ROOM_ITEMS above), rendered even before
             she owns it as a faint "room to fill" outline. */}
         <div className="tweety-room">
           <div className="room-backdrop" aria-hidden="true">
-            <RoomBackdrop />
+            <RoomBackdrop theme={roomTheme} timePhase={saTimePhase()} />
           </div>
           {ROOM_ITEMS.map((it) => {
             // Treats is a repeatable consumable, never added to the permanent
             // gifts list — its bowl only appears while today's boost is
             // active (plus any legacy one-off 'treats' id, kept recognized).
             const owned = it.id === 'treats' ? boosted || ownedGiftIds.has('treats') : ownedGiftIds.has(it.id)
+            // Feeding Bowl reads full/sparse off whether she's fed today —
+            // every other item's icon is static.
+            const icon = it.id === 'feedingbowl' ? <IconFeedingBowl filled={fedToday} /> : it.icon
             return (
               <RoomItem
                 key={it.id}
                 className={it.className}
                 title={it.title}
-                icon={it.icon}
+                icon={icon}
                 owned={owned}
                 popping={justPurchasedItem === it.id}
                 tapped={justTapped === it.id}
@@ -1469,14 +1831,21 @@ export function TweetyHomeCard({
                 her idle mood posture (tweety-posture-*) and, temporarily,
                 whichever dance/preen/sway reaction is playing (motionClass) —
                 the same CSS classes the old cartoon body used, just applied
-                to this wrapper instead. */}
-            <span
+                to this wrapper instead. Now also a real button: tapping her
+                plays her current stage's song (see singSong above). */}
+            <button
+              type="button"
               className={`tweety-bird${motionClass ? ` ${motionClass}` : ''} tweety-posture-${posture}`}
-              aria-hidden="true"
+              title={`Tap to hear ${name} sing`}
+              onClick={singSong}
             >
               <GardenBird template="songbird-small" zones={tweetyZones} size={110 * stageScale} />
               {birdLevel === 'crowned' && <TweetyCrown />}
-            </span>
+              {roomTheme === 'winter-cabin' && (
+                <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
+              )}
+              {singingNote && <span className="tweety-song-note" aria-hidden="true">🎵</span>}
+            </button>
             {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
             {nestTier === 'basic' ? (
               <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
@@ -1500,6 +1869,9 @@ export function TweetyHomeCard({
             )}
           </div>
         </div>
+        {!tweety?.songHintSeen && (
+          <p className="tweety-song-hint">🎵 Tap to hear {name} sing</p>
+        )}
         <span className="tweety-level-pill">{growth.label}</span>
         <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
       </div>
@@ -1711,6 +2083,7 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
   const mood = tweetySimpleMood(tweety)
   const name = tweety?.name || 'Tweety'
   const species = companionSpecies(tweety?.companion)
+  const songsLearned = tweetySongsLearned(tweety)
   return (
     <div className="page-grid">
       <section className="soft-card full-span">
@@ -1757,6 +2130,11 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
             <span>Treats from Marnich</span>
             <strong>{tweety?.treatsReceived || 0}</strong>
             <p>surprise treats 💛</p>
+          </div>
+          <div className="stat-card">
+            <span>Songs learned</span>
+            <strong>{songsLearned}/5 🎵</strong>
+            <p>a new tune every growth stage</p>
           </div>
         </div>
       </section>
