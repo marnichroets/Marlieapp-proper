@@ -288,6 +288,7 @@ export function waterPots(greenhouse, potsToWater, today = saDateKey()) {
   let pots = greenhouse.pots || []
   let coinBonus = 0
   const notes = []
+  let plantFoodUsed = false
   for (const target of potsToWater) {
     const pot = pots.find((p) => p.id === target.id)
     if (!pot) continue
@@ -308,11 +309,16 @@ export function waterPots(greenhouse, potsToWater, today = saDateKey()) {
       notes.push(`${pot.plantName} is in bloom! +${FIRST_BLOOM_COINS} coins 🌸`)
     }
     if (plantFoodActive) {
+      plantFoodUsed = true
       ownedTools = ownedTools
         .map((t) => (t.id === 'plant-food' ? { ...t, uses: t.uses - 1 } : t))
         .filter((t) => t.id !== 'plant-food' || t.uses > 0)
     }
     pots = pots.map((p) => (p.id === nextPot.id ? nextPot : p))
+  }
+  if (plantFoodUsed) {
+    const remaining = ownedToolUses({ ownedTools }, 'plant-food')
+    notes.push(`🌱 Plant food boosted this watering! (${remaining} use${remaining === 1 ? '' : 's'} left)`)
   }
   return { pots, ownedTools, coinBonus, notes }
 }

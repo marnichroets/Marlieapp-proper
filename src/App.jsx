@@ -32,6 +32,7 @@ import {
   AviaryCard,
   CompanionGalleryPage,
   MysteryEggCard,
+  EggSpeciesPicker,
   AwaitingCompanionCard,
   RoomBackdrop,
 } from './Tweety'
@@ -96,7 +97,8 @@ import {
   getCompanion,
   gardenCompanionFor,
   gardenVisitorTint,
-  pickHatchCandidate,
+  emptyMysteryEgg,
+  resolveEggSpecies,
   MYSTERY_EGG_WARMS,
   treatsBoostActive,
   decayedHappiness,
@@ -2384,6 +2386,14 @@ function normalizeLoadedState(saved) {
               ...base.greenhouse,
               ...(saved.greenhouse || {}),
             },
+      // Migration: an egg saved before the species-choice feature shipped was
+      // created by the old random-pick system (pickHatchCandidate) and never
+      // explicitly recorded needsSpeciesChoice — retroactively flag any egg
+      // that doesn't say `false` so she gets the choice prompt for her
+      // current egg too, instead of it silently keeping its old random pick.
+      mysteryEgg: saved.mysteryEgg
+        ? { ...saved.mysteryEgg, needsSpeciesChoice: saved.mysteryEgg.needsSpeciesChoice !== false }
+        : base.mysteryEgg,
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       plantLibrary: Array.isArray(saved.plantLibrary) ? saved.plantLibrary : base.plantLibrary,
@@ -4076,13 +4086,29 @@ function App() {
     if (hasRealHappiness && decayed.happiness === data.tweety.happiness) return
     setData((current) => {
       const next = { ...current, tweety: { ...current.tweety, ...decayed } }
-      lastSyncedRef.current = next
       return next
     })
   }
 
   function renameTweety(name) {
     setData((current) => ({ ...current, tweety: { ...current.tweety, name } }))
+  }
+
+  // She picks her mystery egg's species herself, from any species she's
+  // catalogued (seen) in her Collection — see EggSpeciesPicker, shown instead
+  // of MysteryEggCard while needsSpeciesChoice is true. Warming only starts
+  // once this has run (see the render gate near MysteryEggCard's use).
+  function chooseEggSpecies(birdId) {
+    if (readOnly) return
+    const egg = data.mysteryEgg
+    if (!egg || !egg.needsSpeciesChoice) return
+    const bird = (data.birdLibrary || []).find((b) => b.id === birdId)
+    if (!bird) return
+    commit(
+      { ...data, mysteryEgg: { ...egg, ...resolveEggSpecies(bird.commonName, bird.scientificName) } },
+      { title: 'Species chosen! 🥚', body: `Your mystery egg is now warming up to be a ${bird.commonName}.`, tone: 'success' },
+      { immediate: true },
+    )
   }
 
   // Daily tap-to-warm for the mystery egg (same once-per-real-day rhythm as
@@ -4095,7 +4121,7 @@ function App() {
     if (readOnly) return
     if (!data.tweety?.awaitingNextCompanion) return // not hers to warm yet
     const egg = data.mysteryEgg
-    if (!egg) return
+    if (!egg || egg.needsSpeciesChoice) return // she has to choose a species first
     const today = tweetyTodayKey()
     if (egg.lastWarmDay === today) return
     const warms = (egg.warms || 0) + 1
@@ -4535,6 +4561,19 @@ function App() {
     }
   }
 
+  // Explains why tapping a pot did nothing — locked slot, a dead plant
+  // waiting to be cleared, or a pot already watered today — so a tap never
+  // reads as "the app just ignored me".
+  function greenhousePotBlocked(reason) {
+    if (reason === 'locked') {
+      setToast({ title: 'Locked', body: 'This slot is locked 🔒', tone: 'calm' })
+    } else if (reason === 'dead') {
+      setToast({ title: "Didn't make it", body: 'This plant has died — tap to remove', tone: 'warning' })
+    } else {
+      setToast({ title: 'Already watered', body: 'Already watered today 💧', tone: 'calm' })
+    }
+  }
+
   // Pot a real identified species from the Seed Pouch into a specific empty
   // slot — costs 1 seed only (cheaper commitment than the outdoor Garden's
   // seed+coins planting, since a pot is easy to clear and replant later).
@@ -4945,7 +4984,7 @@ function App() {
         createdAt: new Date().toISOString(),
         warms: 0,
         lastWarmDay: '',
-        ...pickHatchCandidate(c.sightings, c.birdLibrary),
+        ...emptyMysteryEgg(),
       },
       messages: [mysteryEggDiscoveredMessage(), ...(c.messages || [])],
     }))
@@ -5558,7 +5597,7 @@ function App() {
             createdAt: new Date().toISOString(),
             warms: 0,
             lastWarmDay: '',
-            ...pickHatchCandidate(recalculated.sightings, recalculated.birdLibrary),
+            ...emptyMysteryEgg(),
           },
           messages: [mysteryEggDiscoveredMessage(), ...(recalculated.messages || [])],
         }
@@ -6995,6 +7034,7 @@ function App() {
             resolveWorldEvent={resolveWorldEvent}
             onReleaseToGarden={!readOnly ? () => setReleasingCompanion(true) : undefined}
             onWarmMysteryEgg={warmMysteryEgg}
+            onChooseEggSpecies={chooseEggSpecies}
             plantScannerVisible={plantScannerVisible}
             claimWeeklyQuiz={claimWeeklyQuiz}
             claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
@@ -7037,6 +7077,7 @@ function App() {
             coins={data.featherCoins}
             onPlant={potGreenhouseSpecies}
             onNothingToPlant={greenhouseNothingToPlant}
+            onBlockedTap={greenhousePotBlocked}
             onWater={waterGreenhousePot}
             onWaterAll={waterAllGreenhousePots}
             onTrim={trimGreenhousePot}
@@ -7910,6 +7951,7 @@ function HomePage({
   resolveWorldEvent,
   onReleaseToGarden,
   onWarmMysteryEgg,
+  onChooseEggSpecies,
   plantScannerVisible = false,
   claimWeeklyQuiz,
   claimWeeklyPlantQuiz,
@@ -8087,9 +8129,16 @@ function HomePage({
               counting), but it must never be shown/warmable until she's in the
               awaiting-next-companion gap — an egg card next to a living, active
               companion is exactly the phantom-egg bug that kept recurring. This
-              guard is unconditional: it doesn't matter how mysteryEgg got set. */}
+              guard is unconditional: it doesn't matter how mysteryEgg got set.
+              needsSpeciesChoice further gates which of the two cards shows:
+              she has to pick a species (EggSpeciesPicker) before the normal
+              tap-to-warm card (MysteryEggCard) ever appears. */}
           {data.mysteryEgg && !data.tweety?.companion && (
-            <MysteryEggCard mysteryEgg={data.mysteryEgg} onWarm={onWarmMysteryEgg} />
+            data.mysteryEgg.needsSpeciesChoice ? (
+              <EggSpeciesPicker birdLibrary={data.birdLibrary} onChoose={onChooseEggSpecies} />
+            ) : (
+              <MysteryEggCard mysteryEgg={data.mysteryEgg} onWarm={onWarmMysteryEgg} />
+            )
           )}
 
           <button className="garden-home-card" type="button" onClick={() => goTo('garden')}>

@@ -30,7 +30,7 @@ import {
 } from './gardenData'
 import { saDateKey, saTimePhase } from './saDate'
 import { TweetyBird } from './Tweety'
-import { tweetyGrowth } from './tweetyData'
+import { tweetyGrowth, companionSpecies } from './tweetyData'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { GardenPlant } from './plantTemplates'
@@ -113,26 +113,42 @@ function depthScale(y) {
   return 0.85 + Math.max(0, Math.min(1, t)) * 0.3
 }
 
-// A resident's two wander waypoints, in polar form so BOTH the distance from
-// home (always 14-24px, never a barely-there twitch) and the angular gap
-// between the two points (always 100-260°, so point 2 never lands right on
-// top of point 1) are guaranteed — two independent hashed cartesian offsets
-// could otherwise both land near zero, or near each other, and read as
-// completely frozen (the bug this replaced). Y is flattened to 45% of X so
-// she never drifts out of the shallow lawn band.
-function residentWanderStyle(id) {
-  const angle1 = ((hashSeed(`${id}:wa1`) % 360) * Math.PI) / 180
-  const radius1 = 14 + (hashSeed(`${id}:wr1`) % 10)
-  const angle2 = angle1 + ((100 + (hashSeed(`${id}:wa2`) % 160)) * Math.PI) / 180
-  const radius2 = 14 + (hashSeed(`${id}:wr2`) % 10)
-  return {
-    '--rwx1': `${Math.cos(angle1) * radius1}px`,
-    '--rwy1': `${Math.sin(angle1) * radius1 * 0.45}px`,
-    '--rwx2': `${Math.cos(angle2) * radius2}px`,
-    '--rwy2': `${Math.sin(angle2) * radius2 * 0.45}px`,
-    animationDelay: `${hashSeed(`${id}:wdelay`) % 6}s`,
-    animationDuration: `${10 + (hashSeed(`${id}:wdur`) % 8)}s`,
-  }
+// A released companion's next wander stop: a real point picked from whichever
+// placeable regions are currently unlocked (base lawn + any bought expansion
+// zones), so she genuinely roams the whole garden rather than twitching near
+// one fixed spot. See the residentPos effect in GardenPage for the
+// every-15-20s scheduler that calls this, and .garden-resident's CSS
+// `transition` in App.css for the glide itself.
+function pickWanderPoint(regions) {
+  const region = regions[Math.floor(Math.random() * regions.length)] || GARDEN_REGION
+  return { x: rand(region.x0, region.x1), y: rand(region.y0, region.y1) }
+}
+
+// Cheap slugify matching the one saBirdLibrary.js uses to build each entry's
+// `id` (and so BIRD_COLOUR_MAP's keys) — not exported from there, so
+// duplicated here rather than threading it through another module.
+function slugify(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+// A graduated resident's real species → template + colour zones, same
+// BIRD_COLOUR_MAP source as every other illustrated bird in the scene. Tries
+// her actual identified species first (r.species — set from realSpecies at
+// release, which can be any catalogued species, not just one of the six
+// companions), then falls back to the companion's own signature species,
+// then the same generic songbird every other uncatalogued visitor gets.
+function residentBirdVisual(r) {
+  const bySpecies = r?.species && BIRD_COLOUR_MAP[slugify(r.species)]
+  if (bySpecies) return { template: bySpecies.template, zones: bySpecies.zones }
+  const companionName = companionSpecies(r?.companionId)
+  const byCompanion = companionName && BIRD_COLOUR_MAP[slugify(companionName)]
+  if (byCompanion) return { template: byCompanion.template, zones: byCompanion.zones }
+  return { template: 'songbird-small', zones: GENERIC_BIRD_ZONES }
 }
 
 // Small classic nest-box species — the Decorative Birdhouse specifically
@@ -1284,6 +1300,39 @@ export function GardenPage({
     if (ok) setResidentReaction({ id, kind: 'treat' })
   }
 
+  // Released companions roam the whole garden, not just their home spot: each
+  // gets its own real waypoint, in whichever regions are currently unlocked,
+  // that refreshes every 15-20s on an independent per-resident timer (so no
+  // two ever pace in lockstep) — the actual glide between two waypoints is a
+  // plain CSS `transition` on .garden-resident's left/top (see App.css),
+  // the HTML-overlay equivalent of how a visiting FlyBird travels point to
+  // point in the SVG scene. Falls back to her home spot until the first
+  // waypoint lands.
+  const [residentPos, setResidentPos] = useState({})
+  const residentIdsKey = residents.map((r) => r.id).join(',')
+  useEffect(() => {
+    if (!residents.length) return undefined
+    let alive = true
+    const timers = new Map()
+    residents.forEach((r) => {
+      const scheduleNext = () => {
+        const delay = 15000 + Math.random() * 5000
+        const t = window.setTimeout(() => {
+          if (!alive) return
+          setResidentPos((cur) => ({ ...cur, [r.id]: pickWanderPoint(regions) }))
+          scheduleNext()
+        }, delay)
+        timers.set(r.id, t)
+      }
+      scheduleNext()
+    })
+    return () => {
+      alive = false
+      timers.forEach((t) => window.clearTimeout(t))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [residentIdsKey, regions])
+
   // Fully-grown elements with a habitat zone are perches birds can visit (P2).
   // The bench has no habitat zone of its own (it doesn't host species the way
   // a tree/pond/feeder does) but IS a valid land perch for the occasional
@@ -1409,7 +1458,9 @@ export function GardenPage({
   const sortedCreatures = [...creatures].sort(
     (a, b) => (a.y ?? a.fromY ?? 200) - (b.y ?? b.fromY ?? 200),
   )
-  const sortedResidents = [...residents].sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
+  const sortedResidents = [...residents].sort(
+    (a, b) => (residentPos[a.id]?.y ?? a.y ?? 0) - (residentPos[b.id]?.y ?? b.y ?? 0),
+  )
 
   return (
     <div className="page-grid garden-page">
@@ -1658,9 +1709,12 @@ export function GardenPage({
         </svg>
 
         {/* Graduated companions live here permanently, rendered as their real
-            species. HTML overlay positioned over the scene (TweetyBird is an
-            HTML/SVG widget, not a scene <g>); the scene keeps its 400×260 box so
-            scene coords map straight to percentages. */}
+            species (GardenBird, tinted from BIRD_COLOUR_MAP — never the
+            TweetyBird mascot art, which is for Tweety herself). HTML overlay
+            positioned over the scene; the scene keeps its 400×260 box so scene
+            coords map straight to percentages. Each one roams the whole
+            garden via residentPos (see the wander-scheduling effect above)
+            with a plain CSS transition gliding left/top between waypoints. */}
         {residents.length > 0 && (
           <div
             className="garden-residents"
@@ -1669,12 +1723,10 @@ export function GardenPage({
             {sortedResidents.map((r) => {
               // Stable per-resident timing (not re-randomized every render): a
               // cheap hash of the id seeds delay/duration so she never looks
-              // frozen, and no two residents ever sway in lockstep.
+              // frozen, and no two residents ever sway or glide in lockstep.
               const seed = hashSeed(r.id)
-              // She also wanders around her home spot — two guaranteed-visible,
-              // per-resident waypoints (never leaving/entering perfectly in
-              // sync with any other resident) via the same seeded-hash trick.
-              const wanderStyle = residentWanderStyle(r.id)
+              const pos = residentPos[r.id] || { x: r.homeX ?? r.x, y: r.homeY ?? r.y }
+              const { template, zones } = residentBirdVisual(r)
               const reaction = residentReaction?.id === r.id ? residentReaction.kind : null
               return (
                 <button
@@ -1682,23 +1734,24 @@ export function GardenPage({
                   type="button"
                   className={`garden-resident${reaction === 'pet' ? ' garden-resident-react-pet' : ''}${reaction === 'treat' ? ' garden-resident-react-treat' : ''}`}
                   style={{
-                    left: `${((r.x - viewBox.minX) / viewBox.width) * 100}%`,
-                    top: `${((r.y - viewBox.minY) / viewBox.height) * 100}%`,
+                    left: `${((pos.x - viewBox.minX) / viewBox.width) * 100}%`,
+                    top: `${((pos.y - viewBox.minY) / viewBox.height) * 100}%`,
+                    transitionDuration: `${2.4 + (seed % 10) * 0.15}s`,
                   }}
                   title={r.species}
                   onClick={() => { setSelectedResidentId(r.id); setActiveLabelId(r.id) }}
                   onMouseEnter={() => setActiveLabelId(r.id)}
                   onMouseLeave={() => setActiveLabelId((cur) => (cur === r.id ? null : cur))}
                 >
-                  <span className="garden-resident-wander" style={wanderStyle}>
+                  <span className="garden-resident-wander">
                     <span
                       className="garden-resident-sway"
                       style={{ animationDelay: `${seed % 4}s`, animationDuration: `${3.4 + (seed % 5) * 0.3}s` }}
                     >
                       {/* .garden-resident-sway animates `transform` itself, so
                           the depth scale goes on this extra inner span. */}
-                      <span style={{ display: 'inline-block', transform: `scale(${depthScale(r.y ?? 0)})` }}>
-                        <TweetyBird level="crowned" companion={r.companionId} size={44} />
+                      <span style={{ display: 'inline-block', transform: `scale(${depthScale(pos.y ?? 0)})` }}>
+                        <GardenBird template={template} zones={zones} size={44} ground={false} />
                       </span>
                     </span>
                     {activeLabelId === r.id && <span className="garden-resident-name">{r.name}</span>}

@@ -385,6 +385,7 @@ export function GreenhousePage({
   coins,
   onPlant,
   onNothingToPlant,
+  onBlockedTap,
   onWater,
   onWaterAll,
   onTrim,
@@ -419,7 +420,10 @@ export function GreenhousePage({
   }
 
   function handleTapSlot(slotId, locked, pot) {
-    if (locked) return
+    if (locked) {
+      onBlockedTap?.('locked')
+      return
+    }
     if (!pot) {
       setSelectedSlotId(null)
       if (pickerSlotId === slotId) {
@@ -439,9 +443,15 @@ export function GreenhousePage({
     }
     setPickerSlotId(null)
     setSelectedSlotId(slotId)
-    if (!pot.dead && canWaterPot(pot)) {
+    if (pot.dead) {
+      onBlockedTap?.('dead')
+      return
+    }
+    if (canWaterPot(pot)) {
       onWater(slotId)
       playWaterAnim([slotId])
+    } else {
+      onBlockedTap?.('watered')
     }
   }
 

@@ -2021,6 +2021,61 @@ export function FirstEggCard({ tweety, onWarm }) {
   )
 }
 
+// Generic songbird colours for a species she's catalogued that isn't (yet)
+// in BIRD_COLOUR_MAP — same fallback shape Garden.jsx uses for uncatalogued
+// visitors, so the preview still reads as "a real bird", never blank.
+const EGG_PICKER_GENERIC_ZONES = {
+  head: '#8a7b63', beak: '#4a433d', eye: '#2b2117', body: '#7c6e58',
+  breast: '#c9c3b6', wing: '#6e5c4e', tail: '#4a3e33', legs: '#6b5b47',
+}
+
+// ---- Mystery egg species choice ---------------------------------------------
+// A mystery egg no longer hides a secretly-pre-picked species — she chooses
+// it herself from every species she's actually catalogued (seen) in her
+// Collection, previewed as the real illustrated GardenBird art (never a
+// photo). Shown instead of MysteryEggCard while mysteryEgg.needsSpeciesChoice
+// is true; once she taps one, onChoose resolves it and the normal warm-up
+// card takes over.
+export function EggSpeciesPicker({ birdLibrary = [], onChoose }) {
+  const catalogued = (birdLibrary || []).filter((b) => b.seen && b.commonName)
+  return (
+    <section className="soft-card full-span tweety-card egg-species-picker-card">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">A rare egg 🥚</p>
+          <h3>Who's inside? You choose 🐣</h3>
+        </div>
+      </div>
+      <p className="fine-print">Pick any species from your Collection — she&apos;ll hatch as that exact bird.</p>
+      {catalogued.length === 0 ? (
+        <p className="fine-print">Discover a species in the wild first, then come back to choose.</p>
+      ) : (
+        <div className="garden-shop-row egg-species-grid">
+          {catalogued.map((bird) => {
+            const entry = BIRD_COLOUR_MAP[bird.id]
+            const template = entry?.template || 'songbird-small'
+            const zones = entry?.zones || EGG_PICKER_GENERIC_ZONES
+            return (
+              <button
+                key={bird.id}
+                type="button"
+                className="garden-shop-btn egg-species-btn"
+                onClick={() => onChoose?.(bird.id)}
+              >
+                <span className="egg-species-preview">
+                  <GardenBird template={template} zones={zones} size={48} ground={false} />
+                </span>
+                <strong>{bird.commonName}</strong>
+                {bird.afrikaansName && <small>{bird.afrikaansName}</small>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ---- Mystery egg (earned through birding, hatches her next companion) ------
 // Same tap-to-warm rhythm as FirstEggCard, reusing ColorEgg — but the colour/
 // pattern hint is subtle (never the real species) until it's actually ready.
