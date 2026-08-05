@@ -1847,9 +1847,9 @@ function getAbsoluteWeekIndex(date = new Date()) {
   return Math.floor((current - start) / 604800000)
 }
 
-// The magazine now rotates every 3 days instead of weekly. Each issue stays
-// live for 3 calendar days, then the next set of birds takes over.
-const MAGAZINE_PERIOD_DAYS = 3
+// The magazine rotates weekly. Each issue stays live for 7 calendar days,
+// then the next set of birds takes over.
+const MAGAZINE_PERIOD_DAYS = 7
 
 function getAbsoluteIssueIndex(date = new Date()) {
   const start = Date.UTC(2024, 0, 1)
@@ -1857,7 +1857,7 @@ function getAbsoluteIssueIndex(date = new Date()) {
   return Math.floor((current - start) / 86400000 / MAGAZINE_PERIOD_DAYS)
 }
 
-// Time until the current 3-day issue rotates to the next one.
+// Time until the current weekly issue rotates to the next one.
 function getNextIssueCountdown(date = new Date()) {
   const start = Date.UTC(2024, 0, 1)
   const idx = getAbsoluteIssueIndex(date)
@@ -1897,8 +1897,8 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
   return {
     year: date.getFullYear(),
     issueIndex,
-    // The quiz + its claim status key off `week`, so pointing it at the 3-day
-    // issue index makes both reset with every new issue.
+    // The quiz + its claim status key off `week`, so pointing it at the
+    // weekly issue index makes both reset with every new issue.
     week: issueIndex,
     countdown: getNextIssueCountdown(date),
     featuredBirds,
@@ -1906,7 +1906,7 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
   }
 }
 
-// Same 3-day issue cadence as the bird magazine, offset so the plant corner
+// Same weekly issue cadence as the bird magazine, offset so the plant corner
 // doesn't just mirror whichever birds are already on the cover/feature pages.
 function getWeeklyMagazinePlants(settings = {}, date = new Date(), count = 4) {
   const library = [...SA_PLANT_LIBRARY].sort((a, b) => a.commonName.localeCompare(b.commonName))
@@ -1980,7 +1980,7 @@ function buildWeeklyQuiz(issue, library) {
 }
 
 // ---- Weekly Plant Quiz (magazine Plant Corner) ----
-// Same mechanic as the bird quiz, seeded off the Plant Corner's 3-day issue
+// Same mechanic as the bird quiz, seeded off the Plant Corner's weekly issue
 // index instead of the bird week, so the two quizzes don't sync up.
 function weeklyPlantQuizSeed(issueIndex) {
   let h = 2166136261
@@ -2133,7 +2133,7 @@ function buildDefaultState() {
     greenhouse: defaultGreenhouse(),
     weeklyQuizClaimedWeek: null,
     weeklyPlantQuizClaimedWeek: null,
-    // Which 3-day magazine issue (issue.week) the new-issue Home popup has
+    // Which weekly magazine issue (issue.week) the new-issue Home popup has
     // already been shown/dismissed for — only a new issue.week re-triggers it.
     magazineIssueSeenWeek: null,
     discoveries: [],
@@ -5541,7 +5541,7 @@ function App() {
     )
   }
 
-  // New-issue popup on Home: marks the current 3-day issue as seen so the
+  // New-issue popup on Home: marks the current weekly issue as seen so the
   // auto-popup never re-fires for it — only the next issue.week re-triggers
   // it. No reward attached, so a plain silent setData (not commit()) is fine.
   function markMagazineIssueSeen(week) {
@@ -7973,7 +7973,7 @@ function HomePage({
   // this is the streak that should be celebrated front-and-centre.
   const careStreak = tweetyStreak(data.tweety)
 
-  // Magazine issue: same 3-day issue key the full magazine section (below)
+  // Magazine issue: same weekly issue key the full magazine section (below)
   // already uses, so "new issue" here means exactly what it means down there.
   const magazineIssue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
 
@@ -12256,7 +12256,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     <div className="magazine-cover-page" key="cover">
       <p className="magazine-issue-no">The Feather</p>
       <p className="magazine-season">Issue #{issue.issueIndex} — {season.name} Edition</p>
-      <p className="fine-print">A fresh flock every 3 days · {season.greeting}</p>
+      <p className="fine-print">A fresh flock every week · {season.greeting}</p>
       <p className="magazine-countdown">🗞️ Next issue in {issue.countdown.text}</p>
       {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
       <p className="magazine-quote">“{quote}”</p>
@@ -12318,7 +12318,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
       <div className="magazine-cover-page" key="plant-cover">
         <p className="magazine-issue-no">The Bloom</p>
         <p className="magazine-season">Plant Issue #{plantIssueIndex} — {season.name} Edition</p>
-        <p className="fine-print">A fresh bloom every 3 days · {season.greeting}</p>
+        <p className="fine-print">A fresh bloom every week · {season.greeting}</p>
         {coverPhoto(plantOfWeek.commonName, plantOfWeek.imageUrl)}
         <p className="magazine-quote">“{plantOfWeek.funFact}”</p>
         <h2>Plant of the week: {plantOfWeek.commonName}</h2>
