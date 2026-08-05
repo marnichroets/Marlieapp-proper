@@ -2210,6 +2210,14 @@ textarea:focus {
   animation: page-enter 440ms ease both;
 }
 
+/* `to` must end on transform: none (not translateY(0)) — animation-fill-mode:
+   both holds the `to` keyframe's values after the animation ends, and any
+   non-`none` transform (even an identity translate) creates a new containing
+   block for descendant `position: fixed` elements. With translateY(0) here,
+   every full-viewport modal backdrop mounted inside a page (e.g. the weekly
+   magazine popup) got pinned to this page's scrollable box instead of the
+   real viewport — reading as an oversized, scrollable backdrop instead of a
+   fixed overlay. */
 @keyframes page-enter {
   from {
     opacity: 0;
@@ -2218,7 +2226,7 @@ textarea:focus {
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
