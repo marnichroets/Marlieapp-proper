@@ -3938,13 +3938,24 @@ function App() {
   // window; completing all three windows fills the whole day.
   function careTweety(kind) {
     if (readOnly) return // viewing Pooks' mirror — never change her Tweety
+    // Read from dataRef.current, not the closure-captured `data` state
+    // variable. Feed/Water/Play are three separate buttons tapped in rapid
+    // succession — if two taps land before React re-renders between them,
+    // their careTweety closures both still see the same pre-tap `data`, so
+    // the second tap's nextState would be built on top of a snapshot that
+    // doesn't include the first tap's write, silently reverting it once
+    // commit() applies. dataRef.current is updated synchronously inside
+    // commit() (see below), so it always reflects the latest tap even when
+    // React hasn't re-rendered yet — this is the fix for the feed/water/play
+    // reversion bug.
+    const current = dataRef.current
     const now = new Date()
     const win = currentCareWindow(now)
     if (!win) {
       // Was a silent no-op — if the card's display went stale (e.g. the app
       // was backgrounded across a window boundary) she'd tap a still-visible
       // "Feed" button and see nothing happen at all. Every tap now responds.
-      const name = data.tweety?.name || 'Tweety'
+      const name = current.tweety?.name || 'Tweety'
       const next = nextCareWindow(now)
       setToast({
         title: `${name} is resting 😴`,
@@ -3954,9 +3965,9 @@ function App() {
       return
     }
     const field = kind === 'water' ? 'watered' : kind === 'play' ? 'played' : 'fed'
-    const careNow = tweetyCareState(data.tweety, now)
+    const careNow = tweetyCareState(current.tweety, now)
     if (careNow[field]) {
-      const name = data.tweety?.name || 'Tweety'
+      const name = current.tweety?.name || 'Tweety'
       const noun = field === 'watered' ? 'water' : field === 'played' ? 'playtime' : 'a feed'
       setToast({
         title: 'Already done 💛',
@@ -3970,12 +3981,12 @@ function App() {
     const key = tweetyTodayKey()
     // Is this window now fully complete (feed + water + play) after this action?
     const windowComplete = ['fed', 'watered', 'played'].every((f) => f === field || careNow[f])
-    const today = data.tweety?.care?.[key] || {}
+    const today = current.tweety?.care?.[key] || {}
     const nextToday = windowComplete ? { ...today, [win.key]: true } : today
     const nextTweety = {
-      ...data.tweety,
-      care: { ...(data.tweety?.care || {}), [key]: nextToday },
-      careAt: { ...(data.tweety?.careAt || {}), [field]: now.toISOString() },
+      ...current.tweety,
+      care: { ...(current.tweety?.care || {}), [key]: nextToday },
+      careAt: { ...(current.tweety?.careAt || {}), [field]: now.toISOString() },
     }
 
     // Coins are earned per completed care WINDOW (feed+water+play), so a full
@@ -3987,7 +3998,7 @@ function App() {
     let newStreak = 0
     if (becameFull) {
       newStreak = tweetyStreak(nextTweety)
-      let lastBonus = data.tweety?.lastBonusStreak || 0
+      let lastBonus = current.tweety?.lastBonusStreak || 0
       while (newStreak >= lastBonus + 7) {
         lastBonus += 7
         coins += COINS.tweetyStreak
@@ -4026,8 +4037,8 @@ function App() {
         }
       } else if (!nextTweety.baby && newStreak >= 7 && newStreak % 7 === 0) {
         // Lay an egg matching her most recent real sighting.
-        const recent = [...data.sightings].reverse()[0]
-        const species = recent?.birdName || data.birds[0]?.birdName || 'garden bird'
+        const recent = [...current.sightings].reverse()[0]
+        const species = recent?.birdName || current.birds[0]?.birdName || 'garden bird'
         nextTweety.egg = {
           laidAt: new Date().toISOString(),
           careDays: 0,
@@ -4042,7 +4053,7 @@ function App() {
     // Happiness: +8 for the care action, plus +10 more if it also completed
     // a streak bonus above.
     const happinessGain = HAPPINESS_GAIN.care + (bonusNote ? HAPPINESS_GAIN.streakBonus : 0)
-    const nextHappiness = happinessDelta(data.tweety, happinessGain)
+    const nextHappiness = happinessDelta(current.tweety, happinessGain)
     nextTweety.happiness = nextHappiness.happiness
     nextTweety.lastHappinessUpdate = nextHappiness.lastHappinessUpdate
 
@@ -4057,7 +4068,7 @@ function App() {
     )
 
     commit(
-      { ...data, tweety: nextTweety, featherCoins: data.featherCoins + coins },
+      { ...current, tweety: nextTweety, featherCoins: current.featherCoins + coins },
       {
         title:
           field === 'fed'
@@ -4299,11 +4310,14 @@ function App() {
 
   // ----- Tweety World: Bird Room -----
   function buyRoomFurniture(item, options = {}) {
+    // dataRef.current, not `data` — buying several items in quick succession
+    // must not have a later purchase's stale closure clobber an earlier one.
+    const current = dataRef.current
     const free = Boolean(options.free)
-    const room = data.tweety?.room || { furniture: ['perch'], visits: 0 }
+    const room = current.tweety?.room || { furniture: ['perch'], visits: 0 }
     if (ownsFurniture(room, item.id)) return
     const cost = free ? 0 : item.cost
-    if (!free && data.featherCoins < cost) {
+    if (!free && current.featherCoins < cost) {
       setToast({ title: 'Not enough coins yet', body: `That costs ${cost} 🪙.`, tone: 'warning' })
       return
     }
@@ -4312,7 +4326,7 @@ function App() {
         ? ROOM_FURNITURE.map((f) => f.id)
         : Array.from(new Set([...(room.furniture || ['perch']), item.id]))
     commit(
-      { ...data, tweety: { ...data.tweety, room: { ...room, furniture } }, featherCoins: data.featherCoins - cost },
+      { ...current, tweety: { ...current.tweety, room: { ...room, furniture } }, featherCoins: current.featherCoins - cost },
       {
         title: free ? 'A gift from Marnich 🎁' : 'Added to the Bird Room 🏡',
         body: `${item.name} ${item.emoji}${free ? ' — sent free by Marnich! 💛' : ''}`,
@@ -4396,21 +4410,22 @@ function App() {
   // slot regardless of purchase order.
   function purchaseExpansion(zoneId) {
     if (readOnly) return
+    const current = dataRef.current
     const zone = expansionItem(zoneId)
     if (!zone) return
-    const garden = data.garden || defaultGarden()
+    const garden = current.garden || defaultGarden()
     const owned = garden.expansions || []
     if (owned.includes(zoneId)) return
-    if (data.featherCoins < zone.cost) {
+    if (current.featherCoins < zone.cost) {
       setToast({ title: 'Not enough coins yet', body: `${zone.name} costs ${zone.cost} 🪙.`, tone: 'warning' })
       return
     }
     setConfetti(Date.now())
     commit(
       {
-        ...data,
+        ...current,
         garden: { ...garden, expansions: [...owned, zoneId] },
-        featherCoins: data.featherCoins - zone.cost,
+        featherCoins: current.featherCoins - zone.cost,
       },
       {
         title: `${zone.name} unlocked! ${zone.emoji}`,
@@ -4685,12 +4700,13 @@ function App() {
   // slot — never auto-removed, so the "oh no" moment isn't also a surprise
   // empty slot.
   function removeDeadGreenhousePot(slotId) {
-    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const current = dataRef.current
+    const greenhouse = current.greenhouse || defaultGreenhouse()
     const pot = (greenhouse.pots || []).find((p) => p.slot === slotId)
     if (!pot || !pot.dead) return
     const nextGreenhouse = { ...greenhouse, pots: greenhouse.pots.filter((p) => p.id !== pot.id) }
     commit(
-      { ...data, greenhouse: nextGreenhouse },
+      { ...current, greenhouse: nextGreenhouse },
       { title: 'Pot cleared', body: 'Ready for something new whenever she is.', tone: 'calm' },
       { immediate: true },
     )
@@ -4699,22 +4715,23 @@ function App() {
   // room defaults to 1 (room 2 only ever reachable once bought — see
   // buyGreenhouseRoom2 — so its own unlock button is only rendered then).
   function buyGreenhouseSlot(room = 1) {
-    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const state = dataRef.current
+    const greenhouse = state.greenhouse || defaultGreenhouse()
     const inRoom2 = room === 2
     if (inRoom2 && !hasRoom2(greenhouse)) return
-    const current = inRoom2 ? (greenhouse.unlockedSlotsRoom2 || 0) : greenhouse.unlockedSlots
-    if (current >= ROOM_SLOT_COUNT) return
-    if (data.featherCoins < SLOT_COST) {
+    const unlockedCount = inRoom2 ? (greenhouse.unlockedSlotsRoom2 || 0) : greenhouse.unlockedSlots
+    if (unlockedCount >= ROOM_SLOT_COUNT) return
+    if (state.featherCoins < SLOT_COST) {
       setToast({ title: 'Not enough coins yet', body: `Unlocking a pot slot costs ${SLOT_COST} 🪙.`, tone: 'warning' })
       return
     }
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - SLOT_COST,
+        ...state,
+        featherCoins: state.featherCoins - SLOT_COST,
         greenhouse: {
           ...greenhouse,
-          ...(inRoom2 ? { unlockedSlotsRoom2: current + 1 } : { unlockedSlots: current + 1 }),
+          ...(inRoom2 ? { unlockedSlotsRoom2: unlockedCount + 1 } : { unlockedSlots: unlockedCount + 1 }),
         },
       },
       { title: 'Pot slot unlocked! 🪴', body: 'A new spot on the shelf is ready for planting.' },
@@ -4727,17 +4744,18 @@ function App() {
   // reach it — see GreenhouseScene's .pannable wrap) with its own 8 pot slots,
   // starting fully locked so it's its own progression, not a freebie.
   function buyGreenhouseRoom2() {
-    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const current = dataRef.current
+    const greenhouse = current.greenhouse || defaultGreenhouse()
     if (hasRoom2(greenhouse)) return
     if ((greenhouse.unlockedSlots || 0) < MAX_SLOTS) return
-    if (data.featherCoins < ROOM2_COST) {
+    if (current.featherCoins < ROOM2_COST) {
       setToast({ title: 'Not enough coins yet', body: `Expanding the greenhouse costs ${ROOM2_COST} 🪙.`, tone: 'warning' })
       return
     }
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - ROOM2_COST,
+        ...current,
+        featherCoins: current.featherCoins - ROOM2_COST,
         greenhouse: { ...greenhouse, roomsUnlocked: 2, unlockedSlotsRoom2: 0 },
       },
       { title: 'Greenhouse expanded! 🏡🌿', body: 'A second glasshouse room is ready — swipe right to see it.' },
@@ -4746,17 +4764,18 @@ function App() {
   }
 
   function buyGreenhousePotStyle(styleId) {
-    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const current = dataRef.current
+    const greenhouse = current.greenhouse || defaultGreenhouse()
     const style = potStyleItem(styleId)
     if (!style || (greenhouse.ownedPotStyles || []).includes(styleId)) return
-    if (data.featherCoins < style.cost) {
+    if (current.featherCoins < style.cost) {
       setToast({ title: 'Not enough coins yet', body: `${style.name} costs ${style.cost} 🪙.`, tone: 'warning' })
       return
     }
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - style.cost,
+        ...current,
+        featherCoins: current.featherCoins - style.cost,
         greenhouse: {
           ...greenhouse,
           ownedPotStyles: [...greenhouse.ownedPotStyles, styleId],
@@ -4771,22 +4790,24 @@ function App() {
   // Switching style only ever affects pots planted from now on — existing
   // pots keep whatever style they were planted with (see potGreenhouseSpecies).
   function selectGreenhousePotStyle(styleId) {
-    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const current = dataRef.current
+    const greenhouse = current.greenhouse || defaultGreenhouse()
     if (!(greenhouse.ownedPotStyles || []).includes(styleId)) return
     commit(
-      { ...data, greenhouse: { ...greenhouse, selectedPotStyle: styleId } },
+      { ...current, greenhouse: { ...greenhouse, selectedPotStyle: styleId } },
       { title: 'Pot style selected', body: 'New plantings will use it.', tone: 'calm' },
       { immediate: true },
     )
   }
 
   function buyGreenhouseTool(toolId) {
-    const greenhouse = data.greenhouse || defaultGreenhouse()
+    const current = dataRef.current
+    const greenhouse = current.greenhouse || defaultGreenhouse()
     const tool = toolItem(toolId)
     if (!tool) return
     if (!tool.consumable && hasTool(greenhouse, toolId)) return
     if (tool.consumable && ownedToolUses(greenhouse, toolId) > 0) return
-    if (data.featherCoins < tool.cost) {
+    if (current.featherCoins < tool.cost) {
       setToast({ title: 'Not enough coins yet', body: `${tool.name} costs ${tool.cost} 🪙.`, tone: 'warning' })
       return
     }
@@ -4794,7 +4815,7 @@ function App() {
       ? [...(greenhouse.ownedTools || []).filter((t) => t.id !== toolId), { id: toolId, uses: tool.uses }]
       : [...(greenhouse.ownedTools || []), { id: toolId, uses: null }]
     commit(
-      { ...data, featherCoins: data.featherCoins - tool.cost, greenhouse: { ...greenhouse, ownedTools } },
+      { ...current, featherCoins: current.featherCoins - tool.cost, greenhouse: { ...greenhouse, ownedTools } },
       {
         title: `${tool.name} ${tool.emoji}`,
         body: tool.consumable ? `${tool.uses} uses ready in your greenhouse toolkit.` : 'Added to your greenhouse toolkit.',
@@ -5009,11 +5030,12 @@ function App() {
 
   // ----- Marnich's Secret Market: wearables + wardrobe -----
   function buyWearable(item, options = {}) {
+    const current = dataRef.current
     const free = Boolean(options.free)
-    const wardrobe = data.tweety?.wardrobe || defaultWardrobe()
+    const wardrobe = current.tweety?.wardrobe || defaultWardrobe()
     if (ownsWearable(wardrobe, item.id)) return
     const cost = free ? 0 : item.cost
-    if (!free && data.featherCoins < cost) {
+    if (!free && current.featherCoins < cost) {
       setToast({ title: 'Not enough coins yet', body: `${item.name} costs ${cost} 🪙.`, tone: 'warning' })
       return
     }
@@ -5022,9 +5044,9 @@ function App() {
     if (free) setConfetti(Date.now())
     commit(
       {
-        ...data,
-        tweety: { ...data.tweety, wardrobe: { ...wardrobe, owned, wishlist } },
-        featherCoins: data.featherCoins - cost,
+        ...current,
+        tweety: { ...current.tweety, wardrobe: { ...wardrobe, owned, wishlist } },
+        featherCoins: current.featherCoins - cost,
       },
       {
         title: free ? 'A gift from Marnich 🎁' : 'Added to the wardrobe ✨',
@@ -5263,11 +5285,14 @@ function App() {
 
   // Buy (or, when free, gift) a Bird Store item. Purchases apply immediately.
   function buyStoreItem(section, item, options = {}) {
+    // dataRef.current, not `data` — buying several store items back-to-back
+    // must not have a later purchase's stale closure clobber an earlier one.
+    const current = dataRef.current
     const free = Boolean(options.free)
-    const store = data.store || defaultStore()
+    const store = current.store || defaultStore()
     if (section.kind !== 'consumable' && isOwned(store, section, item.id)) return
     const cost = free ? 0 : item.cost
-    if (!free && data.featherCoins < cost) {
+    if (!free && current.featherCoins < cost) {
       setToast({
         title: 'Not enough coins yet',
         body: `That costs ${cost} 🪙. Keep spotting birds and caring for Tweety! 💛`,
@@ -5308,7 +5333,7 @@ function App() {
       body = 'A golden seed planted! Tweety will lay an egg within 3 days. 🌟'
     } else if (item.id === 'loveletter') {
       nextStore.loveLetter =
-        data.settings.tweetyLetter ||
+        current.settings.tweetyLetter ||
         'Dear Tweety, please look after my Pooks for me. 💛 — Marnich'
       body = "A love letter is tied to Tweety's leg. 💌 She does a special happy dance!"
       dancing = true
@@ -5321,7 +5346,7 @@ function App() {
     if (party) setConfetti(Date.now())
 
     commit(
-      { ...data, store: nextStore, featherCoins: data.featherCoins - cost },
+      { ...current, store: nextStore, featherCoins: current.featherCoins - cost },
       {
         title: free ? 'A gift from Marnich 🎁' : 'Bird Store purchase 🛒',
         body: free ? `${item.name} ${item.emoji} — sent free by Marnich! 💛` : body,
@@ -5569,8 +5594,16 @@ function App() {
       return
     }
     let recalculated = recalculateState(nextState)
+    // Read the "previous" side of every before/after comparison below from
+    // dataRef.current, not the closure-captured `data` — `data` is only as
+    // fresh as this handler's last render, while dataRef.current is updated
+    // synchronously by every commit(), so it reflects any earlier commit in
+    // the same rapid-tap burst even before React has re-rendered. This is
+    // the fix for the feed/water/play reversion bug: stale-closure reads
+    // here silently discarded prior taps' writes.
+    const prevState = dataRef.current
     // Award milestone coin bonuses when the unique-species count crosses a threshold.
-    const milestoneBonus = milestoneCoinsBetween(data.birds.length, recalculated.birds.length)
+    const milestoneBonus = milestoneCoinsBetween(prevState.birds.length, recalculated.birds.length)
     let milestoneNote = ''
     if (milestoneBonus > 0) {
       recalculated = { ...recalculated, featherCoins: recalculated.featherCoins + milestoneBonus }
@@ -5582,7 +5615,7 @@ function App() {
     // every path that adds a species (photo AI, manual add, future paths)
     // triggers it for free, exactly like the milestone-coin bonus above.
     let awardedEgg = false
-    const prevEggProgress = data.eggProgress || { lastAwardedAtCount: 0 }
+    const prevEggProgress = prevState.eggProgress || { lastAwardedAtCount: 0 }
     const nextMultiple = Math.floor(recalculated.birds.length / 5) * 5
     if (nextMultiple > (prevEggProgress.lastAwardedAtCount || 0)) {
       const eggProgress = { ...prevEggProgress, lastAwardedAtCount: nextMultiple }
@@ -5609,8 +5642,8 @@ function App() {
     // state (so it's ready when gifts return) but we fire NO notification about
     // it — no unlock popup, no "Snack from Marnich" achievement letter, no toast
     // summary, no email to Marnich.
-    const unlockSummary = giftsEnabled ? getUnlockSummary(data, recalculated) : ''
-    const unlockedRewards = giftsEnabled ? getNewlyUnlockedRewards(data, recalculated) : []
+    const unlockSummary = giftsEnabled ? getUnlockSummary(prevState, recalculated) : ''
+    const unlockedRewards = giftsEnabled ? getNewlyUnlockedRewards(prevState, recalculated) : []
     setData(recalculated)
     // Mirror into dataRef synchronously, not just via the render-body copy
     // below (`dataRef.current = data`) — an immediate save's queued turn can
@@ -6336,20 +6369,22 @@ function App() {
   }
 
   function buyMysteryBox() {
-    if (data.featherCoins < SHOP.mysteryBox) return notEnoughCoins()
-    const gifts = data.mysteryGifts?.length ? data.mysteryGifts : defaultMysteryGifts
+    const current = dataRef.current
+    if (current.featherCoins < SHOP.mysteryBox) return notEnoughCoins()
+    const gifts = current.mysteryGifts?.length ? current.mysteryGifts : defaultMysteryGifts
     const message = gifts[Math.floor(Math.random() * gifts.length)]
     setConfetti(Date.now())
     setReveal({ tone: 'gift', title: 'Mystery gift opened! 🎁', body: message })
     commit(
-      { ...data, featherCoins: data.featherCoins - SHOP.mysteryBox },
+      { ...current, featherCoins: current.featherCoins - SHOP.mysteryBox },
       { title: 'Mystery gift opened! 🎁', body: message },
     )
   }
 
   function buyHiddenNote() {
-    if (data.featherCoins < SHOP.hiddenNote) return notEnoughCoins()
-    const note = data.hiddenNotes.find((item) => !item.unlocked)
+    const current = dataRef.current
+    if (current.featherCoins < SHOP.hiddenNote) return notEnoughCoins()
+    const note = current.hiddenNotes.find((item) => !item.unlocked)
     if (!note) {
       setToast({
         title: 'All notes unlocked',
@@ -6362,9 +6397,9 @@ function App() {
     setReveal({ tone: 'note', title: note.title, body: note.message })
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - SHOP.hiddenNote,
-        hiddenNotes: data.hiddenNotes.map((item) =>
+        ...current,
+        featherCoins: current.featherCoins - SHOP.hiddenNote,
+        hiddenNotes: current.hiddenNotes.map((item) =>
           item.id === note.id ? { ...item, unlocked: true, unlockedAt: todayValue() } : item,
         ),
       },
@@ -6378,15 +6413,16 @@ function App() {
   // and pop a small celebration toast. Idempotent for one-offs — a second click
   // on an already-owned item is a no-op (the button is disabled anyway).
   function buyTweetyStoreItem(itemId) {
+    const current = dataRef.current
     const item = TWEETY_STORE_ITEMS.find((entry) => entry.id === itemId)
     if (!item) return
-    const owned = Array.isArray(data.tweetyStore) ? data.tweetyStore : []
+    const owned = Array.isArray(current.tweetyStore) ? current.tweetyStore : []
     // 'nest' is the pre-redesign Nest Upgrade id — same cozy-tier effect as
     // 'cozynest', so owning one blocks re-buying the other (never charge
     // twice for the same upgrade).
     const equivalentOwned = item.id === 'cozynest' && owned.includes('nest')
     if (item.kind !== 'consumable' && (owned.includes(item.id) || equivalentOwned)) return
-    if (data.featherCoins < item.cost) return notEnoughCoins()
+    if (current.featherCoins < item.cost) return notEnoughCoins()
 
     if (item.kind === 'consumable') {
       // Boost lasts until the end of today (SA-local midnight), same "for the
@@ -6400,12 +6436,12 @@ function App() {
       window.setTimeout(() => setJustPurchasedItem((cur) => (cur === item.id ? null : cur)), 700)
       commit(
         {
-          ...data,
-          featherCoins: data.featherCoins - item.cost,
+          ...current,
+          featherCoins: current.featherCoins - item.cost,
           tweety: {
-            ...data.tweety,
+            ...current.tweety,
             treatsBoostUntil: endOfToday.getTime(),
-            ...happinessDelta(data.tweety, HAPPINESS_GAIN.storePurchase),
+            ...happinessDelta(current.tweety, HAPPINESS_GAIN.storePurchase),
           },
         },
         { title: `${item.emoji} ${item.name}!`, body: `Tweety is thrilled — happy all day. ${item.emoji}` },
@@ -6421,10 +6457,10 @@ function App() {
     window.setTimeout(() => setJustPurchasedItem((cur) => (cur === item.id ? null : cur)), 700)
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - item.cost,
+        ...current,
+        featherCoins: current.featherCoins - item.cost,
         tweetyStore: [...owned, item.id],
-        tweety: { ...data.tweety, ...happinessDelta(data.tweety, HAPPINESS_GAIN.storePurchase) },
+        tweety: { ...current.tweety, ...happinessDelta(current.tweety, HAPPINESS_GAIN.storePurchase) },
       },
       { title: `${item.emoji} ${item.name} gifted!`, body: `Tweety loves it. ${item.emoji}` },
       { immediate: true },
@@ -6436,17 +6472,18 @@ function App() {
   // be re-bought — selectRoomTheme below handles switching back to one
   // already owned.
   function buyRoomTheme(themeId) {
+    const current = dataRef.current
     const theme = ROOM_THEME_CATALOG.find((entry) => entry.id === themeId)
     if (!theme) return
-    const owned = data.tweety?.ownedRoomThemes || ['cottage']
+    const owned = current.tweety?.ownedRoomThemes || ['cottage']
     if (owned.includes(themeId)) return
-    if (data.featherCoins < theme.cost) return notEnoughCoins()
+    if (current.featherCoins < theme.cost) return notEnoughCoins()
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - theme.cost,
+        ...current,
+        featherCoins: current.featherCoins - theme.cost,
         tweety: {
-          ...data.tweety,
+          ...current.tweety,
           ownedRoomThemes: [...owned, themeId],
           roomTheme: themeId,
         },
@@ -6459,10 +6496,11 @@ function App() {
   // Switching only ever affects an already-owned theme — free, no coins,
   // just a preference change, same shape as selectGreenhousePotStyle.
   function selectRoomTheme(themeId) {
-    const owned = data.tweety?.ownedRoomThemes || ['cottage']
+    const current = dataRef.current
+    const owned = current.tweety?.ownedRoomThemes || ['cottage']
     if (!owned.includes(themeId)) return
     commit(
-      { ...data, tweety: { ...data.tweety, roomTheme: themeId } },
+      { ...current, tweety: { ...current.tweety, roomTheme: themeId } },
       { title: 'Room theme changed', body: "Tweety's home has a new look.", tone: 'calm' },
       { immediate: true },
     )
@@ -6477,18 +6515,19 @@ function App() {
   }
 
   function buyDateIdea() {
-    if (data.featherCoins < SHOP.dateIdea) return notEnoughCoins()
-    const ideas = data.dateIdeas?.length ? data.dateIdeas : defaultDateIdeas
-    const unlocked = data.settings.unlockedDateIdeas || []
+    const current = dataRef.current
+    if (current.featherCoins < SHOP.dateIdea) return notEnoughCoins()
+    const ideas = current.dateIdeas?.length ? current.dateIdeas : defaultDateIdeas
+    const unlocked = current.settings.unlockedDateIdeas || []
     const next = ideas.find((idea) => !unlocked.includes(idea)) || ideas[0]
     setConfetti(Date.now())
     setReveal({ tone: 'date', title: 'Date idea unlocked 💕', body: next })
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - SHOP.dateIdea,
+        ...current,
+        featherCoins: current.featherCoins - SHOP.dateIdea,
         settings: {
-          ...data.settings,
+          ...current.settings,
           unlockedDateIdeas: unlocked.includes(next) ? unlocked : [...unlocked, next],
         },
       },
@@ -6501,7 +6540,8 @@ function App() {
   function buyMilkshakeDate() {
     if (readOnly) return // writes a claim flag — never run on Pooks' mirror
     if (milkshakeClaimed(account)) return
-    if (data.featherCoins < SHOP.milkshakeDate) return notEnoughCoins()
+    const current = dataRef.current
+    if (current.featherCoins < SHOP.milkshakeDate) return notEnoughCoins()
     try {
       localStorage.setItem(accountFlagKey(MILKSHAKE_CLAIMED_KEY, account), 'true')
     } catch {
@@ -6514,16 +6554,17 @@ function App() {
       body: 'It’s a date! Marnich owes you one real milkshake date. 💛',
     })
     commit(
-      { ...data, featherCoins: data.featherCoins - SHOP.milkshakeDate },
+      { ...current, featherCoins: current.featherCoins - SHOP.milkshakeDate },
       { title: 'Milkshake Date claimed 🥤', body: 'A real milkshake date with Marnich 💛' },
     )
   }
 
   function unlockBirdProfile(birdId) {
-    if (data.featherCoins < SHOP.birdProfile) return notEnoughCoins()
-    const already = data.settings.unlockedProfiles || []
+    const current = dataRef.current
+    if (current.featherCoins < SHOP.birdProfile) return notEnoughCoins()
+    const already = current.settings.unlockedProfiles || []
     if (already.includes(birdId)) return
-    const bird = data.birdLibrary.find((item) => item.id === birdId)
+    const bird = current.birdLibrary.find((item) => item.id === birdId)
     setConfetti(Date.now())
     setReveal({
       tone: 'bird',
@@ -6532,17 +6573,18 @@ function App() {
     })
     commit(
       {
-        ...data,
-        featherCoins: data.featherCoins - SHOP.birdProfile,
-        settings: { ...data.settings, unlockedProfiles: [...already, birdId] },
+        ...current,
+        featherCoins: current.featherCoins - SHOP.birdProfile,
+        settings: { ...current.settings, unlockedProfiles: [...already, birdId] },
       },
       { title: 'Special bird profile unlocked ✨', body: bird?.commonName || '' },
     )
   }
 
   function buyFeaturedBirdProfile() {
-    const already = data.settings.unlockedProfiles || []
-    const locked = data.birdLibrary.find(
+    const current = dataRef.current
+    const already = current.settings.unlockedProfiles || []
+    const locked = current.birdLibrary.find(
       (bird) => bird.special && !bird.seen && !already.includes(bird.id),
     )
     if (!locked) {
