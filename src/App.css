@@ -3528,6 +3528,18 @@ textarea:focus {
   content: counter(wq) '. ';
   color: var(--leaf-dark);
 }
+/* .field-guide-photo (features.css, imported after App.css) also sets
+   height: 100% at equal specificity — it would win the cascade on import
+   order alone, so this combines both classes in one selector to outrank it
+   regardless of file order. */
+.field-guide-photo.weekly-quiz-photo {
+  width: 100%;
+  height: 160px;
+  border-radius: 14px;
+  margin: 0 0 10px;
+  overflow: hidden;
+}
+.weekly-quiz-verdict { font-weight: 700; color: var(--ink-strong); margin: 0; }
 .weekly-quiz-options { display: grid; gap: 8px; }
 .weekly-quiz-option {
   padding: 11px 14px;

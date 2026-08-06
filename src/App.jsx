@@ -26,6 +26,7 @@ import {
   plantsNearCapeTownThisWeek,
   findPlantById,
 } from './plantData'
+import { buildWeeklyQuiz, quizVerdict, quizCoins } from './quizData'
 import {
   TweetyHomeCard,
   TweetyStatsPage,
@@ -1847,30 +1848,46 @@ function getAbsoluteWeekIndex(date = new Date()) {
   return Math.floor((current - start) / 604800000)
 }
 
-// The magazine rotates weekly. Each issue stays live for 7 calendar days,
-// then the next set of birds takes over.
-const MAGAZINE_PERIOD_DAYS = 7
-
-function getAbsoluteIssueIndex(date = new Date()) {
-  const start = Date.UTC(2024, 0, 1)
-  const current = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  return Math.floor((current - start) / 86400000 / MAGAZINE_PERIOD_DAYS)
+// The magazine rotates every Sunday (SA-local, same fixed-offset day key the
+// rest of the app already uses for date-gated features — see saDate.js), not
+// on an arbitrary N-day cycle from an epoch. `getSundayKey` returns the
+// Sunday-of-this-week date string itself (e.g. "2026-08-02") — that's the
+// issue's key, used everywhere a "which issue is this" comparison happens
+// (quiz claim, new-issue popup) so both naturally reset exactly on Sundays.
+function formatUTCDateKey(d) {
+  const year = d.getUTCFullYear()
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
-// Time until the current weekly issue rotates to the next one.
+function saCalendarDateAsUTC(date) {
+  const [year, month, day] = saDateKey(date).split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+function getSundayKey(date = new Date()) {
+  const d = saCalendarDateAsUTC(date)
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay())
+  return formatUTCDateKey(d)
+}
+
+function isSundayInSA(date = new Date()) {
+  return saCalendarDateAsUTC(date).getUTCDay() === 0
+}
+
+// Purely cosmetic sequential "Issue #N" numbering — increments by 1 every
+// Sunday, anchored to a fixed epoch Sunday so it stays stable across reloads.
+function getSundayIssueNumber(date = new Date()) {
+  const epoch = Date.UTC(2024, 0, 7) // 2024-01-07 is a Sunday
+  const [year, month, day] = getSundayKey(date).split('-').map(Number)
+  const sundayMs = Date.UTC(year, month - 1, day)
+  return Math.floor((sundayMs - epoch) / 604800000) + 1
+}
+
 function getNextIssueCountdown(date = new Date()) {
-  const start = Date.UTC(2024, 0, 1)
-  const idx = getAbsoluteIssueIndex(date)
-  const nextStartMs = start + (idx + 1) * MAGAZINE_PERIOD_DAYS * 86400000
-  const diff = Math.max(0, nextStartMs - date.getTime())
-  const days = Math.floor(diff / 86400000)
-  const hours = Math.floor((diff % 86400000) / 3600000)
-  return {
-    days,
-    hours,
-    ms: diff,
-    text: `${days} day${days === 1 ? '' : 's'} ${hours} hour${hours === 1 ? '' : 's'}`,
-  }
+  const isToday = isSundayInSA(date)
+  return { isToday, text: isToday ? 'New issue today!' : 'Next issue: Sunday' }
 }
 
 function selectRotatingBirds(birds, count, startIndex, excludedId = '') {
@@ -1887,7 +1904,7 @@ function selectRotatingBirds(birds, count, startIndex, excludedId = '') {
 
 function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
   const library = [...birdLibrary].sort((a, b) => a.commonName.localeCompare(b.commonName))
-  const issueIndex = getAbsoluteIssueIndex(date)
+  const issueIndex = getSundayIssueNumber(date)
   const startIndex = library.length ? (issueIndex * 5) % library.length : 0
   const pinnedBird =
     library.find((bird) => bird.id === settings.pinnedBirdOfWeekId) || null
@@ -1896,10 +1913,12 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
 
   return {
     year: date.getFullYear(),
+    // Cosmetic sequential number for "Issue #N" display only.
     issueIndex,
-    // The quiz + its claim status key off `week`, so pointing it at the
-    // weekly issue index makes both reset with every new issue.
-    week: issueIndex,
+    // The quiz + its claim status, and the new-issue popup, all key off
+    // `week` — pointing it at the Sunday date itself (not an arbitrary
+    // counter) is what makes every one of them line up exactly on Sundays.
+    week: getSundayKey(date),
     countdown: getNextIssueCountdown(date),
     featuredBirds,
     birdOfWeek: pinnedBird || featuredBirds[0] || null,
@@ -1911,7 +1930,7 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
 function getWeeklyMagazinePlants(settings = {}, date = new Date(), count = 4) {
   const library = [...SA_PLANT_LIBRARY].sort((a, b) => a.commonName.localeCompare(b.commonName))
   if (!library.length) return { featuredPlants: [], plantOfWeek: null }
-  const issueIndex = getAbsoluteIssueIndex(date)
+  const issueIndex = getSundayIssueNumber(date)
   const startIndex = (issueIndex * 3) % library.length
   const pinnedPlant =
     library.find((plant) => plant.id === settings.pinnedPlantOfWeekId) || null
@@ -1924,103 +1943,9 @@ function getWeeklyMagazinePlants(settings = {}, date = new Date(), count = 4) {
   }
 }
 
-// ---- Weekly Bird Quiz (magazine) ----
-// 5 data-accurate multiple-choice questions about this week's featured birds.
-// Seeded by the week number so questions are stable to retake but change with
-// each new issue.
-function weeklyQuizSeed(week) {
-  let h = 2166136261
-  const s = `weekly-quiz-${week}`
-  for (let i = 0; i < s.length; i += 1) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-function seededShuffleLocal(items, seed) {
-  const arr = [...items]
-  let s = seed || 1
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    s = (Math.imul(s, 1103515245) + 12345) & 0x7fffffff
-    const j = s % (i + 1)
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
-
-function buildWeeklyQuiz(issue, library) {
-  const hasAfr = (b) => b && b.commonName && b.afrikaansName
-  const pool = (library || []).filter(hasAfr)
-  const featured = (issue.featuredBirds || []).filter(hasAfr)
-  const seed = weeklyQuizSeed(issue.week)
-  // Top up to 5 subjects from the wider library if needed.
-  const extra = seededShuffleLocal(
-    pool.filter((b) => !featured.some((f) => f.id === b.id)),
-    seed,
-  )
-  const subjects = [...featured, ...extra].slice(0, 5)
-  return subjects.map((bird, qi) => {
-    const askAfrikaans = qi % 2 === 0
-    const correct = askAfrikaans ? bird.afrikaansName : bird.commonName
-    const decoyPool = pool
-      .filter((b) => b.id !== bird.id)
-      .map((b) => (askAfrikaans ? b.afrikaansName : b.commonName))
-      .filter((v, i, arr) => v && v !== correct && arr.indexOf(v) === i)
-    const decoys = seededShuffleLocal(decoyPool, seed + qi * 7919).slice(0, 3)
-    const options = seededShuffleLocal([correct, ...decoys], seed + qi * 104729)
-    return {
-      q: askAfrikaans
-        ? `What is the Afrikaans name for the ${bird.commonName}?`
-        : `Which bird is known in Afrikaans as “${bird.afrikaansName}”?`,
-      options,
-      answer: options.indexOf(correct),
-    }
-  })
-}
-
-// ---- Weekly Plant Quiz (magazine Plant Corner) ----
-// Same mechanic as the bird quiz, seeded off the Plant Corner's weekly issue
-// index instead of the bird week, so the two quizzes don't sync up.
-function weeklyPlantQuizSeed(issueIndex) {
-  let h = 2166136261
-  const s = `weekly-plant-quiz-${issueIndex}`
-  for (let i = 0; i < s.length; i += 1) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-function buildWeeklyPlantQuiz(issueIndex, library, featuredPlants) {
-  const hasAfr = (p) => p && p.commonName && p.afrikaansName
-  const pool = (library || []).filter(hasAfr)
-  const featured = (featuredPlants || []).filter(hasAfr)
-  const seed = weeklyPlantQuizSeed(issueIndex)
-  // Top up to 5 subjects from the wider library if needed.
-  const extra = seededShuffleLocal(
-    pool.filter((p) => !featured.some((f) => f.id === p.id)),
-    seed,
-  )
-  const subjects = [...featured, ...extra].slice(0, 5)
-  return subjects.map((plant, qi) => {
-    const askAfrikaans = qi % 2 === 0
-    const correct = askAfrikaans ? plant.afrikaansName : plant.commonName
-    const decoyPool = pool
-      .filter((p) => p.id !== plant.id)
-      .map((p) => (askAfrikaans ? p.afrikaansName : p.commonName))
-      .filter((v, i, arr) => v && v !== correct && arr.indexOf(v) === i)
-    const decoys = seededShuffleLocal(decoyPool, seed + qi * 7919).slice(0, 3)
-    const options = seededShuffleLocal([correct, ...decoys], seed + qi * 104729)
-    return {
-      q: askAfrikaans
-        ? `What is the Afrikaans name for the ${plant.commonName}?`
-        : `Which plant is known in Afrikaans as “${plant.afrikaansName}”?`,
-      options,
-      answer: options.indexOf(correct),
-    }
-  })
-}
+// The Weekly Magazine Quiz itself (8 fun, varied questions pulled fresh from
+// the real bird/plant libraries every Sunday) now lives in quizData.js —
+// see buildWeeklyQuiz/quizVerdict/quizCoins, imported above.
 
 function getCurrentLevel(uniqueCount) {
   return levels.reduce((current, level) => {
@@ -2131,8 +2056,9 @@ function buildDefaultState() {
     games: defaultGames(),
     garden: defaultGarden(),
     greenhouse: defaultGreenhouse(),
+    // The single merged weekly quiz's claim key — the Sunday issue date
+    // string (issue.week), same key the new-issue popup below uses.
     weeklyQuizClaimedWeek: null,
-    weeklyPlantQuizClaimedWeek: null,
     // Which weekly magazine issue (issue.week) the new-issue Home popup has
     // already been shown/dismissed for — only a new issue.week re-triggers it.
     magazineIssueSeenWeek: null,
@@ -5536,32 +5462,18 @@ function App() {
       })
   }
 
-  // Weekly magazine quiz: 50 coins for finishing, but only once per week.
-  function claimWeeklyQuiz(week) {
-    if (data.weeklyQuizClaimedWeek === week) return
+  // Weekly magazine quiz: 2 coins per correct answer, capped at 16 (an
+  // 8-question quiz's max), once per week — score comes from the quiz itself
+  // (WeeklyQuiz reports it on submit), not recomputed here.
+  function claimWeeklyQuiz(week, score) {
+    const current = dataRef.current
+    if (current.weeklyQuizClaimedWeek === week) return
+    const coins = quizCoins(score)
     commit(
-      { ...data, weeklyQuizClaimedWeek: week, featherCoins: data.featherCoins + 50 },
+      { ...current, weeklyQuizClaimedWeek: week, featherCoins: current.featherCoins + coins },
       {
-        title: 'Weekly Bird Quiz complete! 🧠',
-        body: 'The Bird Council added 50 Feather Coins to your bank 🪙',
-      },
-    )
-  }
-
-  // Weekly Plant Corner quiz: coins plus seeds (the plant economy's currency,
-  // see addPlant()), once per issue.
-  function claimWeeklyPlantQuiz(issueIndex) {
-    if (data.weeklyPlantQuizClaimedWeek === issueIndex) return
-    commit(
-      {
-        ...data,
-        weeklyPlantQuizClaimedWeek: issueIndex,
-        seeds: data.seeds + 3,
-        featherCoins: data.featherCoins + 50,
-      },
-      {
-        title: 'Weekly Plant Quiz complete! 🌿',
-        body: 'The Head Botanist added 50 Feather Coins and 3 seeds to your pouch 🌱',
+        title: 'Weekly Quiz complete! 🧠🌿',
+        body: `The Bird Council added ${coins} Feather Coin${coins === 1 ? '' : 's'} to your bank 🪙`,
       },
     )
   }
@@ -7079,7 +6991,6 @@ function App() {
             onChooseEggSpecies={chooseEggSpecies}
             plantScannerVisible={plantScannerVisible}
             claimWeeklyQuiz={claimWeeklyQuiz}
-            claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
             readOnly={readOnly}
             markMagazineIssueSeen={markMagazineIssueSeen}
             onHeardSong={markSongHintSeen}
@@ -7996,7 +7907,6 @@ function HomePage({
   onChooseEggSpecies,
   plantScannerVisible = false,
   claimWeeklyQuiz,
-  claimWeeklyPlantQuiz,
   goToPlants,
   readOnly = false,
   markMagazineIssueSeen,
@@ -8323,16 +8233,15 @@ function HomePage({
 
       {/* The Weekly Magazine used to be its own bottom-tab page; it now
           renders here, at the bottom of Home, in full (not a preview) — same
-          WeeklyMagazinePage/WeeklyQuiz/WeeklyPlantQuiz components, just a new
-          parent. The id is the scroll target for old 'Read magazine' links
-          (see goToMagazineSection in App()). */}
+          WeeklyMagazinePage/WeeklyQuiz components, just a new parent. The id
+          is the scroll target for old 'Read magazine' links (see
+          goToMagazineSection in App()). */}
       <div id="home-magazine-section">
         <WeeklyMagazinePage
           data={data}
           openBirdProfile={openBirdProfile}
           openPlantProfile={openPlantProfile}
           claimWeeklyQuiz={claimWeeklyQuiz}
-          claimWeeklyPlantQuiz={claimWeeklyPlantQuiz}
           plantScannerVisible={plantScannerVisible}
           goToPlants={goToPlants}
         />
@@ -12044,13 +11953,34 @@ function getWeeklyRecap(data) {
   }
 }
 
-function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
+// The photo shown for a 'bird-photo'/'plant-photo' question — looked up by
+// id from the same libraries the generator drew the question from.
+function WeeklyQuizPhoto({ question, birdLibrary, plantLibrary }) {
+  if (question.type === 'bird-photo') {
+    const bird = (birdLibrary || []).find((b) => b.id === question.photoBirdId)
+    if (!bird) return null
+    return <FieldGuidePhoto bird={bird} className="weekly-quiz-photo" />
+  }
+  if (question.type === 'plant-photo') {
+    const plant = (plantLibrary || []).find((p) => p.id === question.photoPlantId)
+    if (!plant) return null
+    return <PlantFieldGuidePhoto plant={plant} className="weekly-quiz-photo" />
+  }
+  return null
+}
+
+// One combined 8-question weekly quiz (4 bird + 4 plant, or 8 bird-only when
+// plant features aren't unlocked for this account yet — see buildWeeklyQuiz's
+// plantCount in WeeklyMagazinePage) — a fresh, varied mix of question types
+// pulled straight from the real species libraries every Sunday.
+function WeeklyQuiz({ quiz, week, claimedWeek, onClaim, birdLibrary, plantLibrary }) {
   const [answers, setAnswers] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [justAwarded, setJustAwarded] = useState(false)
   const alreadyClaimed = claimedWeek === week
   const allAnswered = quiz.length > 0 && Object.keys(answers).length >= quiz.length
   const score = quiz.reduce((n, q, i) => n + (answers[i] === q.answer ? 1 : 0), 0)
+  const coins = quizCoins(score)
 
   function choose(qi, oi) {
     if (submitted) return
@@ -12060,7 +11990,7 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
     if (!allAnswered) return
     setSubmitted(true)
     if (!alreadyClaimed) {
-      onClaim(week)
+      onClaim(week, score)
       setJustAwarded(true)
     }
   }
@@ -12069,21 +11999,10 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
     setSubmitted(false)
   }
 
-  const verdict =
-    score === 5
-      ? 'A perfect score — the Bird Council is in awe! 🏆'
-      : score === 4
-        ? 'The Bird Council is impressed!'
-        : score === 3
-          ? 'Solidly done — the Council nods approvingly. 🐦'
-          : score >= 1
-            ? 'A few to revisit — back to the field, agent! 💛'
-            : 'Tricky week! Flip back and study the featured birds. 📖'
-
   if (!quiz.length) {
     return (
       <div className="magazine-quiz-page" key="quiz">
-        <p className="eyebrow">Weekly Bird Quiz 🧠</p>
+        <p className="eyebrow">Weekly Quiz 🧠🌿</p>
         <p>This week’s quiz is warming up — check back soon. 🐦</p>
       </div>
     )
@@ -12091,13 +12010,14 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
 
   return (
     <div className="magazine-quiz-page" key="quiz">
-      <p className="eyebrow">Weekly Bird Quiz 🧠</p>
-      <h2>Test yourself on this week’s birds</h2>
-      <p className="fine-print">5 questions · no timer · 25 Feather Coins for finishing (once a week).</p>
+      <p className="eyebrow">Weekly Quiz 🧠🌿</p>
+      <h2>Test yourself on birds and plants</h2>
+      <p className="fine-print">{quiz.length} questions · no timer · up to {quiz.length * 2} Feather Coins (once a week).</p>
       <ol className="weekly-quiz-list">
         {quiz.map((q, qi) => (
           <li key={qi} className="weekly-quiz-item">
             <p className="weekly-quiz-q">{q.q}</p>
+            <WeeklyQuizPhoto question={q} birdLibrary={birdLibrary} plantLibrary={plantLibrary} />
             <div className="weekly-quiz-options">
               {q.options.map((opt, oi) => {
                 const picked = answers[qi] === oi
@@ -12130,15 +12050,16 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
 
       {!submitted ? (
         <button className="primary-btn wide big-btn" type="button" disabled={!allAnswered} onClick={submit}>
-          {allAnswered ? 'See my score 🐦' : 'Answer all 5 to finish'}
+          {allAnswered ? 'See my score 🐦' : `Answer all ${quiz.length} to finish`}
         </button>
       ) : (
         <div className="weekly-quiz-result">
-          <h3>You scored {score}/5 — {verdict}</h3>
+          <h3>You scored {score}/{quiz.length}</h3>
+          <p className="weekly-quiz-verdict">{quizVerdict(score, quiz.length)}</p>
           {justAwarded ? (
-            <p className="weekly-quiz-coins">+25 Feather Coins added 🪙</p>
+            <p className="weekly-quiz-coins">+{coins} Feather Coin{coins === 1 ? '' : 's'} added 🪙</p>
           ) : alreadyClaimed ? (
-            <p className="fine-print">You already earned this week’s 25 coins 💛 (retakes are just for fun).</p>
+            <p className="fine-print">You already claimed this week’s coins 💛 (retakes are just for fun).</p>
           ) : null}
           <button className="secondary-btn wide" type="button" onClick={retake}>
             Try again 🔁
@@ -12149,118 +12070,13 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim }) {
   )
 }
 
-function WeeklyPlantQuiz({ quiz, issueIndex, claimedWeek, onClaim }) {
-  const [answers, setAnswers] = useState({})
-  const [submitted, setSubmitted] = useState(false)
-  const [justAwarded, setJustAwarded] = useState(false)
-  const alreadyClaimed = claimedWeek === issueIndex
-  const allAnswered = quiz.length > 0 && Object.keys(answers).length >= quiz.length
-  const score = quiz.reduce((n, q, i) => n + (answers[i] === q.answer ? 1 : 0), 0)
-
-  function choose(qi, oi) {
-    if (submitted) return
-    setAnswers((a) => ({ ...a, [qi]: oi }))
-  }
-  function submit() {
-    if (!allAnswered) return
-    setSubmitted(true)
-    if (!alreadyClaimed) {
-      onClaim(issueIndex)
-      setJustAwarded(true)
-    }
-  }
-  function retake() {
-    setAnswers({})
-    setSubmitted(false)
-  }
-
-  const verdict =
-    score === 5
-      ? 'A perfect score — the Head Botanist is in awe! 🏆'
-      : score === 4
-        ? 'The Head Botanist is impressed!'
-        : score === 3
-          ? 'Solidly done — the Botanist nods approvingly. 🌿'
-          : score >= 1
-            ? 'A few to revisit — back to the field guide, agent! 💛'
-            : 'Tricky issue! Flip back and study the Plant Corner. 📖'
-
-  if (!quiz.length) {
-    return (
-      <div className="magazine-quiz-page" key="plant-quiz">
-        <p className="eyebrow">Weekly Plant Quiz 🌿</p>
-        <p>This issue’s quiz is warming up — check back soon. 🌸</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="magazine-quiz-page" key="plant-quiz">
-      <p className="eyebrow">Weekly Plant Quiz 🌿</p>
-      <h2>Test yourself on this issue’s plants</h2>
-      <p className="fine-print">5 questions · no timer · 3 seeds for finishing (once per issue).</p>
-      <ol className="weekly-quiz-list">
-        {quiz.map((q, qi) => (
-          <li key={qi} className="weekly-quiz-item">
-            <p className="weekly-quiz-q">{q.q}</p>
-            <div className="weekly-quiz-options">
-              {q.options.map((opt, oi) => {
-                const picked = answers[qi] === oi
-                const reveal = submitted
-                const state = reveal
-                  ? oi === q.answer
-                    ? ' correct'
-                    : picked
-                      ? ' wrong'
-                      : ''
-                  : picked
-                    ? ' picked'
-                    : ''
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    className={`weekly-quiz-option${state}`}
-                    onClick={() => choose(qi, oi)}
-                    disabled={submitted}
-                  >
-                    {opt}
-                  </button>
-                )
-              })}
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      {!submitted ? (
-        <button className="primary-btn wide big-btn" type="button" disabled={!allAnswered} onClick={submit}>
-          {allAnswered ? 'See my score 🌿' : 'Answer all 5 to finish'}
-        </button>
-      ) : (
-        <div className="weekly-quiz-result">
-          <h3>You scored {score}/5 — {verdict}</h3>
-          {justAwarded ? (
-            <p className="weekly-quiz-coins">+3 seeds added 🌱</p>
-          ) : alreadyClaimed ? (
-            <p className="fine-print">You already earned this issue’s 3 seeds 💛 (retakes are just for fun).</p>
-          ) : null}
-          <button className="secondary-btn wide" type="button" onClick={retake}>
-            Try again 🔁
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeeklyQuiz, claimWeeklyPlantQuiz, plantScannerVisible, goToPlants }) {
+function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeeklyQuiz, plantScannerVisible, goToPlants }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
   const season = getSeasonInfo()
   const weekIndex = getAbsoluteWeekIndex()
   const quote = getWeeklyQuote(weekIndex)
   const coverBird = issue.birdOfWeek
-  const plantIssueIndex = getAbsoluteIssueIndex(new Date())
+  const plantIssueIndex = getSundayIssueNumber(new Date())
   const { featuredPlants: magazinePlants, plantOfWeek } = getWeeklyMagazinePlants(data.settings, new Date())
   // The featured bird is deliberately different from the cover bird.
   const featuredBird =
@@ -12269,17 +12085,20 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
   const featuredPlant =
     magazinePlants.find((plant) => plant.id !== plantOfWeek?.id) || magazinePlants[1] || null
   const recap = getWeeklyRecap(data)
-  const weeklyQuiz = useMemo(
-    () => buildWeeklyQuiz(issue, data.birdLibrary),
-    // issue is rebuilt each render; week + library are what actually matter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [issue.week, data.birdLibrary],
-  )
-  const weeklyPlantQuiz = useMemo(
-    () => buildWeeklyPlantQuiz(plantIssueIndex, SA_PLANT_LIBRARY, magazinePlants),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [plantIssueIndex],
-  )
+  // One merged 8-question quiz (4 bird + 4 plant) — 8 bird-only questions for
+  // accounts where plant features aren't unlocked yet, so it never spoils
+  // plant content plantScannerVisible is still gating elsewhere on this page.
+  // Deterministically seeded by issue.week, so recomputing it on every render
+  // (same pattern already used above for issue/magazinePlants/recap, none of
+  // which are memoized either) is cheap and always yields the same 8
+  // questions for a given week.
+  const weeklyQuiz = buildWeeklyQuiz({
+    weekKey: issue.week,
+    birdLibrary: data.birdLibrary,
+    plantLibrary: SA_PLANT_LIBRARY,
+    birdCount: plantScannerVisible ? 4 : 8,
+    plantCount: plantScannerVisible ? 4 : 0,
+  })
   const [page, setPage] = useState(0)
 
   const coverPhoto = (commonName, imageUrl) =>
@@ -12298,8 +12117,8 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     <div className="magazine-cover-page" key="cover">
       <p className="magazine-issue-no">The Feather</p>
       <p className="magazine-season">Issue #{issue.issueIndex} — {season.name} Edition</p>
-      <p className="fine-print">A fresh flock every week · {season.greeting}</p>
-      <p className="magazine-countdown">🗞️ Next issue in {issue.countdown.text}</p>
+      <p className="fine-print">A fresh flock every Sunday · {season.greeting}</p>
+      <p className="magazine-countdown">🗞️ {issue.countdown.text}</p>
       {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
       <p className="magazine-quote">“{quote}”</p>
       {coverBird && (
@@ -12360,7 +12179,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
       <div className="magazine-cover-page" key="plant-cover">
         <p className="magazine-issue-no">The Bloom</p>
         <p className="magazine-season">Plant Issue #{plantIssueIndex} — {season.name} Edition</p>
-        <p className="fine-print">A fresh bloom every week · {season.greeting}</p>
+        <p className="fine-print">A fresh bloom every Sunday · {season.greeting}</p>
         {coverPhoto(plantOfWeek.commonName, plantOfWeek.imageUrl)}
         <p className="magazine-quote">“{plantOfWeek.funFact}”</p>
         <h2>Plant of the week: {plantOfWeek.commonName}</h2>
@@ -12444,18 +12263,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     </div>,
   )
 
-  // Page 5 — Weekly Bird Quiz.
-  pages.push(
-    <WeeklyQuiz
-      key="quiz"
-      quiz={weeklyQuiz}
-      week={issue.week}
-      claimedWeek={data.weeklyQuizClaimedWeek}
-      onClaim={claimWeeklyQuiz}
-    />,
-  )
-
-  // Page 6 — inside this issue gallery.
+  // Page 5 — inside this issue gallery.
   pages.push(
     <div className="magazine-gallery-page" key="gallery">
       <p className="eyebrow">Inside this issue</p>
@@ -12488,7 +12296,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     </div>,
   )
 
-  // Page 7 — Plant Corner, only once plant features are released for the account.
+  // Page 6 — Plant Corner, only once plant features are released for the account.
   if (plantScannerVisible && magazinePlants.length) {
     pages.push(
       <div className="magazine-gallery-page" key="plants">
@@ -12531,18 +12339,22 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
         )}
       </div>,
     )
-
-    // Page 8 — Weekly Plant Quiz, immediately after the Plant Corner.
-    pages.push(
-      <WeeklyPlantQuiz
-        key="plant-quiz"
-        quiz={weeklyPlantQuiz}
-        issueIndex={plantIssueIndex}
-        claimedWeek={data.weeklyPlantQuizClaimedWeek}
-        onClaim={claimWeeklyPlantQuiz}
-      />,
-    )
   }
+
+  // Last page — the Weekly Quiz: 4 bird + 4 plant questions once plant
+  // features are unlocked, 8 bird questions otherwise. Placed after both
+  // galleries so every question's subject has already appeared in the issue.
+  pages.push(
+    <WeeklyQuiz
+      key="quiz"
+      quiz={weeklyQuiz}
+      week={issue.week}
+      claimedWeek={data.weeklyQuizClaimedWeek}
+      onClaim={claimWeeklyQuiz}
+      birdLibrary={data.birdLibrary}
+      plantLibrary={SA_PLANT_LIBRARY}
+    />,
+  )
 
   const total = pages.length
   const safePage = Math.min(page, total - 1)
