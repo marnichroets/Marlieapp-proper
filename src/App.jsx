@@ -2683,6 +2683,14 @@ function App() {
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
   const [birdProfile, setBirdProfile] = useState(null)
   const [plantProfileId, setPlantProfileId] = useState(null)
+  // Which page of the Weekly Magazine's flip-book she's on. Lifted up here
+  // (rather than local state inside WeeklyMagazinePage) because HomePage —
+  // and everything inside it, including the magazine — fully unmounts
+  // whenever she navigates to a bird/plant profile (see the `key={activePage}`
+  // page-stage in the render below). Keeping it here means opening a profile
+  // from the magazine and pressing Back returns her to the exact page she
+  // was reading, not the cover. See closeBirdProfile/closePlantProfile.
+  const [magazinePage, setMagazinePage] = useState(0)
   const [tweetyDancing, setTweetyDancing] = useState(false)
   // Which store item id just landed in the room scene — drives its one-shot
   // pop-in animation (see .room-slot.gift-pop in App.css). Cleared a moment
@@ -2707,6 +2715,11 @@ function App() {
     }
   })
   const tapTrackerRef = useRef({ count: 0, last: 0 })
+  // True while a bird/plant profile is open that was reached via a link
+  // inside the magazine (cover, feature, or gallery card) — read once by
+  // closeBirdProfile/closePlantProfile to send her back to the magazine
+  // section instead of the top of Home. See openBirdProfile/openPlantProfile.
+  const profileOpenedFromMagazineRef = useRef(false)
 
   // --- Navigation history so every page has a working "previous" Back ---
   // Recorded in refs (no re-render) and updated automatically on every page
@@ -5722,21 +5735,31 @@ function App() {
     })
   }
 
-  function openBirdProfile(profile) {
+  function openBirdProfile(profile, { fromMagazine = false } = {}) {
+    profileOpenedFromMagazineRef.current = fromMagazine
     setBirdProfile(profile)
     setActivePage('birdProfile')
   }
 
   function closeBirdProfile() {
+    if (profileOpenedFromMagazineRef.current) {
+      profileOpenedFromMagazineRef.current = false
+      pendingScrollTarget.current = 'home-magazine-section'
+    }
     goBack()
   }
 
-  function openPlantProfile(plantId) {
+  function openPlantProfile(plantId, { fromMagazine = false } = {}) {
+    profileOpenedFromMagazineRef.current = fromMagazine
     setPlantProfileId(plantId)
     setActivePage('plantProfile')
   }
 
   function closePlantProfile() {
+    if (profileOpenedFromMagazineRef.current) {
+      profileOpenedFromMagazineRef.current = false
+      pendingScrollTarget.current = 'home-magazine-section'
+    }
     goBack()
   }
 
@@ -6991,6 +7014,8 @@ function App() {
             onChooseEggSpecies={chooseEggSpecies}
             plantScannerVisible={plantScannerVisible}
             claimWeeklyQuiz={claimWeeklyQuiz}
+            magazinePage={magazinePage}
+            setMagazinePage={setMagazinePage}
             readOnly={readOnly}
             markMagazineIssueSeen={markMagazineIssueSeen}
             onHeardSong={markSongHintSeen}
@@ -7907,6 +7932,8 @@ function HomePage({
   onChooseEggSpecies,
   plantScannerVisible = false,
   claimWeeklyQuiz,
+  magazinePage,
+  setMagazinePage,
   goToPlants,
   readOnly = false,
   markMagazineIssueSeen,
@@ -8244,6 +8271,8 @@ function HomePage({
           claimWeeklyQuiz={claimWeeklyQuiz}
           plantScannerVisible={plantScannerVisible}
           goToPlants={goToPlants}
+          page={magazinePage}
+          setPage={setMagazinePage}
         />
       </div>
       </div>
@@ -12070,7 +12099,7 @@ function WeeklyQuiz({ quiz, week, claimedWeek, onClaim, birdLibrary, plantLibrar
   )
 }
 
-function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeeklyQuiz, plantScannerVisible, goToPlants }) {
+function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeeklyQuiz, plantScannerVisible, goToPlants, page, setPage }) {
   const issue = getWeeklyMagazineIssue(data.birdLibrary, data.settings)
   const season = getSeasonInfo()
   const weekIndex = getAbsoluteWeekIndex()
@@ -12099,7 +12128,6 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     birdCount: plantScannerVisible ? 4 : 8,
     plantCount: plantScannerVisible ? 4 : 0,
   })
-  const [page, setPage] = useState(0)
 
   const coverPhoto = (commonName, imageUrl) =>
     imageUrl ? (
@@ -12128,7 +12156,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
           <button
             className="primary-btn"
             type="button"
-            onClick={() => openBirdProfile({ source: 'library', id: coverBird.id })}
+            onClick={() => openBirdProfile({ source: 'library', id: coverBird.id }, { fromMagazine: true })}
           >
             Meet the cover bird
           </button>
@@ -12163,7 +12191,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
         <button
           className="secondary-btn wide"
           type="button"
-          onClick={() => openBirdProfile({ source: 'library', id: featuredBird.id })}
+          onClick={() => openBirdProfile({ source: 'library', id: featuredBird.id }, { fromMagazine: true })}
         >
           Open full profile
         </button>
@@ -12187,7 +12215,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
         <button
           className="primary-btn"
           type="button"
-          onClick={() => openPlantProfile(plantOfWeek.id)}
+          onClick={() => openPlantProfile(plantOfWeek.id, { fromMagazine: true })}
         >
           Meet this week's plant
         </button>
@@ -12224,7 +12252,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
         <button
           className="secondary-btn wide"
           type="button"
-          onClick={() => openPlantProfile(featuredPlant.id)}
+          onClick={() => openPlantProfile(featuredPlant.id, { fromMagazine: true })}
         >
           Open full profile
         </button>
@@ -12285,7 +12313,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
               <button
                 className="secondary-btn wide"
                 type="button"
-                onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
+                onClick={() => openBirdProfile({ source: 'library', id: bird.id }, { fromMagazine: true })}
               >
                 Open bird profile
               </button>
@@ -12323,7 +12351,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
                   <button
                     className="secondary-btn wide"
                     type="button"
-                    onClick={() => openPlantProfile(plant.id)}
+                    onClick={() => openPlantProfile(plant.id, { fromMagazine: true })}
                   >
                     Open plant profile
                   </button>
