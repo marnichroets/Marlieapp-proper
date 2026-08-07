@@ -3491,6 +3491,14 @@ textarea:focus {
   color: var(--muted);
 }
 
+.magazine-kallie-stamp {
+  margin: -4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
 .magazine-recap-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -4574,6 +4582,9 @@ button.tweety-nest-base.gift-pop {
   50% { transform: scale(1.035); }
 }
 .garden-scene-svg.placing { cursor: crosshair; touch-action: none; }
+.garden-paw-prints { pointer-events: none; }
+.garden-paw-print { opacity: 0; animation: garden-paw-fade-in 1.1s ease-out forwards; }
+@keyframes garden-paw-fade-in { from { opacity: 0; } to { opacity: 0.6; } }
 .garden-placing-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   background: #e3f3e0; border: 1px solid #bcdcc0; color: #244a2a; font-weight: 700;
@@ -5268,6 +5279,11 @@ button.tweety-nest-base.gift-pop {
   gap: 16px;
   flex-wrap: wrap;
 }
+
+/* Kallie's paw trail — a faded Easter-egg trail pinned to the bottom-right
+   corner of the viewport while on Home, never blocking taps underneath it. */
+.home-paw-trail { position: fixed; right: 0; bottom: 0; width: 0; height: 0; z-index: 5; pointer-events: none; }
+.home-paw-print { position: absolute; width: 14px; height: 14px; opacity: 0.3; }
 
 /* Tweety mood tints the home screen */
 .home-stack { position: relative; }

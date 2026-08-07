@@ -2111,7 +2111,7 @@ function buildDefaultState() {
     rewardCertificates: [],
     // Inbox: messages from the Council, Marnich and the system.
     messages: [],
-    messagesMeta: { lastCouncilDay: '', shownCouncil: [], specialDelivered: [] },
+    messagesMeta: { lastCouncilDay: '', shownCouncil: [], specialDelivered: [], lastKallieToastDay: '' },
     // Last Tweety growth stage we have already celebrated (index into stages).
     tweetyGrowthSeen: 0,
     // Whether the one-time cinematic intro has been watched. Lives in the synced
@@ -2601,6 +2601,17 @@ function addBirdToState(state, match, photo) {
   }
 }
 
+// Kallie's random Easter-egg toast — a small chance, once per day at most,
+// that a little note from her appears on app open. See the effect in App()
+// gated on messagesMeta.lastKallieToastDay.
+const KALLIE_TOAST_MESSAGES = [
+  '🐾 Kallie sniffed your garden — all clear!',
+  '🐾 Kallie says good morning!',
+  '🐾 Kallie is napping in the sun somewhere',
+  '🐾 Kallie left you a paw print trail!',
+  '🐾 Kallie chased a butterfly again...',
+]
+
 function App() {
   const [activePage, setActivePage] = useState('home')
   // When set, the next top-scroll effect (below) scrolls to this element id
@@ -2926,6 +2937,34 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, dayKey, data.messagesMeta?.specialDelivered])
+
+  // Kallie's random Easter-egg toast — a small (1-in-5) chance on app open
+  // that a little note from her pops up. Gated by lastKallieToastDay exactly
+  // like the dispatch effects above, so it only ever gets ONE roll per day no
+  // matter how many times the app reopens — "each message only shows once
+  // per day max" simplifies to "at most one Kallie toast per day."
+  useEffect(() => {
+    if (!session || readOnly || (session.role !== 'pooks' && session.role !== 'marnich'))
+      return undefined
+    if (data.messagesMeta?.lastKallieToastDay === dayKey) return undefined
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      if (Math.random() < 0.2) {
+        const msg = KALLIE_TOAST_MESSAGES[Math.floor(Math.random() * KALLIE_TOAST_MESSAGES.length)]
+        setToast({ title: msg, body: '', tone: 'calm' })
+      }
+      setData((current) => ({
+        ...current,
+        messagesMeta: { ...current.messagesMeta, lastKallieToastDay: dayKey },
+      }))
+    }, 600)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, dayKey, data.messagesMeta?.lastKallieToastDay])
 
   // Keep `dayKey` current so the dispatch above fires after an SA-midnight
   // rollover even if the app was never closed. Cheap re-checks on focus/visibility
@@ -6843,6 +6882,7 @@ function App() {
       <div className="season-wash" aria-hidden="true" />
       <SeasonalAmbient />
       <Toast toast={toast} />
+      {activePage === 'home' && <HomePawTrail />}
       <InstallPrompt />
       {adminGate && session.role !== 'admin' && (
         <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} overlay />
@@ -8277,6 +8317,38 @@ function HomePage({
       </div>
       </div>
     </>
+  )
+}
+
+// A tiny decorative trail of paw prints tucked along the bottom-right edge of
+// Home — like Kallie just walked across the screen. Purely an Easter egg: a
+// few faded marks, fixed to the viewport corner, never intercepting taps.
+const HOME_PAW_TRAIL = [
+  { right: 4, bottom: 88, rotate: -10 },
+  { right: 17, bottom: 101, rotate: 16 },
+  { right: 27, bottom: 116, rotate: -20 },
+  { right: 41, bottom: 132, rotate: 7 },
+]
+
+function HomePawTrail() {
+  return (
+    <div className="home-paw-trail" aria-hidden="true">
+      {HOME_PAW_TRAIL.map((p, i) => (
+        <svg
+          key={i}
+          className="home-paw-print"
+          viewBox="0 0 12 12"
+          style={{ right: p.right, bottom: p.bottom, transform: `rotate(${p.rotate}deg)` }}
+        >
+          <ellipse cx="6" cy="8" rx="3" ry="2.3" fill="#C4B59A" />
+          <ellipse cx="6" cy="6.3" rx="2.3" ry="1.9" fill="#C4B59A" />
+          <circle cx="3" cy="3.4" r="1.05" fill="#C4B59A" />
+          <circle cx="5" cy="2.3" r="1.05" fill="#C4B59A" />
+          <circle cx="7" cy="2.3" r="1.05" fill="#C4B59A" />
+          <circle cx="9" cy="3.4" r="1.05" fill="#C4B59A" />
+        </svg>
+      ))}
+    </div>
   )
 }
 
@@ -12162,6 +12234,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
           </button>
         </>
       )}
+      <p className="magazine-kallie-stamp">🐾 Kallie approved</p>
     </div>,
   )
 

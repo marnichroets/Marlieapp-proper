@@ -113,6 +113,54 @@ function depthScale(y) {
   return 0.85 + Math.max(0, Math.min(1, t)) * 0.3
 }
 
+// A single small paw mark — two overlapping ovals for the pad, four tiny
+// circles for the toes — drawn at the origin so callers just translate/
+// rotate/scale it into place.
+function PawMark() {
+  return (
+    <g>
+      <ellipse cx="0" cy="2" rx="3" ry="2.3" fill="#8B6914" />
+      <ellipse cx="0" cy="0.3" rx="2.3" ry="1.9" fill="#8B6914" />
+      <circle cx="-3" cy="-2.6" r="1.05" fill="#8B6914" />
+      <circle cx="-1" cy="-3.7" r="1.05" fill="#8B6914" />
+      <circle cx="1" cy="-3.7" r="1.05" fill="#8B6914" />
+      <circle cx="3" cy="-2.6" r="1.05" fill="#8B6914" />
+    </g>
+  )
+}
+
+// Kallie's paw prints, scattered across the lawn — like he just ran through.
+// 3-5 marks land at fresh random spots (within the always-visible base lawn,
+// GARDEN_REGION) on every mount, i.e. every time the garden page loads; they
+// fade in on their own stagger and are purely decorative (no pointer events).
+function GardenPawPrints() {
+  const [prints] = useState(() => {
+    const count = 3 + Math.floor(Math.random() * 3) // 3, 4 or 5
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      x: rand(GARDEN_REGION.x0 + 12, GARDEN_REGION.x1 - 12),
+      y: rand(GARDEN_REGION.y0 + 10, GARDEN_REGION.y1 + 14),
+      rotation: Math.round(rand(0, 360)),
+      scale: rand(0.8, 1.3),
+      delay: rand(0, 1),
+    }))
+  })
+  return (
+    <g className="garden-paw-prints" aria-hidden="true">
+      {prints.map((p) => (
+        <g
+          key={p.id}
+          className="garden-paw-print"
+          style={{ animationDelay: `${p.delay.toFixed(2)}s` }}
+          transform={`translate(${p.x} ${p.y}) rotate(${p.rotation}) scale(${p.scale})`}
+        >
+          <PawMark />
+        </g>
+      ))}
+    </g>
+  )
+}
+
 // A released companion's next wander stop: a real point picked from whichever
 // placeable regions are currently unlocked (base lawn + any bought expansion
 // zones), so she genuinely roams the whole garden rather than twitching near
@@ -1559,6 +1607,10 @@ export function GardenPage({
           <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="url(#gardenGrassNear)" />
           {/* a soft meandering path for charm */}
           <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" strokeWidth="13" strokeLinecap="round" opacity="0.7" />
+
+          {/* Kallie's paw prints — a little Easter egg scattered across the
+              lawn, fresh random spots each time the garden loads. */}
+          <GardenPawPrints />
 
           {/* Expansion zones: each owned zone continues the ground plane with
               the same gradients (own signpost so it reads as a real, distinct
