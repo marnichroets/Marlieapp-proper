@@ -19,6 +19,7 @@ import {
   treeHasNest,
   wateredToday,
   canWish,
+  kallieMischiefForDay,
   STAGE_LABELS,
   GARDEN_REGION,
   gardenViewBox,
@@ -129,21 +130,86 @@ function PawMark() {
   )
 }
 
-// Kallie's paw prints, scattered across the lawn — like he just ran through.
-// 3-5 marks land at fresh random spots (within the always-visible base lawn,
-// GARDEN_REGION) on every mount, i.e. every time the garden page loads; they
-// fade in on their own stagger and are purely decorative (no pointer events).
+// Point + tangent on a cubic bezier at parameter t (De Casteljau-ish direct
+// formula) — used to lay paw prints along the curve and to know which way
+// each one should face.
+function cubicBezierPoint(p0, p1, p2, p3, t) {
+  const mt = 1 - t
+  return {
+    x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
+    y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y,
+  }
+}
+function cubicBezierTangent(p0, p1, p2, p3, t) {
+  const mt = 1 - t
+  return {
+    dx: 3 * mt * mt * (p1.x - p0.x) + 6 * mt * t * (p2.x - p1.x) + 3 * t * t * (p3.x - p2.x),
+    dy: 3 * mt * mt * (p1.y - p0.y) + 6 * mt * t * (p2.y - p1.y) + 3 * t * t * (p3.y - p2.y),
+  }
+}
+
+// Wide-but-safe patch of always-visible lawn (a bit roomier than the strict
+// plantable GARDEN_REGION) that the paw trail's start/end edges and Kallie's
+// mischief spots both draw from, so nothing lands off the grass.
+const PAW_TRAIL_BOUNDS = { x0: 20, x1: 380, y0: 155, y1: 245 }
+
+function randomTrailEdgePoint(edge) {
+  const b = PAW_TRAIL_BOUNDS
+  if (edge === 'left') return { x: b.x0, y: rand(b.y0, b.y1) }
+  if (edge === 'right') return { x: b.x1, y: rand(b.y0, b.y1) }
+  if (edge === 'top') return { x: rand(b.x0, b.x1), y: b.y0 }
+  return { x: rand(b.x0, b.x1), y: b.y1 } // 'bottom'
+}
+
+// Kallie's paw trail — a walking PATH across the lawn, not a random scatter:
+// a fresh random bezier curve from one edge of the garden to another on every
+// mount, with 6-8 prints placed at even intervals along it. Each print is
+// rotated to face the direction of travel at its point on the curve, and
+// alternately offset a couple of units to either side of the centreline (the
+// same left-right stagger a real four-legged walk leaves), fading in in
+// sequence so it reads as footsteps rather than a scatter.
 function GardenPawPrints() {
   const [prints] = useState(() => {
-    const count = 3 + Math.floor(Math.random() * 3) // 3, 4 or 5
-    return Array.from({ length: count }, (_, i) => ({
-      id: i,
-      x: rand(GARDEN_REGION.x0 + 12, GARDEN_REGION.x1 - 12),
-      y: rand(GARDEN_REGION.y0 + 10, GARDEN_REGION.y1 + 14),
-      rotation: Math.round(rand(0, 360)),
-      scale: rand(0.8, 1.3),
-      delay: rand(0, 1),
-    }))
+    const edges = ['left', 'right', 'top', 'bottom']
+    const startEdge = pick(edges)
+    const endEdge = pick(edges.filter((e) => e !== startEdge))
+    const start = randomTrailEdgePoint(startEdge)
+    const end = randomTrailEdgePoint(endEdge)
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const len = Math.hypot(dx, dy) || 1
+    // Perpendicular unit vector to the start->end line, used to bow the two
+    // control points off the straight line so the path actually curves.
+    const nx = -dy / len
+    const ny = dx / len
+    const bow1 = rand(-24, 24)
+    const bow2 = rand(-24, 24)
+    const c1 = { x: start.x + dx * 0.33 + nx * bow1, y: start.y + dy * 0.33 + ny * bow1 }
+    const c2 = { x: start.x + dx * 0.66 + nx * bow2, y: start.y + dy * 0.66 + ny * bow2 }
+
+    const count = 6 + Math.floor(Math.random() * 3) // 6, 7 or 8
+    return Array.from({ length: count }, (_, i) => {
+      const t = count === 1 ? 0 : i / (count - 1)
+      const { x, y } = cubicBezierPoint(start, c1, c2, end, t)
+      const { dx: tdx, dy: tdy } = cubicBezierTangent(start, c1, c2, end, t)
+      // rotation = heading + 90: PawMark's default (rotate 0) orientation
+      // faces "up" (toward -y), so it takes a 90° offset from the raw
+      // atan2 heading to point the mark along the direction of travel.
+      const heading = Math.atan2(tdy, tdx) * (180 / Math.PI)
+      const tlen = Math.hypot(tdx, tdy) || 1
+      const px = -tdy / tlen
+      const py = tdx / tlen
+      const side = i % 2 === 0 ? 1 : -1
+      const offset = rand(1.8, 2.6)
+      return {
+        id: i,
+        x: x + px * side * offset,
+        y: y + py * side * offset,
+        rotation: Math.round(heading + 90),
+        scale: rand(0.85, 1.05),
+        delay: i * 0.14 + rand(0, 0.08),
+      }
+    })
   })
   return (
     <g className="garden-paw-prints" aria-hidden="true">
@@ -152,12 +218,82 @@ function GardenPawPrints() {
           key={p.id}
           className="garden-paw-print"
           style={{ animationDelay: `${p.delay.toFixed(2)}s` }}
-          transform={`translate(${p.x} ${p.y}) rotate(${p.rotation}) scale(${p.scale})`}
+          transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.rotation}) scale(${p.scale.toFixed(2)})`}
         >
           <PawMark />
         </g>
       ))}
     </g>
+  )
+}
+
+// A dug-up hole — a dark oval of exposed earth with lighter dirt specks
+// scattered around it where the loose soil landed.
+function KallieHole() {
+  return (
+    <g>
+      <ellipse cx="0" cy="1" rx="7" ry="4" fill="#3b2a1a" />
+      <ellipse cx="0" cy="0.2" rx="5.2" ry="2.9" fill="#241a10" />
+      <circle cx="-9" cy="-2" r="1.1" fill="#7a5a35" />
+      <circle cx="8.4" cy="-3" r="1.3" fill="#8a6a42" />
+      <circle cx="-6.4" cy="5.2" r="1" fill="#7a5a35" />
+      <circle cx="7.2" cy="4.4" r="1.2" fill="#8a6a42" />
+      <circle cx="0.6" cy="-6" r="1" fill="#7a5a35" />
+    </g>
+  )
+}
+
+// A buried bone, tipped on its side and half-sunk into a little mound of
+// dirt — as if Kallie stashed it and got bored halfway through covering it.
+function KallieBone() {
+  return (
+    <g transform="rotate(-15)">
+      <ellipse cx="0" cy="3.2" rx="6.4" ry="2.4" fill="#6b4a2a" opacity="0.55" />
+      <rect x="-5.5" y="-1.4" width="11" height="2.8" rx="1.4" fill="#f5f0e6" />
+      <circle cx="-5.5" cy="-2.4" r="1.7" fill="#f5f0e6" />
+      <circle cx="-5.5" cy="1.6" r="1.7" fill="#f5f0e6" />
+      <circle cx="5.5" cy="-2.4" r="1.7" fill="#f5f0e6" />
+      <circle cx="5.5" cy="1.6" r="1.7" fill="#f5f0e6" />
+    </g>
+  )
+}
+
+// Kallie's daily garden mischief — a dug-up hole and/or a buried bone,
+// deterministic for today's SA date key (see kallieMischiefForDay), so
+// everyone sees the same thing all day and it's gone by tomorrow. Tapping
+// either fires onTap('hole' | 'bone') for a toast (and, once per day, a
+// coins bonus for the bone — handled by the caller).
+function GardenKallieMischief({ mischief, onTap }) {
+  if (!mischief) return null
+  return (
+    <>
+      {mischief.holePos && (
+        <g
+          className="garden-kallie-mischief"
+          transform={`translate(${mischief.holePos.x.toFixed(1)} ${mischief.holePos.y.toFixed(1)})`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onTap?.('hole')
+          }}
+        >
+          <circle r="10" fill="transparent" />
+          <KallieHole />
+        </g>
+      )}
+      {mischief.bonePos && (
+        <g
+          className="garden-kallie-mischief"
+          transform={`translate(${mischief.bonePos.x.toFixed(1)} ${mischief.bonePos.y.toFixed(1)})`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onTap?.('bone')
+          }}
+        >
+          <circle r="10" fill="transparent" />
+          <KallieBone />
+        </g>
+      )}
+    </>
   )
 }
 
@@ -1233,6 +1369,7 @@ export function GardenPage({
   onTreatResident,
   onWish,
   onPurchaseExpansion,
+  onTapKallieMischief,
   tweety = null,
   seeds = 0,
   plantableSpecies = [],
@@ -1240,6 +1377,10 @@ export function GardenPage({
   const plantings = useMemo(() => garden?.plantings || [], [garden])
   const residents = garden?.residents || []
   const today = saDateKey()
+  // Kallie's daily mischief (dug-up hole / buried bone) — deterministic for
+  // today's date key, so it's stable across re-renders and only changes
+  // when the SA day rolls over.
+  const kallieMischief = useMemo(() => kallieMischiefForDay(today), [today])
   const unlocked = GARDEN_SHOP.filter((i) => (garden?.shopUnlocked || []).includes(i.id))
   const svgRef = useRef(null)
   const wrapRef = useRef(null)
@@ -1608,9 +1749,13 @@ export function GardenPage({
           {/* a soft meandering path for charm */}
           <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" strokeWidth="13" strokeLinecap="round" opacity="0.7" />
 
-          {/* Kallie's paw prints — a little Easter egg scattered across the
-              lawn, fresh random spots each time the garden loads. */}
+          {/* Kallie's paw prints — a little Easter egg walking trail across
+              the lawn, a fresh random path each time the garden loads. */}
           <GardenPawPrints />
+
+          {/* Kallie's daily mischief — a dug-up hole and/or a buried bone,
+              same for everyone today, gone tomorrow. */}
+          <GardenKallieMischief mischief={kallieMischief} onTap={onTapKallieMischief} />
 
           {/* Expansion zones: each owned zone continues the ground plane with
               the same gradients (own signpost so it reads as a real, distinct

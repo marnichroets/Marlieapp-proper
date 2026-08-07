@@ -264,6 +264,61 @@ export function canWish(garden, today = saDateKey()) {
   return garden?.lastWishDay !== today
 }
 
+// Cheap deterministic string hash (paired with mulberry32 below) — local to
+// this module so kallieMischiefForDay() doesn't depend on Garden.jsx.
+function hashSeedLocal(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i += 1) h = (h * 31 + str.charCodeAt(i)) >>> 0
+  return h
+}
+
+// Tiny seeded PRNG so "random" mischief is reproducible from a day key alone.
+function mulberry32(seed) {
+  return function rand() {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Kallie's daily garden mischief — a dug-up hole and/or a buried bone
+// somewhere on the lawn. Deterministic for a given SA-local day key (the
+// same for everyone, all day long) via a seeded PRNG keyed off it, so it
+// never re-rolls on re-render/re-mount within a day and always reshuffles at
+// the next SA midnight (a new dayKey → a new seed). About half of all days
+// show nothing at all — this is meant to feel like a rare discovery, not a
+// daily fixture.
+export function kallieMischiefForDay(dayKey) {
+  const rng = mulberry32(hashSeedLocal(`${dayKey}:kallie-mischief`))
+  if (rng() >= 0.5) return null
+  const roll = rng()
+  const type = roll < 0.4 ? 'hole' : roll < 0.8 ? 'bone' : 'both'
+  const bx0 = 40
+  const bx1 = 360
+  const by0 = 160
+  const by1 = 240
+  const holeX = bx0 + rng() * (bx1 - bx0)
+  const holeY = by0 + rng() * (by1 - by0)
+  let holePos = null
+  let bonePos = null
+  if (type === 'hole' || type === 'both') holePos = { x: holeX, y: holeY }
+  if (type === 'bone') {
+    bonePos = { x: bx0 + rng() * (bx1 - bx0), y: by0 + rng() * (by1 - by0) }
+  } else if (type === 'both') {
+    // The bone sits right by the hole, as if just dug up out of it.
+    bonePos = { x: holeX + (rng() * 16 - 8), y: holeY - 5 - rng() * 3 }
+  }
+  return { type, holePos, bonePos }
+}
+
+// Once-per-SA-day gate for the bonus coins awarded the first time she finds
+// Kallie's buried bone — same pattern as canWish/lastWishDay above.
+export function canClaimKallieBone(garden, today = saDateKey()) {
+  return garden?.lastKallieBoneDay !== today
+}
+
 export const STAGE_LABELS = {
   sprout: 'Sprout', budding: 'Budding', bloom: 'In bloom',
   'bed-soil': 'Tilled soil', 'bed-shoots': 'Shoots', 'bed-full': 'Full bed',

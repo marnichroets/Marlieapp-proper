@@ -52,6 +52,7 @@ import {
   SEED_PLANT_COST,
   WISHING_WELL_COINS,
   canWish,
+  canClaimKallieBone,
   expansionItem,
 } from './gardenData'
 import {
@@ -2604,6 +2605,9 @@ function addBirdToState(state, match, photo) {
 // Kallie's random Easter-egg toast — a small chance, once per day at most,
 // that a little note from her appears on app open. See the effect in App()
 // gated on messagesMeta.lastKallieToastDay.
+// Bonus coins for the first bone find of the SA day — see tapKallieMischief.
+const KALLIE_BONE_COINS = 5
+
 const KALLIE_TOAST_MESSAGES = [
   '🐾 Kallie sniffed your garden — all clear!',
   '🐾 Kallie says good morning!',
@@ -4380,6 +4384,34 @@ function App() {
       },
       { title: 'A wish granted ✨', body: `The well glimmers — +${amount} Feather Coins.` },
     )
+  }
+
+  // Kallie's daily garden mischief: tapping the dug-up hole or buried bone
+  // (see kallieMischiefForDay) just shows a funny flavor toast — except the
+  // FIRST bone tap of the SA day, which also pays a small coins bonus, gated
+  // the same once-per-day way as the Wishing Well above.
+  function tapKallieMischief(kind) {
+    const messages = [
+      '🐾 Kallie was digging here again...',
+      "🦴 Kallie's secret stash! He'll be back for this later",
+      "🐾 Someone's been busy... suspiciously Kallie-shaped paw prints nearby",
+      '🦴 Kallie buried this for safekeeping. Very important bone business.',
+    ]
+    const body = messages[Math.floor(Math.random() * messages.length)]
+    const garden = data.garden || defaultGarden()
+    const today = saDateKey()
+    if (kind === 'bone' && canClaimKallieBone(garden, today)) {
+      commit(
+        {
+          ...data,
+          garden: { ...garden, lastKallieBoneDay: today },
+          featherCoins: data.featherCoins + KALLIE_BONE_COINS,
+        },
+        { title: body, body: `+${KALLIE_BONE_COINS} Feather Coins 🪙`, tone: 'success' },
+      )
+      return
+    }
+    setToast({ title: body, body: '', tone: 'calm' })
   }
 
   // Garden expansion zones: a one-time permanent unlock (never placed/watered
@@ -7079,6 +7111,7 @@ function App() {
             onTreatResident={treatResident}
             onWish={wishAtWell}
             onPurchaseExpansion={purchaseExpansion}
+            onTapKallieMischief={tapKallieMischief}
             onBack={goBack}
             tweety={data.tweety}
             seeds={data.seeds}
