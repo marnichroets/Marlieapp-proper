@@ -141,6 +141,17 @@ export const SPECIAL_COUNCIL_MESSAGES = {
     body:
       'Dear Agent Pooks,\n\nThe Plant Division doesn\'t usually write letters. We\'re more of a \'stand quietly in the sun and photosynthesise\' kind of department. But today we wanted to make an exception.\n\nWe\'ve been watching your field work — every plant you\'ve identified, every seed you\'ve planted, every time you\'ve stopped to look a little closer at something growing. And we wanted you to know: we notice.\n\nThe Bird Council gets all the attention (they\'re louder, obviously), but between us — the real magic is in the roots. And you, Agent Pooks, have very good roots.\n\nKeep growing. Keep exploring. Keep being exactly who you are.\n\nWith sunlight and admiration,\nThe Plant Division 🌿\nSouthern Hemisphere Botanical Council\n\nP.S. We\'ve enclosed your official certificate of botanical field competence. It was supposed to arrive weeks ago but the delivery weaver got distracted by a nest near Lichtenburg. Typical.',
   },
+
+  // A one-off letter from the Garden Committee, with its own title/sender —
+  // an object entry instead of a plain string, so it replaces the daily
+  // dispatch with its own look rather than borrowing the Council's.
+  '2026-08-07': {
+    sender: 'The Garden Committee',
+    icon: '🌻',
+    title: 'A Little Thursday Sunshine',
+    body:
+      'Dear Agent Pooks,\n\nThe Garden Committee held an emergency meeting this morning. The agenda had only one item: you.\n\nWe reviewed the evidence — 20 days of caring for your companion, a greenhouse full of growing things, a garden buzzing with life — and we reached a unanimous decision.\n\nYou are, officially, our favourite human.\n\nThe Bird Council tried to object (they always do), but even Prof. Hadida had to admit: nobody tends to their little corner of the world quite like you do.\n\nSo here\'s your Thursday reminder: the plants are growing because of you. The birds keep coming back because of you. And somewhere in a cosy little room, a certain Cape Robin-Chat is singing a song that\'s just for you.\n\nKeep being exactly who you are.\n\nWith sunshine and admiration,\nThe Garden Committee 🌻\n\nP.S. We tried to get Kallie to co-sign this letter but she was too busy chasing a butterfly.',
+  },
 }
 
 // The special good-luck message for a given day key, or null on any normal day.
