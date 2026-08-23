@@ -553,11 +553,21 @@ export function BulbFlower({ zones, size = 160, flowering = true, variation = {}
       </g>
       <g fill="var(--z-leaf-main)" stroke={INK} strokeWidth="2.4" strokeLinejoin="round">
         {Array.from({ length: n }).map((_, i) => {
+          // One base leaf shape, mirrored (not hand-duplicated) for the other
+          // side so the pair stays symmetric around the stem at x=200 — and
+          // leafWidth scales around that same x=200 anchor rather than the
+          // SVG origin, so widening a leaf doesn't also drag it sideways.
           const flip = i % 2
-          const d = flip
-            ? 'M200 486 Q178 400 182 310 Q184 296 192 300 Q196 396 208 486 Z'
-            : 'M190 486 Q158 400 164 296 Q166 282 176 288 Q182 390 202 486 Z'
-          return <path key={i} d={d} transform={`translate(${i * 3 * (flip ? -1 : 1)} 0) scale(${leafWidth} 1)`} />
+          const pair = Math.floor(i / 2)
+          const shift = pair * 3 * (flip ? 1 : -1)
+          const mirror = flip ? 'translate(400 0) scale(-1 1) ' : ''
+          return (
+            <path
+              key={i}
+              d="M190 486 Q158 400 164 296 Q166 282 176 288 Q182 390 202 486 Z"
+              transform={`translate(${shift} 0) ${mirror}translate(200 0) scale(${leafWidth} 1) translate(-200 0)`}
+            />
+          )
         })}
       </g>
       <path d={`M198 460 C199 ${380 * height} 200 ${280 * height} 201 ${stemTopY + 15}`} stroke="var(--z-stem)" strokeWidth="8" strokeLinecap="round" fill="none" />
