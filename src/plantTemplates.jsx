@@ -548,7 +548,10 @@ export function BulbFlower({ zones, size = 160, flowering = true, variation = {}
       {!hideSoil && <ellipse cx="200" cy={soilY} rx="46" ry="13" fill="var(--z-soil)" opacity="0.9" />}
       <g fill="var(--z-leaf-secondary)" stroke={INK} strokeWidth="2" strokeLinejoin="round">
         {Array.from({ length: Math.ceil(n / 2) }).map((_, i) => (
-          <path key={i} d="M210 486 Q240 400 236 300 Q234 288 226 292 Q220 390 200 486 Z" transform={`translate(${i * 4} 0) scale(${leafWidth} 1)`} />
+          // Same scale-anchor fix as the main leaves below: leafWidth scales
+          // around x=200, not the SVG origin, so this background leaf widens
+          // in place instead of drifting rightward as leafWidth grows.
+          <path key={i} d="M210 486 Q240 400 236 300 Q234 288 226 292 Q220 390 200 486 Z" transform={`translate(${i * 4} 0) translate(200 0) scale(${leafWidth} 1) translate(-200 0)`} />
         ))}
       </g>
       <g fill="var(--z-leaf-main)" stroke={INK} strokeWidth="2.4" strokeLinejoin="round">

@@ -147,6 +147,7 @@ function PottedPlantArt({ pot, today }) {
         width={size}
         height={size * 1.3}
         style={{ overflow: 'visible' }}
+        clipPath="url(#ghPotSlotClip)"
       >
         <div style={{ width: '100%', height: '100%', display: 'flex', filter: HEALTH_FILTER[tier] }}>
           <GardenPlant template={template} zones={zones} size={size} variation={variation} flowering={stage === 'blooming'} hideSoil />
@@ -191,6 +192,12 @@ function EmptySlotArt({ locked }) {
 
 const ROOM_WIDTH = 320
 const ROOM_HEIGHT = 362
+
+// Half the center-to-center gap between adjacent pot slots (see POT_SLOTS in
+// greenhouseData.js — currently a uniform 52 units within a shelf) — a
+// plant's foliage is clipped to this on either side of its own pot so a
+// wide/tall bloom can't visually spill into the neighbouring slot.
+const POT_SLOT_HALF_SPACING = (POT_SLOTS[1].x - POT_SLOTS[0].x) / 2
 
 // One glasshouse room's full interior — roof, walls, shelves, floor, and its
 // 8 pot slots — drawn in local 0-320 x 0-362 coordinates and wrapped in a
@@ -353,6 +360,14 @@ function GreenhouseScene({ greenhouse, waterAnims, activeSlotId, onTapSlot }) {
             <stop offset="0" stopColor="#c08a51" />
             <stop offset="1" stopColor="#a9713f" />
           </linearGradient>
+          {/* Shared by every pot's foreignObject (see PottedPlantArt) — rect is
+              in the pot slot group's own local space, so x=0 is always that
+              pot's own center regardless of which slot/room it's in. Tall
+              enough vertically to never clip height, only horizontal spill
+              past the midpoint to a neighbouring pot. */}
+          <clipPath id="ghPotSlotClip">
+            <rect x={-POT_SLOT_HALF_SPACING} y="-1000" width={POT_SLOT_HALF_SPACING * 2} height="2000" />
+          </clipPath>
         </defs>
 
         <g transform="translate(0 0)">
