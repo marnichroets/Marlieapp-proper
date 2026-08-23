@@ -102,7 +102,7 @@ function splitByCenter(items) {
 
 // ---- 1. aloe — rosette of thick pointed leaves, central flower spike when
 // blooming (Aloe ferox, Aloe arborescens, Aloe vera, and other rosette aloes)
-export function Aloe({ zones, size = 160, flowering = true, variation = {} }) {
+export function Aloe({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 7, leafAngle = 95, leafWidth = 1, height = 1,
     flowerCount = 5, flowerSize = 1, hasStem = false,
@@ -123,7 +123,7 @@ export function Aloe({ zones, size = 160, flowering = true, variation = {} }) {
   const soilRx = clamp(58 + n * 1.6 + (leafWidth - 1) * 20, 50, 100)
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx={soilRx} ry="16" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx={soilRx} ry="16" fill="var(--z-soil)" opacity="0.9" />}
       <HeightGroup height={height} anchorY={soilY}>
         {hasStem && (
           <rect x={200 - 9 * leafWidth} y={rosetteY + 2} width={18 * leafWidth} height={stemH + 22} rx={7 * leafWidth} fill="var(--z-stem)" stroke={INK} strokeWidth="2.5" />
@@ -156,7 +156,7 @@ export function Aloe({ zones, size = 160, flowering = true, variation = {} }) {
 
 // ---- 2. protea — large distinctive flower head with layered petals, sturdy
 // stem, broad leaves (King Protea, Sugarbush, and other bract-flowered proteas)
-export function Protea({ zones, size = 160, flowering = true, variation = {} }) {
+export function Protea({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 4, leafAngle = 38, leafWidth = 1, height = 1,
     flowerCount = 1, flowerSize = 1, hasStem = true,
@@ -180,7 +180,7 @@ export function Protea({ zones, size = 160, flowering = true, variation = {} }) 
   })
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="60" ry="15" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="60" ry="15" fill="var(--z-soil)" opacity="0.9" />}
       <path d={`M198 ${soilY - 6} C197 ${soilY - 90} 198 ${soilY - 190} 200 ${stemTopY + 70}`} stroke="var(--z-stem)" strokeWidth="10" strokeLinecap="round" fill="none" />
       {heads.slice(1).map((h, i) => (
         <path key={i} d={`M200 ${h.y + 30} L${h.x} ${h.y + 20}`} stroke="var(--z-stem)" strokeWidth="6" strokeLinecap="round" fill="none" />
@@ -218,7 +218,7 @@ export function Protea({ zones, size = 160, flowering = true, variation = {} }) 
 
 // ---- 3. succulent — compact rosette of fleshy rounded leaves, low to ground
 // (Cotyledon, Crassula, Gasteria, Haworthia, Stapelia, and other clumping succulents)
-export function Succulent({ zones, size = 160, flowering = true, variation = {} }) {
+export function Succulent({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 5, leafAngle = 70, leafWidth = 1, height = 1,
     flowerCount = 2, flowerSize = 1, hasStem = false,
@@ -239,7 +239,7 @@ export function Succulent({ zones, size = 160, flowering = true, variation = {} 
   const soilRx = clamp(64 + n * 2.4 + (leafWidth - 1) * 22, 55, 105)
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx={soilRx} ry="14" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx={soilRx} ry="14" fill="var(--z-soil)" opacity="0.9" />}
       <HeightGroup height={height} anchorY={soilY}>
         {hasStem && <rect x="190" y={baseY} width="20" height={stemH + 4} rx="8" fill="var(--z-stem)" stroke={INK} strokeWidth="2.4" />}
         <g fill="var(--z-leaf-secondary)" stroke={INK} strokeWidth="2.2" strokeLinejoin="round">
@@ -274,7 +274,7 @@ export function Succulent({ zones, size = 160, flowering = true, variation = {} 
 // ---- 4. flowering-shrub — bushy shape with clusters of small flowers,
 // multiple stems (Plumbago, Cape Honeysuckle, Ericas, garden daisies, and the
 // generic fallback template)
-export function FloweringShrub({ zones, size = 160, flowering = true, variation = {} }) {
+export function FloweringShrub({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 4, leafAngle = 50, leafWidth = 1, height = 1,
     flowerCount = 10, flowerSize = 1, hasStem = true,
@@ -297,7 +297,7 @@ export function FloweringShrub({ zones, size = 160, flowering = true, variation 
   const cnt = clamp(Math.round(flowerCount), 0, 16)
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="66" ry="15" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="66" ry="15" fill="var(--z-soil)" opacity="0.9" />}
       <g stroke="var(--z-stem)" strokeWidth="6" strokeLinecap="round" fill="none">
         {stems.map((s, i) => <path key={i} d={`M${s.x} ${soilY} C${s.x + s.dx * 0.6} ${(soilY + stemTopY) / 2} ${s.x + s.dx} ${stemTopY + 30} ${s.x + s.dx} ${stemTopY}`} />)}
       </g>
@@ -333,7 +333,7 @@ export function FloweringShrub({ zones, size = 160, flowering = true, variation 
 
 // ---- 5. grass-tuft — clump of long thin blades, feathery seed heads
 // (Restios, Cape Thatching Reed, Bulrush, Papyrus)
-export function GrassTuft({ zones, size = 160, flowering = true, variation = {} }) {
+export function GrassTuft({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 5, leafAngle = 55, leafWidth = 1, height = 1,
     flowerCount = 2, flowerSize = 1,
@@ -351,7 +351,7 @@ export function GrassTuft({ zones, size = 160, flowering = true, variation = {} 
   const { main: mainBlades, secondary: secondaryBlades } = splitByCenter(rawBlades)
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="54" ry="13" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="54" ry="13" fill="var(--z-soil)" opacity="0.9" />}
       <g fill="var(--z-leaf-secondary)" stroke={INK} strokeWidth="1.6" strokeLinejoin="round">
         {secondaryBlades.map((b, i) => <path key={i} d={bladePath(200, soilY, b.angle, b.len, b.w)} />)}
       </g>
@@ -387,7 +387,7 @@ export function GrassTuft({ zones, size = 160, flowering = true, variation = {} 
 
 // ---- 6. tree-small — visible trunk, rounded canopy of leaves, proportioned
 // for garden scale (most Trees-category species: Karee, Wild Olive, Jacaranda…)
-export function TreeSmall({ zones, size = 160, flowering = true, variation = {} }) {
+export function TreeSmall({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 3, leafAngle = 45, leafWidth = 1, height = 1,
     flowerCount = 8, flowerSize = 1, hasStem = true,
@@ -409,7 +409,7 @@ export function TreeSmall({ zones, size = 160, flowering = true, variation = {} 
   })
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="50" ry="13" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="50" ry="13" fill="var(--z-soil)" opacity="0.9" />}
       <path
         d={`M186 ${soilY - 2} C182 ${soilY - 40} 184 ${trunkTopY + 90} 192 ${trunkTopY + 20} C200 ${trunkTopY} 200 ${trunkTopY} 208 ${trunkTopY + 20} C216 ${trunkTopY + 90} 218 ${soilY - 40} 214 ${soilY - 2} Z`}
         fill="var(--z-stem)" stroke={INK} strokeWidth="2.5" strokeLinejoin="round"
@@ -446,7 +446,7 @@ export function TreeSmall({ zones, size = 160, flowering = true, variation = {} 
 
 // ---- 7. palm — tall thin trunk, fan/frond leaves at top (used for the few
 // palm-and-palm-like species, e.g. the giant Wild Banana Strelitzia)
-export function Palm({ zones, size = 160, variation = {} }) {
+export function Palm({ zones, size = 160, variation = {}, hideSoil = false }) {
   const { leafCount = 6, leafAngle = 70, leafWidth = 1, height = 1, flowerCount = 3, flowerSize = 1 } = variation
   const soilY = 488
   const trunkTopY = soilY - 338 * height
@@ -463,7 +463,7 @@ export function Palm({ zones, size = 160, variation = {} }) {
   )
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="40" ry="12" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="40" ry="12" fill="var(--z-soil)" opacity="0.9" />}
       <path
         d={`M188 ${soilY - 2} C184 ${soilY - 66} 186 ${soilY - 146} 192 ${soilY - 226} C194 ${soilY - 266} 196 ${soilY - 296} 198 ${trunkTopY} L202 ${trunkTopY} C204 ${soilY - 296} 206 ${soilY - 266} 208 ${soilY - 226} C214 ${soilY - 146} 216 ${soilY - 66} 212 ${soilY - 2} Z`}
         fill="var(--z-stem)" stroke={INK} strokeWidth="2.5" strokeLinejoin="round"
@@ -491,7 +491,7 @@ export function Palm({ zones, size = 160, variation = {} }) {
 // underside of a mature frond (flowerCount/flowerSize now control how many
 // and how big), `center` for a young fiddlehead's coiled tip (hasStem toggles
 // whether that unfurling frond shows at all).
-export function Fern({ zones, size = 160, variation = {} }) {
+export function Fern({ zones, size = 160, variation = {}, hideSoil = false }) {
   const { leafCount = 4, leafWidth = 1, height = 1, flowerCount = 3, flowerSize = 1, hasStem = true } = variation
   const soilY = 488
   const n = clamp(Math.round(leafCount), 2, 7)
@@ -505,7 +505,7 @@ export function Fern({ zones, size = 160, variation = {} }) {
   )
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="56" ry="13" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="56" ry="13" fill="var(--z-soil)" opacity="0.9" />}
       <g fill="none" stroke="var(--z-leaf-secondary)" strokeWidth="5" strokeLinecap="round" opacity="0.75">
         <path d="M185 486 Q110 420 88 300" />
         <path d="M215 486 Q290 420 312 300" />
@@ -538,14 +538,14 @@ export function Fern({ zones, size = 160, variation = {} }) {
 // flowerCount reshapes the bloom itself: 1 = a single showy trumpet
 // (Amaryllis/Arum), 2+ = a many-floret umbel radiating from one point
 // (Agapanthus) — not just "more of the same" flower.
-export function BulbFlower({ zones, size = 160, flowering = true, variation = {} }) {
+export function BulbFlower({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const { leafCount = 2, leafWidth = 1, height = 1, flowerCount = 6, flowerSize = 1 } = variation
   const soilY = 488
   const stemTopY = soilY - 330 * height
   const n = clamp(Math.round(leafCount), 1, 4)
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="46" ry="13" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="46" ry="13" fill="var(--z-soil)" opacity="0.9" />}
       <g fill="var(--z-leaf-secondary)" stroke={INK} strokeWidth="2" strokeLinejoin="round">
         {Array.from({ length: Math.ceil(n / 2) }).map((_, i) => (
           <path key={i} d="M210 486 Q240 400 236 300 Q234 288 226 292 Q220 390 200 486 Z" transform={`translate(${i * 4} 0) scale(${leafWidth} 1)`} />
@@ -601,7 +601,7 @@ export function BulbFlower({ zones, size = 160, flowering = true, variation = {}
 
 // ---- 10. ground-cover — low spreading mat of small leaves and tiny flowers
 // (Vygies, Gazanias, Sour Fig, Ice Plant, trailing daisies)
-export function GroundCover({ zones, size = 160, flowering = true, variation = {} }) {
+export function GroundCover({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const { leafCount = 14, leafAngle = 100, leafWidth = 1, height = 1, flowerCount = 7, flowerSize = 1 } = variation
   const soilY = 498
   const n = clamp(Math.round(leafCount), 6, 24)
@@ -615,7 +615,7 @@ export function GroundCover({ zones, size = 160, flowering = true, variation = {
   })
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx={clamp(spread * 0.55, 60, 150)} ry="10" fill="var(--z-soil)" opacity="0.8" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx={clamp(spread * 0.55, 60, 150)} ry="10" fill="var(--z-soil)" opacity="0.8" />}
       <path d={`M${200 - spread / 2} 476 Q200 490 ${200 + spread / 2} 478`} stroke="var(--z-stem)" strokeWidth="2" fill="none" opacity="0.7" />
       <g fill="var(--z-leaf-secondary)" stroke={INK} strokeWidth="1.4">
         {leaves.filter((_, i) => i % 2 === 0).map((l, i) => <circle key={i} cx={l.x} cy={l.y - 4} r={l.r} />)}
@@ -644,7 +644,7 @@ export function GroundCover({ zones, size = 160, flowering = true, variation = {
 
 // ---- 11. climbing-vine — vertical growth with tendrils and leaves (Forest
 // Grape, Port St Johns Creeper, Pride of de Kaap, Traveller's Joy)
-export function ClimbingVine({ zones, size = 160, flowering = true, variation = {} }) {
+export function ClimbingVine({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const { leafCount = 6, leafWidth = 1, height = 1, flowerCount = 2, flowerSize = 1 } = variation
   const soilY = 488
   const topY = soilY - 408 * height
@@ -663,7 +663,7 @@ export function ClimbingVine({ zones, size = 160, flowering = true, variation = 
   })
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="34" ry="12" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="34" ry="12" fill="var(--z-soil)" opacity="0.9" />}
       <path
         d={`M200 486 C210 ${420 * height} 190 ${360 * height} 205 ${300 * height} C215 ${250 * height} 190 ${200 * height} 205 ${150 * height} C212 ${120 * height} 198 ${100 * height} 200 ${topY}`}
         stroke="var(--z-stem)" strokeWidth="5" strokeLinecap="round" fill="none"
@@ -698,7 +698,7 @@ export function ClimbingVine({ zones, size = 160, flowering = true, variation = 
 // Sage, Wild Rosemary, Buchu, Rooibos, scented Pelargoniums). leafAngle is a
 // spread multiplier here (sprigs don't fan at a literal angle the way a
 // rosette's leaves do) rather than degrees like the other templates.
-export function Herb({ zones, size = 160, flowering = true, variation = {} }) {
+export function Herb({ zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const {
     leafCount = 6, leafAngle = 1, leafWidth = 1, height = 1,
     flowerCount = 4, flowerSize = 1, hasStem = true,
@@ -723,7 +723,7 @@ export function Herb({ zones, size = 160, flowering = true, variation = {} }) {
   const n = clamp(Math.round(leafCount), 3, 9)
   return (
     <svg viewBox="0 0 400 520" style={{ width: size, height: size * (520 / 400), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="200" cy={soilY} rx="52" ry="12" fill="var(--z-soil)" opacity="0.9" />
+      {!hideSoil && <ellipse cx="200" cy={soilY} rx="52" ry="12" fill="var(--z-soil)" opacity="0.9" />}
       <g stroke="var(--z-stem)" strokeWidth="4" strokeLinecap="round" fill="none">
         {stems.map((x, i) => <path key={i} d={`M${x} 484 C${x - (x - 200) * 0.3} ${(484 + topY) / 2} ${x - (x - 200) * 0.5} ${topY + 30} ${x - (x - 200) * 0.7} ${topY}`} />)}
       </g>
@@ -768,7 +768,7 @@ const PLANT_TEMPLATES = {
 // shape variation. Falls back to flowering-shrub if a template name doesn't
 // match (should not happen once every species in PLANT_COLOUR_MAP is
 // templated correctly).
-export function GardenPlant({ template, zones, size = 160, flowering = true, variation = {} }) {
+export function GardenPlant({ template, zones, size = 160, flowering = true, variation = {}, hideSoil = false }) {
   const Template = PLANT_TEMPLATES[template] || FloweringShrub
-  return <Template zones={zones} size={size} flowering={flowering} variation={variation} />
+  return <Template zones={zones} size={size} flowering={flowering} variation={variation} hideSoil={hideSoil} />
 }

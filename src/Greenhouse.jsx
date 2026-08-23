@@ -105,6 +105,13 @@ function PotVessel({ style }) {
   }
 }
 
+// Local y of each pot style's soil surface (see the matching ellipse cy in
+// PotVessel above) — every style rests its soil at 0 except the macramé
+// hanger, whose whole vessel is drawn 2 units higher (it swings from the
+// strings above rather than sitting on the shelf). PottedPlantArt reads this
+// so the planted foliage anchors to the actual rim instead of assuming 0.
+const POT_RIM_Y = { macrame: -2 }
+
 // A brief blue droplet falling from above the pot into a small splash —
 // removed from state ~700ms after it's added (see GreenhousePage).
 function WaterDrop() {
@@ -130,18 +137,19 @@ function PottedPlantArt({ pot, today }) {
   const tier = pot.dead ? 'dead' : healthTier(computeHealth(pot, today))
   const { template, zones, variation, scale } = plantVisual(pot.plantName, pot.family)
   const size = STAGE_SIZE[stage] * (scale ?? 1)
+  const rimY = POT_RIM_Y[pot.potStyle] || 0
   return (
     <>
       <PotVessel style={pot.potStyle} />
       <foreignObject
         x={-size / 2}
-        y={-size * 1.22}
+        y={-size * 1.22 + rimY}
         width={size}
         height={size * 1.3}
         style={{ overflow: 'visible' }}
       >
-        <div style={{ width: '100%', height: '100%', filter: HEALTH_FILTER[tier] }}>
-          <GardenPlant template={template} zones={zones} size={size} variation={variation} flowering={stage === 'blooming'} />
+        <div style={{ width: '100%', height: '100%', display: 'flex', filter: HEALTH_FILTER[tier] }}>
+          <GardenPlant template={template} zones={zones} size={size} variation={variation} flowering={stage === 'blooming'} hideSoil />
         </div>
       </foreignObject>
     </>
