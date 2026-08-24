@@ -122,7 +122,7 @@ import {
 import { GamesHub } from './games'
 import { defaultGames } from './gamesData'
 import { InboxPage } from './Inbox'
-import { BirdMapPage } from './BirdMap'
+import { BirdMapPage, BirdFlightMapPage } from './BirdMap'
 import {
   councilDispatchForDay,
   specialInboxDeliveriesForDay,
@@ -874,11 +874,11 @@ const bottomTabs = [
   ['explore', 'Explore', '🔍'],
   ['library', 'Collection', '🦜'],
   ['messages', 'Inbox', '📬'],
+  ['birdmap', 'Map', '🗺️'],
   ['rewards', 'Gifts', '🎁'],
 ]
 
 const menuItems = [
-  ['birdmap', 'My Bird Map', '🗺️'],
   ['date', 'Date', '💕'],
   ['games', 'Date Games', '🎮'],
   ['birdroom', 'Bird Room', '🏡'],
@@ -5843,12 +5843,23 @@ function App() {
     const senderLng = senderLocation?.lng ?? (toMarnich ? data.settings.pooksLng ?? BIRD_POST_DEST_LNG : data.settings.senderLng)
     const destLat = toMarnich ? data.settings.senderLat : data.settings.pooksLat ?? BIRD_POST_DEST_LAT
     const destLng = toMarnich ? data.settings.senderLng : data.settings.pooksLng ?? BIRD_POST_DEST_LNG
-    if (senderLat == null || senderLng == null || destLat == null || destLng == null) {
+    // Two DISTINCT checks, not one combined one — the old single check used
+    // "Set Your Address first" for both cases, which was actively wrong (and
+    // confusing) when MY OWN address was already saved and it was actually
+    // the other person's that was missing (only possible for 'to-marnich':
+    // Pooks always has a fallback via BIRD_POST_DEST_LAT, Marnich doesn't).
+    if (senderLat == null || senderLng == null) {
       setToast({
         title: 'Set "Your Address" first',
-        body: toMarnich
-          ? 'Save and geocode your address before sending — and make sure Marnich has saved his.'
-          : 'Save and geocode your address above before sending a bird.',
+        body: 'Save and geocode your address above before sending a bird.',
+        tone: 'warning',
+      })
+      return false
+    }
+    if (destLat == null || destLng == null) {
+      setToast({
+        title: "Waiting on Marnich's address",
+        body: "Marnich hasn't saved his address yet — ask him to open Bird Post and save his first.",
         tone: 'warning',
       })
       return false
@@ -7528,6 +7539,9 @@ function App() {
         {activePage === 'birdmap' && (
           <BirdMapPage data={data} onBack={goBack} />
         )}
+        {activePage === 'birdflight' && (
+          <BirdFlightMapPage birdPost={data.birdPost} birdLibrary={data.birdLibrary} onBack={goBack} />
+        )}
         {activePage === 'profile' && (
           <ProfilePage
             data={data}
@@ -8375,6 +8389,7 @@ function HomePage({
           birdLibrary={data.birdLibrary}
           onArrival={onBirdPostArrival}
           onRead={onBirdPostRead}
+          onSeeFlight={() => goTo('birdflight')}
         />
       )}
 
@@ -8779,7 +8794,7 @@ function MonthlyActivityBar({ bird }) {
 // mid-flight — or after it already finished while the app was closed — is
 // correct on the very next render, no extra bookkeeping needed. Only ever
 // rendered for the recipient (see HomePage) — "flying to you" is always true.
-function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead }) {
+function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead, onSeeFlight }) {
   const [now, setNow] = useState(() => Date.now())
   const firedRef = useRef(false)
 
@@ -8856,6 +8871,11 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead }) {
       <p className="bird-post-detail fine-print">
         {remainingKm}km to go · ETA {formatDurationShort(remainingSeconds)}
       </p>
+      {onSeeFlight && (
+        <button className="text-btn bird-post-flight-link" type="button" onClick={onSeeFlight}>
+          🗺️ See it flying →
+        </button>
+      )}
     </section>
   )
 }
@@ -8890,6 +8910,12 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const savedLat = justSaved?.lat ?? data.settings[latKey]
   const savedLng = justSaved?.lng ?? data.settings[lngKey]
   const savedAddress = justSaved?.address ?? data.settings[addressKey]
+
+  // Mirrors the destination fallback in sendBirdPost: Pooks always has one
+  // (BIRD_POST_DEST_LAT), Marnich doesn't — so this can only ever be true for
+  // the to-marnich direction. Surfaced here so she sees it before trying to
+  // send, not just as a toast after a blocked attempt.
+  const otherAddressMissing = direction === 'to-marnich' && data.settings.senderLat == null
 
   // Only species she's actually identified — messengers have to be real birds
   // she's found, not the whole 374-species field guide.
@@ -9022,6 +9048,11 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
           <p className="fine-print">
             Identify a bird first to unlock it as a messenger! Every species you&apos;ve found becomes
             available here.
+          </p>
+        ) : otherAddressMissing ? (
+          <p className="fine-print">
+            Marnich hasn&apos;t saved his address yet — ask him to open Bird Post and save his first,
+            then come back here.
           </p>
         ) : (
           <form className="form-grid" onSubmit={submit}>

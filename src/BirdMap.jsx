@@ -2,7 +2,10 @@
 // has spotted birds. No Google Maps API: a hand-projected SVG outline plus a
 // small gazetteer of common SA places. Unknown place names get a stable,
 // hashed position so every location still gets a pin somewhere sensible.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { GardenBird } from './birdTemplates'
+import { BIRD_COLOUR_MAP } from './birdColourMap'
+import { haversineDistanceKm, formatDurationShort } from './birdFlightSpeed'
 
 const VIEW_W = 1000
 const VIEW_H = 820
@@ -184,6 +187,22 @@ const PROVINCES = [
   },
 ]
 
+// Label anchor for each province — the area-weighted centroid of its outline
+// (not a simple point average, which can land outside a concave shape), with
+// small per-province dx/dy nudges only where the raw centroid would sit too
+// close to a border, Lesotho, or another label.
+const PROVINCE_LABELS = [
+  { name: 'Western Cape', lon: 20.59, lat: -33.01 },
+  { name: 'Eastern Cape', lon: 26.4, lat: -32.17 },
+  { name: 'Northern Cape', lon: 21.36, lat: -29.52 },
+  { name: 'Free State', lon: 26.87, lat: -28.61 },
+  { name: 'KwaZulu-Natal', lon: 30.69, lat: -28.73 },
+  { name: 'North West', lon: 25.33, lat: -26.32 },
+  { name: 'Gauteng', lon: 28.22, lat: -26.03 },
+  { name: 'Mpumalanga', lon: 30.22, lat: -25.87 },
+  { name: 'Limpopo', lon: 29.31, lat: -23.74 },
+]
+
 // Always-on reference markers so the map is legible even before any sightings.
 const REFERENCE_DOTS = [
   { name: 'Potchefstroom', lon: 27.1, lat: -26.72, dx: 8, anchor: 'start' },
@@ -274,6 +293,69 @@ function birdTypeFor(birdLibrary, name) {
   return { tags: match?.tags || [], category: match?.category || '' }
 }
 
+const toPath = (pts) => `M ${pts.map(([lo, la]) => project(lo, la).map((n) => n.toFixed(1)).join(' ')).join(' L ')} Z`
+
+// The shared South Africa map surface — outline, province boundaries +
+// labels, Lesotho enclave, and the always-on reference markers. Used by both
+// BirdMapPage (sighting pins) and BirdFlightMapPage (a Bird Post's live
+// flight) so the two views stay pixel-for-pixel consistent — the exact same
+// coordinate system, drawn once. Extra markers are passed as `children` and
+// rendered on top, inside the same <svg>.
+function SAMapBase({ children, ariaLabel = 'Map of South Africa' }) {
+  const outlinePath = toPath(OUTLINE)
+  const lesothoPath = toPath(LESOTHO)
+  const provincePaths = PROVINCES.map((p) => ({ name: p.name, d: toPath(p.outline) }))
+  const provinceLabels = PROVINCE_LABELS.map((l) => {
+    const [x, y] = project(l.lon, l.lat)
+    return { ...l, x: x + (l.dx || 0), y: y + (l.dy || 0) }
+  })
+  const refDots = REFERENCE_DOTS.map((d) => {
+    const [x, y] = project(d.lon, d.lat)
+    return { ...d, x, y }
+  })
+
+  return (
+    <div className="sa-map-wrap">
+      {/* Decorative birds drifting across the country */}
+      <div className="sa-map-birds" aria-hidden="true">
+        {FLYING_BIRDS.map((b, i) => (
+          <span
+            key={i}
+            className="sa-fly-bird"
+            style={{ top: b.top, '--fly-dur': `${b.dur}s`, '--fly-delay': `${b.delay}s` }}
+          >
+            {b.emoji}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label={ariaLabel}>
+        <path className="sa-land" d={outlinePath} />
+        {/* Province boundaries — internal reference lines only, no fill,
+            so the land colour/shadow from .sa-land shows through. */}
+        {provincePaths.map((p) => (
+          <path key={p.name} className="sa-province" d={p.d} />
+        ))}
+        {/* Province name labels — small and muted so they read as map
+            context, not competing with pins/reference markers on top. */}
+        {provinceLabels.map((l) => (
+          <text key={l.name} className="province-label" x={l.x.toFixed(1)} y={l.y.toFixed(1)} textAnchor="middle">
+            {l.name}
+          </text>
+        ))}
+        <path className="sa-lesotho" d={lesothoPath} />
+        {/* Always-on reference markers (Potchefstroom + Kruger) */}
+        {refDots.map((d) => (
+          <g key={d.name} className="map-ref" transform={`translate(${d.x.toFixed(1)} ${d.y.toFixed(1)})`}>
+            <circle className="map-ref-dot" r="7" />
+            <text className="map-ref-label" x={d.dx} y="5" textAnchor={d.anchor}>{d.name}</text>
+          </g>
+        ))}
+        {children}
+      </svg>
+    </div>
+  )
+}
+
 export function BirdMapPage({ data, onBack }) {
   const birdLibrary = data.birdLibrary || []
   const located = (data.sightings || []).filter((s) => String(s.location || '').trim())
@@ -297,15 +379,6 @@ export function BirdMapPage({ data, onBack }) {
   const [activeKey, setActiveKey] = useState(null)
   const active = pins.find((p) => p.label.toLowerCase() === activeKey) || null
 
-  const toPath = (pts) => `M ${pts.map(([lo, la]) => project(lo, la).map((n) => n.toFixed(1)).join(' ')).join(' L ')} Z`
-  const outlinePath = toPath(OUTLINE)
-  const lesothoPath = toPath(LESOTHO)
-  const provincePaths = PROVINCES.map((p) => ({ name: p.name, d: toPath(p.outline) }))
-  const refDots = REFERENCE_DOTS.map((d) => {
-    const [x, y] = project(d.lon, d.lat)
-    return { ...d, x, y }
-  })
-
   return (
     <div className="page-grid bird-map-page">
       <section className="soft-card full-span">
@@ -328,54 +401,26 @@ export function BirdMapPage({ data, onBack }) {
             <span><i style={{ background: '#E0A53A' }} /> Other</span>
           </div>
 
-          <div className="sa-map-wrap">
-            {/* Decorative birds drifting across the country */}
-            <div className="sa-map-birds" aria-hidden="true">
-              {FLYING_BIRDS.map((b, i) => (
-                <span
-                  key={i}
-                  className="sa-fly-bird"
-                  style={{ top: b.top, '--fly-dur': `${b.dur}s`, '--fly-delay': `${b.delay}s` }}
+          <SAMapBase ariaLabel="Map of South Africa with bird sighting pins">
+            {pins.map((p) => {
+              const on = active && active.label === p.label
+              return (
+                <g
+                  key={p.label}
+                  className={`map-pin${on ? ' active' : ''}`}
+                  transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
+                  onClick={() => setActiveKey(on ? null : p.label.toLowerCase())}
                 >
-                  {b.emoji}
-                </span>
-              ))}
-            </div>
-            <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label="Map of South Africa with bird sighting pins">
-              <path className="sa-land" d={outlinePath} />
-              {/* Province boundaries — internal reference lines only, no fill,
-                  so the land colour/shadow from .sa-land shows through. */}
-              {provincePaths.map((p) => (
-                <path key={p.name} className="sa-province" d={p.d} />
-              ))}
-              <path className="sa-lesotho" d={lesothoPath} />
-              {/* Always-on reference markers (Potchefstroom + Kruger) */}
-              {refDots.map((d) => (
-                <g key={d.name} className="map-ref" transform={`translate(${d.x.toFixed(1)} ${d.y.toFixed(1)})`}>
-                  <circle className="map-ref-dot" r="7" />
-                  <text className="map-ref-label" x={d.dx} y="5" textAnchor={d.anchor}>{d.name}</text>
+                  <circle className="map-pin-halo" r={on ? 26 : 0} fill={p.colour} />
+                  <path className="map-pin-drop" d="M0 0 C -9 -16 -9 -28 0 -28 C 9 -28 9 -16 0 0 Z" fill={p.colour} />
+                  <circle cx="0" cy="-20" r="5" fill="#fff" />
+                  {p.sightings.length > 1 && (
+                    <text className="map-pin-count" x="0" y="-16" textAnchor="middle">{p.sightings.length}</text>
+                  )}
                 </g>
-              ))}
-              {pins.map((p) => {
-                const on = active && active.label === p.label
-                return (
-                  <g
-                    key={p.label}
-                    className={`map-pin${on ? ' active' : ''}`}
-                    transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
-                    onClick={() => setActiveKey(on ? null : p.label.toLowerCase())}
-                  >
-                    <circle className="map-pin-halo" r={on ? 26 : 0} fill={p.colour} />
-                    <path className="map-pin-drop" d="M0 0 C -9 -16 -9 -28 0 -28 C 9 -28 9 -16 0 0 Z" fill={p.colour} />
-                    <circle cx="0" cy="-20" r="5" fill="#fff" />
-                    {p.sightings.length > 1 && (
-                      <text className="map-pin-count" x="0" y="-16" textAnchor="middle">{p.sightings.length}</text>
-                    )}
-                  </g>
-                )
-              })}
-            </svg>
-          </div>
+              )
+            })}
+          </SAMapBase>
 
           {pins.length === 0 ? (
             <p className="fine-print map-hint">
@@ -411,6 +456,131 @@ export function BirdMapPage({ data, onBack }) {
               <p className="fine-print map-hint">Tap a pin to see the birds you spotted there 🐦</p>
             )}
         </>
+      </section>
+    </div>
+  )
+}
+
+function speciesLabelForFlight(birdLibrary, speciesId) {
+  const found = (birdLibrary || []).find((b) => b.id === speciesId)
+  if (found?.commonName) return found.commonName
+  return String(speciesId || '')
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+// Mirrors BIRD_POST_DEST_LAT/LNG in App.jsx (Pooks' fixed home coordinates) —
+// only ever needed as a fallback for a post created before destLat/destLng
+// were stored on every record.
+const FLIGHT_FALLBACK_DEST_LAT = -26.7145
+const FLIGHT_FALLBACK_DEST_LNG = 27.097
+
+// Live flight visualisation for the active Bird Post, reusing the exact same
+// map surface (SAMapBase) and the exact same elapsed-time/travel-time ticking
+// logic as the progress-bar card on Home (see BirdPostCard in App.jsx) — just
+// rendered as a real position on the province map instead of a bar. Reached
+// via the "See it flying" link on that card.
+export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  if (!birdPost) {
+    return (
+      <div className="page-grid bird-map-page">
+        <section className="soft-card full-span">
+          <button className="text-btn back-btn" type="button" onClick={onBack}>
+            ← Back
+          </button>
+          <p className="fine-print map-hint">No bird is currently in flight.</p>
+        </section>
+      </div>
+    )
+  }
+
+  const destLat = birdPost.destLat ?? FLIGHT_FALLBACK_DEST_LAT
+  const destLng = birdPost.destLng ?? FLIGHT_FALLBACK_DEST_LNG
+  const createdAtMs = new Date(birdPost.createdAt).getTime()
+  const elapsedSeconds = Math.max(0, (now - createdAtMs) / 1000)
+  const progress = birdPost.delivered ? 1 : Math.min(1, elapsedSeconds / birdPost.travelTimeSeconds)
+
+  const [sx, sy] = project(birdPost.senderLng, birdPost.senderLat)
+  const [ex, ey] = project(destLng, destLat)
+  const bx = sx + (ex - sx) * progress
+  const by = sy + (ey - sy) * progress
+
+  const distanceKm = haversineDistanceKm(birdPost.senderLat, birdPost.senderLng, destLat, destLng)
+  const remainingKm = Math.max(0, Math.round(distanceKm * (1 - progress)))
+  const etaMs = createdAtMs + birdPost.travelTimeSeconds * 1000
+  const remainingSeconds = Math.max(0, (etaMs - now) / 1000)
+  const speciesEntry = BIRD_COLOUR_MAP[birdPost.birdSpeciesId]
+  const speciesLabel = speciesLabelForFlight(birdLibrary, birdPost.birdSpeciesId)
+
+  return (
+    <div className="page-grid bird-map-page">
+      <section className="soft-card full-span">
+        <button className="text-btn back-btn" type="button" onClick={onBack}>
+          ← Back
+        </button>
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Bird Post</p>
+            <h2>{speciesLabel} is flying 🐦</h2>
+          </div>
+        </div>
+
+        <SAMapBase ariaLabel={`Map showing a ${speciesLabel} flying across South Africa`}>
+          <line
+            className="flight-path-line"
+            x1={sx.toFixed(1)}
+            y1={sy.toFixed(1)}
+            x2={ex.toFixed(1)}
+            y2={ey.toFixed(1)}
+          />
+          <g className="flight-endpoint flight-start" transform={`translate(${sx.toFixed(1)} ${sy.toFixed(1)})`}>
+            <circle r="6" />
+          </g>
+          <g className="flight-endpoint flight-end" transform={`translate(${ex.toFixed(1)} ${ey.toFixed(1)})`}>
+            <circle r="6" />
+          </g>
+          {speciesEntry ? (
+            // GardenBird renders its own <svg> sized via CSS px — nesting
+            // that directly inside another <svg> doesn't reliably respect
+            // those CSS dimensions (the browser resolves them against the
+            // wrong coordinate system). foreignObject gives it a real HTML/
+            // CSS layout context instead, exactly like every other place
+            // GardenBird is already used (e.g. BirdPostCard's progress bar).
+            <foreignObject
+              x={(bx - 18).toFixed(1)}
+              y={(by - 18).toFixed(1)}
+              width="36"
+              height="36"
+              style={{ overflow: 'visible' }}
+            >
+              <div xmlns="http://www.w3.org/1999/xhtml" className="flight-bird-icon">
+                <GardenBird template={speciesEntry.template} zones={speciesEntry.zones} size={36} ground={false} flying />
+              </div>
+            </foreignObject>
+          ) : (
+            <text
+              className="flight-fallback-icon"
+              x={bx.toFixed(1)}
+              y={by.toFixed(1)}
+              textAnchor="middle"
+              dy="8"
+            >
+              🐦
+            </text>
+          )}
+        </SAMapBase>
+
+        <p className="fine-print bird-post-detail">
+          {birdPost.delivered ? 'Delivered! 📬' : `${remainingKm}km to go · ETA ${formatDurationShort(remainingSeconds)}`}
+        </p>
       </section>
     </div>
   )

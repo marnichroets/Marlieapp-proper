@@ -3979,6 +3979,10 @@ textarea:focus {
 .bird-post-detail {
   margin: 10px 0 0;
 }
+.bird-post-flight-link {
+  display: inline-block;
+  margin-top: 6px;
+}
 .bird-post-arrival {
   display: flex;
   align-items: center;

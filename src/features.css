@@ -234,6 +234,42 @@
   opacity: 0.6;
   pointer-events: none;
 }
+.province-label {
+  font-size: 13px;
+  font-weight: 700;
+  fill: #5a7a4a;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 3px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* Bird Post live flight visualisation (BirdFlightMapPage) — the sender→
+   destination line and its two endpoints, drawn on the same map surface. */
+.flight-path-line {
+  stroke: #c9862f;
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  opacity: 0.75;
+  pointer-events: none;
+}
+.flight-endpoint circle {
+  fill: #fff;
+  stroke: #c9862f;
+  stroke-width: 2.5;
+}
+.flight-endpoint.flight-end circle {
+  fill: #c9862f;
+}
+.flight-fallback-icon {
+  font-size: 24px;
+}
+.flight-bird-icon {
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+}
 
 /* Decorative birds drifting across the country */
 .sa-map-birds { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
