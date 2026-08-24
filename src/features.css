@@ -225,6 +225,15 @@
   stroke-width: 2.5;
   stroke-dasharray: 7 5;
 }
+.sa-province {
+  fill: none;
+  stroke: #8fae7d;
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+  pointer-events: none;
+}
 
 /* Decorative birds drifting across the country */
 .sa-map-birds { position: absolute; inset: 0; z-index: 2; pointer-events: none; }

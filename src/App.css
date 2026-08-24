@@ -3989,7 +3989,7 @@ textarea:focus {
   margin: 0;
 }
 
-/* Send Bird Post — searchable species picker (admin panel). */
+/* Send Bird Post — searchable species picker (BirdPostComposePage). */
 .species-picker {
   position: relative;
 }
@@ -3997,6 +3997,29 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 8px;
+}
+.species-fallback-icon {
+  font-size: 1.7rem;
+  line-height: 1;
+  width: 48px;
+  text-align: center;
+}
+.species-option .species-fallback-icon {
+  font-size: 1.3rem;
+  width: 32px;
+}
+
+/* Bird Post address confirmation — shown after a geocode, before it's saved
+   (see BirdPostComposePage: the "4" → Dublin bug fix). */
+.address-confirm {
+  border: 2px dashed var(--dash);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 6px 0;
+  background: var(--paper);
+}
+.address-confirm .button-row {
   margin-top: 8px;
 }
 .species-options {

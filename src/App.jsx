@@ -156,18 +156,30 @@ function speciesLabelFromLibrary(birdLibrary, speciesId) {
     .join(' ')
 }
 
+// Guards against the "4" → resolved to Dublin bug: too-short input is
+// rejected before it ever reaches Nominatim (see geocodeAddress below). The
+// real safety net is the confirmation step in BirdPostComposePage — this is
+// just a cheap first-line filter for obviously-incomplete input.
+const MIN_ADDRESS_LENGTH = 10
+
 // Free, no-auth-key geocoder. Nominatim's usage policy wants a real
 // identifying User-Agent; browsers silently drop that header on fetch(), so
 // the Referer they add automatically is what actually identifies this app.
+// Restricted to South Africa (countrycodes=za) so a short/ambiguous query can
+// never silently resolve to a place in another country.
 async function geocodeAddress(address) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
+  const trimmed = String(address || '').trim()
+  if (trimmed.length < MIN_ADDRESS_LENGTH) {
+    throw new Error(`Enter a fuller address (at least ${MIN_ADDRESS_LENGTH} characters) — street, suburb, city.`)
+  }
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&limit=1&countrycodes=za`
   const response = await fetch(url, {
     headers: { 'User-Agent': 'MarlieBirdApp/1.0 (bird-post feature)' },
   })
   if (!response.ok) throw new Error(`Geocoding failed (HTTP ${response.status})`)
   const results = await response.json()
   if (!Array.isArray(results) || !results.length) {
-    throw new Error('No match found for that address.')
+    throw new Error('No match found in South Africa for that address.')
   }
   const { lat, lon, display_name: displayName } = results[0]
   return { lat: Number(lat), lng: Number(lon), displayName }
@@ -8865,6 +8877,11 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const [addressDraft, setAddressDraft] = useState(data.settings[addressKey] || '')
   const [addressBusy, setAddressBusy] = useState(false)
   const [addressError, setAddressError] = useState('')
+  // Geocoded but not yet confirmed — nothing is saved until she says yes.
+  // This is the fix for the "4" → Dublin bug: Nominatim's result is shown
+  // back to her (place name + coordinates) and she has to explicitly accept
+  // it, instead of it being auto-saved as her address.
+  const [pendingGeocode, setPendingGeocode] = useState(null) // { address, displayName, lat, lng }
   const [justSaved, setJustSaved] = useState(null) // { address, lat, lng } — beats stale props on immediate send
   const [message, setMessage] = useState('')
   const [birdSpeciesId, setBirdSpeciesId] = useState('')
@@ -8874,17 +8891,23 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const savedLng = justSaved?.lng ?? data.settings[lngKey]
   const savedAddress = justSaved?.address ?? data.settings[addressKey]
 
+  // Only species she's actually identified — messengers have to be real birds
+  // she's found, not the whole 374-species field guide.
+  const identifiedSpecies = useMemo(() => (birdLibrary || []).filter((b) => b.seen), [birdLibrary])
   const speciesOptions = useMemo(
     () =>
-      Object.entries(BIRD_COLOUR_MAP)
-        .map(([id, entry]) => ({
-          id,
-          template: entry.template,
-          zones: entry.zones,
-          label: speciesLabelFromLibrary(birdLibrary, id),
-        }))
+      identifiedSpecies
+        .map((b) => {
+          const colour = BIRD_COLOUR_MAP[b.id]
+          return {
+            id: b.id,
+            template: colour?.template,
+            zones: colour?.zones,
+            label: b.commonName || speciesLabelFromLibrary(birdLibrary, b.id),
+          }
+        })
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [birdLibrary],
+    [identifiedSpecies, birdLibrary],
   )
   const filteredSpeciesOptions = speciesSearch.trim()
     ? speciesOptions.filter((option) =>
@@ -8893,21 +8916,35 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
     : speciesOptions
   const selectedSpecies = speciesOptions.find((option) => option.id === birdSpeciesId)
 
-  async function saveAddress(event) {
+  async function lookupAddress(event) {
     event.preventDefault()
     const address = addressDraft.trim()
-    if (!address) return
+    if (address.length < MIN_ADDRESS_LENGTH) {
+      setAddressError(`Enter a fuller address (at least ${MIN_ADDRESS_LENGTH} characters) — street, suburb, city.`)
+      return
+    }
     setAddressBusy(true)
     setAddressError('')
     try {
       const { lat, lng, displayName } = await geocodeAddress(address)
-      onSaveAddress(direction, address, lat, lng)
-      setJustSaved({ address: displayName || address, lat, lng })
+      setPendingGeocode({ address, displayName: displayName || address, lat, lng })
     } catch (error) {
       setAddressError(error?.message || 'Could not geocode that address.')
     } finally {
       setAddressBusy(false)
     }
+  }
+
+  function confirmAddress() {
+    if (!pendingGeocode) return
+    onSaveAddress(direction, pendingGeocode.address, pendingGeocode.lat, pendingGeocode.lng)
+    setJustSaved({ address: pendingGeocode.displayName, lat: pendingGeocode.lat, lng: pendingGeocode.lng })
+    setPendingGeocode(null)
+  }
+
+  function rejectAddress() {
+    // Leave addressDraft as-is so she can edit and try again.
+    setPendingGeocode(null)
   }
 
   function submit(event) {
@@ -8936,20 +8973,39 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
 
         <h3>Your Address</h3>
         <p className="fine-print">
-          Where this bird sets off from — geocoded via the free Nominatim API and reused until you
-          change it.
+          Where this bird sets off from — geocoded via the free Nominatim API (South Africa only) and
+          reused until you change it.
         </p>
-        <form className="form-grid" onSubmit={saveAddress}>
-          <input
-            value={addressDraft}
-            onChange={(event) => setAddressDraft(event.target.value)}
-            placeholder="Street, suburb, city"
-          />
-          <button className="primary-btn" type="submit" disabled={addressBusy || !addressDraft.trim()}>
-            {addressBusy ? 'Geocoding…' : 'Save & geocode'}
-          </button>
-        </form>
-        {savedLat != null && (
+        {pendingGeocode ? (
+          <div className="address-confirm">
+            <p className="fine-print">
+              📍 {pendingGeocode.displayName}
+              <br />
+              ({pendingGeocode.lat.toFixed(4)}, {pendingGeocode.lng.toFixed(4)})
+            </p>
+            <p className="fine-print"><strong>Is this correct?</strong></p>
+            <div className="button-row">
+              <button className="primary-btn" type="button" onClick={confirmAddress}>
+                Yes, that&apos;s right
+              </button>
+              <button className="text-btn" type="button" onClick={rejectAddress}>
+                No, let me edit it
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form className="form-grid" onSubmit={lookupAddress}>
+            <input
+              value={addressDraft}
+              onChange={(event) => setAddressDraft(event.target.value)}
+              placeholder="Street, suburb, city"
+            />
+            <button className="primary-btn" type="submit" disabled={addressBusy || !addressDraft.trim()}>
+              {addressBusy ? 'Looking up…' : 'Look up address'}
+            </button>
+          </form>
+        )}
+        {savedLat != null && !pendingGeocode && (
           <p className="fine-print">
             Saved: {savedAddress} ({savedLat.toFixed(4)}, {savedLng.toFixed(4)})
           </p>
@@ -8961,6 +9017,11 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
           <p className="fine-print">
             A bird is already {data.birdPost.delivered ? 'waiting to be read' : 'in flight'} — wait
             for it to arrive before sending another.
+          </p>
+        ) : identifiedSpecies.length === 0 ? (
+          <p className="fine-print">
+            Identify a bird first to unlock it as a messenger! Every species you&apos;ve found becomes
+            available here.
           </p>
         ) : (
           <form className="form-grid" onSubmit={submit}>
@@ -8976,16 +9037,20 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
                   setSpeciesSearch(event.target.value)
                   setBirdSpeciesId('')
                 }}
-                placeholder="Search for a bird…"
+                placeholder="Search for a bird you've identified…"
               />
               {selectedSpecies && (
                 <div className="species-preview">
-                  <GardenBird
-                    template={selectedSpecies.template}
-                    zones={selectedSpecies.zones}
-                    size={48}
-                    ground={false}
-                  />
+                  {selectedSpecies.template ? (
+                    <GardenBird
+                      template={selectedSpecies.template}
+                      zones={selectedSpecies.zones}
+                      size={48}
+                      ground={false}
+                    />
+                  ) : (
+                    <span className="species-fallback-icon" aria-hidden="true">🐦</span>
+                  )}
                   <span>{selectedSpecies.label}</span>
                 </div>
               )}
@@ -9002,12 +9067,16 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
                           setSpeciesSearch(option.label)
                         }}
                       >
-                        <GardenBird template={option.template} zones={option.zones} size={32} ground={false} />
+                        {option.template ? (
+                          <GardenBird template={option.template} zones={option.zones} size={32} ground={false} />
+                        ) : (
+                          <span className="species-fallback-icon" aria-hidden="true">🐦</span>
+                        )}
                         <span>{option.label}</span>
                       </button>
                     ))
                   ) : (
-                    <p className="fine-print">No matches.</p>
+                    <p className="fine-print">No matches among your identified birds.</p>
                   )}
                 </div>
               )}
