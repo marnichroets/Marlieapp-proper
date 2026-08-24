@@ -6551,6 +6551,19 @@ button.tweety-nest-base.gift-pop {
   color: var(--leaf);
 }
 
+/* Bird Post shortcut card — same plain soft-card treatment as the magazine
+   shortcut, right next to it near the top of Home so it's never buried
+   behind Admin (see BirdPostComposePage in App.jsx). */
+.bird-post-shortcut-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.bird-post-shortcut-card:hover { transform: translateY(-1px); }
+
 /* New-issue popup: reuses the reward-modal-backdrop/reward-unlock-card shell
    (same overlay + card chrome), just with magazine-flavoured content. */
 .magazine-issue-modal-card .magazine-season {

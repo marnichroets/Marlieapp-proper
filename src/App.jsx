@@ -2139,11 +2139,17 @@ function buildDefaultState() {
       // Password for Marnich's own separate test-player login (only meaningful in
       // his own account save).
       marnichSecret: MARNICH_DEFAULT_SECRET,
-      // Bird Post sender location — geocoded once from the Admin panel via
-      // Nominatim, then reused for every post (see sendBirdPost in App()).
+      // Bird Post — each side's saved address, geocoded via Nominatim and
+      // reused for every post they send (see sendBirdPost in App()). Marnich's
+      // is the sender location when he sends and the destination when Pooks
+      // sends; Pooks' is the reverse. Pooks' falls back to her fixed home
+      // coordinates (BIRD_POST_DEST_LAT/LNG) until she saves her own.
       senderAddress: '',
       senderLat: null,
       senderLng: null,
+      pooksAddress: '',
+      pooksLat: null,
+      pooksLng: null,
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -5788,21 +5794,29 @@ function App() {
   }
 
   // ---- Bird Post -------------------------------------------------------------
-  // Only one post may be "active" (in flight, or delivered-but-not-yet-
-  // acknowledged) at a time — see the guard below and BirdPostCard on Home.
-  // `senderLocation` is an optional { lat, lng } override — used only by the
-  // sandbox test button, which may have just geocoded a fresh address in the
-  // same call and can't rely on `data.settings` (stale in that closure until
-  // the next render) to have picked it up yet.
-  function sendBirdPost(message, birdSpeciesId, senderLocation) {
+  // Bidirectional: `direction` is 'to-pooks' (Marnich → Pooks, the original
+  // flow) or 'to-marnich' (Pooks → Marnich). Both directions write into this
+  // same shared account document (see dataAccountFor — Pooks' real account is
+  // the only one either side ever really uses; Marnich's "View Pooks" mirror
+  // reads/writes it too, just gated readOnly everywhere except here). Only one
+  // post may be "active" (in flight, or delivered-but-not-yet-acknowledged) at
+  // a time, regardless of direction — see the guard below and BirdPostCard on
+  // Home. `senderLocation` is an optional { lat, lng } override — used right
+  // after a fresh geocode in the same call, before `data.settings` (stale in
+  // this closure until the next render) has picked it up.
+  // Returns true on a successful send, false when blocked by a guard — the
+  // composer (BirdPostComposePage) uses this to decide whether it's safe to
+  // clear the draft message/species, so a blocked send never silently loses
+  // what she typed.
+  function sendBirdPost(message, birdSpeciesId, direction, senderLocation) {
     const text = String(message || '').trim()
     if (!text) {
       setToast({ title: "Write the bird's message first", body: '', tone: 'warning' })
-      return
+      return false
     }
     if (!birdSpeciesId) {
       setToast({ title: 'Pick a bird to carry it', body: '', tone: 'warning' })
-      return
+      return false
     }
     if (data.birdPost && !data.birdPost.read) {
       setToast({
@@ -5810,27 +5824,35 @@ function App() {
         body: 'Wait for it to arrive before sending another.',
         tone: 'warning',
       })
-      return
+      return false
     }
-    const senderLat = senderLocation?.lat ?? data.settings.senderLat
-    const senderLng = senderLocation?.lng ?? data.settings.senderLng
-    if (senderLat == null || senderLng == null) {
+    const toMarnich = direction === 'to-marnich'
+    const senderLat = senderLocation?.lat ?? (toMarnich ? data.settings.pooksLat ?? BIRD_POST_DEST_LAT : data.settings.senderLat)
+    const senderLng = senderLocation?.lng ?? (toMarnich ? data.settings.pooksLng ?? BIRD_POST_DEST_LNG : data.settings.senderLng)
+    const destLat = toMarnich ? data.settings.senderLat : data.settings.pooksLat ?? BIRD_POST_DEST_LAT
+    const destLng = toMarnich ? data.settings.senderLng : data.settings.pooksLng ?? BIRD_POST_DEST_LNG
+    if (senderLat == null || senderLng == null || destLat == null || destLng == null) {
       setToast({
         title: 'Set "Your Address" first',
-        body: 'Save and geocode a sender address above before sending a bird.',
+        body: toMarnich
+          ? 'Save and geocode your address before sending — and make sure Marnich has saved his.'
+          : 'Save and geocode your address above before sending a bird.',
         tone: 'warning',
       })
-      return
+      return false
     }
-    const distanceKm = haversineDistanceKm(senderLat, senderLng, BIRD_POST_DEST_LAT, BIRD_POST_DEST_LNG)
+    const distanceKm = haversineDistanceKm(senderLat, senderLng, destLat, destLng)
     const speedKmh = flightSpeedForSpecies(birdSpeciesId)
     const travelTimeSeconds = Math.max(1, Math.round((distanceKm / speedKmh) * 3600))
     const post = {
       id: `birdpost-${Date.now().toString(36)}`,
       message: text,
       birdSpeciesId,
+      direction: toMarnich ? 'to-marnich' : 'to-pooks',
       senderLat,
       senderLng,
+      destLat,
+      destLng,
       createdAt: new Date().toISOString(),
       travelTimeSeconds,
       delivered: false,
@@ -5843,13 +5865,17 @@ function App() {
       body: `Flying ${Math.round(distanceKm)}km — should arrive in ${formatDurationShort(travelTimeSeconds)}.`,
       tone: 'success',
     })
+    return true
   }
 
   // Called once, the moment a post's real elapsed time crosses its travel
   // time (checked in BirdPostCard, on mount and on a live tick — so a post
   // that finished flying while the app was closed is caught the instant it
-  // reopens). Sets delivered (arrival state on Home) but NOT read yet — she
-  // still needs to acknowledge the arrival card before another post can send.
+  // reopens). Sets delivered (arrival state on Home) but NOT read yet — the
+  // recipient still needs to acknowledge the arrival card before another post
+  // can send. Only the to-pooks direction drops a keepsake note in her inbox —
+  // a to-marnich post isn't hers to read, and he has no inbox of his own; the
+  // arrival card on his View Pooks mirror is the whole notification for him.
   function deliverBirdPost(post) {
     if (!post || post.delivered) return
     setData((current) => {
@@ -5862,16 +5888,36 @@ function App() {
       }
     })
     const distanceKm = Math.round(
-      haversineDistanceKm(post.senderLat, post.senderLng, BIRD_POST_DEST_LAT, BIRD_POST_DEST_LNG),
+      haversineDistanceKm(
+        post.senderLat,
+        post.senderLng,
+        post.destLat ?? BIRD_POST_DEST_LAT,
+        post.destLng ?? BIRD_POST_DEST_LNG,
+      ),
     )
     const speciesLabel = speciesLabelFromLibrary(data.birdLibrary, post.birdSpeciesId)
-    pushMessage(birdPostDeliveredMessage(post.message, speciesLabel, distanceKm))
+    if (post.direction !== 'to-marnich') {
+      pushMessage(birdPostDeliveredMessage(post.message, speciesLabel, distanceKm))
+    }
     setConfetti(Date.now())
     setToast({
       title: 'A bird has arrived! 📬',
       body: `Delivered by ${speciesLabel} — flew ${distanceKm}km.`,
       tone: 'success',
     })
+  }
+
+  // Saves the geocoded address for whichever side is sending — Marnich's
+  // (used as his sender location / Pooks' destination) or Pooks' (the
+  // reverse). Called from the Bird Post composer on Home, for either role.
+  function saveBirdPostAddress(direction, address, lat, lng) {
+    setData((current) => ({
+      ...current,
+      settings:
+        direction === 'to-marnich'
+          ? { ...current.settings, pooksAddress: address, pooksLat: lat, pooksLng: lng }
+          : { ...current.settings, senderAddress: address, senderLat: lat, senderLng: lng },
+    }))
   }
 
   // The recipient acknowledging the arrival card — frees up the "one post at
@@ -7267,6 +7313,17 @@ function App() {
             birdPost={data.birdPost}
             onBirdPostArrival={deliverBirdPost}
             onBirdPostRead={markBirdPostRead}
+            myRole={session.role === 'marnich' ? 'marnich' : 'pooks'}
+          />
+        )}
+        {activePage === 'birdpostcompose' && (session.role === 'pooks' || session.role === 'marnich' || session.role === 'admin') && (
+          <BirdPostComposePage
+            data={data}
+            birdLibrary={data.birdLibrary}
+            myRole={session.role === 'marnich' ? 'marnich' : 'pooks'}
+            onSend={sendBirdPost}
+            onSaveAddress={saveBirdPostAddress}
+            onBack={goBack}
           />
         )}
         {activePage === 'companiongallery' && account === 'marnich' && (
@@ -7499,7 +7556,6 @@ function App() {
             onSendMessage={sendMarnichInboxMessage}
             setData={setData}
             releasePlantsToPooks={releasePlantsToPooks}
-            sendBirdPost={sendBirdPost}
           />
         )}
       </main>
@@ -8186,6 +8242,7 @@ function HomePage({
   birdPost,
   onBirdPostArrival,
   onBirdPostRead,
+  myRole = 'pooks',
 }) {
   const [showMissionMsg, setShowMissionMsg] = useState(false)
   const [showWorld, setShowWorld] = useState(false)
@@ -8300,7 +8357,7 @@ function HomePage({
         <p>{season.blurb}</p>
       </section>
 
-      {birdPost && !birdPost.read && !readOnly && (
+      {birdPost && !birdPost.read && (birdPost.direction || 'to-pooks') === (myRole === 'marnich' ? 'to-marnich' : 'to-pooks') && (
         <BirdPostCard
           birdPost={birdPost}
           birdLibrary={data.birdLibrary}
@@ -8308,6 +8365,19 @@ function HomePage({
           onRead={onBirdPostRead}
         />
       )}
+
+      {/* Bidirectional Bird Post entry point — visible to both Pooks (her
+          real account) and Marnich (his View Pooks mirror, an intentional
+          exception to readOnly: see sendBirdPost in App()), next to the other
+          messaging entry point (Inbox, in the bottom nav). Opens the composer
+          page rather than a modal so the species picker has room to breathe. */}
+      <button type="button" className="soft-card bird-post-shortcut-card" onClick={() => goTo('birdpostcompose')}>
+        <p className="eyebrow">Bird Post 🐦</p>
+        <h3>Send a Bird</h3>
+        <span className="magazine-shortcut-cta">
+          {myRole === 'marnich' ? 'Send a message to Pooks →' : 'Send a message to Marnich →'}
+        </span>
+      </button>
 
       {/* Permanent shortcut so the magazine is never just buried at the
           bottom of Home — a real card up top, styled like any other soft
@@ -8691,11 +8761,12 @@ function MonthlyActivityBar({ bird }) {
 // her Cape Town field work, separate from her lifetime collection count. Hidden
 // at zero (no empty "0 birds" state) and gone automatically after the trip.
 // Bird Post — a message travelling via a real bird, at that species' real
-// flight speed, across the real distance from the saved sender address to
-// Potchefstroom. Progress is always computed from real elapsed time
-// (createdAt), never stored, so reopening the app mid-flight — or after it
-// already finished while the app was closed — is correct on the very next
-// render, no extra bookkeeping needed.
+// flight speed, across the real distance between the two saved addresses
+// (either direction — see birdPost.direction). Progress is always computed
+// from real elapsed time (createdAt), never stored, so reopening the app
+// mid-flight — or after it already finished while the app was closed — is
+// correct on the very next render, no extra bookkeeping needed. Only ever
+// rendered for the recipient (see HomePage) — "flying to you" is always true.
 function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead }) {
   const [now, setNow] = useState(() => Date.now())
   const firedRef = useRef(false)
@@ -8719,8 +8790,8 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead }) {
   const distanceKm = haversineDistanceKm(
     birdPost.senderLat,
     birdPost.senderLng,
-    BIRD_POST_DEST_LAT,
-    BIRD_POST_DEST_LNG,
+    birdPost.destLat ?? BIRD_POST_DEST_LAT,
+    birdPost.destLng ?? BIRD_POST_DEST_LNG,
   )
   const speciesEntry = BIRD_COLOUR_MAP[birdPost.birdSpeciesId]
   const speciesLabel = speciesLabelFromLibrary(birdLibrary, birdPost.birdSpeciesId)
@@ -8744,7 +8815,7 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead }) {
           </div>
         </div>
         <button className="primary-btn wide" type="button" onClick={onRead}>
-          Read it in your inbox →
+          {birdPost.direction === 'to-marnich' ? 'Nice! ✓' : 'Read it in your inbox →'}
         </button>
       </section>
     )
@@ -8774,6 +8845,184 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead }) {
         {remainingKm}km to go · ETA {formatDurationShort(remainingSeconds)}
       </p>
     </section>
+  )
+}
+
+// Bird Post composer — a real page (not a modal) reachable from Home by
+// either side (see the "Send a Bird" card on HomePage). Direction is implied
+// by who's using it: Marnich composes 'to-pooks', Pooks composes
+// 'to-marnich'. Each side has its own saved "Your Address" (geocoded once,
+// reused after) — that's the FROM point; the TO point is simply the other
+// side's saved address (Pooks' defaults to her fixed home coords until she
+// saves her own — see sendBirdPost in App()).
+function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress, onBack }) {
+  const direction = myRole === 'marnich' ? 'to-pooks' : 'to-marnich'
+  const recipientName = myRole === 'marnich' ? 'Pooks' : 'Marnich'
+  const addressKey = direction === 'to-marnich' ? 'pooksAddress' : 'senderAddress'
+  const latKey = direction === 'to-marnich' ? 'pooksLat' : 'senderLat'
+  const lngKey = direction === 'to-marnich' ? 'pooksLng' : 'senderLng'
+
+  const [addressDraft, setAddressDraft] = useState(data.settings[addressKey] || '')
+  const [addressBusy, setAddressBusy] = useState(false)
+  const [addressError, setAddressError] = useState('')
+  const [justSaved, setJustSaved] = useState(null) // { address, lat, lng } — beats stale props on immediate send
+  const [message, setMessage] = useState('')
+  const [birdSpeciesId, setBirdSpeciesId] = useState('')
+  const [speciesSearch, setSpeciesSearch] = useState('')
+
+  const savedLat = justSaved?.lat ?? data.settings[latKey]
+  const savedLng = justSaved?.lng ?? data.settings[lngKey]
+  const savedAddress = justSaved?.address ?? data.settings[addressKey]
+
+  const speciesOptions = useMemo(
+    () =>
+      Object.entries(BIRD_COLOUR_MAP)
+        .map(([id, entry]) => ({
+          id,
+          template: entry.template,
+          zones: entry.zones,
+          label: speciesLabelFromLibrary(birdLibrary, id),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [birdLibrary],
+  )
+  const filteredSpeciesOptions = speciesSearch.trim()
+    ? speciesOptions.filter((option) =>
+        option.label.toLowerCase().includes(speciesSearch.trim().toLowerCase()),
+      )
+    : speciesOptions
+  const selectedSpecies = speciesOptions.find((option) => option.id === birdSpeciesId)
+
+  async function saveAddress(event) {
+    event.preventDefault()
+    const address = addressDraft.trim()
+    if (!address) return
+    setAddressBusy(true)
+    setAddressError('')
+    try {
+      const { lat, lng, displayName } = await geocodeAddress(address)
+      onSaveAddress(direction, address, lat, lng)
+      setJustSaved({ address: displayName || address, lat, lng })
+    } catch (error) {
+      setAddressError(error?.message || 'Could not geocode that address.')
+    } finally {
+      setAddressBusy(false)
+    }
+  }
+
+  function submit(event) {
+    event.preventDefault()
+    const sent = onSend(message, birdSpeciesId, direction, savedLat != null ? { lat: savedLat, lng: savedLng } : undefined)
+    if (!sent) return
+    setMessage('')
+    setBirdSpeciesId('')
+    setSpeciesSearch('')
+  }
+
+  const blocked = data.birdPost && !data.birdPost.read
+
+  return (
+    <div className="page-grid birdpost-compose-page">
+      <section className="soft-card full-span">
+        <button className="text-btn back-btn" type="button" onClick={onBack}>
+          ← Back
+        </button>
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Bird Post</p>
+            <h2>Send a Bird to {recipientName} 🐦</h2>
+          </div>
+        </div>
+
+        <h3>Your Address</h3>
+        <p className="fine-print">
+          Where this bird sets off from — geocoded via the free Nominatim API and reused until you
+          change it.
+        </p>
+        <form className="form-grid" onSubmit={saveAddress}>
+          <input
+            value={addressDraft}
+            onChange={(event) => setAddressDraft(event.target.value)}
+            placeholder="Street, suburb, city"
+          />
+          <button className="primary-btn" type="submit" disabled={addressBusy || !addressDraft.trim()}>
+            {addressBusy ? 'Geocoding…' : 'Save & geocode'}
+          </button>
+        </form>
+        {savedLat != null && (
+          <p className="fine-print">
+            Saved: {savedAddress} ({savedLat.toFixed(4)}, {savedLng.toFixed(4)})
+          </p>
+        )}
+        {addressError && <p className="login-error">{addressError}</p>}
+
+        <h3>Send Bird Post 📬</h3>
+        {blocked ? (
+          <p className="fine-print">
+            A bird is already {data.birdPost.delivered ? 'waiting to be read' : 'in flight'} — wait
+            for it to arrive before sending another.
+          </p>
+        ) : (
+          <form className="form-grid" onSubmit={submit}>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder={`What should the bird carry to ${recipientName}?`}
+            />
+            <div className="species-picker">
+              <input
+                value={speciesSearch}
+                onChange={(event) => {
+                  setSpeciesSearch(event.target.value)
+                  setBirdSpeciesId('')
+                }}
+                placeholder="Search for a bird…"
+              />
+              {selectedSpecies && (
+                <div className="species-preview">
+                  <GardenBird
+                    template={selectedSpecies.template}
+                    zones={selectedSpecies.zones}
+                    size={48}
+                    ground={false}
+                  />
+                  <span>{selectedSpecies.label}</span>
+                </div>
+              )}
+              {!birdSpeciesId && speciesSearch.trim() && (
+                <div className="species-options">
+                  {filteredSpeciesOptions.length ? (
+                    filteredSpeciesOptions.slice(0, 8).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className="species-option"
+                        onClick={() => {
+                          setBirdSpeciesId(option.id)
+                          setSpeciesSearch(option.label)
+                        }}
+                      >
+                        <GardenBird template={option.template} zones={option.zones} size={32} ground={false} />
+                        <span>{option.label}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="fine-print">No matches.</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <button className="primary-btn" type="submit" disabled={!message.trim() || !birdSpeciesId}>
+              Send bird 📬
+            </button>
+          </form>
+        )}
+        <p className="fine-print">
+          Uses your saved address automatically. Flight time is the real distance divided by that
+          species&apos; real flight speed.
+        </p>
+      </section>
+    </div>
   )
 }
 
@@ -12900,7 +13149,6 @@ function AdminPage({
   onSendMessage,
   setData,
   releasePlantsToPooks,
-  sendBirdPost,
 }) {
   const [surpriseNote, setSurpriseNote] = useState('')
   const [inboxDraft, setInboxDraft] = useState({ title: '', body: '' })
@@ -12939,60 +13187,6 @@ function AdminPage({
     }
   }
 
-  // ---- Bird Post: sender address + send form --------------------------------
-  const [addressDraft, setAddressDraft] = useState(data.settings.senderAddress || '')
-  const [addressBusy, setAddressBusy] = useState(false)
-  const [addressError, setAddressError] = useState('')
-  const [addressConfirmed, setAddressConfirmed] = useState('')
-  const [birdPostDraft, setBirdPostDraft] = useState({ message: '', birdSpeciesId: '' })
-  const [speciesSearch, setSpeciesSearch] = useState('')
-
-  const speciesOptions = useMemo(
-    () =>
-      Object.entries(BIRD_COLOUR_MAP)
-        .map(([id, entry]) => ({
-          id,
-          template: entry.template,
-          zones: entry.zones,
-          label: speciesLabelFromLibrary(data.birdLibrary, id),
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [data.birdLibrary],
-  )
-  const filteredSpeciesOptions = speciesSearch.trim()
-    ? speciesOptions.filter((option) =>
-        option.label.toLowerCase().includes(speciesSearch.trim().toLowerCase()),
-      )
-    : speciesOptions
-  const selectedSpecies = speciesOptions.find((option) => option.id === birdPostDraft.birdSpeciesId)
-
-  async function saveSenderAddress(event) {
-    event.preventDefault()
-    const address = addressDraft.trim()
-    if (!address) return
-    setAddressBusy(true)
-    setAddressError('')
-    setAddressConfirmed('')
-    try {
-      const { lat, lng, displayName } = await geocodeAddress(address)
-      setData((current) => ({
-        ...current,
-        settings: { ...current.settings, senderAddress: address, senderLat: lat, senderLng: lng },
-      }))
-      setAddressConfirmed(displayName || address)
-    } catch (error) {
-      setAddressError(error?.message || 'Could not geocode that address.')
-    } finally {
-      setAddressBusy(false)
-    }
-  }
-
-  function submitBirdPost(event) {
-    event.preventDefault()
-    sendBirdPost(birdPostDraft.message, birdPostDraft.birdSpeciesId)
-    setBirdPostDraft({ message: '', birdSpeciesId: '' })
-    setSpeciesSearch('')
-  }
   const [libraryDraft, setLibraryDraft] = useState({
     commonName: '',
     afrikaansName: '',
@@ -13360,100 +13554,13 @@ function AdminPage({
       </section>
 
       <section className="soft-card full-span">
-        <h3>Your Address</h3>
+        <h3>Bird Post 🐦</h3>
         <p className="fine-print">
-          The starting point for every Bird Post — geocoded via the free Nominatim API and reused
-          until you change it.
-        </p>
-        <form className="form-grid" onSubmit={saveSenderAddress}>
-          <input
-            value={addressDraft}
-            onChange={(event) => setAddressDraft(event.target.value)}
-            placeholder="Street, suburb, city"
-          />
-          <button className="primary-btn" type="submit" disabled={addressBusy || !addressDraft.trim()}>
-            {addressBusy ? 'Geocoding…' : 'Save & geocode'}
-          </button>
-        </form>
-        {data.settings.senderLat != null && (
-          <p className="fine-print">
-            Saved: {data.settings.senderAddress} ({data.settings.senderLat.toFixed(4)},{' '}
-            {data.settings.senderLng.toFixed(4)})
-          </p>
-        )}
-        {addressConfirmed && <p className="fine-print">Geocoded ✅ {addressConfirmed}</p>}
-        {addressError && <p className="login-error">{addressError}</p>}
-      </section>
-
-      <section className="soft-card full-span bird-post-admin">
-        <h3>Send Bird Post 📬</h3>
-        {data.birdPost && !data.birdPost.read ? (
-          <p className="fine-print">
-            A bird is already {data.birdPost.delivered ? 'waiting to be read' : 'in flight'} — wait
-            for it before sending another.
-          </p>
-        ) : (
-          <form className="form-grid" onSubmit={submitBirdPost}>
-            <textarea
-              value={birdPostDraft.message}
-              onChange={(event) => setBirdPostDraft({ ...birdPostDraft, message: event.target.value })}
-              placeholder="What should the bird carry?"
-            />
-            <div className="species-picker">
-              <input
-                value={speciesSearch}
-                onChange={(event) => {
-                  setSpeciesSearch(event.target.value)
-                  setBirdPostDraft((current) => ({ ...current, birdSpeciesId: '' }))
-                }}
-                placeholder="Search for a bird…"
-              />
-              {selectedSpecies && (
-                <div className="species-preview">
-                  <GardenBird
-                    template={selectedSpecies.template}
-                    zones={selectedSpecies.zones}
-                    size={48}
-                    ground={false}
-                  />
-                  <span>{selectedSpecies.label}</span>
-                </div>
-              )}
-              {!birdPostDraft.birdSpeciesId && speciesSearch.trim() && (
-                <div className="species-options">
-                  {filteredSpeciesOptions.length ? (
-                    filteredSpeciesOptions.slice(0, 8).map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className="species-option"
-                        onClick={() => {
-                          setBirdPostDraft((current) => ({ ...current, birdSpeciesId: option.id }))
-                          setSpeciesSearch(option.label)
-                        }}
-                      >
-                        <GardenBird template={option.template} zones={option.zones} size={32} ground={false} />
-                        <span>{option.label}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="fine-print">No matches.</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <button
-              className="primary-btn"
-              type="submit"
-              disabled={!birdPostDraft.message.trim() || !birdPostDraft.birdSpeciesId}
-            >
-              Send bird 📬
-            </button>
-          </form>
-        )}
-        <p className="fine-print">
-          Uses your saved address automatically. Flight time is the real distance divided by that
-          species&apos; real flight speed.
+          Bird Post now lives on Home for both sides — tap &quot;Send a Bird&quot; there (yours, or
+          Pooks&apos; own Home) to save an address and send one. Currently{' '}
+          {data.birdPost && !data.birdPost.read
+            ? `a bird is ${data.birdPost.delivered ? 'waiting to be read' : 'in flight'} (${data.birdPost.direction === 'to-marnich' ? 'Pooks → Marnich' : 'Marnich → Pooks'}).`
+            : 'no bird is currently in flight.'}
         </p>
       </section>
 
