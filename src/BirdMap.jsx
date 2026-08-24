@@ -18,38 +18,39 @@ function project(lon, lat) {
   return [x, y]
 }
 
-// National boundary as real (lon, lat) points, traced clockwise from the Orange
-// River mouth (NW) down the Atlantic coast, around Cape Point and Cape Agulhas,
-// up the Indian-Ocean coast past Durban (the Drakensberg curve), to the NE
-// corner, then west along the Limpopo and Botswana/Namibia borders back to the
-// start. Detailed enough to read clearly as South Africa.
+// National boundary as real (lon, lat) points, sourced from a public-domain
+// simplified country border dataset (traced from the KwaZulu-Natal/Mozambique
+// corner south along the Indian-Ocean coast, around Cape Agulhas and Cape
+// Point, up the Atlantic coast, then east along the Namibia/Botswana/
+// Zimbabwe/Mozambique borders back to the start) so it reads as an accurate
+// outline of South Africa rather than a stylised approximation.
 const OUTLINE = [
-  // West / Atlantic coast, north → south
-  [16.45, -28.6], [16.9, -29.25], [17.25, -30.0], [17.55, -30.9], [18.0, -31.6],
-  [18.25, -32.3], [18.32, -32.9], [17.88, -33.05], [18.2, -33.45], [18.38, -33.9],
-  [18.46, -34.12], [18.42, -34.35], // Cape Point
-  // South / Indian-Ocean coast, west → east
-  [19.3, -34.66], [19.99, -34.83], // Cape Agulhas (southernmost point)
-  [20.9, -34.42], [21.6, -34.32], [22.15, -34.18], [23.4, -34.06], [24.2, -34.16],
-  [25.6, -33.96], [26.3, -33.74], [26.9, -33.6], [27.9, -33.02], [28.6, -32.55],
-  [29.3, -31.95], [30.05, -31.3], [30.7, -30.55], [31.05, -29.86], // Durban
-  [31.7, -29.2], [32.05, -28.78], [32.4, -28.4], [32.55, -27.5], [32.9, -26.85], // NE coast corner
-  // Northern border, east → west (Mozambique, Limpopo, Botswana, Namibia)
-  [32.0, -26.5], [31.98, -25.95], [31.55, -25.6], [31.45, -24.4], [31.25, -23.5],
-  [31.2, -22.4], // Pafuri — northern tip
-  [30.3, -22.35], [29.4, -22.2], [28.5, -22.55], [28.05, -22.7], [27.3, -23.45],
-  [26.85, -24.05], [26.4, -24.65], [25.85, -24.75], [25.6, -25.45], [24.7, -25.75],
-  [23.5, -25.95], [22.7, -26.0], [21.8, -26.7], [20.95, -26.8], [20.6, -26.5],
-  [20.3, -25.65], [19.98, -26.5], [19.95, -27.4], [19.2, -28.2], [18.5, -28.55],
-  [17.4, -28.7], [16.45, -28.6],
+  [31.52, -29.26], [31.33, -29.4], [30.9, -29.91], [30.62, -30.42], [30.06, -31.14],
+  [28.93, -32.17], [28.22, -32.77], [27.46, -33.23], [26.42, -33.61], [25.91, -33.67],
+  [25.78, -33.94], [25.17, -33.8], [24.68, -33.99], [23.59, -33.79], [22.99, -33.92],
+  [22.57, -33.86], [21.54, -34.26], [20.69, -34.42], [20.07, -34.8], [19.62, -34.82],
+  [19.19, -34.46], [18.86, -34.44], [18.42, -34.0], [18.38, -34.14], [18.24, -33.87],
+  [18.25, -33.28], [17.93, -32.61], [18.25, -32.43], [18.22, -31.66], [17.57, -30.73],
+  [17.06, -29.88], [16.34, -28.58], [16.82, -28.08], [17.22, -28.36],
+  [17.39, -28.78], [17.84, -28.86], [18.46, -29.05], [19.0, -28.97], [19.89, -28.46],
+  [19.9, -24.77], [20.17, -24.92], [20.76, -25.87], [20.67, -26.48], [20.89, -26.83],
+  [21.61, -26.73], [22.11, -26.28], [22.58, -25.98], [22.82, -25.5], [23.31, -25.27],
+  [23.73, -25.39], [24.21, -25.67], [25.03, -25.72], [25.66, -25.49], [25.77, -25.17],
+  [25.94, -24.7], [26.49, -24.62], [26.79, -24.24], [27.12, -23.57], [28.02, -22.83],
+  [29.43, -22.09], [29.84, -22.1], [30.32, -22.27], [30.66, -22.15], [31.19, -22.25],
+  [31.67, -23.66], [31.93, -24.37], [31.75, -25.48], [31.84, -25.84], [31.33, -25.66],
+  [31.04, -25.73], [30.95, -26.02], [30.68, -26.4], [30.69, -26.74], [31.28, -27.29],
+  [31.87, -27.18], [32.07, -26.73], [32.83, -26.74], [32.58, -27.47], [32.46, -28.3],
+  [32.2, -28.75], [31.52, -29.26],
 ]
 
-// Lesotho — a small mountain kingdom completely enclosed by SA. Drawn as an
-// enclave patch on top of the land so it reads as the classic "hole".
+// Lesotho — a small mountain kingdom completely enclosed by SA. Same source
+// dataset (it's the inner ring of the SA polygon). Drawn as an enclave patch
+// on top of the land so it reads as the classic "hole".
 const LESOTHO = [
-  [27.45, -28.65], [28.2, -28.62], [28.7, -28.9], [29.1, -29.3], [29.45, -29.7],
-  [29.3, -30.15], [28.85, -30.5], [28.3, -30.65], [27.75, -30.3], [27.3, -29.75],
-  [27.05, -29.3], [27.3, -28.9], [27.45, -28.65],
+  [28.98, -28.96], [28.54, -28.65], [28.07, -28.85], [27.53, -29.24], [27.0, -29.88],
+  [27.75, -30.65], [28.11, -30.55], [28.29, -30.23], [28.85, -30.07], [29.02, -29.74],
+  [29.33, -29.26], [28.98, -28.96],
 ]
 
 // Always-on reference markers so the map is legible even before any sightings.
