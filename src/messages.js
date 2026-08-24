@@ -14,6 +14,7 @@ export const COUNCIL_SENDER = { name: 'The Bird Council 🪶', icon: '🪶', typ
 export const MARNICH_SENDER = { name: 'Agent Marnich 💛', icon: '💛', type: 'marnich' }
 export const SYSTEM_SENDER = { name: 'The Bird Council 🪶', icon: '📜', type: 'system' }
 export const BOTANICAL_SENDER = { name: 'The Botanical Division 🌿', icon: '🌿', type: 'council' }
+export const BIRD_POST_SENDER = { name: 'Bird Post 📬', icon: '📬', type: 'marnich' }
 
 // 60+ unique daily greetings so two full months pass before any repeat.
 export const COUNCIL_MESSAGES = [
@@ -248,6 +249,19 @@ export function marnichMessage(body, title = 'A note just for you') {
     icon: MARNICH_SENDER.icon,
     title,
     body,
+  })
+}
+
+// Arrives the moment a Bird Post lands (see App.jsx deliverBirdPost). Reuses
+// the 'marnich' message type so it gets the same reaction row as any other
+// personal note — this IS a personal note, just carried by a real bird.
+export function birdPostDeliveredMessage(message, speciesLabel, distanceKm) {
+  return createMessage({
+    type: 'marnich',
+    sender: BIRD_POST_SENDER.name,
+    icon: BIRD_POST_SENDER.icon,
+    title: 'A Bird Post arrived! 📬',
+    body: `${message}\n\nDelivered by ${speciesLabel} — flew ${distanceKm}km.`,
   })
 }
 

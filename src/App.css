@@ -3956,6 +3956,77 @@ textarea:focus {
   font-size: 0.9rem;
 }
 
+/* Bird Post — home progress card + arrival state. */
+.bird-post-card {
+  background: linear-gradient(135deg, rgba(232, 201, 122, 0.14), rgba(184, 169, 201, 0.1));
+}
+.bird-post-heading {
+  margin: 0 0 12px;
+}
+.bird-post-progress {
+  position: relative;
+  padding-top: 26px;
+}
+.bird-post-track span {
+  background: linear-gradient(90deg, var(--honey), var(--rose));
+}
+.bird-post-icon {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  transition: left 1s linear;
+}
+.bird-post-detail {
+  margin: 10px 0 0;
+}
+.bird-post-arrival {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 14px;
+}
+.bird-post-arrival h3 {
+  margin: 0;
+}
+
+/* Send Bird Post — searchable species picker (admin panel). */
+.species-picker {
+  position: relative;
+}
+.species-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.species-options {
+  position: relative;
+  margin-top: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 2px dashed var(--dash);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  display: grid;
+}
+.species-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.species-option:hover,
+.species-option:focus-visible {
+  background: rgba(184, 169, 201, 0.14);
+}
+
 .seasonal-ambient {
   position: fixed;
   inset: 0;
