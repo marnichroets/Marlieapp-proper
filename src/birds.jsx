@@ -1,8 +1,6 @@
 // Cute animated SVG birds: a reusable base bird plus 52 weekly characters,
-// each with its own outfit/prop, colour and name. Also the seasonal ambient
-// particle layer. No external assets.
+// each with its own outfit/prop, colour and name. No external assets.
 
-import { getSeasonInfo } from './seasons'
 import { shade, getWeeklyBird } from './birdData'
 
 // ---- small reusable shapes -------------------------------------------------
@@ -326,22 +324,5 @@ export function WeeklyBird({ size = 48, className = '', date = new Date() }) {
       bodyColor={bodyColor}
       title={`This week: ${name}`}
     />
-  )
-}
-
-// ---- seasonal ambient particles --------------------------------------------
-export function SeasonalAmbient({ date = new Date() }) {
-  const season = getSeasonInfo(date)
-  const particles = season.particles
-  // A fixed set of drifting particles, cycling the season's emoji set.
-  const items = Array.from({ length: 9 }, (_, i) => particles[i % particles.length])
-  return (
-    <div className={`seasonal-ambient season-particles-${season.key}`} aria-hidden="true">
-      {items.map((emoji, i) => (
-        <span key={i} className={`season-particle sp-${i}`}>
-          {emoji}
-        </span>
-      ))}
-    </div>
   )
 }
