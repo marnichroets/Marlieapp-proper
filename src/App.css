@@ -3903,25 +3903,25 @@ textarea:focus {
 
 .season-summer .season-wash {
   background:
-    radial-gradient(circle at 18% 0%, rgba(255, 213, 120, 0.4), transparent 42%),
-    radial-gradient(circle at 90% 8%, rgba(150, 200, 110, 0.3), transparent 40%);
+    radial-gradient(circle at 18% 0%, rgba(91, 155, 213, 0.32), transparent 42%),
+    radial-gradient(circle at 90% 8%, rgba(174, 208, 218, 0.3), transparent 40%);
 }
 .season-autumn .season-wash {
   background:
-    radial-gradient(circle at 15% 0%, rgba(232, 140, 70, 0.34), transparent 44%),
-    radial-gradient(circle at 88% 6%, rgba(200, 90, 58, 0.26), transparent 42%);
+    radial-gradient(circle at 15% 0%, rgba(107, 123, 140, 0.3), transparent 44%),
+    radial-gradient(circle at 88% 6%, rgba(74, 132, 188, 0.22), transparent 42%);
 }
 .season-winter .season-wash {
-  /* Keep the background warm cream — only a faint frost cue at the top, no
-     full-width grey wash. The snow particles carry the winter feel. */
+  /* Cool frost wash — faint blue-grey cues at the top corners, no
+     full-width wash. The snow particles carry most of the winter feel. */
   background:
-    radial-gradient(circle at 16% 0%, rgba(190, 214, 235, 0.2), transparent 44%),
-    radial-gradient(circle at 88% 8%, rgba(255, 222, 170, 0.24), transparent 42%);
+    radial-gradient(circle at 16% 0%, rgba(190, 214, 235, 0.26), transparent 44%),
+    radial-gradient(circle at 88% 8%, rgba(107, 123, 140, 0.16), transparent 42%);
 }
 .season-spring .season-wash {
   background:
-    radial-gradient(circle at 16% 0%, rgba(242, 166, 192, 0.34), transparent 44%),
-    radial-gradient(circle at 88% 8%, rgba(168, 213, 186, 0.32), transparent 42%);
+    radial-gradient(circle at 16% 0%, rgba(174, 208, 218, 0.3), transparent 44%),
+    radial-gradient(circle at 88% 8%, rgba(46, 125, 119, 0.2), transparent 42%);
 }
 /* Cape Town: ocean blues, a soft sunset-orange accent and a low fynbos-green
    haze near the horizon. Temporary, date-gated (Sat 20 → Mon 29 Jun 2026). */

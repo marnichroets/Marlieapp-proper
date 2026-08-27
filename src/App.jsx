@@ -8,7 +8,7 @@ import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
 import { getSeason, getSeasonInfo, isCapeTownWeek, capeTownTripSightingCount } from './seasons'
 import { saDateKey, saDateKeyOffset } from './saDate'
-import { WeeklyBird, SeasonalAmbient } from './birds'
+import { WeeklyBird } from './birds'
 import { getWeeklyBird } from './birdData'
 import {
   EXPLORE_FILTERS,
@@ -7174,7 +7174,6 @@ function App() {
   return (
     <div className={`app-shell has-bottom-nav season-${season.key}${activePage === 'home' ? ' on-home' : ''}`}>
       <div className="season-wash" aria-hidden="true" />
-      <SeasonalAmbient />
       <Toast toast={toast} />
       {activePage === 'home' && <HomePawTrail />}
       <InstallPrompt />
@@ -7704,7 +7703,6 @@ function LoginScreen({ data, onLogin }) {
   return (
     <main className={`login-screen season-${season.key}`}>
       <div className="season-wash" aria-hidden="true" />
-      <SeasonalAmbient />
       <section className="login-card" aria-labelledby="login-title">
         <div className="login-logo">
           <WeeklyBird size={88} />
@@ -7788,7 +7786,6 @@ function MaintenanceGate({ data, onLogin }) {
   return (
     <main className={`login-screen season-${season.key}`}>
       <div className="season-wash" aria-hidden="true" />
-      <SeasonalAmbient />
       <section className="login-card maintenance-card" aria-labelledby="maintenance-title">
         <MaintenanceMessage
           logo={
@@ -7815,7 +7812,6 @@ function MaintenanceLock() {
   return (
     <main className={`login-screen season-${season.key}`}>
       <div className="season-wash" aria-hidden="true" />
-      <SeasonalAmbient />
       <section className="login-card maintenance-card" aria-labelledby="maintenance-title">
         <MaintenanceMessage logo={<div className="login-logo"><WeeklyBird size={88} /></div>} />
       </section>
@@ -9053,8 +9049,12 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
             <input
               value={addressDraft}
               onChange={(event) => setAddressDraft(event.target.value)}
-              placeholder="Street, suburb, city"
+              placeholder="Street, Town — e.g. 5 White Street, Grahamstown"
             />
+            <p className="fine-print">
+              Always include your town — a street name on its own can geocode to the wrong part of
+              the country.
+            </p>
             <button className="primary-btn" type="submit" disabled={addressBusy || !addressDraft.trim()}>
               {addressBusy ? 'Looking up…' : 'Look up address'}
             </button>
