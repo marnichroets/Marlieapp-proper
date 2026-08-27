@@ -147,6 +147,11 @@ import { flightSpeedForSpecies, haversineDistanceKm, formatDurationShort } from 
 const BIRD_POST_DEST_LAT = -26.7145
 const BIRD_POST_DEST_LNG = 27.097
 
+// Bird Post send cost: the very first bird either side ever sends (tracked
+// per-account via data.birdPostsSent) is free; every one after that costs
+// coins — see sendBirdPost in App().
+const BIRD_POST_SEND_COST = 150
+
 function speciesLabelFromLibrary(birdLibrary, speciesId) {
   const found = (birdLibrary || []).find((bird) => bird.id === speciesId)
   if (found?.commonName) return found.commonName
@@ -2188,6 +2193,10 @@ function buildDefaultState() {
     // Bird Post: at most one in flight at a time — see sendBirdPost/
     // deliverBirdPost in App() and BirdPostCard on Home.
     birdPost: null,
+    // Bird Post send counter: the first send ever (birdPostsSent === 0) is
+    // free, every send after that costs BIRD_POST_SEND_COST — see
+    // sendBirdPost in App().
+    birdPostsSent: 0,
   }
 }
 
@@ -5864,6 +5873,15 @@ function App() {
       })
       return false
     }
+    const cost = (data.birdPostsSent || 0) >= 1 ? BIRD_POST_SEND_COST : 0
+    if (cost > 0 && data.featherCoins < cost) {
+      setToast({
+        title: 'Not enough coins yet',
+        body: `You'll need ${cost} 🪙 to send another bird — go spot some birds to earn more!`,
+        tone: 'warning',
+      })
+      return false
+    }
     const distanceKm = haversineDistanceKm(senderLat, senderLng, destLat, destLng)
     const speedKmh = flightSpeedForSpecies(birdSpeciesId)
     const travelTimeSeconds = Math.max(1, Math.round((distanceKm / speedKmh) * 3600))
@@ -5882,10 +5900,17 @@ function App() {
       deliveredAt: null,
       read: false,
     }
-    setData((current) => ({ ...current, birdPost: post }))
+    setData((current) => ({
+      ...current,
+      birdPost: post,
+      featherCoins: current.featherCoins - cost,
+      birdPostsSent: (current.birdPostsSent || 0) + 1,
+    }))
     setToast({
       title: 'Bird sent! 📬',
-      body: `Flying ${Math.round(distanceKm)}km — should arrive in ${formatDurationShort(travelTimeSeconds)}.`,
+      body: `Flying ${Math.round(distanceKm)}km — should arrive in ${formatDurationShort(travelTimeSeconds)}.${
+        cost > 0 ? ` −${cost} 🪙` : ''
+      }`,
       tone: 'success',
     })
     return true
@@ -8917,6 +8942,10 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   // send, not just as a toast after a blocked attempt.
   const otherAddressMissing = direction === 'to-marnich' && data.settings.senderLat == null
 
+  // First bird post ever sent (per account) is free; every one after costs
+  // BIRD_POST_SEND_COST — mirrors the check in sendBirdPost in App().
+  const sendCost = (data.birdPostsSent || 0) >= 1 ? BIRD_POST_SEND_COST : 0
+
   // Only species she's actually identified — messengers have to be real birds
   // she's found, not the whole 374-species field guide.
   const identifiedSpecies = useMemo(() => (birdLibrary || []).filter((b) => b.seen), [birdLibrary])
@@ -9112,6 +9141,9 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
                 </div>
               )}
             </div>
+            <p className={`fine-print birdpost-cost-note ${sendCost === 0 ? 'is-free' : ''}`}>
+              {sendCost === 0 ? "This one's free! 🎉" : `Costs ${sendCost} 🪙`}
+            </p>
             <button className="primary-btn" type="submit" disabled={!message.trim() || !birdSpeciesId}>
               Send bird 📬
             </button>

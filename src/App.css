@@ -3993,6 +3993,16 @@ textarea:focus {
   margin: 0;
 }
 
+/* Send Bird Post — cost/free status shown before she hits send. */
+.birdpost-cost-note {
+  margin: 2px 0 0;
+  font-weight: 800;
+  color: var(--wood-dark);
+}
+.birdpost-cost-note.is-free {
+  color: var(--leaf-dark);
+}
+
 /* Send Bird Post — searchable species picker (BirdPostComposePage). */
 .species-picker {
   position: relative;
