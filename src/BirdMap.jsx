@@ -235,6 +235,7 @@ const PLACES = [
   { keys: ['bloemfontein', 'bloem'], lon: 26.21, lat: -29.12 },
   { keys: ['kimberley'], lon: 24.76, lat: -28.74 },
   { keys: ['johannesburg', 'joburg', 'jhb', 'sandton', 'soweto'], lon: 28.04, lat: -26.2 },
+  { keys: ['boksburg', 'parkdene'], lon: 28.2794, lat: -26.2144 },
   { keys: ['pretoria', 'tshwane', 'centurion'], lon: 28.19, lat: -25.75 },
   { keys: ['potchefstroom', 'potch'], lon: 27.1, lat: -26.72 },
   { keys: ['klerksdorp'], lon: 26.67, lat: -26.85 },
