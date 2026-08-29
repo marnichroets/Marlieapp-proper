@@ -30,6 +30,7 @@ import {
   plantVisual,
 } from './gardenData'
 import { saDateKey, saTimePhase } from './saDate'
+import { fetchGardenWeather } from './gardenWeather'
 import { TweetyBird } from './Tweety'
 import { tweetyGrowth, companionSpecies } from './tweetyData'
 import { GardenBird } from './birdTemplates'
@@ -39,11 +40,17 @@ import { GardenPlant } from './plantTemplates'
 // ---- day/night cycle (driven by real SA local time) ------------------------
 // Sky gradient stops per phase: golden morning, bright midday, warm sunset,
 // dark starry night. Drawn into the existing #gardenSky linearGradient.
+// Each phase keeps its original bottom stop (the horizon blend into
+// DISTANT_HILLS/gardenGrassFar below) but gains real stops above it instead
+// of a single flat fade — a cool dawn blue at the morning zenith, a deeper
+// midday blue overhead, a dusky purple crown on the sunset, near-black at
+// the top of a clear night — so the sky itself has depth even with nothing
+// else in the scene yet.
 const SKY_STOPS = {
-  morning: [['0', '#fcd9a3'], ['0.55', '#fde9cf'], ['1', '#eef6da']],
-  midday: [['0', '#bfe6f2'], ['1', '#e8f5dc']],
-  evening: [['0', '#ff9663'], ['0.5', '#ffb487'], ['1', '#ffd9b0']],
-  night: [['0', '#162449'], ['0.6', '#243a63'], ['1', '#33507e']],
+  morning: [['0', '#a9c9dc'], ['0.28', '#f3d9a8'], ['0.55', '#fde9cf'], ['1', '#eef6da']],
+  midday: [['0', '#7fb8d8'], ['0.45', '#bfe6f2'], ['1', '#e8f5dc']],
+  evening: [['0', '#6b5a8a'], ['0.25', '#c97a8a'], ['0.55', '#ff9663'], ['0.8', '#ffb487'], ['1', '#ffd9b0']],
+  night: [['0', '#0a1128'], ['0.4', '#182449'], ['0.75', '#243a63'], ['1', '#33507e']],
 }
 
 // A hazy, desaturated ridge line far behind the two proper ground layers —
@@ -62,6 +69,19 @@ const GROUND_WASH = {
   night: { fill: '#16233f', opacity: 0.4 },
 }
 
+// Rain always wins over the phase-based ground wash (an overcast/rainy sky
+// reads the same cool grey regardless of time of day); clear/cloudy defer
+// to the existing per-phase lighting above.
+const RAIN_GROUND_WASH = { fill: '#2c3a4a', opacity: 0.22 }
+
+const WEATHER_META = {
+  clear: { label: 'Clear', icon: '☀️' },
+  cloudy: { label: 'Cloudy', icon: '☁️' },
+  rain: { label: 'Rainy', icon: '🌧️' },
+  windy: { label: 'Windy', icon: '🌬️' },
+  fog: { label: 'Misty', icon: '🌫️' },
+}
+
 const PHASE_META = {
   morning: { label: 'Morning', icon: '🌅' },
   midday: { label: 'Midday', icon: '☀️' },
@@ -69,28 +89,83 @@ const PHASE_META = {
   night: { label: 'Night', icon: '🌙' },
 }
 
-// Deterministic little PRNG so star/firefly positions are stable across renders
-// (no jitter on every re-render) while still looking scattered.
-function seededPoints(seed, count, make) {
-  let s = seed
-  const rnd = () => {
-    s = (s * 9301 + 49297) % 233280
-    return s / 233280
-  }
-  return Array.from({ length: count }, () => make(rnd))
-}
-
-const NIGHT_STARS = seededPoints(7, 26, (rnd) => ({
-  x: 12 + rnd() * 376,
-  y: 8 + rnd() * 112,
-  r: 0.6 + rnd() * 1.1,
-  delay: rnd() * 3,
-}))
-
 // ---- creature-scene helpers (random composition each viewing) --------------
 const rand = (lo, hi) => lo + Math.random() * (hi - lo)
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
 const shuffle = (arr) => arr.map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map((x) => x[1])
+
+// Lighten (amt > 0) or darken (amt < 0, both in [-1, 1]) a hex color — used to
+// derive a shaded/highlight tone from a single zone accent color instead of
+// hand-picking a separate hex for every light/dark variant of every terrain
+// material (hedge foliage, ground patches, path edges).
+function shadeColor(hex, amt) {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const mix = (ch) => (amt >= 0 ? ch + (255 - ch) * amt : ch * (1 + amt))
+  const r = Math.round(Math.max(0, Math.min(255, mix((num >> 16) & 0xff))))
+  const g = Math.round(Math.max(0, Math.min(255, mix((num >> 8) & 0xff))))
+  const b = Math.round(Math.max(0, Math.min(255, mix(num & 0xff))))
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
+}
+
+// A closed, gently irregular blob path around an ellipse — points scattered
+// seeded-random around the perimeter, joined through their midpoints so the
+// outline stays smooth rather than jagged. Used for ground-texture patches
+// (a worn bare patch, a shaggier corner) so they read as organic earth
+// instead of the plain overlapping-ellipse "sticker" look.
+function wobblyBlobPath(cx, cy, rx, ry, rng, points = 9, jitter = 0.22) {
+  const pts = []
+  for (let i = 0; i < points; i += 1) {
+    const a = (i / points) * Math.PI * 2
+    const jr = 1 + (rng() - 0.5) * 2 * jitter
+    pts.push({ x: cx + Math.cos(a) * rx * jr, y: cy + Math.sin(a) * ry * jr })
+  }
+  let d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)} `
+  for (let i = 0; i < points; i += 1) {
+    const p0 = pts[i]
+    const p1 = pts[(i + 1) % points]
+    d += `Q${p0.x.toFixed(1)} ${p0.y.toFixed(1)} ${((p0.x + p1.x) / 2).toFixed(1)} ${((p0.y + p1.y) / 2).toFixed(1)} `
+  }
+  return `${d}Z`
+}
+
+// Foliage as a cluster of small overlapping circles scattered within an
+// elliptical footprint, instead of one big circle (or a few same-size
+// circles) standing in for a whole canopy. Two things make this read as
+// real shrubbery rather than a pom-pom: the OUTLINE is lumpy/irregular
+// because the circles land at different sizes and offsets (never a smooth
+// single silhouette), and every circle's tone is picked by where it falls
+// relative to one fixed light direction (upper-left) rather than by which
+// circle it happens to be — so the whole clump reads as ONE form lit from
+// one side, not a flat color fill with a couple of random highlights.
+// Shared by hedge foliage, tree canopies, and shrub canopies alike.
+function foliageClump(rng, { cx = 0, cy = 0, rx, ry, hue, count = 9, minR, maxR }) {
+  const dark = shadeColor(hue, -0.34)
+  const light = shadeColor(hue, 0.34)
+  const blobs = []
+  for (let i = 0; i < count; i += 1) {
+    const a = rng() * Math.PI * 2
+    const d = Math.pow(rng(), 0.55) // bias toward center, occasional edge outlier for a lumpier silhouette
+    const x = Math.cos(a) * rx * d
+    const y = Math.sin(a) * ry * d
+    const r = minR + rng() * (maxR - minR)
+    const lightDot = (-0.62 * x) / (rx || 1) + (-0.78 * y) / (ry || 1)
+    const tone = lightDot > 0.22 ? light : lightDot < -0.22 ? dark : hue
+    blobs.push({ x: cx + x, y: cy + y, r, tone })
+  }
+  // paint lower (visually "further forward" in this file's up-is-back
+  // convention) blobs last, so nearer foliage overlaps onto farther foliage
+  blobs.sort((a, b) => a.y - b.y)
+  return blobs
+}
+function FoliageClump(props) {
+  return (
+    <>
+      {foliageClump(props.rng, props).map((b, i) => (
+        <circle key={i} cx={b.x.toFixed(2)} cy={b.y.toFixed(2)} r={b.r.toFixed(2)} fill={b.tone} />
+      ))}
+    </>
+  )
+}
 const BFLY_HUES = ['#f6a5c0', '#ffd45e', '#c9a8e8', '#f8b4d0', '#9fd6f0']
 let _uid = 0
 const nid = () => `c${(_uid += 1)}`
@@ -101,6 +176,23 @@ function hashSeed(str) {
   let h = 0
   for (let i = 0; i < str.length; i += 1) h = (h * 31 + str.charCodeAt(i)) >>> 0
   return h
+}
+
+// A tiny seeded PRNG (mulberry32) — used for terrain decoration (grass tufts,
+// pebbles, paths) that must look "randomly scattered" but stay IDENTICAL
+// across re-renders for a given zone (unlike the composeDay/composeNight
+// creature rolls, which deliberately reshuffle). Callers memoize the
+// generated layout once per zone via useMemo, this just makes that layout
+// reproducible from a plain string seed.
+function seededRng(seedStr) {
+  let a = hashSeed(seedStr) || 1
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
 }
 
 // Depth-based scale for an item's Y position on the ground plane: further
@@ -352,157 +444,120 @@ function pickBird(collection, wantWater, preferNestBox = false) {
 
 // The sky: celestial body + clouds/stars for the current phase. The gradient
 // itself is set on the scene's #gardenSky fill (stops mapped from SKY_STOPS).
-function GardenSky({ phase }) {
+// Overcast cloud grey — used for both the 'cloudy' and 'rain' weather
+// buckets (rain always implies cloud cover). The sun/moon stay faintly
+// visible as a soft glow rather than vanishing outright — real overcast
+// light still comes from somewhere — while the cloud shapes themselves grow
+// bigger, greyer, and more numerous than the fair-weather decoration.
+const CLOUD_GREY = '#c7cdd2'
+
+// A layered, two-tone cloud (base puffs + a lighter top-lit highlight pass)
+// instead of a flat single-color ellipse pair, so clouds read with real
+// volume. One shared shape scales/tints for every phase and both the
+// fair-weather and overcast treatments.
+function Cloud({ x, y, scale = 1, tone = '#ffffff', opacity = 0.9 }) {
+  const hi = shadeColor(tone, 0.12)
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`} opacity={opacity}>
+      <ellipse cx="0" cy="5" rx="24" ry="9" fill={tone} />
+      <ellipse cx="-15" cy="1" rx="13" ry="8" fill={tone} />
+      <ellipse cx="13" cy="-1" rx="15" ry="9" fill={hi} />
+      <ellipse cx="-2" cy="-6" rx="11" ry="7.5" fill={hi} />
+    </g>
+  )
+}
+
+// A handful of fixed, small star points for a clear night — cheap, but a
+// clear night sky with nothing in it but a moon reads as unfinished.
+const NIGHT_STARS = [
+  [40, 24], [70, 45], [110, 20], [150, 38], [190, 16], [230, 30],
+  [20, 60], [265, 50], [55, 80], [125, 70],
+]
+
+function GardenSky({ phase, weather = 'clear' }) {
+  const overcast = weather === 'cloudy' || weather === 'rain'
   if (phase === 'night') {
     return (
       <g aria-hidden="true">
-        <g className="garden-stars">
-          {NIGHT_STARS.map((s, i) => (
-            <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#fdfbe8" style={{ animationDelay: `${s.delay}s` }} />
-          ))}
-        </g>
-        {/* moon with a soft halo + faint craters */}
-        <circle cx="320" cy="50" r="26" fill="#fff7d6" opacity="0.16" />
-        <circle cx="320" cy="50" r="16" fill="#f3efcf" />
-        <circle cx="314" cy="46" r="3" fill="#e4ddb2" opacity="0.6" />
-        <circle cx="325" cy="55" r="2.2" fill="#e4ddb2" opacity="0.55" />
-        <circle cx="326" cy="44" r="1.5" fill="#e4ddb2" opacity="0.5" />
+        {!overcast && (
+          <>
+            <g fill="#f3efcf" opacity="0.75">
+              {NIGHT_STARS.map(([x, y], i) => (
+                <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 1.3 : 0.8} />
+              ))}
+            </g>
+            {/* moon with a soft halo + faint craters */}
+            <circle cx="320" cy="50" r="26" fill="#fff7d6" opacity="0.16" />
+            <circle cx="320" cy="50" r="16" fill="#f3efcf" />
+            <circle cx="314" cy="46" r="3" fill="#e4ddb2" opacity="0.6" />
+            <circle cx="325" cy="55" r="2.2" fill="#e4ddb2" opacity="0.55" />
+            <circle cx="326" cy="44" r="1.5" fill="#e4ddb2" opacity="0.5" />
+          </>
+        )}
+        {overcast && (
+          <>
+            <circle cx="320" cy="50" r="10" fill="#fff7d6" opacity="0.12" />
+            <Cloud x={300} y={46} scale={1.9} tone={CLOUD_GREY} opacity={0.4} />
+            <Cloud x={120} y={72} scale={1.6} tone={CLOUD_GREY} opacity={0.35} />
+            <Cloud x={205} y={30} scale={2} tone={CLOUD_GREY} opacity={0.4} />
+          </>
+        )}
       </g>
     )
   }
   if (phase === 'evening') {
     return (
       <g aria-hidden="true">
-        {/* a big warm sun sinking toward the horizon */}
-        <circle cx="316" cy="86" r="34" fill="#ff9a52" opacity="0.25" />
-        <circle cx="316" cy="86" r="24" fill="#ff7e3c" />
-        <g fill="#ffffff" opacity="0.5">
-          <ellipse cx="92" cy="50" rx="24" ry="11" />
-          <ellipse cx="116" cy="54" rx="16" ry="9" />
-        </g>
+        {/* a warm sun sinking toward the horizon — full glow when clear,
+            a soft diffuse patch behind the cloud deck when overcast */}
+        {!overcast ? (
+          <>
+            <circle cx="316" cy="86" r="34" fill="#ff9a52" opacity="0.25" />
+            <circle cx="316" cy="86" r="24" fill="#ff7e3c" />
+          </>
+        ) : (
+          <circle cx="316" cy="86" r="26" fill="#ffb27a" opacity="0.3" />
+        )}
+        {!overcast ? (
+          <>
+            <Cloud x={92} y={50} scale={1} tone="#ffe0cc" opacity={0.55} />
+            <Cloud x={140} y={38} scale={0.6} tone="#fff0e0" opacity={0.4} />
+            <Cloud x={230} y={62} scale={0.75} tone="#ffe0cc" opacity={0.35} />
+          </>
+        ) : (
+          <>
+            <Cloud x={92} y={48} scale={1.7} tone={CLOUD_GREY} opacity={0.78} />
+            <Cloud x={230} y={40} scale={1.9} tone={CLOUD_GREY} opacity={0.75} />
+            <Cloud x={266} y={62} scale={1.4} tone={CLOUD_GREY} opacity={0.7} />
+          </>
+        )}
       </g>
     )
   }
-  // morning + midday: a sun (lower + golden in the morning) and white clouds.
+  // morning + midday: a sun (lower + golden in the morning) and clouds.
   const morning = phase === 'morning'
   return (
     <g aria-hidden="true">
-      {morning && <circle cx="300" cy="66" r="30" fill="#ffe7a8" opacity="0.35" />}
-      <circle cx={morning ? 300 : 338} cy={morning ? 66 : 46} r="22" fill={morning ? '#ffcf6a' : '#ffe07a'} />
-      <g fill="#ffffff" opacity="0.9">
-        <ellipse cx="78" cy="42" rx="22" ry="11" />
-        <ellipse cx="100" cy="46" rx="16" ry="9" />
-      </g>
-    </g>
-  )
-}
-
-// ---- nocturnal wildlife (night-only, mirrors the daytime visitor pattern) --
-function OwlArt() {
-  return (
-    <g>
-      <ellipse cx="0" cy="-9" rx="8" ry="10" fill="#8a6f4e" />
-      <ellipse cx="0" cy="-6" rx="5.2" ry="7" fill="#cdb288" />
-      {/* ear tufts */}
-      <path d="M-7 -16 L-3.5 -19.5 L-2.5 -15 Z" fill="#6f5639" />
-      <path d="M7 -16 L3.5 -19.5 L2.5 -15 Z" fill="#6f5639" />
-      {/* big eyes */}
-      <circle cx="-3.4" cy="-13" r="3.1" fill="#fff" />
-      <circle cx="3.4" cy="-13" r="3.1" fill="#fff" />
-      <circle cx="-3.4" cy="-13" r="1.5" fill="#2a2a2a" />
-      <circle cx="3.4" cy="-13" r="1.5" fill="#2a2a2a" />
-      {/* beak + feet */}
-      <path d="M0 -11.5 L-1.4 -9.5 L1.4 -9.5 Z" fill="#e8a23a" />
-      <path d="M-3 0 l0 -2 M3 0 l0 -2" stroke="#e8a23a" strokeWidth="1.4" strokeLinecap="round" />
-    </g>
-  )
-}
-
-function HedgehogArt() {
-  const spike = (x, y, a) => <path key={`${x},${y}`} d={`M${x} ${y} l-1.6 -4`} stroke="#5e4528" strokeWidth="1.6" strokeLinecap="round" transform={`rotate(${a} ${x} ${y})`} />
-  return (
-    <g>
-      {/* spiky body */}
-      <path d="M-12 0 Q-13 -12 0 -13 Q12 -12 11 0 Z" fill="#7a5a3a" />
-      {[[-9, -7, -20], [-5, -11, -10], [0, -12.5, 0], [5, -11, 10], [9, -7, 22]].map(([x, y, a]) => spike(x, y, a))}
-      {/* face to the right */}
-      <ellipse cx="11" cy="-3.5" rx="4.2" ry="3.4" fill="#cdb288" />
-      <circle cx="11" cy="-5.2" r="0.9" fill="#2a2a2a" />
-      <circle cx="14.4" cy="-3.6" r="1.1" fill="#2a2a2a" />
-      {/* little feet */}
-      <path d="M-5 0 l0 1.6 M5 0 l0 1.6" stroke="#5e4528" strokeWidth="1.6" strokeLinecap="round" />
-    </g>
-  )
-}
-
-// An owl perched on a grown land element, gently swaying (CSS).
-function OwlPerch({ c }) {
-  return (
-    <g className="garden-visitor" transform={`translate(${c.x + 15} ${c.y - 1})`}>
-      <ellipse cx="0" cy="2" rx="8" ry="2.6" fill="#16233f" opacity="0.3" />
-      {/* .garden-owl animates `transform` itself (sway), so the depth scale
-          goes on this extra inner, non-animated wrapper instead — a static
-          transform attribute here would just get overridden by the sway. */}
-      <g className="garden-owl" style={{ animationDelay: `${c.delay || 0}s`, animationDuration: `${c.dur || 3.2}s` }}>
-        <g transform={`scale(${depthScale(c.y)})`}><OwlArt /></g>
-      </g>
-    </g>
-  )
-}
-
-// A hedgehog ambling across the front grass: fixed baseline (outer transform
-// attribute), the inner group walks left→right via CSS while its body waddles.
-function Hedgehog({ c }) {
-  return (
-    <g className="garden-visitor" transform="translate(0 228)">
-      <g className="garden-hedgehog" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 11.5}s` }}>
-        <ellipse cx="0" cy="2" rx="11" ry="2.6" fill="#16233f" opacity="0.3" />
-        {/* Fixed baseline (y=228, near the front) — same non-animated-wrapper
-            reasoning as OwlPerch above. */}
-        <g className="garden-hedgehog-body">
-          <g transform={`scale(${depthScale(228)})`}><HedgehogArt /></g>
-        </g>
-      </g>
-    </g>
-  )
-}
-
-// A single firefly glowing + drifting after dark (base point via cx/cy; the
-// drift is a small CSS transform, so placement and motion never conflict).
-function Firefly({ c }) {
-  return (
-    <g className="garden-firefly" aria-hidden="true" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur}s` }}>
-      <circle cx={c.x} cy={c.y} r="3.4" fill="#fff6a8" opacity="0.5" />
-      <circle cx={c.x} cy={c.y} r="1.4" fill="#fffde0" />
-    </g>
-  )
-}
-
-// A pale moth fluttering high near the moonlight. Outer <g> places it (attr);
-// inner <g> drifts (CSS); the wings flap (CSS) — one transform per element.
-function Moth({ c }) {
-  return (
-    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-moth" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 5}s`, '--flap-dur': `${c.flapDur || 0.3}s`, '--flap-delay': `${c.flapDelay || 0}s` }}>
-        <ellipse className="g-wing g-wing-l" cx="-2.4" cy="0" rx="2.9" ry="3.5" fill="#d8d2c0" />
-        <ellipse className="g-wing g-wing-r" cx="2.4" cy="0" rx="2.9" ry="3.5" fill="#d8d2c0" />
-        <circle cx="0" cy="0" r="1.4" fill="#9a8f76" />
-      </g>
-    </g>
-  )
-}
-
-// A bat swooping across the night sky on a fixed traverse path (CSS), wings
-// flapping. `dir` flips the crossing direction.
-function Bat({ c }) {
-  return (
-    <g transform={`translate(0 ${c.y})`} aria-hidden="true">
-      <g className={`g-bat${c.dir < 0 ? ' g-bat-rev' : ''}`} style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 5.5}s` }}>
-        <g className="g-bat-flap">
-          <path d="M0 0 Q-7 -6 -13 -2 Q-8 -1 -6 2 Q-3 0 0 0 Q3 0 6 2 Q8 -1 13 -2 Q7 -6 0 0 Z" fill="#2a2740" />
-          <circle cx="0" cy="-1" r="2.2" fill="#2a2740" />
-        </g>
-      </g>
+      {!overcast && morning && <circle cx="300" cy="66" r="30" fill="#ffe7a8" opacity="0.35" />}
+      {!overcast ? (
+        <circle cx={morning ? 300 : 338} cy={morning ? 66 : 46} r="22" fill={morning ? '#ffcf6a' : '#ffe07a'} />
+      ) : (
+        <circle cx={morning ? 300 : 338} cy={morning ? 66 : 46} r="20" fill="#ffe7a8" opacity="0.28" />
+      )}
+      {!overcast ? (
+        <>
+          <Cloud x={78} y={42} scale={1} tone="#ffffff" opacity={0.92} />
+          <Cloud x={140} y={30} scale={0.55} tone="#ffffff" opacity={0.7} />
+          <Cloud x={40} y={64} scale={0.6} tone="#ffffff" opacity={0.65} />
+        </>
+      ) : (
+        <>
+          <Cloud x={78} y={40} scale={1.9} tone={CLOUD_GREY} opacity={0.86} />
+          <Cloud x={222} y={34} scale={2.1} tone={CLOUD_GREY} opacity={0.86} />
+          <Cloud x={262} y={58} scale={1.6} tone={CLOUD_GREY} opacity={0.82} />
+          <Cloud x={160} y={28} scale={1.3} tone={CLOUD_GREY} opacity={0.78} />
+        </>
+      )}
     </g>
   )
 }
@@ -521,90 +576,84 @@ function Butterfly({ c }) {
   )
 }
 
-// A bee buzzing near the flower beds — a quick erratic jitter (CSS).
-function Bee({ c }) {
+// Falling rain streaks scattered across the current scene width (grows with
+// expansions) — purely decorative, drawn above plantings/creatures. Seeded
+// once per viewBox size (useMemo) so positions don't reshuffle every render;
+// each streak's own fall timing is independently randomized so they never
+// look synced. Loops fast and short (see .garden-rain-streak in App.css) —
+// the app-wide prefers-reduced-motion rule already collapses any CSS
+// animation to a single static frame, so no separate handling is needed here.
+function RainOverlay({ viewBox }) {
+  const streaks = useMemo(() => {
+    const rng = seededRng(`rain:${viewBox.minX}:${viewBox.width}`)
+    const count = Math.round(viewBox.width / 11)
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      x: viewBox.minX + rng() * viewBox.width,
+      len: 10 + rng() * 8,
+      delay: rng() * 1.4,
+      dur: 0.55 + rng() * 0.35,
+      opacity: 0.25 + rng() * 0.25,
+    }))
+  }, [viewBox.minX, viewBox.width])
   return (
-    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-bee" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 2.4}s` }}>
-        <ellipse className="g-bee-wing" cx="0" cy="-1.8" rx="2.2" ry="1.1" fill="#ffffff" opacity="0.75" />
-        <ellipse cx="0" cy="0" rx="2.5" ry="1.9" fill="#e8b53a" />
-        <rect x="-2.6" y="-1.9" width="1.5" height="3.8" fill="#3a2f24" />
-        <rect x="0.4" y="-1.7" width="1.3" height="3.4" fill="#3a2f24" />
-      </g>
+    <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+      {streaks.map((s) => (
+        <line
+          key={s.id}
+          className="garden-rain-streak"
+          x1={s.x.toFixed(1)} y1="-10" x2={(s.x - 6).toFixed(1)} y2={(-10 + s.len).toFixed(1)}
+          stroke="#bcd6e8" strokeWidth="1.4" strokeLinecap="round" opacity={s.opacity.toFixed(2)}
+          style={{ animationDelay: `${s.delay.toFixed(2)}s`, animationDuration: `${s.dur.toFixed(2)}s` }}
+        />
+      ))}
     </g>
   )
 }
 
-// A ladybug crawling slowly near the plants by day — small back-and-forth
-// ground drift (CSS), no flight.
-function Ladybug({ c }) {
+// Loose leaves/petals blown across the scene in windy weather — small
+// rotating shapes drifting mostly sideways with a little fall and spin,
+// scattered at varied heights so they read as airborne. Same seeded,
+// staggered-timing approach as RainOverlay; position is set on an outer <g>
+// (a plain SVG transform attribute) and the drift/spin animation lives on an
+// inner <g> — a CSS transform animation on the SAME element would otherwise
+// override the attribute and reset it to the origin every frame.
+const WIND_LEAF_HUES = ['#c9a35a', '#a9713f', '#8fae5a', '#c1552f']
+function WindOverlay({ viewBox }) {
+  const leaves = useMemo(() => {
+    const rng = seededRng(`wind:${viewBox.minX}:${viewBox.width}`)
+    const count = Math.max(5, Math.round(viewBox.width / 55))
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      x: viewBox.minX + rng() * viewBox.width,
+      y: 40 + rng() * 180,
+      size: 4 + rng() * 3,
+      hue: WIND_LEAF_HUES[i % WIND_LEAF_HUES.length],
+      delay: rng() * 6,
+      dur: 4 + rng() * 3,
+      drift: 70 + rng() * 60,
+      fall: 20 + rng() * 30,
+      spin: (180 + rng() * 360) * (rng() < 0.5 ? 1 : -1),
+    }))
+  }, [viewBox.minX, viewBox.width])
   return (
-    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-ladybug" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 8}s` }}>
-        <ellipse cx="0" cy="0" rx="3.6" ry="2.8" fill="#c94a3a" stroke="#2a2016" strokeWidth="0.5" />
-        <line x1="0" y1="-2.8" x2="0" y2="2.8" stroke="#2a2016" strokeWidth="0.5" />
-        <circle cx="-1.6" cy="-0.8" r="0.6" fill="#2a2016" />
-        <circle cx="1.6" cy="-0.8" r="0.6" fill="#2a2016" />
-        <circle cx="-1.2" cy="1" r="0.6" fill="#2a2016" />
-        <circle cx="1.2" cy="1" r="0.6" fill="#2a2016" />
-        <circle cx="0" cy="-2.7" r="1.1" fill="#2a2016" />
-        <line x1="-0.5" y1="-3.5" x2="-1.3" y2="-4.3" stroke="#2a2016" strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="0.5" y1="-3.5" x2="1.3" y2="-4.3" stroke="#2a2016" strokeWidth="0.4" strokeLinecap="round" />
-      </g>
-    </g>
-  )
-}
-
-// A dragonfly darting near the bird bath / flower patch by day — quick
-// hover-and-dart hops (CSS) with shimmering transparent wings.
-function Dragonfly({ c }) {
-  return (
-    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-dragonfly" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 3.4}s` }}>
-        <g className="g-dragonfly-wing" style={{ animationDelay: `${c.wingDelay || 0}s` }}>
-          <ellipse cx="-3" cy="-1.6" rx="4.2" ry="1.4" fill="#dff3f6" opacity="0.55" transform="rotate(-18 -3 -1.6)" />
-          <ellipse cx="3" cy="-1.6" rx="4.2" ry="1.4" fill="#dff3f6" opacity="0.55" transform="rotate(18 3 -1.6)" />
-          <ellipse cx="-2.4" cy="0.6" rx="3.4" ry="1.1" fill="#dff3f6" opacity="0.45" transform="rotate(-12 -2.4 0.6)" />
-          <ellipse cx="2.4" cy="0.6" rx="3.4" ry="1.1" fill="#dff3f6" opacity="0.45" transform="rotate(12 2.4 0.6)" />
+    <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+      {leaves.map((l) => (
+        <g key={l.id} transform={`translate(${l.x.toFixed(1)} ${l.y.toFixed(1)})`}>
+          <g
+            className="garden-wind-leaf"
+            style={{
+              '--wind-drift': `${l.drift.toFixed(0)}px`,
+              '--wind-fall': `${l.fall.toFixed(0)}px`,
+              '--wind-spin': `${l.spin.toFixed(0)}deg`,
+              animationDelay: `${l.delay.toFixed(2)}s`,
+              animationDuration: `${l.dur.toFixed(2)}s`,
+            }}
+          >
+            <ellipse cx="0" cy="0" rx={l.size.toFixed(1)} ry={(l.size * 0.6).toFixed(1)} fill={l.hue} opacity="0.8" />
+          </g>
         </g>
-        <ellipse cx="0" cy="1.4" rx="1.3" ry="5.6" fill="#3f8f7a" />
-        <circle cx="0" cy="-3.6" r="1.5" fill="#2c6a58" />
-      </g>
-    </g>
-  )
-}
-
-// A cricket sitting in the grass, mostly still with an occasional hop (CSS)
-// — evenings and, more often, at night.
-function Cricket({ c }) {
-  return (
-    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-cricket" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 8}s` }}>
-        <ellipse cx="0" cy="0" rx="3.2" ry="2.1" fill="#6b7a42" stroke="#2e3320" strokeWidth="0.5" />
-        <circle cx="-2.6" cy="-0.6" r="1.1" fill="#5c6a38" />
-        <path d="M0.6 0.6 Q4.2 2.4 6.4 6.6" stroke="#4a5730" strokeWidth="0.7" fill="none" strokeLinecap="round" />
-        <path d="M-0.2 0.8 Q3 2.8 4.8 7.2" stroke="#4a5730" strokeWidth="0.7" fill="none" strokeLinecap="round" />
-        <line x1="-3.4" y1="-1" x2="-5.6" y2="-3" stroke="#4a5730" strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="-3.2" y1="-0.4" x2="-5.6" y2="-1.6" stroke="#4a5730" strokeWidth="0.4" strokeLinecap="round" />
-      </g>
-    </g>
-  )
-}
-
-// A frog sitting near the bird bath / flower patch at night, with an
-// occasional small hop (CSS).
-function Frog({ c }) {
-  return (
-    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
-      <g className="g-frog" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 9}s` }}>
-        <ellipse cx="0" cy="1" rx="5.4" ry="3.6" fill="#5c9a52" stroke="#33562e" strokeWidth="0.6" />
-        <circle cx="-2.4" cy="-2.6" r="1.6" fill="#5c9a52" stroke="#33562e" strokeWidth="0.6" />
-        <circle cx="2.4" cy="-2.6" r="1.6" fill="#5c9a52" stroke="#33562e" strokeWidth="0.6" />
-        <circle cx="-2.4" cy="-2.8" r="0.7" fill="#20301c" />
-        <circle cx="2.4" cy="-2.8" r="0.7" fill="#20301c" />
-        <ellipse cx="-4.4" cy="3" rx="1.6" ry="0.9" fill="#5c9a52" stroke="#33562e" strokeWidth="0.5" />
-        <ellipse cx="4.4" cy="3" rx="1.6" ry="0.9" fill="#5c9a52" stroke="#33562e" strokeWidth="0.5" />
-      </g>
+      ))}
     </g>
   )
 }
@@ -628,12 +677,42 @@ function treeVariantFor(seed) {
   return TREE_VARIANTS[keys[h % keys.length]]
 }
 
+// Canopy foliage at every growth stage is a foliageClump (see the shared
+// helper above) rather than one or two flat circles — same real tree, same
+// deterministic look per planting (seeded off the planting id + stage), but
+// a lumpy, lit silhouette instead of a pom-pom.
 function TreeArt({ stageKey, seed }) {
   const { bark, canopy } = treeVariantFor(seed)
-  if (stageKey === 'seedling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-9" stroke={canopy} strokeWidth="2" strokeLinecap="round" /><ellipse cx="-3.4" cy="-9" rx="3" ry="1.5" fill={canopy} transform="rotate(-28 -3.4 -9)" /><ellipse cx="3.4" cy="-9" rx="3" ry="1.5" fill={canopy} transform="rotate(28 3.4 -9)" /></g>)
-  if (stageKey === 'sapling') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><rect x="-1.5" y="-22" width="3" height="22" rx="1.5" fill={bark} /><circle cx="0" cy="-25" r="10" fill={canopy} /><circle cx="-4" cy="-27" r="6" fill={canopy} opacity="0.9" /></g>)
-  if (stageKey === 'young') return (<g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#7a5a3a" /><rect x="-2.5" y="-34" width="5" height="34" rx="2" fill={bark} /><circle cx="0" cy="-38" r="16" fill={canopy} /><circle cx="-7" cy="-40" r="9" fill={canopy} opacity="0.9" /></g>)
-  return (<g><ellipse cx="0" cy="0" rx="12" ry="4" fill="#7a5a3a" /><rect x="-3.5" y="-44" width="7" height="44" rx="3" fill={bark} /><ellipse cx="0" cy="-50" rx="24" ry="20" fill={canopy} /><ellipse cx="-14" cy="-46" rx="14" ry="12" fill={canopy} opacity="0.92" /><ellipse cx="14" cy="-46" rx="13" ry="11" fill={canopy} opacity="0.8" /><ellipse cx="-7" cy="-59" rx="9" ry="5.5" fill="#bdeeb0" opacity="0.35" /></g>)
+  const clumpRng = (tag) => seededRng(`tree:${seed}:${stageKey}:${tag}`)
+  if (stageKey === 'seedling') return (
+    <g>
+      <ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" />
+      <path d="M0 -1 V-8" stroke={canopy} strokeWidth="2" strokeLinecap="round" />
+      <FoliageClump rng={clumpRng('c')} cx={0} cy={-9} rx={4.6} ry={3.4} hue={canopy} count={6} minR={1.2} maxR={2.1} />
+    </g>
+  )
+  if (stageKey === 'sapling') return (
+    <g>
+      <ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" />
+      <rect x="-1.5" y="-22" width="3" height="22" rx="1.5" fill={bark} />
+      <FoliageClump rng={clumpRng('c')} cx={0} cy={-27} rx={9.5} ry={7.4} hue={canopy} count={8} minR={2.2} maxR={4.2} />
+    </g>
+  )
+  if (stageKey === 'young') return (
+    <g>
+      <ellipse cx="0" cy="0" rx="10" ry="3.4" fill="#7a5a3a" />
+      <rect x="-2.5" y="-34" width="5" height="34" rx="2" fill={bark} />
+      <FoliageClump rng={clumpRng('c')} cx={0} cy={-40} rx={15.5} ry={12.5} hue={canopy} count={11} minR={3.4} maxR={6.4} />
+    </g>
+  )
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="12" ry="4" fill="#7a5a3a" />
+      <rect x="-3.5" y="-44" width="7" height="44" rx="3" fill={bark} />
+      <FoliageClump rng={clumpRng('c')} cx={0} cy={-52} rx={25} ry={20} hue={canopy} count={17} minR={5} maxR={9.5} />
+      <ellipse cx="-8" cy="-64" rx="8" ry="4.6" fill="#bdeeb0" opacity="0.3" />
+    </g>
+  )
 }
 
 function PineArt({ stageKey }) {
@@ -723,9 +802,16 @@ function VegPatchArt({ stageKey }) {
   return (<g>{soil}{[-12, -4, 4, 12].map((x, i) => (<g key={i}><path d={`M${x} -3 V-13`} stroke="#4f9a55" strokeWidth="2" strokeLinecap="round" /><path d={`M${x - 3} -11 L${x} -15 L${x + 3} -11`} fill="none" stroke="#5aa861" strokeWidth="1.6" strokeLinecap="round" /><path d={`M${x - 2} -3 L${x} 2 L${x + 2} -3 Z`} fill="#e8893a" /></g>))}</g>)
 }
 
-function ShrubArt({ stageKey }) {
+function ShrubArt({ stageKey, seed }) {
   if (stageKey === 'shrub-sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-12" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><circle cx="0" cy="-13" r="4" fill="#6cb86f" /></g>)
-  const bush = <g><ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" /><circle cx="0" cy="-16" r="14" fill="url(#gardenCanopy)" /><circle cx="-8" cy="-12" r="9" fill="url(#gardenCanopy)" opacity="0.92" /><circle cx="8" cy="-13" r="8" fill="url(#gardenCanopy)" opacity="0.82" /></g>
+  const rng = seededRng(`shrub:${seed}`)
+  const bush = (
+    <g>
+      <ellipse cx="0" cy="1" rx="12" ry="3.4" fill="#152410" opacity="0.26" />
+      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
+      <FoliageClump rng={rng} cx={0} cy={-15} rx={13} ry={11} hue="#4f9a55" count={12} minR={3.4} maxR={6.6} />
+    </g>
+  )
   if (stageKey === 'shrub-bush') return bush
   const f = [[-9, -20, '#f6a5c0'], [0, -26, '#ffd45e'], [9, -18, '#c9a8e8'], [-3, -12, '#f8b4d0'], [6, -24, '#fff0b3']]
   return (<g>{bush}{f.map(([x, y, c], i) => <circle key={i} cx={x} cy={y} r="3" fill={c} />)}</g>)
@@ -759,7 +845,7 @@ function WishingWellArt({ stageKey }) {
   const roof = <g><rect x="-13" y="-30" width="2.6" height="20" fill="url(#gardenWood)" /><rect x="10.4" y="-30" width="2.6" height="20" fill="url(#gardenWood)" /><path d="M-16 -30 L0 -42 L16 -30 Z" fill="url(#gardenWood)" /><rect x="-3" y="-34" width="6" height="10" fill="#6b4a2a" /></g>
   if (stageKey === 'well-built') return (<g>{base}{roof}</g>)
   return (
-    <g className="garden-wishing-well-glow">
+    <g>
       {base}{roof}
       <ellipse cx="0" cy="-9" rx="10" ry="5.6" fill="#5fd0e8" opacity="0.55" />
       {[[-5, -11], [3, -8], [0, -13], [6, -12]].map(([x, y], i) => (
@@ -863,7 +949,7 @@ function PlantArt({ type, stageKey, family, commonName, seed }) {
     case 'stone-path': return <StonePathArt stageKey={stageKey} />
     case 'rock-garden': return <RockGardenArt stageKey={stageKey} />
     case 'veg-patch': return <VegPatchArt stageKey={stageKey} />
-    case 'shrub': return <ShrubArt stageKey={stageKey} />
+    case 'shrub': return <ShrubArt stageKey={stageKey} seed={seed} />
     case 'bench': return <BenchArt stageKey={stageKey} />
     case 'bird-bath': return <BirdBathArt stageKey={stageKey} />
     case 'trellis': return <TrellisArt stageKey={stageKey} />
@@ -873,6 +959,106 @@ function PlantArt({ type, stageKey, family, commonName, seed }) {
     case 'sunset-bench': return <SunsetBenchArt stageKey={stageKey} />
     default: return <FlowerPatchArt stageKey={stageKey} />
   }
+}
+
+// A shop card's preview: the item's own real art at its fully-grown stage,
+// not a generic emoji — so browsing the catalog shows exactly what she's
+// about to place (see .catalog-card in App.css). Reuses PlantArt directly,
+// so a change to any item's art here automatically updates its shop preview.
+//
+// Each item's art has a very different real height (a stepping-stone path is
+// barely 10 units tall; a mature tree is 70) — one shared viewBox would
+// either clip the tree or shrink everything else down to a speck to make
+// room for it. This hand-tunes each item's own top edge (its real art extent
+// plus a hair of headroom) so every icon fills its card frame at a
+// consistent, legible size instead.
+const ICON_TOP_Y = {
+  'flower-patch': -26, 'stone-path': -12, 'rock-garden': -14, 'veg-patch': -20,
+  'flower-bed': -24, 'pine-seed': -52, 'tree-seed': -74, shrub: -34,
+  bench: -26, fence: -26, 'bird-bath': -26, feeder: -46, trellis: -48,
+  pond: -20, 'wishing-well': -46, birdhouse: -54, 'sunset-bench': -30,
+  waterfall: -40,
+}
+function ShopItemIcon({ type }) {
+  const item = gardenItem(type)
+  if (!item) return null
+  const stageKey = item.stages[item.stages.length - 1]
+  const topY = ICON_TOP_Y[type] ?? -30
+  return (
+    <svg
+      className="catalog-icon-svg"
+      viewBox={`-42 ${topY} 84 ${4 - topY}`}
+      preserveAspectRatio="xMidYMax meet"
+      aria-hidden="true"
+    >
+      <ellipse cx="0" cy="1" rx="24" ry="5" fill="rgba(53, 96, 74, 0.14)" />
+      <PlantArt type={type} stageKey={stageKey} seed={type} />
+    </svg>
+  )
+}
+
+// A brief poof of dirt specks where a fresh item just landed — purely a
+// timed visual (see plantBurst in GardenPage), never touches placement.
+const BURST_SPECKS = Array.from({ length: 7 }, (_, i) => {
+  const angle = (i / 7) * Math.PI * 2 + rand(-0.2, 0.2)
+  const dist = rand(10, 20)
+  return { sx: Math.cos(angle) * dist, sy: Math.sin(angle) * dist * 0.6 - 4, delay: i * 0.015 }
+})
+function GardenPlantBurst() {
+  return (
+    <g className="garden-plant-burst" aria-hidden="true">
+      <circle className="garden-plant-burst-poof" cx="0" cy="0" r="14" fill="#8a6a42" opacity="0.35" />
+      {BURST_SPECKS.map((s, i) => (
+        <circle
+          key={i}
+          className="garden-burst-speck"
+          cx="0" cy="0" r="1.6" fill="#7a5a3a"
+          style={{ '--sx': `${s.sx}px`, '--sy': `${s.sy}px`, animationDelay: `${s.delay}s` }}
+        />
+      ))}
+    </g>
+  )
+}
+
+// A watering-can droplet falling onto a planting, followed by a splash —
+// the same visual language as the Greenhouse's own pots (see WaterDrop in
+// Greenhouse.jsx / gh-drop-fall + gh-splash in App.css), so watering feels
+// like one consistent action across both spaces.
+function GardenWaterDrop() {
+  return (
+    <g className="garden-water-drop" aria-hidden="true">
+      <ellipse className="garden-water-drop-fall" cx="0" cy="-26" rx="3.2" ry="4.2" fill="#5fb8e0" />
+      <g className="garden-water-drop-splash">
+        {[-7, 0, 7].map((dx) => (
+          <circle key={dx} cx={dx} cy="-1" r="1.8" fill="#8fd4ee" />
+        ))}
+      </g>
+    </g>
+  )
+}
+
+// A little celebratory sparkle scatter when a planting crosses into its next
+// growth stage — paired with the .garden-plant-justgrew scale-pop in App.css.
+const GROW_SPARKS = Array.from({ length: 6 }, (_, i) => {
+  const angle = (i / 6) * Math.PI * 2
+  const dist = rand(16, 28)
+  return { sx: Math.cos(angle) * dist, sy: Math.sin(angle) * dist - 8, delay: i * 0.03 }
+})
+function GardenGrowSparkle() {
+  return (
+    <g aria-hidden="true">
+      {GROW_SPARKS.map((s, i) => (
+        <text
+          key={i}
+          className="garden-grow-spark"
+          x="0" y="-10" textAnchor="middle" fontSize="10"
+          style={{ '--sx': `${s.sx}px`, '--sy': `${s.sy}px`, animationDelay: `${s.delay}s` }}
+        >
+          ✨
+        </text>
+      ))}
+    </g>
+  )
 }
 
 // The active tap-to-reveal name label: a small rounded pill behind the text
@@ -1112,16 +1298,6 @@ function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
     case 'swim': return <SwimBird c={c} active={activeLabelId === c.id} setActiveLabelId={setActiveLabelId} />
     case 'flybird': return <FlyBird c={c} />
     case 'butterfly': return <Butterfly c={c} />
-    case 'bee': return <Bee c={c} />
-    case 'ladybug': return <Ladybug c={c} />
-    case 'dragonfly': return <Dragonfly c={c} />
-    case 'cricket': return <Cricket c={c} />
-    case 'frog': return <Frog c={c} />
-    case 'firefly': return <Firefly c={c} />
-    case 'moth': return <Moth c={c} />
-    case 'owl': return <OwlPerch c={c} />
-    case 'hedgehog': return <Hedgehog c={c} />
-    case 'bat': return <Bat c={c} />
     default: return null
   }
 }
@@ -1166,7 +1342,7 @@ function makeFlyBird(a, b, bird) {
   }
 }
 
-function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 }, phase) {
+function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 }) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   let all = perches
@@ -1234,31 +1410,15 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 },
   // butterflies near the flowers — scattered across the full unlocked width
   const nBfly = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5)
   for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 5), dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: rand(0, 0.35) })
-  // bees near the beds
-  const nBee = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 4)
-  for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(166, 218), delay: rand(0, 3), dur: rand(2, 3.1) })
-  // ladybugs crawling near the plants — same probability shape as bees
-  const nLadybug = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 4)
-  for (let i = 0; i < nLadybug; i += 1) list.push({ id: nid(), type: 'ladybug', x: rand(bounds.x0 + 30, bounds.x1 - 30), y: rand(210, 232), delay: rand(0, 4), dur: rand(6, 9) })
-  // dragonflies darting near the bird bath / flower patch
-  const nDragonfly = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
-  for (let i = 0; i < nDragonfly; i += 1) list.push({ id: nid(), type: 'dragonfly', x: rand(bounds.x0 + 30, bounds.x1 - 30), y: rand(140, 200), delay: rand(0, 4), dur: rand(2.8, 4), wingDelay: rand(0, 0.1) })
-  // a cricket, sometimes, late in the day (evening) — mostly a nighttime creature (see composeNight)
-  if (phase === 'evening' && (showcase || Math.random() < 0.4)) {
-    list.push({ id: nid(), type: 'cricket', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(222, 236), delay: rand(0, 3), dur: rand(6, 9) })
-  }
   // never an empty daytime scene
   if (!list.length) list.push({ id: nid(), type: 'butterfly', x: (bounds.x0 + bounds.x1) / 2, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
   return list
 }
 
-function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 }) {
+function composeNight(perches, collection, showcase) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   if (showcase && !land.length) land = [{ id: 'demo-c', x: 150, y: 150, zone: 'land' }]
-  // fireflies — variable density, across the full unlocked width
-  const nFly = showcase ? 8 + Math.floor(Math.random() * 6) : 4 + Math.floor(Math.random() * 11)
-  for (let i = 0; i < nFly; i += 1) list.push({ id: nid(), type: 'firefly', x: rand(bounds.x0 + 14, bounds.x1 - 14), y: rand(150, 225), delay: rand(0, 5), dur: rand(5, 9) })
   // Her own collection, roosting for the night — real songbirds sleep after
   // dark, so no pecking/bathing/bench-sitting here (those are daytime-only,
   // see composeDay), just a settled bird or two quietly there in a tree, the
@@ -1281,24 +1441,71 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
       })
     })
   }
-  // an owl, sometimes
-  if (land.length && (showcase || Math.random() < 0.6)) { const p = pick(land); list.push({ id: nid(), type: 'owl', x: p.x, y: p.y, delay: rand(0, 3), dur: rand(2.8, 3.8) }) }
-  // a hedgehog, sometimes
-  if (showcase || Math.random() < 0.55) list.push({ id: nid(), type: 'hedgehog', delay: rand(0, 2), dur: rand(10, 13) })
-  // crickets in the grass — her main appearance (see composeDay for the rarer evening cameo)
-  const nCricket = showcase ? 1 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
-  for (let i = 0; i < nCricket; i += 1) list.push({ id: nid(), type: 'cricket', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(222, 236), delay: rand(0, 3), dur: rand(6, 9) })
-  // a frog, sometimes, near the bird bath / flower patch
-  if (showcase || Math.random() < 0.5) {
-    const p = land.length ? pick(land) : null
-    list.push({ id: nid(), type: 'frog', x: p ? p.x : rand(bounds.x0 + 40, bounds.x1 - 40), y: p ? p.y : 226, delay: rand(0, 3), dur: rand(7, 10) })
-  }
-  // moths near the moonlight
-  const nMoth = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5)
-  for (let i = 0; i < nMoth; i += 1) list.push({ id: nid(), type: 'moth', x: rand(bounds.x0 + 34, bounds.x1 - 34), y: rand(55, 140), delay: rand(0, 5), dur: rand(4.2, 6), flapDur: rand(0.28, 0.42), flapDelay: rand(0, 0.35) })
-  // a bat swooping over, occasionally
-  if (showcase || Math.random() < 0.45) list.push({ id: nid(), type: 'bat', y: rand(40, 95), delay: rand(0, 2.5), dur: rand(4.8, 6.8), dir: Math.random() < 0.5 ? 1 : -1 })
   return list
+}
+
+// ---- zone theming: each garden "room" gets its own terrain flavor ----------
+// The placeable grid itself (GARDEN_REGION / gardenZoneRect in gardenData.js)
+// never varies by zone — this is purely how each zone's ground gets painted
+// and dressed, so panning from the base lawn into an expansion feels like
+// walking into a different part of the yard instead of a re-tinted copy.
+const ZONE_THEMES = {
+  base: { tint: null },
+  'expand-left': { tint: 'rgba(255, 226, 150, 0.14)' },
+  'expand-right': { tint: 'rgba(220, 160, 90, 0.12)', orchard: true },
+  'back-garden': { tint: 'rgba(18, 42, 28, 0.3)', shaded: true },
+}
+
+// Soft, low-contrast sun/shadow drift baked into the lawn as MATERIAL — a
+// handful of large, gently irregular washes (organic wobblyBlobPath
+// outlines, alternating a touch warmer/cooler than the base grass hue at
+// very low opacity) rather than the old prop-scatter system's individually
+// recognizable objects sitting on top of the ground. Seeded once per zone
+// (useMemo) so it stays put across renders.
+function GroundLight({ rect, seedKey, baseHue }) {
+  const dapples = useMemo(() => {
+    const rng = seededRng(`${seedKey}:groundlight`)
+    const warm = shadeColor(baseHue, 0.22)
+    const cool = shadeColor(baseHue, -0.16)
+    const spanX = Math.max(1, rect.x1 - rect.x0 - 40)
+    const spanY = Math.max(1, rect.y1 - rect.y0 - 10)
+    return Array.from({ length: 4 }, (_, i) => {
+      const x = rect.x0 + 20 + rng() * spanX
+      const y = rect.y0 + 8 + rng() * spanY
+      const rx = 26 + rng() * 22
+      const ry = 9 + rng() * 6
+      return {
+        path: wobblyBlobPath(x, y, rx, ry, rng, 8, 0.3),
+        tone: i % 2 === 0 ? warm : cool,
+        opacity: 0.1 + rng() * 0.08,
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedKey, baseHue])
+  return (
+    <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+      {dapples.map((d, i) => (
+        <path key={i} d={d.path} fill={d.tone} opacity={d.opacity.toFixed(2)} />
+      ))}
+    </g>
+  )
+}
+
+// A simple post-and-rail gateway marking the seam between two owned zones —
+// dressing for the "walking into a new part of the yard" transition the pan
+// already implies. Only drawn once BOTH neighbouring zones are unlocked, so
+// it always spans two real places rather than framing an empty gap.
+function ZoneGateway({ x }) {
+  return (
+    <g transform={`translate(${x} 205)`} style={{ pointerEvents: 'none' }} aria-hidden="true">
+      <ellipse cx="0" cy="1" rx="20" ry="4" fill="#100a06" opacity="0.26" />
+      <rect x="-16" y="-34" width="4" height="34" rx="2" fill="url(#gardenWood)" />
+      <rect x="12" y="-34" width="4" height="34" rx="2" fill="url(#gardenWood)" />
+      <path d="M-16 -34 Q0 -46 16 -34" fill="none" stroke="url(#gardenWood)" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="-14" cy="-30" r="1.4" fill="#e8c97a" />
+      <circle cx="14" cy="-30" r="1.4" fill="#e8c97a" />
+    </g>
+  )
 }
 
 // An owned expansion zone's background art: continues the same sky/hill/grass
@@ -1307,22 +1514,47 @@ function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 
 // little grove rather than an empty clone, and a small wooden signpost
 // naming it. Back Garden gets a cooler, shaded-grove tint to feel like a
 // genuinely different, further-in part of the yard.
-function ExpansionZoneArt({ id, phase, shaded = false }) {
+function ExpansionZoneArt({ id, phase, expansions }) {
   const rect = gardenZoneRect(id)
   if (!rect) return null
+  const theme = ZONE_THEMES[id] || ZONE_THEMES.base
+  const shaded = Boolean(theme.shaded)
   const w = rect.x1 - rect.x0
   const name = expansionItem(id)?.name || ''
+  // Fold the base lawn's own owned expansions into this zone's seed so a
+  // zone's decor/path layout stays stable across renders but still differs
+  // from an identical zone in a save with a different purchase history.
+  const seedKey = `${id}:${(expansions || []).join(',')}`
   return (
     <g>
-      <path d={`M${rect.x0} 138 h${w} V260 H${rect.x0} Z`} fill={DISTANT_HILLS[phase]} opacity={shaded ? 0.75 : 0.55} />
+      <path
+        d={`M${rect.x0} 148 Q${rect.x0 + w * 0.3} 126 ${rect.x0 + w * 0.5} 140 Q${rect.x0 + w * 0.7} 154 ${rect.x1} 134 V260 H${rect.x0} Z`}
+        fill={DISTANT_HILLS[phase]}
+        opacity={shaded ? 0.75 : 0.55}
+      />
       <rect x={rect.x0} y="118" width={w} height="34" fill="url(#gardenHorizonHaze)" />
       <rect x={rect.x0} y="140" width={w} height="120" fill="url(#gardenGrassMid)" />
       <rect x={rect.x0} y="180" width={w} height="80" fill="url(#gardenGrassNear)" />
-      {shaded && <rect x={rect.x0} y="140" width={w} height="120" fill="#12321a" opacity="0.24" />}
-      <g opacity={shaded ? 0.85 : 0.5} fill={shaded ? '#1c3d24' : '#5f8f52'}>
+      {theme.tint && <rect x={rect.x0} y="140" width={w} height="120" fill={theme.tint} />}
+      <GroundLight
+        rect={{ x0: rect.x0 + 16, x1: rect.x1 - 16, y0: rect.y0, y1: rect.y1 }}
+        seedKey={seedKey}
+        baseHue={shaded ? '#3f7a52' : '#6fa84f'}
+      />
+      <g opacity={shaded ? 0.85 : 0.5} fill={shaded ? '#1c3d24' : theme.orchard ? '#6a8a48' : '#5f8f52'}>
         <ellipse cx={rect.x0 + w * 0.28} cy="150" rx="26" ry="20" />
         <ellipse cx={rect.x0 + w * 0.68} cy="146" rx="22" ry="17" />
+        {theme.orchard && <ellipse cx={rect.x0 + w * 0.48} cy="152" rx="18" ry="15" />}
       </g>
+      {/* Orchard: a scatter of little ripe-fruit dots in the canopy shapes. */}
+      {theme.orchard && (
+        <g fill="#d9663f" opacity="0.8">
+          <circle cx={rect.x0 + w * 0.24} cy="146" r="2.2" />
+          <circle cx={rect.x0 + w * 0.33} cy="152" r="2" />
+          <circle cx={rect.x0 + w * 0.66} cy="142" r="2.2" />
+          <circle cx={rect.x0 + w * 0.72} cy="149" r="2" />
+        </g>
+      )}
       <g transform={`translate(${rect.x0 + w / 2} 210)`}>
         <rect x="-2" y="-18" width="4" height="18" fill="url(#gardenWood)" />
         <rect x="-26" y="-32" width="52" height="15" rx="3" fill="url(#gardenWood)" />
@@ -1391,6 +1623,11 @@ export function GardenPage({
   const expansions = useMemo(() => garden?.expansions || [], [garden?.expansions])
   const viewBox = useMemo(() => gardenViewBox(expansions), [expansions])
   const regions = useMemo(() => gardenRegions(expansions), [expansions])
+  // Stable seed for the base lawn's own terrain dressing (ground texture,
+  // paths, decor, border) — same pattern ExpansionZoneArt uses for its zones,
+  // so a save's layout doesn't reshuffle on every render but still differs
+  // from a save with a different purchase history.
+  const baseZoneSeed = `base:${expansions.join(',')}`
   const worldBounds = useMemo(
     () => ({
       x0: Math.min(...regions.map((r) => r.x0)),
@@ -1441,6 +1678,29 @@ export function GardenPage({
   }, [])
   const isNight = phase === 'night'
 
+  // Live weather (via geolocation + Open-Meteo — see gardenWeather.js): a
+  // purely visual read of 'clear' | 'cloudy' | 'rain' that only ever changes
+  // what's drawn (sky/clouds/rain overlay), never garden data. Held in plain
+  // component state — nothing persisted, nothing synced. Falls back to
+  // 'clear' silently on denied/unavailable location or any fetch failure.
+  // Fetched once on mount, then re-checked every 20 minutes while the page
+  // stays open.
+  const [weather, setWeather] = useState('clear')
+  useEffect(() => {
+    let alive = true
+    const refresh = () => {
+      fetchGardenWeather().then((w) => {
+        if (alive) setWeather(w)
+      })
+    }
+    refresh()
+    const iv = window.setInterval(refresh, 20 * 60 * 1000)
+    return () => {
+      alive = false
+      window.clearInterval(iv)
+    }
+  }, [])
+
   const [selectedId, setSelectedId] = useState(null)
   const [selectedResidentId, setSelectedResidentId] = useState(null)
   // Tap-to-reveal name label: at most one garden entity (plant/bird/
@@ -1468,6 +1728,47 @@ export function GardenPage({
     const t = window.setTimeout(() => setWishBurst(null), 1400)
     return () => window.clearTimeout(t)
   }, [wishBurst])
+
+  // A dirt-poof where a fresh item just landed — cleared automatically.
+  const [plantBurst, setPlantBurst] = useState(null) // { x, y }
+  useEffect(() => {
+    if (!plantBurst) return undefined
+    const t = window.setTimeout(() => setPlantBurst(null), 600)
+    return () => window.clearTimeout(t)
+  }, [plantBurst])
+
+  // A watering-can droplet + splash on the planting she just tapped Water
+  // for — purely a local timed flourish, never touches the real onWater call.
+  const [waterAnim, setWaterAnim] = useState(null) // { id }
+  useEffect(() => {
+    if (!waterAnim) return undefined
+    const t = window.setTimeout(() => setWaterAnim(null), 900)
+    return () => window.clearTimeout(t)
+  }, [waterAnim])
+
+  // Growth-stage-up flourish: a brief pop + sparkle scatter on whichever
+  // planting(s) crossed into their next visible stage since the last render
+  // (e.g. after a watering pushes one over a growth threshold). Compares
+  // against a stable ref (not state) so it only fires on a real transition,
+  // never on every render.
+  const prevStageRef = useRef(new Map())
+  const [justGrewIds, setJustGrewIds] = useState(() => new Set())
+  useEffect(() => {
+    const prev = prevStageRef.current
+    const grew = []
+    plantings.forEach((p) => {
+      const key = plantStageKey(p)
+      const before = prev.get(p.id)
+      if (before !== undefined && before !== key) grew.push(p.id)
+      prev.set(p.id, key)
+    })
+    if (grew.length) {
+      setJustGrewIds(new Set(grew))
+      const t = window.setTimeout(() => setJustGrewIds(new Set()), 1300)
+      return () => window.clearTimeout(t)
+    }
+    return undefined
+  }, [plantings])
 
   // A resident's pet/treat reaction: which resident, which kind ('pet' plays
   // a happy bounce + floating hearts, 'treat' plays a peck-and-eat bounce +
@@ -1556,8 +1857,8 @@ export function GardenPage({
       if (!alive) return
       setCreatures(
         isNight
-          ? composeNight(grownPerches, collection, showcase, worldBounds)
-          : composeDay(grownPerches, collection, showcase, worldBounds, phase),
+          ? composeNight(grownPerches, collection, showcase)
+          : composeDay(grownPerches, collection, showcase, worldBounds),
       )
     }
     rollRef.current = roll
@@ -1614,6 +1915,7 @@ export function GardenPage({
     const s = snapToGarden(raw.x, raw.y, expansions)
     if (!canPlaceAt(placingType, s.x, s.y, plantings, expansions)) return
     onPlace(placingType, s.x, s.y)
+    setPlantBurst({ x: s.x, y: s.y })
     setPlacingType(null)
     setPlacingSpeciesMeta(null)
     setGhost(null)
@@ -1662,6 +1964,7 @@ export function GardenPage({
         </p>
         <p className="fine-print garden-time-note">
           Garden time: <strong>{PHASE_META[phase].label} {PHASE_META[phase].icon}</strong> · live South African time
+          {' · '}Weather: <strong>{WEATHER_META[weather].label} {WEATHER_META[weather].icon}</strong>
         </p>
       </section>
 
@@ -1691,8 +1994,9 @@ export function GardenPage({
               <stop offset="1" stopColor={HORIZON_HAZE[phase]} stopOpacity="0" />
             </linearGradient>
             <linearGradient id="gardenGrassMid" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#dcecc0" />
-              <stop offset="1" stopColor="#c3e0a0" />
+              <stop offset="0" stopColor="#d8ecb4" />
+              <stop offset="0.55" stopColor="#c4e094" />
+              <stop offset="1" stopColor="#a9d078" />
             </linearGradient>
             {/* Third, palest/farthest hill band — between the hazy ridge and
                 the mid band — so the terrain rolls in three steps of depth
@@ -1702,8 +2006,9 @@ export function GardenPage({
               <stop offset="1" stopColor="#d7e8bd" />
             </linearGradient>
             <linearGradient id="gardenGrassNear" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#96c977" />
-              <stop offset="1" stopColor="#79b25f" />
+              <stop offset="0" stopColor="#8fc768" />
+              <stop offset="0.55" stopColor="#6fa84f" />
+              <stop offset="1" stopColor="#568f3f" />
             </linearGradient>
             {/* Shared plant/structure gradients — a sunlit highlight fading to
                 a deeper shadowed edge, instead of one flat fill each, so grown
@@ -1730,24 +2035,69 @@ export function GardenPage({
               <stop offset="0" stopColor="#c2bcb1" />
               <stop offset="1" stopColor="#8f887c" />
             </linearGradient>
+            {/* Soft edge vignette — the very last thing painted (see the end
+                of the scene below): gently darkens the frame's corners so the
+                eye settles on the garden itself instead of the flat canvas
+                edge, the way a considered illustration is lit rather than a
+                flat crop. */}
+            <radialGradient id="gardenVignette" cx="50%" cy="46%" r="72%">
+              <stop offset="0" stopColor="#0c1608" stopOpacity="0" />
+              <stop offset="0.72" stopColor="#0c1608" stopOpacity="0" />
+              <stop offset="1" stopColor="#0c1608" stopOpacity="0.22" />
+            </radialGradient>
+            {/* Fog: densest right at the horizon, fully clear by the time it
+                reaches the near lawn — "gentle and atmospheric, not
+                obscuring" (see the fog wash render below). */}
+            <linearGradient id="gardenFogWash" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#eef4f2" stopOpacity="0.75" />
+              <stop offset="0.6" stopColor="#eef4f2" stopOpacity="0.4" />
+              <stop offset="1" stopColor="#eef4f2" stopOpacity="0" />
+            </linearGradient>
           </defs>
           <rect x={viewBox.minX} y="0" width={viewBox.width} height="260" fill="url(#gardenSky)" />
-          <GardenSky phase={phase} />
+          <GardenSky phase={phase} weather={weather} />
+          {/* overcast sky tint — a soft grey wash over the upper sky band,
+              on top of the phase gradient/sun/clouds, so cloudy/rainy weather
+              reads immediately rather than only through the cloud shapes.
+              Windy and fog deliberately don't touch the sky here — wind is
+              pure motion (see the sway/leaf-drift below) and fog gets its
+              own horizon-hugging haze rather than a sky-wide grey wash. */}
+          {(weather === 'cloudy' || weather === 'rain') && (
+            <rect
+              x={viewBox.minX} y="0" width={viewBox.width} height="160"
+              fill={weather === 'rain' ? '#5c6570' : '#8a929c'}
+              opacity={weather === 'rain' ? 0.22 : 0.16}
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
           {/* distant hazy ridge — atmospheric perspective, drawn behind both
-              proper ground layers so the scene reads with real depth */}
+              proper ground layers so the scene reads with real depth. One
+              genuinely tall rise (a small koppie, the SA term for a rocky
+              hillock) breaks the skyline left-of-centre as a fixed landmark,
+              instead of a symmetric double-bump repeated at every depth. */}
           <path
-            d="M0 138 q60 -18 150 -6 q100 14 250 -10 V260 H0 Z"
+            d="M0 150 Q40 128 90 136 Q130 142 150 118 Q175 92 205 122 Q230 146 270 134 Q320 118 360 138 Q385 148 400 140 V260 H0 Z"
             fill={DISTANT_HILLS[phase]}
             style={{ filter: 'blur(1px) opacity(0.7)' }}
           />
           <rect x={viewBox.minX} y="118" width={viewBox.width} height="34" fill="url(#gardenHorizonHaze)" style={{ pointerEvents: 'none' }} />
-          {/* far rolling-hill band — palest/coolest, sits between the ridge
-              and the mid band for a third step of depth */}
-          <path d="M0 145 q80 -20 170 -8 q110 12 220 -6 V260 H0 Z" fill="url(#gardenGrassFar)" />
-          <path d="M0 150 q70 -30 160 -12 q90 18 240 -8 V260 H0 Z" fill="url(#gardenGrassMid)" />
-          <path d="M0 186 q110 -22 210 -2 q110 16 190 -6 V260 H0 Z" fill="url(#gardenGrassNear)" />
-          {/* a soft meandering path for charm */}
-          <path d="M150 260 C176 224 132 206 178 188 C206 177 196 166 214 158" fill="none" stroke="#e4cf9a" strokeWidth="13" strokeLinecap="round" opacity="0.7" />
+          {/* far/mid/near rolling-hill bands — each its own rhythm (peak
+              count, spacing, amplitude) rather than the same wave repeated
+              at three heights, so the terrain silhouette reads as real,
+              varied ground instead of parallel bands. */}
+          <path d="M0 158 Q50 140 100 148 Q140 154 165 168 Q190 180 230 162 Q270 144 310 156 Q345 166 400 152 V260 H0 Z" fill="url(#gardenGrassFar)" />
+          <path d="M0 172 Q60 152 130 166 Q180 178 220 158 Q260 140 320 162 Q360 176 400 164 V260 H0 Z" fill="url(#gardenGrassMid)" />
+          <path d="M0 198 Q90 182 190 194 Q260 202 340 190 Q375 186 400 192 V260 H0 Z" fill="url(#gardenGrassNear)" />
+          {/* Misty/foggy weather: a soft pale haze hugging the horizon and
+              hill bands, fading out well before the near lawn — desaturates
+              "toward the horizon" without ever covering plantings. */}
+          {weather === 'fog' && (
+            <rect x={viewBox.minX} y="118" width={viewBox.width} height="90" fill="url(#gardenFogWash)" style={{ pointerEvents: 'none' }} />
+          )}
+          {/* Ground light — soft, low-contrast sun/shadow drift baked into
+              the lawn's own material (see GroundLight) rather than discrete
+              decorative props scattered on top of it. */}
+          <GroundLight rect={{ x0: GARDEN_REGION.x0 + 10, x1: GARDEN_REGION.x1 - 10, y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1 }} seedKey={baseZoneSeed} baseHue="#6fa84f" />
 
           {/* Kallie's paw prints — a little Easter egg walking trail across
               the lawn, a fresh random path each time the garden loads. */}
@@ -1764,15 +2114,23 @@ export function GardenPage({
               Garden bought before Expand Right) renders as a fenced-off,
               non-interactive locked placeholder instead of a blank gap. */}
           {expansions.includes('expand-left') && (
-            <ExpansionZoneArt id="expand-left" phase={phase} />
+            <ExpansionZoneArt id="expand-left" phase={phase} expansions={expansions} />
           )}
           {expansions.includes('expand-right') ? (
-            <ExpansionZoneArt id="expand-right" phase={phase} />
+            <ExpansionZoneArt id="expand-right" phase={phase} expansions={expansions} />
           ) : expansions.includes('back-garden') ? (
             <LockedZonePlaceholder id="expand-right" />
           ) : null}
           {expansions.includes('back-garden') && (
-            <ExpansionZoneArt id="back-garden" phase={phase} shaded />
+            <ExpansionZoneArt id="back-garden" phase={phase} shaded expansions={expansions} />
+          )}
+
+          {/* Gateway markers at the seam between two owned zones — only once
+              BOTH neighbours are real, so it never frames an empty gap. */}
+          {expansions.includes('expand-left') && <ZoneGateway x={0} />}
+          {expansions.includes('expand-right') && <ZoneGateway x={400} />}
+          {expansions.includes('expand-right') && expansions.includes('back-garden') && (
+            <ZoneGateway x={600} />
           )}
 
           {/* faint placement grid while placing, across every unlocked region */}
@@ -1808,10 +2166,11 @@ export function GardenPage({
               // broken), and only the actual flowering stage gets the pulse.
               const swaying = isFullyGrown(p) && gardenItem(p.type)?.kind === 'plant'
               const blooming = swaying && FLOWERING_STAGES.has(stageKey)
+              const justGrew = justGrewIds.has(p.id)
               return (
                 <g
                   key={p.id}
-                  className="garden-plant"
+                  className={`garden-plant${justGrew ? ' garden-plant-justgrew' : ''}`}
                   transform={`translate(${jx} ${jy})`}
                   onClick={placingAny ? undefined : (e) => {
                     e.stopPropagation()
@@ -1827,11 +2186,18 @@ export function GardenPage({
                 >
                   {isSel && <ellipse cx="0" cy="3" rx="20" ry="6" fill="#ffe07a" opacity="0.55" />}
                   <g transform={`scale(${depthScale(y)})`}>
+                    {/* ground contact shadow — every planting sits IN the lawn
+                        rather than floating on it, sized off the item's own
+                        radius so a tree casts more shadow than a stepping
+                        stone; purely visual, before the item's own art. */}
+                    <ellipse cx="0" cy="1.5" rx={(gardenItem(p.type)?.r || 18) * 0.85} ry={(gardenItem(p.type)?.r || 18) * 0.3} fill="#152410" opacity="0.24" />
                     <g
-                      className={swaying ? 'garden-plant-sway' : undefined}
+                      className={swaying ? (weather === 'windy' ? 'garden-plant-sway-windy' : 'garden-plant-sway') : undefined}
                       style={swaying ? {
                         animationDelay: `${hashSeed(`${p.id}:swaydelay`) % 4}s`,
-                        animationDuration: `${6 + (hashSeed(`${p.id}:swaydur`) % 3)}s`,
+                        animationDuration: weather === 'windy'
+                          ? `${2 + (hashSeed(`${p.id}:swaydur`) % 2)}s`
+                          : `${6 + (hashSeed(`${p.id}:swaydur`) % 3)}s`,
                       } : undefined}
                     >
                       <g
@@ -1854,10 +2220,23 @@ export function GardenPage({
                     <GardenNameLabel text={p.commonName || gardenItem(p.type)?.name} y={-46} />
                   )}
                   {thirsty && !placingAny && <text className="garden-thirsty" x="0" y="-54" textAnchor="middle">💧</text>}
+                  {waterAnim?.id === p.id && (
+                    <g transform="translate(0 -22)"><GardenWaterDrop /></g>
+                  )}
+                  {justGrew && (
+                    <g transform="translate(0 -20)"><GardenGrowSparkle /></g>
+                  )}
                   {!placingAny && <rect x="-24" y="-58" width="48" height="64" fill="transparent" />}
                 </g>
               )
             })}
+
+          {/* dirt-poof where a fresh item just landed */}
+          {plantBurst && (
+            <g transform={`translate(${plantBurst.x} ${plantBurst.y})`}>
+              <GardenPlantBurst />
+            </g>
+          )}
 
           {/* Wishing Well sparkle burst — a one-off flourish, not a loop */}
           {wishBurst && (
@@ -1877,10 +2256,16 @@ export function GardenPage({
             </g>
           )}
 
-          {/* time-of-day lighting wash over the ground (plantings read as lit) */}
-          {GROUND_WASH[phase] && (
-            <rect x="0" y="120" width="400" height="140" fill={GROUND_WASH[phase].fill} opacity={GROUND_WASH[phase].opacity} style={{ pointerEvents: 'none' }} />
-          )}
+          {/* time-of-day lighting wash over the ground (plantings read as
+              lit) — rain always wins over whatever the phase wash would be,
+              since an overcast/rainy sky reads the same cool grey regardless
+              of time of day */}
+          {(() => {
+            const wash = weather === 'rain' ? RAIN_GROUND_WASH : GROUND_WASH[phase]
+            return wash && (
+              <rect x="0" y="120" width="400" height="140" fill={wash.fill} opacity={wash.opacity} style={{ pointerEvents: 'none' }} />
+            )
+          })()}
 
           {/* the living scene: a random mix of creatures, all at once, layered
               in front of the plantings (birds, butterflies, bees by day;
@@ -1903,6 +2288,17 @@ export function GardenPage({
               Your garden is empty — buy an item below, then tap the grass 🌱
             </text>
           )}
+
+          {/* rain — falling in front of the whole scene, above plantings and
+              creatures, same as it would in front of a real garden */}
+          {weather === 'rain' && <RainOverlay viewBox={viewBox} />}
+
+          {/* windy — loose leaves/petals blowing across the scene, same
+              front-of-everything layering as rain */}
+          {weather === 'windy' && <WindOverlay viewBox={viewBox} />}
+
+          {/* edge vignette — painted last, over everything, never intercepts taps */}
+          <rect x={viewBox.minX} y="0" width={viewBox.width} height="260" fill="url(#gardenVignette)" style={{ pointerEvents: 'none' }} />
         </svg>
 
         {/* Graduated companions live here permanently, rendered as their real
@@ -2024,25 +2420,33 @@ export function GardenPage({
         </section>
       )}
 
-      {selectedResident && !placingAny && (
+      {selectedResident && !placingAny && (() => {
+        const { template, zones } = residentBirdVisual(selectedResident)
+        const daysRaised = selectedResident.bornAt && selectedResident.releasedAt
+          ? Math.max(1, Math.round((new Date(selectedResident.releasedAt) - new Date(selectedResident.bornAt)) / 86400000))
+          : null
+        return (
         <section className="soft-card full-span garden-detail garden-resident-detail">
           <div className="section-heading">
-            <div>
-              <p className="eyebrow">🪶 {selectedResident.name}</p>
-              <h3>{selectedResident.species}</h3>
+            <div className="garden-resident-detail-head">
+              <span className="garden-resident-portrait">
+                <GardenBird template={template} zones={zones} size={48} ground={false} />
+              </span>
+              <div>
+                <p className="eyebrow">🪶 {selectedResident.name}</p>
+                <h3>{selectedResident.species}</h3>
+              </div>
             </div>
             <button className="text-btn" type="button" onClick={() => setSelectedResidentId(null)}>Close</button>
           </div>
-          <p className="fine-print">
-            {selectedResident.name} · Raised from chick
-            {selectedResident.bornAt && selectedResident.releasedAt
-              ? ` for ${Math.max(1, Math.round((new Date(selectedResident.releasedAt) - new Date(selectedResident.bornAt)) / 86400000))} days`
-              : ''}
-            {' · '}
-            {selectedResident.releasedAt ? new Date(selectedResident.releasedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'released'}
-            {' · '}
-            {selectedResident.species}
-          </p>
+          <div className="garden-resident-stats">
+            <span>Raised from chick{daysRaised ? ` · ${daysRaised} days` : ''}</span>
+            <span>
+              {selectedResident.releasedAt
+                ? `Released ${new Date(selectedResident.releasedAt).toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}`
+                : 'Released'}
+            </span>
+          </div>
           <div className="garden-resident-actions">
             <button
               className="secondary-btn"
@@ -2061,7 +2465,8 @@ export function GardenPage({
             </button>
           </div>
         </section>
-      )}
+        )
+      })()}
 
       {selected && !placingAny && (() => {
         const item = gardenItem(selected.type)
@@ -2076,9 +2481,11 @@ export function GardenPage({
               </div>
               <button className="text-btn" type="button" onClick={() => setSelectedId(null)}>Close</button>
             </div>
-            <div className="garden-progress" aria-hidden="true">
+            <div className="care-droplet-meter" aria-hidden="true">
               {Array.from({ length: item.waterToGrow }).map((_, i) => (
-                <span key={i} className={i < selected.wateredDays ? 'on' : ''} />
+                <span key={i} className={`care-droplet${i < selected.wateredDays ? ' on' : ''}`}>
+                  <svg viewBox="0 0 24 24"><path d="M12 2C8 8 4 12 4 16a8 8 0 0 0 16 0c0-4-4-8-8-14z" /></svg>
+                </span>
               ))}
             </div>
             {grown ? (
@@ -2097,7 +2504,13 @@ export function GardenPage({
             ) : (
               <>
                 <p className="fine-print">{item.verb}ed {selected.wateredDays}/{item.waterToGrow} days. Needs tending!</p>
-                <button className="primary-btn" type="button" onClick={() => onWater(selected.id)}>{item.verb} 💧</button>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  onClick={() => { onWater(selected.id); setWaterAnim({ id: selected.id }) }}
+                >
+                  {item.verb} 💧
+                </button>
               </>
             )}
           </section>
@@ -2123,40 +2536,44 @@ export function GardenPage({
               Tap a species below, then tap the grass to plant it — it grows into the real thing you
               photographed. Planting costs {SEED_PLANT_COST} 🪙 on top of the seed.
             </p>
-            <div className="garden-shop-row">
-              {plantableSpecies.map((species) => {
-                const active = placingType === `species:${species.speciesKey}`
-                const disabled = (seeds <= 0 || coins < SEED_PLANT_COST) && !active
-                return (
-                  <button
-                    key={species.speciesKey}
-                    className={`garden-shop-btn${active ? ' active' : ''}`}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => {
-                      if (active) {
-                        setPlacingType(null)
-                        setPlacingSpeciesMeta(null)
-                      } else {
-                        startPlacingSpecies(species.speciesKey, species.commonName)
-                      }
-                    }}
-                  >
-                    {species.photo || species.referenceImageUrl ? (
-                      <img
-                        className="garden-shop-species-thumb"
-                        src={species.photo || species.referenceImageUrl}
-                        alt=""
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="garden-shop-emoji">🌿</span>
-                    )}
-                    <strong>{species.commonName}</strong>
-                    <small>Plant this 🌱 ({SEED_PLANT_COST} coins)</small>
-                  </button>
-                )
-              })}
+            <div className="catalog-shelf tier-starter garden-seed-shelf">
+              <div className="catalog-row">
+                {plantableSpecies.map((species) => {
+                  const active = placingType === `species:${species.speciesKey}`
+                  const disabled = (seeds <= 0 || coins < SEED_PLANT_COST) && !active
+                  return (
+                    <button
+                      key={species.speciesKey}
+                      className={`catalog-card${active ? ' active' : ''}`}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        if (active) {
+                          setPlacingType(null)
+                          setPlacingSpeciesMeta(null)
+                        } else {
+                          startPlacingSpecies(species.speciesKey, species.commonName)
+                        }
+                      }}
+                    >
+                      <span className="catalog-icon-wrap photo">
+                        {species.photo || species.referenceImageUrl ? (
+                          <img
+                            className="garden-shop-species-thumb"
+                            src={species.photo || species.referenceImageUrl}
+                            alt=""
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="catalog-icon-emoji">🌿</span>
+                        )}
+                      </span>
+                      <strong>{species.commonName}</strong>
+                      <span className="catalog-price">Plant 🌱 · {SEED_PLANT_COST} 🪙</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </>
         )}
@@ -2168,25 +2585,27 @@ export function GardenPage({
           const items = unlocked.filter((item) => item.tier === tier.id)
           if (!items.length) return null
           return (
-            <div key={tier.id} className="garden-shop-tier">
-              <p className="garden-shop-tier-heading">
-                {tier.label} <span className="garden-shop-tier-range">{tier.range}</span>
-              </p>
-              <div className="garden-shop-row">
+            <div key={tier.id} className={`catalog-shelf tier-${tier.id}`}>
+              <div className="catalog-shelf-heading">
+                <strong>{tier.label}</strong>
+                <span>{tier.range}</span>
+              </div>
+              <div className="catalog-row">
                 {items.map((item) => {
                   const afford = coins >= item.cost
                   const active = placingType === item.id
                   return (
                     <button
                       key={item.id}
-                      className={`garden-shop-btn${active ? ' active' : ''}`}
+                      className={`catalog-card${active ? ' active' : ''}`}
                       type="button"
                       disabled={!afford && !active}
                       onClick={() => (active ? setPlacingType(null) : startPlacing(item.id))}
                     >
-                      <span className="garden-shop-emoji">{item.emoji}</span>
+                      <span className="catalog-icon-wrap"><ShopItemIcon type={item.id} /></span>
                       <strong>{item.name}</strong>
-                      <small>{item.cost} 🪙</small>
+                      <p className="catalog-blurb">{item.blurb}</p>
+                      <span className="catalog-price">{item.cost} 🪙</span>
                     </button>
                   )
                 })}
@@ -2194,28 +2613,29 @@ export function GardenPage({
             </div>
           )
         })}
-        <div className="garden-shop-tier garden-expansions">
-          <p className="garden-shop-tier-heading">
-            Garden Expansions <span className="garden-shop-tier-range">permanent</span>
-          </p>
+        <div className="catalog-shelf tier-premium garden-expansions">
+          <div className="catalog-shelf-heading">
+            <strong>Garden Expansions</strong>
+            <span>permanent</span>
+          </div>
           <p className="fine-print">
             Widen the garden itself — more room to place things, and it's yours forever. Swipe the scene left/right once unlocked.
           </p>
-          <div className="garden-shop-row">
+          <div className="catalog-row">
             {GARDEN_EXPANSIONS.map((zone) => {
               const owned = expansions.includes(zone.id)
               const afford = coins >= zone.cost
               return (
                 <button
                   key={zone.id}
-                  className={`garden-shop-btn${owned ? ' owned' : ''}`}
+                  className={`catalog-card${owned ? ' owned' : ''}`}
                   type="button"
                   disabled={owned || !afford}
                   onClick={() => onPurchaseExpansion?.(zone.id)}
                 >
-                  <span className="garden-shop-emoji">{zone.emoji}</span>
+                  <span className="catalog-icon-emoji">{zone.emoji}</span>
                   <strong>{zone.name}</strong>
-                  <small>{owned ? 'Unlocked ✓' : `${zone.cost} 🪙`}</small>
+                  <span className={`catalog-price${owned ? ' owned-tag' : ''}`}>{owned ? 'Unlocked ✓' : `${zone.cost} 🪙`}</span>
                 </button>
               )
             })}

@@ -209,14 +209,6 @@ const REFERENCE_DOTS = [
   { name: 'Kruger', lon: 31.59, lat: -24.99, dx: -8, anchor: 'end' },
 ]
 
-// Decorative birds drifting across the map (purely cosmetic).
-const FLYING_BIRDS = [
-  { emoji: '🦅', top: '18%', dur: 13, delay: 0 },
-  { emoji: '🐦', top: '42%', dur: 16, delay: 2.5 },
-  { emoji: '🕊️', top: '63%', dur: 14, delay: 5 },
-  { emoji: '🦩', top: '78%', dur: 18, delay: 1.2 },
-]
-
 const PLACES = [
   { keys: ['cape town', 'kaapstad', 'table mountain'], lon: 18.42, lat: -33.92 },
   { keys: ['stellenbosch'], lon: 18.86, lat: -33.93 },
@@ -317,18 +309,6 @@ function SAMapBase({ children, ariaLabel = 'Map of South Africa' }) {
 
   return (
     <div className="sa-map-wrap">
-      {/* Decorative birds drifting across the country */}
-      <div className="sa-map-birds" aria-hidden="true">
-        {FLYING_BIRDS.map((b, i) => (
-          <span
-            key={i}
-            className="sa-fly-bird"
-            style={{ top: b.top, '--fly-dur': `${b.dur}s`, '--fly-delay': `${b.delay}s` }}
-          >
-            {b.emoji}
-          </span>
-        ))}
-      </div>
       <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label={ariaLabel}>
         <path className="sa-land" d={outlinePath} />
         {/* Province boundaries — internal reference lines only, no fill,
@@ -462,6 +442,27 @@ export function BirdMapPage({ data, onBack }) {
   )
 }
 
+// Ray-casting point-in-polygon test, used only to label the flight path's
+// two endpoints with a province name (e.g. "Western Cape → Gauteng") purely
+// from the lat/lng already on the post — no new data, no address lookup.
+function pointInPolygon(lon, lat, outline) {
+  let inside = false
+  for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+    const [loni, lati] = outline[i]
+    const [lonj, latj] = outline[j]
+    const intersect =
+      lati > lat !== latj > lat &&
+      lon < ((lonj - loni) * (lat - lati)) / (latj - lati) + loni
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+function provinceForPoint(lon, lat) {
+  const hit = PROVINCES.find((p) => pointInPolygon(lon, lat, p.outline))
+  return hit ? hit.name : null
+}
+
 function speciesLabelForFlight(birdLibrary, speciesId) {
   const found = (birdLibrary || []).find((b) => b.id === speciesId)
   if (found?.commonName) return found.commonName
@@ -507,19 +508,62 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
   const destLng = birdPost.destLng ?? FLIGHT_FALLBACK_DEST_LNG
   const createdAtMs = new Date(birdPost.createdAt).getTime()
   const elapsedSeconds = Math.max(0, (now - createdAtMs) / 1000)
+  // Unchanged from before: progress is still purely elapsed-time /
+  // travel-time, exactly as computed on the Home progress card — only how
+  // that single number gets turned into a picture on the map is new below.
   const progress = birdPost.delivered ? 1 : Math.min(1, elapsedSeconds / birdPost.travelTimeSeconds)
+  const arrived = progress >= 1
 
   const [sx, sy] = project(birdPost.senderLng, birdPost.senderLat)
   const [ex, ey] = project(destLng, destLat)
-  const bx = sx + (ex - sx) * progress
-  const by = sy + (ey - sy) * progress
+
+  // A real journey curves — draw the route as a quadratic Bézier instead of a
+  // straight line, bowed toward whichever perpendicular direction reads as
+  // "up" on the map (a consistent, gentle arc regardless of travel
+  // direction, the way flight-tracker route maps bow their great circles).
+  const dx = ex - sx
+  const dy = ey - sy
+  const straightDist = Math.hypot(dx, dy) || 1
+  const nx = -dy / straightDist
+  const ny = dx / straightDist
+  const bow = Math.min(straightDist * 0.22, 130)
+  const midX = (sx + ex) / 2
+  const midY = (sy + ey) / 2
+  const candidateAY = midY + ny * bow
+  const candidateBY = midY - ny * bow
+  const bowSign = candidateAY < candidateBY ? 1 : -1
+  const cx = midX + nx * bow * bowSign
+  const cy = midY + ny * bow * bowSign
+
+  // Point-at-t and tangent-at-t on that same quadratic Bézier, so the bird's
+  // position and the heading it banks toward both come from one curve.
+  const t = progress
+  const bx = (1 - t) ** 2 * sx + 2 * (1 - t) * t * cx + t ** 2 * ex
+  const by = (1 - t) ** 2 * sy + 2 * (1 - t) * t * cy + t ** 2 * ey
+  const tanX = 2 * (1 - t) * (cx - sx) + 2 * t * (ex - cx)
+  const tanY = 2 * (1 - t) * (cy - sy) + 2 * t * (ey - cy)
+  const tanLen = Math.hypot(tanX, tanY) || 1
+  // GardenBird's sprites face right by default, so "flying left" mirrors the
+  // sprite (scaleX) rather than rotating it 180° upside-down; on top of that,
+  // a small bank tilt (climbing = nose up, descending = nose down) reads as
+  // real flight instead of a paper cutout sliding along a wire.
+  const facingLeft = tanX < 0
+  const bankDeg = Math.max(-16, Math.min(16, (-tanY / tanLen) * 16)) * (facingLeft ? -1 : 1)
+  // A slow sine bob layered on top of the curve position — purely cosmetic
+  // (never touches progress/timing), just enough life that the bird reads as
+  // riding air currents rather than sliding along a rail.
+  const bob = arrived ? 0 : Math.sin(now / 420 + t * 9) * 3.5
 
   const distanceKm = haversineDistanceKm(birdPost.senderLat, birdPost.senderLng, destLat, destLng)
   const remainingKm = Math.max(0, Math.round(distanceKm * (1 - progress)))
+  const flownKm = Math.max(0, Math.round(distanceKm * progress))
   const etaMs = createdAtMs + birdPost.travelTimeSeconds * 1000
   const remainingSeconds = Math.max(0, (etaMs - now) / 1000)
   const speciesEntry = BIRD_COLOUR_MAP[birdPost.birdSpeciesId]
   const speciesLabel = speciesLabelForFlight(birdLibrary, birdPost.birdSpeciesId)
+  const fromProvince = provinceForPoint(birdPost.senderLng, birdPost.senderLat) || 'the field'
+  const toProvince = provinceForPoint(destLng, destLat) || 'home'
+  const curvePath = `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`
 
   return (
     <div className="page-grid bird-map-page">
@@ -530,24 +574,60 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Bird Post</p>
-            <h2>{speciesLabel} is flying 🐦</h2>
+            <h2>{arrived ? `${speciesLabel} has landed` : `${speciesLabel} is flying`} 🐦</h2>
           </div>
         </div>
 
-        <SAMapBase ariaLabel={`Map showing a ${speciesLabel} flying across South Africa`}>
-          <line
-            className="flight-path-line"
-            x1={sx.toFixed(1)}
-            y1={sy.toFixed(1)}
-            x2={ex.toFixed(1)}
-            y2={ey.toFixed(1)}
+        <p className="flight-route-label">
+          <span>{fromProvince}</span>
+          <span className="flight-route-arrow" aria-hidden="true">
+            ⟶
+          </span>
+          <span>{toProvince}</span>
+        </p>
+
+        <SAMapBase ariaLabel={`Map showing a ${speciesLabel} flying from ${fromProvince} to ${toProvince}`}>
+          {/* Full planned route, faint — the "distance not yet flown". */}
+          <path className="flight-route-guide" d={curvePath} />
+          {/* Same curve, revealed only up to the current progress via
+              pathLength + dashoffset — the browser measures the actual curve
+              length itself, so this tracks the Bézier exactly with no extra
+              math, and the dashoffset transition makes it glide smoothly
+              between the once-a-second progress ticks instead of jumping. */}
+          <path
+            className={`flight-route-flown${arrived ? ' arrived' : ''}`}
+            d={curvePath}
+            pathLength="100"
+            strokeDasharray="100"
+            strokeDashoffset={100 - progress * 100}
           />
           <g className="flight-endpoint flight-start" transform={`translate(${sx.toFixed(1)} ${sy.toFixed(1)})`}>
             <circle r="6" />
           </g>
-          <g className="flight-endpoint flight-end" transform={`translate(${ex.toFixed(1)} ${ey.toFixed(1)})`}>
+          <g
+            className={`flight-endpoint flight-end${arrived ? ' arrived' : ''}`}
+            transform={`translate(${ex.toFixed(1)} ${ey.toFixed(1)})`}
+          >
+            {arrived && (
+              <>
+                <circle className="flight-arrival-ring" r="10" />
+                <circle className="flight-arrival-ring flight-arrival-ring-delay" r="10" />
+              </>
+            )}
             <circle r="6" />
           </g>
+          {arrived &&
+            ARRIVAL_BURST_PARTICLES.map((p, i) => (
+              <text
+                key={i}
+                className="flight-arrival-particle"
+                x={ex.toFixed(1)}
+                y={ey.toFixed(1)}
+                style={{ '--px': `${p.dx}px`, '--py': `${p.dy}px`, animationDelay: `${p.delay}ms` }}
+              >
+                {p.glyph}
+              </text>
+            ))}
           {speciesEntry ? (
             // GardenBird renders its own <svg> sized via CSS px — nesting
             // that directly inside another <svg> doesn't reliably respect
@@ -557,20 +637,34 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
             // GardenBird is already used (e.g. BirdPostCard's progress bar).
             <foreignObject
               x={(bx - 18).toFixed(1)}
-              y={(by - 18).toFixed(1)}
+              y={(by - 18 + bob).toFixed(1)}
               width="36"
               height="36"
               style={{ overflow: 'visible' }}
             >
-              <div xmlns="http://www.w3.org/1999/xhtml" className="flight-bird-icon">
-                <GardenBird template={speciesEntry.template} zones={speciesEntry.zones} size={36} ground={false} flying />
+              <div
+                xmlns="http://www.w3.org/1999/xhtml"
+                className={`flight-bird-icon${arrived ? ' landed' : ''}`}
+                style={
+                  !arrived
+                    ? { transform: `scaleX(${facingLeft ? -1 : 1}) rotate(${bankDeg.toFixed(1)}deg)` }
+                    : undefined
+                }
+              >
+                <GardenBird
+                  template={speciesEntry.template}
+                  zones={speciesEntry.zones}
+                  size={36}
+                  ground={false}
+                  flying={!arrived}
+                />
               </div>
             </foreignObject>
           ) : (
             <text
               className="flight-fallback-icon"
               x={bx.toFixed(1)}
-              y={by.toFixed(1)}
+              y={(by + bob).toFixed(1)}
               textAnchor="middle"
               dy="8"
             >
@@ -579,10 +673,37 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
           )}
         </SAMapBase>
 
-        <p className="fine-print bird-post-detail">
-          {birdPost.delivered ? 'Delivered! 📬' : `${remainingKm}km to go · ETA ${formatDurationShort(remainingSeconds)}`}
-        </p>
+        {arrived ? (
+          <p className="flight-arrived-banner">Delivered! 📬 {distanceKm ? `Flew ${Math.round(distanceKm)}km to get here.` : ''}</p>
+        ) : (
+          <div className="flight-stats-row">
+            <div className="flight-stat">
+              <span className="flight-stat-label">Flown</span>
+              <span className="flight-stat-value">{flownKm}km</span>
+            </div>
+            <div className="flight-stat">
+              <span className="flight-stat-label">To go</span>
+              <span className="flight-stat-value">{remainingKm}km</span>
+            </div>
+            <div className="flight-stat">
+              <span className="flight-stat-label">ETA</span>
+              <span className="flight-stat-value">{formatDurationShort(remainingSeconds)}</span>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )
 }
+
+// Fixed set of little glyphs that burst outward from the destination pin the
+// moment a post lands — decorative only, generated once at module scope so
+// the pattern doesn't reshuffle every render/tick.
+const ARRIVAL_BURST_PARTICLES = [
+  { glyph: '✨', dx: -34, dy: -28, delay: 0 },
+  { glyph: '🪶', dx: 30, dy: -32, delay: 60 },
+  { glyph: '✨', dx: 40, dy: 10, delay: 120 },
+  { glyph: '🪶', dx: -40, dy: 8, delay: 40 },
+  { glyph: '✨', dx: 0, dy: -40, delay: 90 },
+  { glyph: '🪶', dx: 10, dy: 36, delay: 150 },
+]

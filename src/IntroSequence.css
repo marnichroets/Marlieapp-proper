@@ -35,7 +35,6 @@
   background-size: 3px 3px, 4px 4px;
   background-position: 0 0, 1px 2px;
   mix-blend-mode: overlay;
-  animation: introGrain 6s steps(6) infinite;
 }
 
 /* A gentle warm vignette so the whole frame feels like candlelit film. */
@@ -48,11 +47,6 @@
   z-index: 2;
 }
 
-@keyframes introGrain {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(-12px, 8px); }
-  100% { transform: translate(0, 0); }
-}
 
 .intro-stage {
   position: relative;
@@ -308,14 +302,6 @@
   bottom: 0;
   font-size: 0.95rem;
   opacity: 0;
-  animation: floatFeather var(--ff-dur, 3s) ease-in-out var(--ff-delay, 0s) infinite;
-}
-
-@keyframes floatFeather {
-  0% { transform: translateY(10px) rotate(-10deg); opacity: 0; }
-  20% { opacity: 0.9; }
-  80% { opacity: 0.7; }
-  100% { transform: translateY(-90px) rotate(20deg); opacity: 0; }
 }
 
 /* ---------- Screen 4: mission brief ---------- */

@@ -664,12 +664,7 @@
   position: absolute;
   top: -8%;
   font-size: 1.1rem;
-  animation: rainFall var(--rain-dur, 2.6s) linear var(--rain-delay, 0s) infinite;
-}
-@keyframes rainFall {
-  0% { transform: translateY(-10%) rotate(0); opacity: 0; }
-  10% { opacity: 0.85; }
-  100% { transform: translateY(440px) rotate(220deg); opacity: 0; }
+  opacity: 0;
 }
 
 /* ---- Screen 13: accept (dancing Tweety) ---- */

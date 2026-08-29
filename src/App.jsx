@@ -142,6 +142,7 @@ import { tweetyGrowthIndex, tweetyGrowth, tweetyGrowthProgress } from './tweetyD
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { flightSpeedForSpecies, haversineDistanceKm, formatDurationShort } from './birdFlightSpeed'
+import { LocationPicker } from './LocationPicker'
 
 // Bird Post — Pooks' fixed receiving location (see brief).
 const BIRD_POST_DEST_LAT = -26.7145
@@ -159,35 +160,6 @@ function speciesLabelFromLibrary(birdLibrary, speciesId) {
     .split('-')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
-}
-
-// Guards against the "4" → resolved to Dublin bug: too-short input is
-// rejected before it ever reaches Nominatim (see geocodeAddress below). The
-// real safety net is the confirmation step in BirdPostComposePage — this is
-// just a cheap first-line filter for obviously-incomplete input.
-const MIN_ADDRESS_LENGTH = 10
-
-// Free, no-auth-key geocoder. Nominatim's usage policy wants a real
-// identifying User-Agent; browsers silently drop that header on fetch(), so
-// the Referer they add automatically is what actually identifies this app.
-// Restricted to South Africa (countrycodes=za) so a short/ambiguous query can
-// never silently resolve to a place in another country.
-async function geocodeAddress(address) {
-  const trimmed = String(address || '').trim()
-  if (trimmed.length < MIN_ADDRESS_LENGTH) {
-    throw new Error(`Enter a fuller address (at least ${MIN_ADDRESS_LENGTH} characters) — street, suburb, city.`)
-  }
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&limit=1&countrycodes=za`
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'MarlieBirdApp/1.0 (bird-post feature)' },
-  })
-  if (!response.ok) throw new Error(`Geocoding failed (HTTP ${response.status})`)
-  const results = await response.json()
-  if (!Array.isArray(results) || !results.length) {
-    throw new Error('No match found in South Africa for that address.')
-  }
-  const { lat, lon, display_name: displayName } = results[0]
-  return { lat: Number(lat), lng: Number(lon), displayName }
 }
 
 function bumpLeaderboard(lb, winner) {
@@ -7611,6 +7583,7 @@ function App() {
       </main>
 
       <nav className="bottom-nav" aria-label="Main sections">
+        <span className="nav-indicator" aria-hidden="true" />
         {bottomTabs.map(([id, label, icon]) => (
           <button
             className={activePage === id ? 'bottom-tab active' : 'bottom-tab'}
@@ -8431,7 +8404,7 @@ function HomePage({
           bottom of Home — a real card up top, styled like any other soft
           card, that jumps straight down to the full issue. */}
       <button type="button" className="soft-card magazine-shortcut-card" onClick={scrollToMagazineSection}>
-        <p className="eyebrow">The Feather 🗞️</p>
+        <p className="magazine-mini-mast">The Feather 🗞️</p>
         <h3>Issue #{magazineIssue.issueIndex} — {season.name} Edition</h3>
         <span className="magazine-shortcut-cta">Read this week&apos;s issue →</span>
       </button>
@@ -8697,7 +8670,7 @@ function MagazineIssueModal({ issue, season, onRead, onDismiss }) {
         aria-modal="true"
         aria-labelledby="magazine-issue-modal-title"
       >
-        <p className="eyebrow">The Feather 🗞️</p>
+        <p className="magazine-mini-mast">The Feather 🗞️</p>
         <h2 id="magazine-issue-modal-title">This week&apos;s issue is here!</h2>
         <p className="magazine-season">
           Issue #{issue.issueIndex} — {season.name} Edition
@@ -8915,14 +8888,6 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const latKey = direction === 'to-marnich' ? 'pooksLat' : 'senderLat'
   const lngKey = direction === 'to-marnich' ? 'pooksLng' : 'senderLng'
 
-  const [addressDraft, setAddressDraft] = useState(data.settings[addressKey] || '')
-  const [addressBusy, setAddressBusy] = useState(false)
-  const [addressError, setAddressError] = useState('')
-  // Geocoded but not yet confirmed — nothing is saved until she says yes.
-  // This is the fix for the "4" → Dublin bug: Nominatim's result is shown
-  // back to her (place name + coordinates) and she has to explicitly accept
-  // it, instead of it being auto-saved as her address.
-  const [pendingGeocode, setPendingGeocode] = useState(null) // { address, displayName, lat, lng }
   const [justSaved, setJustSaved] = useState(null) // { address, lat, lng } — beats stale props on immediate send
   const [message, setMessage] = useState('')
   const [birdSpeciesId, setBirdSpeciesId] = useState('')
@@ -8931,6 +8896,12 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const savedLat = justSaved?.lat ?? data.settings[latKey]
   const savedLng = justSaved?.lng ?? data.settings[lngKey]
   const savedAddress = justSaved?.address ?? data.settings[addressKey]
+  // <LocationPicker> wants its saved value in its own candidate shape, not
+  // the plain address/lat/lng strings this page persists to settings. Only
+  // `name` is set (not `formatted`) since settings only stores one string —
+  // setting both would render it twice ("X — X") in the picker's saved view.
+  const pickerValue =
+    savedLat != null ? { name: savedAddress, latitude: savedLat, longitude: savedLng } : null
 
   // Mirrors the destination fallback in sendBirdPost: Pooks always has one
   // (BIRD_POST_DEST_LAT), Marnich doesn't — so this can only ever be true for
@@ -8967,35 +8938,16 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
     : speciesOptions
   const selectedSpecies = speciesOptions.find((option) => option.id === birdSpeciesId)
 
-  async function lookupAddress(event) {
-    event.preventDefault()
-    const address = addressDraft.trim()
-    if (address.length < MIN_ADDRESS_LENGTH) {
-      setAddressError(`Enter a fuller address (at least ${MIN_ADDRESS_LENGTH} characters) — street, suburb, city.`)
-      return
-    }
-    setAddressBusy(true)
-    setAddressError('')
-    try {
-      const { lat, lng, displayName } = await geocodeAddress(address)
-      setPendingGeocode({ address, displayName: displayName || address, lat, lng })
-    } catch (error) {
-      setAddressError(error?.message || 'Could not geocode that address.')
-    } finally {
-      setAddressBusy(false)
-    }
-  }
-
-  function confirmAddress() {
-    if (!pendingGeocode) return
-    onSaveAddress(direction, pendingGeocode.address, pendingGeocode.lat, pendingGeocode.lng)
-    setJustSaved({ address: pendingGeocode.displayName, lat: pendingGeocode.lat, lng: pendingGeocode.lng })
-    setPendingGeocode(null)
-  }
-
-  function rejectAddress() {
-    // Leave addressDraft as-is so she can edit and try again.
-    setPendingGeocode(null)
+  function handleAddressChange(location) {
+    // Prefer the specific place name (e.g. "Kirstenbosch Botanical Gardens")
+    // over the city/province-only `formatted` fallback — settings only keeps
+    // one address string, so the more specific one wins.
+    const address =
+      location.name && location.formatted && location.name !== location.formatted
+        ? `${location.name}, ${location.formatted}`
+        : location.name || location.formatted || ''
+    onSaveAddress(direction, address, location.latitude, location.longitude)
+    setJustSaved({ address, lat: location.latitude, lng: location.longitude })
   }
 
   function submit(event) {
@@ -9022,50 +8974,13 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
           </div>
         </div>
 
-        <h3>Your Address</h3>
-        <p className="fine-print">
-          Where this bird sets off from — geocoded via the free Nominatim API (South Africa only) and
-          reused until you change it.
-        </p>
-        {pendingGeocode ? (
-          <div className="address-confirm">
-            <p className="fine-print">
-              📍 {pendingGeocode.displayName}
-              <br />
-              ({pendingGeocode.lat.toFixed(4)}, {pendingGeocode.lng.toFixed(4)})
-            </p>
-            <p className="fine-print"><strong>Is this correct?</strong></p>
-            <div className="button-row">
-              <button className="primary-btn" type="button" onClick={confirmAddress}>
-                Yes, that&apos;s right
-              </button>
-              <button className="text-btn" type="button" onClick={rejectAddress}>
-                No, let me edit it
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form className="form-grid" onSubmit={lookupAddress}>
-            <input
-              value={addressDraft}
-              onChange={(event) => setAddressDraft(event.target.value)}
-              placeholder="Street, Town — e.g. 5 White Street, Grahamstown"
-            />
-            <p className="fine-print">
-              Always include your town — a street name on its own can geocode to the wrong part of
-              the country.
-            </p>
-            <button className="primary-btn" type="submit" disabled={addressBusy || !addressDraft.trim()}>
-              {addressBusy ? 'Looking up…' : 'Look up address'}
-            </button>
-          </form>
-        )}
-        {savedLat != null && !pendingGeocode && (
-          <p className="fine-print">
-            Saved: {savedAddress} ({savedLat.toFixed(4)}, {savedLng.toFixed(4)})
-          </p>
-        )}
-        {addressError && <p className="login-error">{addressError}</p>}
+        <LocationPicker
+          label="Your Address"
+          helperText="Where this bird sets off from — search or use your current location (South Africa only), reused until you change it."
+          placeholder="Street, Town — e.g. 5 White Street, Grahamstown"
+          value={pickerValue}
+          onChange={handleAddressChange}
+        />
 
         <h3>Send Bird Post 📬</h3>
         {blocked ? (
@@ -9478,6 +9393,24 @@ function ExploreHubPage({
         <ExploreBirdsPage data={data} openBirdProfile={openBirdProfile} />
       )}
     </div>
+  )
+}
+
+// A little huddle of illustrated bird silhouettes, each bobbing on its own
+// stagger — "the Council conferring" instead of a bare generic spinner,
+// matching the personality already in the loading copy ("The Council is
+// examining the evidence...").
+function CouncilConferring() {
+  return (
+    <span className="council-conferring" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <svg key={i} className="council-conferring-bird" viewBox="0 0 40 40" style={{ animationDelay: `${i * 0.18}s` }}>
+          <ellipse cx="18" cy="24" rx="11" ry="9" />
+          <circle cx="28" cy="16" r="6" />
+          <path d="M34 15 l6 2 l-6 3 z" />
+        </svg>
+      ))}
+    </span>
   )
 }
 
@@ -10074,7 +10007,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
 
         {aiStatus === 'loading' && (
           <div className="council-loading" role="status" aria-live="polite">
-            <span aria-hidden="true"></span>
+            <CouncilConferring />
             <p>{loadingMessages[loadingIndex]}</p>
           </div>
         )}
@@ -10614,7 +10547,7 @@ function AddPlantPage({ addPlant }) {
 
         {aiStatus === 'loading' && (
           <div className="council-loading" role="status" aria-live="polite">
-            <span aria-hidden="true"></span>
+            <span className="council-spinner" aria-hidden="true"></span>
             <p>{plantLoadingMessages[loadingIndex]}</p>
           </div>
         )}
@@ -10894,6 +10827,27 @@ function libraryBirdMatchesFilter(bird, filter) {
     .some((value) => value.toLowerCase() === filterKey)
 }
 
+// A collector's-seal ring for the library hero, replacing the flat generic
+// progress bar — a circular badge (same ring-gauge technique as the
+// Greenhouse's plant health gauge) reads as "a stamp you're filling in",
+// closer to a field guide's own collector's-checklist feel.
+function FieldGuideSeal({ percent }) {
+  const r = 30
+  const c = 2 * Math.PI * r
+  const p = Math.max(0, Math.min(100, percent))
+  return (
+    <svg className="library-seal" viewBox="0 0 72 72" role="img" aria-label={`${p}% of birds found`}>
+      <circle cx="36" cy="36" r={r} fill="none" stroke="var(--line)" strokeWidth="5" />
+      <circle
+        cx="36" cy="36" r={r} fill="none" stroke="var(--terracotta)" strokeWidth="5" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)}
+        transform="rotate(-90 36 36)"
+      />
+      <text x="36" y="43" textAnchor="middle" fontSize="22">🐦</text>
+    </svg>
+  )
+}
+
 // Aspirational Pokédex-style goal: collect every bird in the library. The total
 // is the live library size, so it always reflects the real catalog as it grows.
 
@@ -10923,11 +10877,13 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
   return (
     <div className="page-grid library-page">
       <section className="soft-card full-span checklist-hero scrapbook-hero">
-        <p className="eyebrow">Your bird collection</p>
-        <h2 className="discovered-count">{seenCount} / {totalBirds} birds found 🐦</h2>
-        <p className="discovered-sub">Catch them all — snap a real photo to unlock each one</p>
-        <div className="progress-track">
-          <span style={{ width: `${progressValue}%` }}></span>
+        <div className="library-hero-row">
+          <FieldGuideSeal percent={progressValue} />
+          <div className="library-hero-text">
+            <p className="eyebrow">Your bird collection</p>
+            <h2 className="discovered-count">{seenCount} / {totalBirds} birds found 🐦</h2>
+            <p className="discovered-sub">Catch them all — snap a real photo to unlock each one</p>
+          </div>
         </div>
       </section>
 
@@ -11081,8 +11037,9 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
           {withMarnich && <span className="marnich-heart" aria-hidden="true">❤️</span>}
         </div>
         <div className="bird-card-body">
-          <span className="status-pill paid">Caught ✅</span>
+          <span className="field-guide-stamp">Caught</span>
           <h3>{bird.commonName}</h3>
+          {bird.scientificName && <p className="field-guide-scientific">{bird.scientificName}</p>}
           <p className="nickname">{bird.afrikaansName || bird.category}</p>
           <p className="memory-caption">
             {`${bird.timesSeen || 1} sighting${bird.timesSeen === 1 ? '' : 's'}${withMarnich ? ' · with Marnich ❤️' : ''}`}
@@ -12886,21 +12843,24 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     plantCount: plantScannerVisible ? 4 : 0,
   })
 
-  const coverPhoto = (commonName, imageUrl) =>
-    imageUrl ? (
-      <img className="magazine-cover-photo" src={imageUrl} alt={commonName} />
-    ) : (
-      <div className="magazine-cover-photo placeholder-photo">
-        <span>{getBirdPhotoPlaceholderLabel(commonName)}</span>
-      </div>
-    )
+  const coverPhoto = (commonName, imageUrl) => (
+    <div className="magazine-cover-photo-frame">
+      {imageUrl ? (
+        <img className="magazine-cover-photo" src={imageUrl} alt={commonName} />
+      ) : (
+        <div className="magazine-cover-photo placeholder-photo">
+          <span>{getBirdPhotoPlaceholderLabel(commonName)}</span>
+        </div>
+      )}
+    </div>
+  )
 
   const pages = []
 
   // Page 1 — the cover.
   pages.push(
     <div className="magazine-cover-page" key="cover">
-      <p className="magazine-issue-no">The Feather</p>
+      <p className="magazine-masthead">The Feather</p>
       <p className="magazine-season">Issue #{issue.issueIndex} — {season.name} Edition</p>
       <p className="fine-print">A fresh flock every Sunday · {season.greeting}</p>
       <p className="magazine-countdown">🗞️ {issue.countdown.text}</p>
@@ -12963,7 +12923,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
   if (plantScannerVisible && plantOfWeek) {
     pages.push(
       <div className="magazine-cover-page" key="plant-cover">
-        <p className="magazine-issue-no">The Bloom</p>
+        <p className="magazine-masthead">The Bloom</p>
         <p className="magazine-season">Plant Issue #{plantIssueIndex} — {season.name} Edition</p>
         <p className="fine-print">A fresh bloom every Sunday · {season.greeting}</p>
         {coverPhoto(plantOfWeek.commonName, plantOfWeek.imageUrl)}
