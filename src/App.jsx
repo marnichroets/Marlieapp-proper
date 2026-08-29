@@ -2842,7 +2842,16 @@ function App() {
     [data.dailyChallengeCompletions],
   )
 
-  const season = useMemo(() => getSeasonInfo(), [])
+  // Recomputed once per SA calendar day (keyed on today's date, not frozen
+  // with an empty dep array) — otherwise an installed PWA left open across
+  // a season/day boundary would keep showing whatever season it happened to
+  // first mount under, forever, until the next full reload.
+  const todayKeyForSeason = saDateKey()
+  // getSeasonInfo() reads the real clock internally; todayKeyForSeason is
+  // deliberately in the dep array to force a recompute once a new SA day
+  // begins, not because the callback body reads it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const season = useMemo(() => getSeasonInfo(), [todayKeyForSeason])
   const weekly = useMemo(() => getWeeklyBird(), [])
 
   // Birds from her real Collection (seen species) that can visit grown garden
@@ -8231,6 +8240,176 @@ function daysUntilMarnichVisit(now = new Date()) {
   return Math.round((MARNICH_VISIT_DATE - today) / MS_PER_DAY)
 }
 
+// A small illustrated seasonal vignette above the greeting text, in place of
+// the old bare-text banner — matches whichever season getSeasonInfo() really
+// resolves to right now (including the temporary Cape Town theme), reusing
+// the app's existing warm-editorial tokens plus the same butterfly wing-flap
+// language the outdoor Garden already uses (.g-wing/.g-flutter). A handful of
+// hand-placed falling petals/leaves/snow give it quiet motion without
+// needing a seeded RNG for something this small.
+function SeasonMotif({ seasonKey }) {
+  const fall = (items, cls) =>
+    items.map((it, i) => (
+      <g key={i} className={cls} style={{ '--fx': `${it.x}px`, '--fdelay': `${it.delay}s`, '--fdur': `${it.dur}s` }}>
+        {it.node}
+      </g>
+    ))
+
+  if (seasonKey === 'spring') {
+    return (
+      <>
+        <rect width="320" height="100" fill="url(#seasonGradSpring)" />
+        <path d="M-10 22 Q80 6 160 24 Q240 42 330 20" fill="none" stroke="#8a6a4a" strokeWidth="2.4" strokeLinecap="round" opacity="0.6" />
+        {[30, 78, 130, 190, 250, 300].map((x, i) => {
+          const y = 22 + Math.sin(i * 1.3) * 10
+          return (
+            <g key={x} transform={`translate(${x} ${y})`}>
+              {[0, 72, 144, 216, 288].map((rot) => (
+                <ellipse key={rot} cx="0" cy="-3.2" rx="2.6" ry="3.4" fill={i % 2 ? '#f8b4d0' : '#f6a5c0'} transform={`rotate(${rot})`} />
+              ))}
+              <circle r="1.6" fill="#ffd45e" />
+            </g>
+          )
+        })}
+        <g className="g-flutter" style={{ animationDelay: '0.4s', animationDuration: '6.4s', '--flap-dur': '0.3s', '--flap-delay': '0s' }} transform="translate(90 62)">
+          <ellipse className="g-wing g-wing-l" cx="-3.1" cy="0" rx="3.3" ry="4.3" fill="#c9a8e8" />
+          <ellipse className="g-wing g-wing-r" cx="3.1" cy="0" rx="3.3" ry="4.3" fill="#c9a8e8" />
+          <line x1="0" y1="-3.4" x2="0" y2="3.4" stroke="#5a4632" strokeWidth="1" />
+        </g>
+        <g className="g-flutter" style={{ animationDelay: '2.2s', animationDuration: '5.6s', '--flap-dur': '0.26s', '--flap-delay': '0.1s' }} transform="translate(230 70)">
+          <ellipse className="g-wing g-wing-l" cx="-2.6" cy="0" rx="2.7" ry="3.5" fill="#9fd6f0" />
+          <ellipse className="g-wing g-wing-r" cx="2.6" cy="0" rx="2.7" ry="3.5" fill="#9fd6f0" />
+          <line x1="0" y1="-2.8" x2="0" y2="2.8" stroke="#5a4632" strokeWidth="0.9" />
+        </g>
+        {fall(
+          [
+            { x: 55, delay: 0, dur: 6 }, { x: 140, delay: 2, dur: 7 }, { x: 210, delay: 4, dur: 6.5 },
+            { x: 270, delay: 1.2, dur: 5.5 },
+          ].map((p) => ({ ...p, node: <ellipse rx="2.2" ry="1.6" fill="#fbd0e0" /> })),
+          'season-motif-fall',
+        )}
+      </>
+    )
+  }
+  if (seasonKey === 'summer') {
+    return (
+      <>
+        <rect width="320" height="100" fill="url(#seasonGradSummer)" />
+        <g transform="translate(258 26)" className="season-motif-sun-pulse">
+          <circle r="26" fill="#ffe7a8" opacity="0.4" />
+          <circle r="15" fill="#ffcf6a" />
+        </g>
+        {[0, 45, 90, 135].map((rot) => (
+          <line key={rot} x1="258" y1="26" x2={258 + Math.cos((rot * Math.PI) / 180) * 40} y2={26 + Math.sin((rot * Math.PI) / 180) * 40} stroke="#ffe7a8" strokeWidth="2" strokeLinecap="round" opacity="0.5" className="season-motif-sun-pulse" />
+        ))}
+        {[40, 100, 160].map((x) => (
+          <g key={x} transform={`translate(${x} 82)`}>
+            <line x1="0" y1="0" x2="0" y2="16" stroke="#4f9a55" strokeWidth="2" />
+            {[0, 60, 120, 180, 240, 300].map((rot) => (
+              <ellipse key={rot} cx="0" cy="-7" rx="3.4" ry="5.6" fill="#ffcf6a" transform={`rotate(${rot})`} />
+            ))}
+            <circle cy="-7" r="3" fill="#a2761f" />
+          </g>
+        ))}
+        <g className="g-flutter" style={{ animationDelay: '1s', animationDuration: '6s', '--flap-dur': '0.28s', '--flap-delay': '0s' }} transform="translate(210 55)">
+          <ellipse className="g-wing g-wing-l" cx="-3" cy="0" rx="3.2" ry="4.1" fill="#f6a5c0" />
+          <ellipse className="g-wing g-wing-r" cx="3" cy="0" rx="3.2" ry="4.1" fill="#f6a5c0" />
+          <line x1="0" y1="-3.2" x2="0" y2="3.2" stroke="#5a4632" strokeWidth="1" />
+        </g>
+      </>
+    )
+  }
+  if (seasonKey === 'autumn') {
+    return (
+      <>
+        <rect width="320" height="100" fill="url(#seasonGradAutumn)" />
+        <path d="M-10 18 Q90 2 170 20 Q250 38 330 16" fill="none" stroke="#6b4a2a" strokeWidth="2.6" strokeLinecap="round" opacity="0.65" />
+        {[[40, 24, '#c1552f'], [95, 14, '#e8893a'], [150, 26, '#c9a35a'], [210, 16, '#a9512f'], [270, 24, '#e8893a']].map(([x, y, c], i) => (
+          <ellipse key={i} cx={x} cy={y} rx="6" ry="4.4" fill={c} transform={`rotate(${(i % 2 ? 20 : -20)} ${x} ${y})`} />
+        ))}
+        {fall(
+          [
+            { x: 30, delay: 0, dur: 7 }, { x: 90, delay: 2.4, dur: 8 }, { x: 170, delay: 1, dur: 6.5 },
+            { x: 230, delay: 3.4, dur: 7.5 }, { x: 290, delay: 0.6, dur: 6.8 },
+          ].map((p, i) => ({ ...p, node: <ellipse rx="3" ry="2.2" fill={i % 2 ? '#c1552f' : '#c9a35a'} /> })),
+          'season-motif-fall season-motif-fall-spin',
+        )}
+      </>
+    )
+  }
+  if (seasonKey === 'winter') {
+    return (
+      <>
+        <rect width="320" height="100" fill="url(#seasonGradWinter)" />
+        <path d="M0 84 Q60 62 130 78 Q200 94 260 68 Q300 52 320 62 V100 H0 Z" fill="#e8eff6" opacity="0.85" />
+        <g transform="translate(238 52)">
+          <ellipse cx="0" cy="30" rx="9" ry="3" fill="#33507e" opacity="0.18" />
+          <path d="M0 -22 L-13 0 L13 0 Z" fill="#5f8f6e" />
+          <path d="M0 -12 L-16 12 L16 12 Z" fill="#4f7d5e" />
+          <path d="M0 -12 L-6 -6 L6 -6 Z" fill="#eef4f2" opacity="0.85" />
+          <path d="M-9 6 L-2 0 L4 6 Z" fill="#eef4f2" opacity="0.7" />
+          <rect x="-2" y="12" width="4" height="6" fill="#6b4a2a" />
+        </g>
+        {fall(
+          [
+            { x: 20, delay: 0, dur: 8 }, { x: 70, delay: 2, dur: 9 }, { x: 130, delay: 4, dur: 7.5 },
+            { x: 190, delay: 1.4, dur: 8.5 }, { x: 260, delay: 3, dur: 7 }, { x: 300, delay: 0.8, dur: 9 },
+          ].map((p) => ({ ...p, node: <circle r="1.7" fill="#ffffff" /> })),
+          'season-motif-fall',
+        )}
+      </>
+    )
+  }
+  // capetown: temporary "on location" theme — see seasons.js
+  return (
+    <>
+      <rect width="320" height="100" fill="url(#seasonGradCapeTown)" />
+      <path
+        d="M0 62 L28 58 L44 40 L58 52 L80 26 L92 18 L166 18 L182 32 L198 24 L222 48 L252 62 L320 74 V100 H0 Z"
+        fill="#4a6a72"
+        opacity="0.55"
+      />
+      <path className="season-motif-drift" d="M20 20 q10 -6 20 0 q10 6 20 0" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" opacity="0.55" style={{ '--fdur': '18s' }} />
+      <path className="season-motif-drift" d="M180 12 q9 -5 18 0 q9 5 18 0" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" opacity="0.5" style={{ '--fdur': '22s', animationDelay: '-6s' }} />
+      <g stroke="#eaf9ff" strokeWidth="1.6" strokeLinecap="round" opacity="0.6">
+        <path d="M0 82 q10 -4 20 0 t20 0 t20 0 t20 0" />
+        <path d="M120 90 q10 -4 20 0 t20 0 t20 0 t20 0" />
+      </g>
+    </>
+  )
+}
+
+function SeasonBanner({ season }) {
+  return (
+    <section className="season-greeting">
+      <div className="season-banner-art" aria-hidden="true">
+        <svg viewBox="0 0 320 100" preserveAspectRatio="xMidYMid slice" role="presentation">
+          <defs>
+            <linearGradient id="seasonGradSpring" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#fbe6ee" /><stop offset="1" stopColor="#eef6da" />
+            </linearGradient>
+            <linearGradient id="seasonGradSummer" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#bfe6f2" /><stop offset="1" stopColor="#e8f5dc" />
+            </linearGradient>
+            <linearGradient id="seasonGradAutumn" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#f3d9a8" /><stop offset="1" stopColor="#fde9cf" />
+            </linearGradient>
+            <linearGradient id="seasonGradWinter" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#c7d9ec" /><stop offset="1" stopColor="#eef3f8" />
+            </linearGradient>
+            <linearGradient id="seasonGradCapeTown" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#bcdce8" /><stop offset="1" stopColor="#e6f3ee" />
+            </linearGradient>
+          </defs>
+          <SeasonMotif seasonKey={season.key} />
+        </svg>
+      </div>
+      <h2>{season.greeting}</h2>
+      <p>{season.blurb}</p>
+    </section>
+  )
+}
+
 function HomePage({
   data,
   dailyChallenge,
@@ -8319,8 +8498,12 @@ function HomePage({
       )}
       <div className={`home-stack home-mood-${tweetyView.mood}`}>
       <div className="home-topline">
-        <span className="streak-chip">Day {careStreak} care streak 🔥</span>
-        <span className="coin-chip">{data.featherCoins} 🪙</span>
+        <span className="streak-chip">
+          Day {careStreak} care streak <span className="streak-flame" aria-hidden="true">🔥</span>
+        </span>
+        <span className="coin-chip">
+          {data.featherCoins} <span className="coin-icon" aria-hidden="true">🪙</span>
+        </span>
       </div>
 
       {(() => {
@@ -8372,10 +8555,7 @@ function HomePage({
         )
       })()}
 
-      <section className="season-greeting">
-        <h2>{season.greeting}</h2>
-        <p>{season.blurb}</p>
-      </section>
+      <SeasonBanner season={season} />
 
       {birdPost && !birdPost.read && (birdPost.direction || 'to-pooks') === (myRole === 'marnich' ? 'to-marnich' : 'to-pooks') && (
         <BirdPostCard
@@ -8392,21 +8572,27 @@ function HomePage({
           exception to readOnly: see sendBirdPost in App()), next to the other
           messaging entry point (Inbox, in the bottom nav). Opens the composer
           page rather than a modal so the species picker has room to breathe. */}
-      <button type="button" className="soft-card bird-post-shortcut-card" onClick={() => goTo('birdpostcompose')}>
-        <p className="eyebrow">Bird Post 🐦</p>
-        <h3>Send a Bird</h3>
-        <span className="magazine-shortcut-cta">
-          {myRole === 'marnich' ? 'Send a message to Pooks →' : 'Send a message to Marnich →'}
+      <button type="button" className="home-entry-card bird-post-shortcut-card" onClick={() => goTo('birdpostcompose')}>
+        <span className="home-entry-emoji bird-post-shortcut-emoji" aria-hidden="true">🐦</span>
+        <span className="home-entry-text">
+          <span className="eyebrow">Bird Post</span>
+          <strong>Send a Bird</strong>
+          <small>{myRole === 'marnich' ? 'Send a message to Pooks' : 'Send a message to Marnich'}</small>
         </span>
+        <span className="home-entry-arrow" aria-hidden="true">→</span>
       </button>
 
       {/* Permanent shortcut so the magazine is never just buried at the
-          bottom of Home — a real card up top, styled like any other soft
-          card, that jumps straight down to the full issue. */}
-      <button type="button" className="soft-card magazine-shortcut-card" onClick={scrollToMagazineSection}>
-        <p className="magazine-mini-mast">The Feather 🗞️</p>
-        <h3>Issue #{magazineIssue.issueIndex} — {season.name} Edition</h3>
-        <span className="magazine-shortcut-cta">Read this week&apos;s issue →</span>
+          bottom of Home — a real card up top, styled like the other Home
+          entry points, that jumps straight down to the full issue. */}
+      <button type="button" className="home-entry-card magazine-shortcut-card" onClick={scrollToMagazineSection}>
+        <span className="home-entry-emoji magazine-shortcut-emoji" aria-hidden="true">🗞️</span>
+        <span className="home-entry-text">
+          <span className="eyebrow">The Feather</span>
+          <strong>Issue #{magazineIssue.issueIndex} — {season.name} Edition</strong>
+          <small>Read this week&apos;s issue</small>
+        </span>
+        <span className="home-entry-arrow" aria-hidden="true">→</span>
       </button>
 
       <BirdsNearYouCard library={data.birdLibrary} openBirdProfile={openBirdProfile} />

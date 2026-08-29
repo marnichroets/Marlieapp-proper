@@ -503,6 +503,10 @@
   overscroll-behavior-x: contain;
   touch-action: pan-x;
   scrollbar-width: thin;
+  /* Fade the right edge so the strip visibly hints "there's more — swipe" -
+     instead of the row just cutting off flat at the card's own boundary. */
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
 }
 .near-you-bird {
   flex: 0 0 auto;
@@ -519,18 +523,25 @@
   text-align: left;
   cursor: pointer;
   scroll-snap-align: start;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: transform 200ms var(--ease-spring), box-shadow 200ms ease, border-color 200ms ease;
 }
 .near-you-bird:hover,
 .near-you-bird:focus-visible {
   transform: translateY(-3px);
   box-shadow: var(--shadow);
+  border-color: var(--dash);
 }
 .near-you-photo {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 12px;
   overflow: hidden;
+  display: block;
+  transition: transform 260ms var(--ease-out);
+}
+.near-you-bird:hover .near-you-photo,
+.near-you-bird:focus-visible .near-you-photo {
+  transform: scale(1.06);
 }
 .near-you-name {
   font-size: 0.82rem;

@@ -3,8 +3,15 @@
 
 import { saDateKey } from './saDate'
 
+// Same +2h-then-read-UTC trick saDate.js uses for saDateKey/saHour — the
+// season must key off South African local time, not whatever timezone the
+// device happens to be set to (a device on a different timezone could read
+// the wrong month, especially near a month boundary).
+const SA_OFFSET_MS = 2 * 60 * 60 * 1000
+
 export function getSeason(date = new Date()) {
-  const month = date.getMonth() // 0 = Jan
+  const sa = new Date(date.getTime() + SA_OFFSET_MS)
+  const month = sa.getUTCMonth() // 0 = Jan, SA local
   if (month === 11 || month === 0 || month === 1) return 'summer'
   if (month >= 2 && month <= 4) return 'autumn'
   if (month >= 5 && month <= 7) return 'winter'
