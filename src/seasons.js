@@ -84,5 +84,10 @@ export function capeTownTripSightingCount(sightings = []) {
 
 export function getSeasonInfo(date = new Date()) {
   if (isCapeTownWeek(date)) return SEASONS.capetown
-  return SEASONS[getSeason(date)]
+  // Deliberate creative override: showing Spring a couple of days early
+  // rather than one last stretch of Winter. Real-season display, not a
+  // bug — getSeason(date) itself is untouched and still used for anything
+  // that needs the true meteorological season (e.g. the bird-ID API call).
+  // Revert to `SEASONS[getSeason(date)]` whenever Winter should return.
+  return SEASONS.spring
 }

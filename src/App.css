@@ -2801,9 +2801,9 @@ textarea:focus {
 }
 
 .streak-chip {
-  background: linear-gradient(135deg, rgba(201, 147, 47, 0.22), var(--paper) 65%);
-  color: var(--gold-dark);
-  border: 1px solid rgba(201, 147, 47, 0.45);
+  background: linear-gradient(135deg, rgba(193, 85, 47, 0.22), rgba(201, 147, 47, 0.3) 60%);
+  color: var(--terracotta-dark);
+  border: 1px solid rgba(201, 147, 47, 0.55);
   box-shadow: var(--shadow-sm);
 }
 
@@ -2864,8 +2864,9 @@ textarea:focus {
   margin: 8px 0 2px;
   padding: 7px 14px;
   border-radius: var(--radius-pill);
-  background: var(--parchment);
-  border: 1px solid var(--dash);
+  background: linear-gradient(135deg, rgba(201, 147, 47, 0.28), rgba(193, 85, 47, 0.14));
+  border: 1px solid rgba(201, 147, 47, 0.5);
+  box-shadow: var(--shadow-sm);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--gold-dark);
@@ -3049,9 +3050,9 @@ textarea:focus {
   gap: 8px;
   align-content: start;
   text-align: left;
-  border: 1px solid var(--line);
+  border: 1px solid var(--dash);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: linear-gradient(150deg, rgba(53, 96, 74, 0.16), rgba(255, 253, 249, 1) 60%);
   box-shadow: var(--shadow-sm);
   padding: 14px;
   min-height: 92px;
@@ -3060,12 +3061,17 @@ textarea:focus {
     box-shadow var(--dur-base) var(--ease-out),
     border-color var(--dur-base) var(--ease-out);
 }
+/* Gifts opens the coin shop — a gold wash instead of the shared leaf tint. */
+.mini-card:nth-child(2) {
+  background: linear-gradient(150deg, rgba(201, 147, 47, 0.2), rgba(255, 253, 249, 1) 60%);
+}
 
 .mini-card:hover {
-  border-color: var(--dash);
-  box-shadow: var(--shadow);
+  border-color: var(--leaf-dark);
+  box-shadow: var(--shadow-strong);
   transform: translateY(-2px);
 }
+.mini-card:nth-child(2):hover { border-color: var(--gold-dark); }
 
 .mini-card:active {
   transform: scale(0.97);
@@ -4587,7 +4593,8 @@ textarea:focus {
 /* ===================== Tweety ===================== */
 .tweety-card {
   background:
-    linear-gradient(160deg, rgba(255, 252, 244, 0.96), rgba(255, 244, 220, 0.92));
+    linear-gradient(160deg, rgba(255, 249, 235, 0.98), rgba(232, 201, 122, 0.32));
+  border-color: rgba(201, 147, 47, 0.4);
 }
 .tweety-mood-sad {
   background:
@@ -6948,8 +6955,18 @@ button.tweety-nest-base.gift-pop {
 .home-entry-card:active { transform: translateY(0) scale(0.985); transition-duration: var(--dur-fast); }
 /* A real tinted wash per card instead of flat paper — matches the deeper,
    bolder palette the rest of tonight's redesign uses. */
-.bird-post-shortcut-card { background: linear-gradient(135deg, rgba(184, 169, 201, 0.18), rgba(255, 253, 249, 1) 55%); }
-.magazine-shortcut-card { background: linear-gradient(135deg, rgba(201, 147, 47, 0.2), rgba(255, 253, 249, 1) 55%); }
+.bird-post-shortcut-card {
+  background: linear-gradient(135deg, rgba(142, 118, 168, 0.32), rgba(255, 253, 249, 1) 70%);
+  border-color: rgba(142, 118, 168, 0.5);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(142, 118, 168, 0.08);
+}
+.magazine-shortcut-card {
+  background: linear-gradient(135deg, rgba(201, 147, 47, 0.34), rgba(255, 253, 249, 1) 70%);
+  border-color: rgba(201, 147, 47, 0.55);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(201, 147, 47, 0.1);
+}
+.bird-post-shortcut-card:hover { border-color: #6e5387; }
+.magazine-shortcut-card:hover { border-color: var(--gold-dark); }
 .home-entry-emoji {
   display: grid;
   place-items: center;
@@ -6961,8 +6978,8 @@ button.tweety-nest-base.gift-pop {
   transition: transform var(--dur-base) var(--ease-spring);
 }
 .home-entry-card:hover .home-entry-emoji { transform: scale(1.06) rotate(-4deg); }
-.bird-post-shortcut-emoji { background: rgba(142, 118, 168, 0.28); }
-.magazine-shortcut-emoji { background: rgba(201, 147, 47, 0.28); }
+.bird-post-shortcut-emoji { background: rgba(142, 118, 168, 0.4); }
+.magazine-shortcut-emoji { background: rgba(201, 147, 47, 0.4); }
 .home-entry-text { flex: 1; display: flex; flex-direction: column; }
 .home-entry-text .eyebrow { margin: 0 0 2px; }
 .home-entry-text strong { color: var(--ink-strong); font-size: 1.02rem; font-weight: 700; }
@@ -6995,14 +7012,21 @@ button.tweety-nest-base.gift-pop {
     box-shadow var(--dur-base) var(--ease-out),
     border-color var(--dur-base) var(--ease-out);
 }
-.garden-home-card { background: linear-gradient(135deg, rgba(53, 96, 74, 0.12), rgba(255, 253, 249, 1) 55%); }
-.greenhouse-home-card { background: linear-gradient(135deg, rgba(201, 147, 47, 0.16), rgba(255, 253, 249, 1) 55%); }
+.garden-home-card {
+  background: linear-gradient(135deg, rgba(53, 96, 74, 0.26), rgba(255, 253, 249, 1) 60%);
+  border-color: rgba(53, 96, 74, 0.42);
+}
+.greenhouse-home-card {
+  background: linear-gradient(135deg, rgba(201, 147, 47, 0.3), rgba(255, 253, 249, 1) 60%);
+  border-color: rgba(201, 147, 47, 0.5);
+}
+.garden-home-card:hover { border-color: var(--leaf-dark); }
+.greenhouse-home-card:hover { border-color: var(--gold-dark); }
 
 .greenhouse-home-card:hover,
 .garden-home-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow);
-  border-color: var(--dash);
+  box-shadow: var(--shadow-strong);
 }
 
 .greenhouse-home-card:active,
@@ -7684,36 +7708,10 @@ button.tweety-nest-base.gift-pop {
    not buried in the settings menu. Visual treatment now shared with
    .greenhouse-home-card (see that rule, above). */
 
-/* Magazine shortcut card — a plain soft-card (not a banner) near the top of
-   Home, since the full issue at the bottom is too easy to never scroll to. */
-.magazine-shortcut-card {
-  display: block;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-.magazine-shortcut-card:hover { transform: translateY(-1px); }
-.magazine-shortcut-cta {
-  display: inline-block;
-  margin-top: 6px;
-  font-weight: 800;
-  color: var(--leaf);
-}
-
-/* Bird Post shortcut card — same plain soft-card treatment as the magazine
-   shortcut, right next to it near the top of Home so it's never buried
-   behind Admin (see BirdPostComposePage in App.jsx). */
-.bird-post-shortcut-card {
-  display: block;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-.bird-post-shortcut-card:hover { transform: translateY(-1px); }
+/* Magazine and Bird Post shortcut cards were plain text-only soft-cards
+   here originally; both now share the .home-entry-card shell (see that
+   rule, above) with their own tinted backgrounds — nothing left to add
+   here beyond the base button reset .home-entry-card already provides. */
 
 /* New-issue popup: reuses the reward-modal-backdrop/reward-unlock-card shell
    (same overlay + card chrome), just with magazine-flavoured content. */

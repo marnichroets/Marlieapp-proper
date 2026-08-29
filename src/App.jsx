@@ -8256,15 +8256,38 @@ function SeasonMotif({ seasonKey }) {
     ))
 
   if (seasonKey === 'spring') {
+    const twinkle = (x, y, delay, size = 1.6) => (
+      <path
+        key={`tw-${x}-${y}`}
+        className="season-motif-twinkle"
+        style={{ animationDelay: `${delay}s` }}
+        d={`M${x} ${y - size} L${x + size * 0.3} ${y - size * 0.3} L${x + size} ${y} L${x + size * 0.3} ${y + size * 0.3} L${x} ${y + size} L${x - size * 0.3} ${y + size * 0.3} L${x - size} ${y} L${x - size * 0.3} ${y - size * 0.3} Z`}
+        fill="#fff8e0"
+      />
+    )
     return (
       <>
         <rect width="320" height="100" fill="url(#seasonGradSpring)" />
-        {/* soft rolling ground beneath the blossom branch, so the scene has a
-            near layer instead of flowers floating on a flat gradient */}
-        <path d="M0 70 Q60 56 130 66 Q200 76 260 60 Q300 52 320 58 V100 H0 Z" fill="#dcead1" opacity="0.8" />
+        {/* a soft warm morning sun — the deliberate warm note against all the
+            cool pastel green/pink, same trick as the winter scene's low sun */}
+        <circle cx="266" cy="24" r="26" fill="#ffe0b8" opacity="0.4" />
+        <circle cx="266" cy="24" r="13" fill="#ffcf8a" opacity="0.65" className="season-motif-sun-pulse" />
+        {twinkle(36, 16, 0)}{twinkle(150, 10, 1.4)}{twinkle(300, 18, 0.7)}
+        {/* far hazy blossom treeline, atmospheric and pale for depth */}
+        <path d="M0 40 Q50 26 110 36 Q170 46 230 30 Q270 20 320 28 V100 H0 Z" fill="#e8c9d8" opacity="0.4" />
+        {[[40, 34], [100, 30], [250, 26]].map(([x, y]) => (
+          <circle key={x} cx={x} cy={y} r="9" fill="#f0b8cc" opacity="0.45" />
+        ))}
+        {/* rolling ground beneath the blossom branch */}
+        <path d="M0 70 Q60 56 130 66 Q200 76 260 60 Q300 52 320 58 V100 H0 Z" fill="#dcead1" opacity="0.85" />
         <path d="M0 84 Q70 72 150 80 Q220 88 280 76 Q300 72 320 76 V100 H0 Z" fill="#c9e0b9" />
-        {[[50, 82], [140, 88], [230, 80], [290, 86]].map(([x, y], i) => (
-          <circle key={x} className="season-motif-twinkle" cx={x} cy={y} r="1.4" fill="#fff6c8" style={{ animationDelay: `${i * 0.6}s`, animationDuration: '3s' }} />
+        {/* fallen petals already settled in the grass, and dew-sparkle catching
+            the morning light — not everything has to still be in the air */}
+        {[[26, 90, '#f6a5c0'], [86, 94, '#f8b4d0'], [170, 89, '#fbd0e0'], [225, 93, '#f6a5c0'], [295, 90, '#f8b4d0']].map(([x, y, c]) => (
+          <ellipse key={x} cx={x} cy={y} rx="2.6" ry="1.8" fill={c} opacity="0.85" transform={`rotate(20 ${x} ${y})`} />
+        ))}
+        {[[52, 84], [190, 88], [270, 82]].map(([x, y], i) => (
+          <circle key={x} className="season-motif-twinkle" cx={x} cy={y} r="1.3" fill="#fff6c8" style={{ animationDelay: `${i * 0.6}s`, animationDuration: '3s' }} />
         ))}
         <path d="M-10 22 Q80 6 160 24 Q240 42 330 20" fill="none" stroke="#8a6a4a" strokeWidth="2.4" strokeLinecap="round" opacity="0.6" />
         {[30, 78, 130, 190, 250, 300].map((x, i) => {
@@ -8278,6 +8301,19 @@ function SeasonMotif({ seasonKey }) {
             </g>
           )
         })}
+        {/* a bunny in the foreground — spring's own charming detail, the way
+            the robin anchors the winter scene */}
+        <g transform="translate(178 91)" aria-hidden="true">
+          <ellipse cx="0" cy="7.5" rx="7.5" ry="2" fill="#3a2f1e" opacity="0.14" />
+          <ellipse cx="4.5" cy="4.5" rx="2.6" ry="1.8" fill="#f2ead9" />
+          <ellipse cx="0" cy="1.5" rx="7" ry="5.4" fill="#e8dcc8" />
+          <circle cx="-4.6" cy="-4.2" r="4" fill="#e8dcc8" />
+          <path d="M-7 -6.5 Q-8.4 -13 -6 -13.8 Q-4.6 -13 -5.4 -6 Z" fill="#e8dcc8" />
+          <path d="M-2.6 -6.8 Q-2.6 -13.4 -0.6 -13.8 Q0.6 -13 -1 -6.2 Z" fill="#e8dcc8" />
+          <path d="M-6.6 -7.6 Q-7.4 -11.6 -6.2 -12.2 Q-5.4 -11.8 -5.8 -7.2 Z" fill="#f6c9d8" opacity="0.8" />
+          <circle cx="-6.4" cy="-4.6" r="0.7" fill="#201a14" />
+          <circle cx="-8.2" cy="-3.2" r="0.7" fill="#e88ba0" />
+        </g>
         <g className="g-flutter" style={{ animationDelay: '0.4s', animationDuration: '6.4s', '--flap-dur': '0.3s', '--flap-delay': '0s' }} transform="translate(90 62)">
           <ellipse className="g-wing g-wing-l" cx="-3.1" cy="0" rx="3.3" ry="4.3" fill="#c9a8e8" />
           <ellipse className="g-wing g-wing-r" cx="3.1" cy="0" rx="3.3" ry="4.3" fill="#c9a8e8" />
@@ -8290,9 +8326,10 @@ function SeasonMotif({ seasonKey }) {
         </g>
         {fall(
           [
-            { x: 55, delay: 0, dur: 6 }, { x: 140, delay: 2, dur: 7 }, { x: 210, delay: 4, dur: 6.5 },
-            { x: 270, delay: 1.2, dur: 5.5 },
-          ].map((p) => ({ ...p, node: <ellipse rx="2.2" ry="1.6" fill="#fbd0e0" /> })),
+            { x: 20, delay: 0, dur: 6 }, { x: 60, delay: 1.8, dur: 7 }, { x: 100, delay: 3.2, dur: 5.5 },
+            { x: 140, delay: 0.6, dur: 6.5 }, { x: 195, delay: 2.4, dur: 7.5 }, { x: 235, delay: 4, dur: 6 },
+            { x: 270, delay: 1.2, dur: 5.5 }, { x: 305, delay: 3, dur: 6.8 },
+          ].map((p, i) => ({ ...p, node: <ellipse rx={i % 2 ? 2.4 : 1.6} ry={i % 2 ? 1.7 : 1.2} fill={i % 3 === 0 ? '#fbd0e0' : '#f8b4d0'} /> })),
           'season-motif-fall',
         )}
       </>
