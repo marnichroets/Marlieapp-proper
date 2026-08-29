@@ -150,19 +150,31 @@ function foliageClump(rng, { cx = 0, cy = 0, rx, ry, hue, count = 9, minR, maxR 
     const r = minR + rng() * (maxR - minR)
     const lightDot = (-0.62 * x) / (rx || 1) + (-0.78 * y) / (ry || 1)
     const tone = lightDot > 0.22 ? light : lightDot < -0.22 ? dark : hue
-    blobs.push({ x: cx + x, y: cy + y, r, tone })
+    blobs.push({ x: cx + x, y: cy + y, r, tone, lit: tone === light })
   }
   // paint lower (visually "further forward" in this file's up-is-back
   // convention) blobs last, so nearer foliage overlaps onto farther foliage
   blobs.sort((a, b) => a.y - b.y)
   return blobs
 }
+// A handful of the lit-face blobs in every clump gently pulse in place — sun
+// glinting through leaves — instead of every canopy sitting perfectly static.
+// Shared by every FoliageClump caller (trees, shrubs, hedges, the foreground
+// fringe) for free, since they all funnel through this one component.
 function FoliageClump(props) {
   return (
     <>
-      {foliageClump(props.rng, props).map((b, i) => (
-        <circle key={i} cx={b.x.toFixed(2)} cy={b.y.toFixed(2)} r={b.r.toFixed(2)} fill={b.tone} />
-      ))}
+      {foliageClump(props.rng, props).map((b, i) => {
+        const shimmer = b.lit && i % 3 === 0
+        return (
+          <circle
+            key={i}
+            cx={b.x.toFixed(2)} cy={b.y.toFixed(2)} r={b.r.toFixed(2)} fill={b.tone}
+            className={shimmer ? 'garden-leaf-shimmer' : undefined}
+            style={shimmer ? { animationDelay: `${(i * 0.37) % 4}s`, animationDuration: `${3.4 + (i % 3)}s` } : undefined}
+          />
+        )
+      })}
     </>
   )
 }
@@ -455,14 +467,25 @@ const CLOUD_GREY = '#c7cdd2'
 // instead of a flat single-color ellipse pair, so clouds read with real
 // volume. One shared shape scales/tints for every phase and both the
 // fair-weather and overcast treatments.
-function Cloud({ x, y, scale = 1, tone = '#ffffff', opacity = 0.9 }) {
+// `drift` (in this cloud's own scaled local units) makes it glide slowly
+// back and forth instead of sitting frozen — bigger/nearer clouds drift
+// further and faster than small/distant ones, a cheap parallax cue. Position
+// (translate) and scale stay on the outer, attribute-based transform; the
+// drift lives on an inner CSS-animated <g> — animating the SAME transform
+// attribute via CSS would otherwise reset position/scale every frame.
+function Cloud({ x, y, scale = 1, tone = '#ffffff', opacity = 0.9, drift = 0, dur = 70, delay = 0 }) {
   const hi = shadeColor(tone, 0.12)
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`} opacity={opacity}>
-      <ellipse cx="0" cy="5" rx="24" ry="9" fill={tone} />
-      <ellipse cx="-15" cy="1" rx="13" ry="8" fill={tone} />
-      <ellipse cx="13" cy="-1" rx="15" ry="9" fill={hi} />
-      <ellipse cx="-2" cy="-6" rx="11" ry="7.5" fill={hi} />
+      <g
+        className={drift ? 'garden-cloud-drift' : undefined}
+        style={drift ? { '--cloud-drift': `${drift}px`, animationDuration: `${dur}s`, animationDelay: `${delay}s` } : undefined}
+      >
+        <ellipse cx="0" cy="5" rx="24" ry="9" fill={tone} />
+        <ellipse cx="-15" cy="1" rx="13" ry="8" fill={tone} />
+        <ellipse cx="13" cy="-1" rx="15" ry="9" fill={hi} />
+        <ellipse cx="-2" cy="-6" rx="11" ry="7.5" fill={hi} />
+      </g>
     </g>
   )
 }
@@ -497,9 +520,9 @@ function GardenSky({ phase, weather = 'clear' }) {
         {overcast && (
           <>
             <circle cx="320" cy="50" r="10" fill="#fff7d6" opacity="0.12" />
-            <Cloud x={300} y={46} scale={1.9} tone={CLOUD_GREY} opacity={0.4} />
-            <Cloud x={120} y={72} scale={1.6} tone={CLOUD_GREY} opacity={0.35} />
-            <Cloud x={205} y={30} scale={2} tone={CLOUD_GREY} opacity={0.4} />
+            <Cloud x={300} y={46} scale={1.9} tone={CLOUD_GREY} opacity={0.4} drift={14} dur={95} />
+            <Cloud x={120} y={72} scale={1.6} tone={CLOUD_GREY} opacity={0.35} drift={10} dur={110} delay={-30} />
+            <Cloud x={205} y={30} scale={2} tone={CLOUD_GREY} opacity={0.4} drift={16} dur={100} delay={-60} />
           </>
         )}
       </g>
@@ -520,15 +543,15 @@ function GardenSky({ phase, weather = 'clear' }) {
         )}
         {!overcast ? (
           <>
-            <Cloud x={92} y={50} scale={1} tone="#ffe0cc" opacity={0.55} />
-            <Cloud x={140} y={38} scale={0.6} tone="#fff0e0" opacity={0.4} />
-            <Cloud x={230} y={62} scale={0.75} tone="#ffe0cc" opacity={0.35} />
+            <Cloud x={92} y={50} scale={1} tone="#ffe0cc" opacity={0.55} drift={20} dur={65} />
+            <Cloud x={140} y={38} scale={0.6} tone="#fff0e0" opacity={0.4} drift={12} dur={85} delay={-20} />
+            <Cloud x={230} y={62} scale={0.75} tone="#ffe0cc" opacity={0.35} drift={15} dur={78} delay={-45} />
           </>
         ) : (
           <>
-            <Cloud x={92} y={48} scale={1.7} tone={CLOUD_GREY} opacity={0.78} />
-            <Cloud x={230} y={40} scale={1.9} tone={CLOUD_GREY} opacity={0.75} />
-            <Cloud x={266} y={62} scale={1.4} tone={CLOUD_GREY} opacity={0.7} />
+            <Cloud x={92} y={48} scale={1.7} tone={CLOUD_GREY} opacity={0.78} drift={10} dur={100} />
+            <Cloud x={230} y={40} scale={1.9} tone={CLOUD_GREY} opacity={0.75} drift={12} dur={110} delay={-40} />
+            <Cloud x={266} y={62} scale={1.4} tone={CLOUD_GREY} opacity={0.7} drift={9} dur={95} delay={-70} />
           </>
         )}
       </g>
@@ -546,18 +569,62 @@ function GardenSky({ phase, weather = 'clear' }) {
       )}
       {!overcast ? (
         <>
-          <Cloud x={78} y={42} scale={1} tone="#ffffff" opacity={0.92} />
-          <Cloud x={140} y={30} scale={0.55} tone="#ffffff" opacity={0.7} />
-          <Cloud x={40} y={64} scale={0.6} tone="#ffffff" opacity={0.65} />
+          <Cloud x={78} y={42} scale={1} tone="#ffffff" opacity={0.92} drift={22} dur={60} />
+          <Cloud x={140} y={30} scale={0.55} tone="#ffffff" opacity={0.7} drift={13} dur={80} delay={-25} />
+          <Cloud x={40} y={64} scale={0.6} tone="#ffffff" opacity={0.65} drift={14} dur={75} delay={-50} />
         </>
       ) : (
         <>
-          <Cloud x={78} y={40} scale={1.9} tone={CLOUD_GREY} opacity={0.86} />
-          <Cloud x={222} y={34} scale={2.1} tone={CLOUD_GREY} opacity={0.86} />
-          <Cloud x={262} y={58} scale={1.6} tone={CLOUD_GREY} opacity={0.82} />
-          <Cloud x={160} y={28} scale={1.3} tone={CLOUD_GREY} opacity={0.78} />
+          <Cloud x={78} y={40} scale={1.9} tone={CLOUD_GREY} opacity={0.86} drift={11} dur={105} />
+          <Cloud x={222} y={34} scale={2.1} tone={CLOUD_GREY} opacity={0.86} drift={13} dur={115} delay={-35} />
+          <Cloud x={262} y={58} scale={1.6} tone={CLOUD_GREY} opacity={0.82} drift={10} dur={98} delay={-60} />
+          <Cloud x={160} y={28} scale={1.3} tone={CLOUD_GREY} opacity={0.78} drift={9} dur={90} delay={-15} />
         </>
       )}
+    </g>
+  )
+}
+
+// Soft crepuscular light rays fanning from the low morning/evening sun —
+// midday's sun is too high overhead for rays to read, night has none. Each
+// ray is a flat translucent quad (no gradient math — screen blend mode plus
+// the sky's own gradient underneath does the fading for free), with a slow
+// independent opacity breathe so the fan feels alive without ever calling
+// attention to itself.
+const RAY_ANGLES_MORNING = [-8, 4, 16, 28, 40]
+const RAY_ANGLES_EVENING = [140, 152, 164, 176, 188]
+function LightRays({ phase }) {
+  if (phase !== 'morning' && phase !== 'evening') return null
+  const sun = phase === 'morning' ? { x: 300, y: 66 } : { x: 316, y: 86 }
+  const angles = phase === 'morning' ? RAY_ANGLES_MORNING : RAY_ANGLES_EVENING
+  const tint = phase === 'morning' ? '#fff3c4' : '#ffb37a'
+  return (
+    <g style={{ pointerEvents: 'none', mixBlendMode: 'screen' }} aria-hidden="true">
+      {angles.map((a, i) => {
+        const rad = (a * Math.PI) / 180
+        const len = 230
+        const spread = 6 + i * 1.4
+        const dx = Math.cos(rad) * len
+        const dy = Math.sin(rad) * len
+        const perpX = Math.cos(rad + Math.PI / 2) * spread
+        const perpY = Math.sin(rad + Math.PI / 2) * spread
+        const pts = [
+          [sun.x - perpX * 0.15, sun.y - perpY * 0.15],
+          [sun.x + perpX * 0.15, sun.y + perpY * 0.15],
+          [sun.x + dx + perpX, sun.y + dy + perpY],
+          [sun.x + dx - perpX, sun.y + dy - perpY],
+        ].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+        return (
+          <polygon
+            key={i}
+            className="garden-light-ray"
+            points={pts}
+            fill={tint}
+            fillOpacity={(0.14 - i * 0.012).toFixed(2)}
+            style={{ animationDelay: `${(i * 0.7).toFixed(1)}s` }}
+          />
+        )
+      })}
     </g>
   )
 }
@@ -571,6 +638,78 @@ function Butterfly({ c }) {
         <ellipse className="g-wing g-wing-l" cx="-3.1" cy="0" rx="3.3" ry="4.3" fill={c.hue} />
         <ellipse className="g-wing g-wing-r" cx="3.1" cy="0" rx="3.3" ry="4.3" fill={c.hue} />
         <line x1="0" y1="-3.4" x2="0" y2="3.4" stroke="#5a4632" strokeWidth="1" />
+      </g>
+    </g>
+  )
+}
+
+// A bee bumbling between blooms — a quicker, jitterier wander than a
+// butterfly's lazy drift, sharing the same fast-flap .g-wing pair (just a
+// much shorter --flap-dur). Daytime ambient, independent of weather.
+function Bee({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-bee-wander" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 4.5}s` }}>
+        <g style={{ '--flap-dur': `${c.flapDur || 0.12}s`, '--flap-delay': `${c.flapDelay || 0}s` }}>
+          <ellipse className="g-wing g-wing-l" cx="-1.4" cy="-1.2" rx="1.6" ry="0.9" fill="#ffffff" opacity="0.65" />
+          <ellipse className="g-wing g-wing-r" cx="1.4" cy="-1.2" rx="1.6" ry="0.9" fill="#ffffff" opacity="0.65" />
+        </g>
+        <ellipse cx="0" cy="0" rx="2.4" ry="1.7" fill="#2b2013" />
+        <rect x="-1.5" y="-1.2" width="0.9" height="2.4" rx="0.4" fill="#f6c343" />
+        <rect x="0.3" y="-1.2" width="0.9" height="2.4" rx="0.4" fill="#f6c343" />
+      </g>
+    </g>
+  )
+}
+
+// A warm floating dust/pollen mote — a purely atmospheric daytime ambient,
+// drifting slowly up and sideways the way real motes catch the light in a
+// sunlit garden. Independent of weather (a handful always drift, rain or
+// shine) — see composeDay.
+function PollenMote({ c }) {
+  return (
+    <circle
+      className="garden-pollen-drift"
+      cx={c.x} cy={c.y} r={c.r || 1}
+      fill="#fff3c4"
+      opacity={c.opacity || 0.5}
+      style={{
+        '--pollen-drift': `${c.drift}px`,
+        '--pollen-rise': `${c.rise}px`,
+        animationDelay: `${c.delay}s`,
+        animationDuration: `${c.dur}s`,
+      }}
+    />
+  )
+}
+
+// A night moth — the butterfly's duller, slower cousin: plain grey-brown,
+// no bright hues, a lazier flutter. Shares the same wing-flap language
+// (.g-wing / .g-flutter) as Butterfly/Bee. See composeNight.
+function Moth({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-flutter" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 8}s`, '--flap-dur': `${c.flapDur || 0.5}s`, '--flap-delay': `${c.flapDelay || 0}s` }}>
+        <ellipse className="g-wing g-wing-l" cx="-2.6" cy="0" rx="2.8" ry="3.6" fill="#8a7f70" opacity="0.75" />
+        <ellipse className="g-wing g-wing-r" cx="2.6" cy="0" rx="2.8" ry="3.6" fill="#8a7f70" opacity="0.75" />
+        <line x1="0" y1="-2.8" x2="0" y2="2.8" stroke="#3a342c" strokeWidth="0.9" />
+      </g>
+    </g>
+  )
+}
+
+// A firefly's slow drifting glow, pulsing on/off — a night-only time-of-day
+// ambient (composeNight), unrelated to the weather-driven rain/wind layers.
+function Firefly({ c }) {
+  return (
+    <g transform={`translate(${c.x} ${c.y})`} aria-hidden="true">
+      <g className="g-firefly-drift" style={{ animationDelay: `${c.delay}s`, animationDuration: `${c.dur || 9}s` }}>
+        <circle
+          className="g-firefly-glow"
+          cx="0" cy="0" r="2.6" fill="#e8ffb0"
+          style={{ animationDelay: `${c.glowDelay || 0}s`, animationDuration: `${c.glowDur || 1.8}s` }}
+        />
+        <circle cx="0" cy="0" r="0.9" fill="#fff8d8" />
       </g>
     </g>
   )
@@ -738,6 +877,41 @@ function NestArt() {
   )
 }
 
+// A single 2-tone bloom (darker shadowed underside, lit face, bright pollen
+// dot) instead of a flat circle — the same "one shape, three tones" language
+// as every other richer plant/hedge element in this file.
+function Bloom({ x, y, r = 4, hue }) {
+  const dark = shadeColor(hue, -0.22)
+  const light = shadeColor(hue, 0.28)
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <circle cx="0" cy="0" r={r} fill={dark} />
+      <circle cx={-r * 0.22} cy={-r * 0.22} r={r * 0.82} fill={hue} />
+      <circle cx={-r * 0.32} cy={-r * 0.34} r={r * 0.32} fill={light} opacity="0.85" />
+      <circle cx="0" cy="0" r={r * 0.34} fill="#ffd45e" opacity="0.9" />
+    </g>
+  )
+}
+
+// A few twinkling highlight points on a water surface — real still water
+// isn't perfectly flat, it catches little glints of sky light. Shared by the
+// pond, bird bath, and waterfall pool alike.
+function WaterSparkle({ points }) {
+  return (
+    <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+      {points.map((p, i) => (
+        <circle
+          key={i}
+          className="garden-water-sparkle"
+          cx={p[0]} cy={p[1]} r="1"
+          fill="#ffffff"
+          style={{ animationDelay: `${p[2] ?? i * 0.7}s` }}
+        />
+      ))}
+    </g>
+  )
+}
+
 function FlowerPatchArt({ stageKey }) {
   if (stageKey === 'sprout') return (<g><ellipse cx="0" cy="0" rx="8" ry="3" fill="#7a5a3a" /><path d="M0 -1 V-12" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><ellipse cx="-2.6" cy="-11" rx="3" ry="1.5" fill="#6cb86f" transform="rotate(-30 -2.6 -11)" /><ellipse cx="2.6" cy="-11" rx="3" ry="1.5" fill="#6cb86f" transform="rotate(30 2.6 -11)" /></g>)
   if (stageKey === 'budding') {
@@ -745,14 +919,36 @@ function FlowerPatchArt({ stageKey }) {
     return (<g><ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />{stems.map(([x, y], i) => (<g key={i}><line x1={x} y1="0" x2={x} y2={y} stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><circle cx={x} cy={y} r="2.6" fill="#9ccb6f" /></g>))}</g>)
   }
   const flowers = [[-7, -18, '#f6a5c0'], [0, -22, '#ffd45e'], [7, -17, '#c9a8e8']]
-  return (<g><ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />{flowers.map(([x, y, c], i) => (<g key={i}><line x1={x} y1="0" x2={x} y2={y} stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><circle cx={x} cy={y} r="4" fill={c} /><circle cx={x} cy={y} r="1.6" fill="#ffd45e" /></g>))}</g>)
+  return (
+    <g>
+      <ellipse cx="0" cy="1.4" rx="8" ry="2.2" fill="#152410" opacity="0.2" />
+      <ellipse cx="0" cy="0" rx="9" ry="3" fill="#7a5a3a" />
+      {flowers.map(([x, y, c], i) => (
+        <g key={i}>
+          <line x1={x} y1="0" x2={x} y2={y} stroke="#4a8a4a" strokeWidth="2" strokeLinecap="round" />
+          <Bloom x={x} y={y} r={4} hue={c} />
+        </g>
+      ))}
+    </g>
+  )
 }
 
 function FlowerBedArt({ stageKey }) {
   if (stageKey === 'bed-soil') return (<g><ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" /><ellipse cx="0" cy="-2" rx="16" ry="4" fill="#8a6a46" /></g>)
   if (stageKey === 'bed-shoots') return (<g><ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" />{[-12, -4, 4, 12].map((x, i) => (<line key={i} x1={x} y1="-3" x2={x} y2="-12" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" />))}</g>)
   const f = [[-14, -12, '#f6a5c0'], [-5, -16, '#ffd45e'], [4, -14, '#c9a8e8'], [13, -17, '#f8b4d0'], [0, -11, '#fff0b3']]
-  return (<g><ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" />{f.map(([x, y, c], i) => (<g key={i}><line x1={x} y1="-2" x2={x} y2={y} stroke="#5aa05a" strokeWidth="2" /><circle cx={x} cy={y} r="3.6" fill={c} /><circle cx={x} cy={y} r="1.4" fill="#ffd45e" /></g>))}</g>)
+  return (
+    <g>
+      <ellipse cx="0" cy="0.5" rx="19" ry="4.6" fill="#152410" opacity="0.2" />
+      <ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" />
+      {f.map(([x, y, c], i) => (
+        <g key={i}>
+          <line x1={x} y1="-2" x2={x} y2={y} stroke="#4a8a4a" strokeWidth="2" />
+          <Bloom x={x} y={y} r={3.4} hue={c} />
+        </g>
+      ))}
+    </g>
+  )
 }
 
 function FenceArt({ stageKey }) {
@@ -771,7 +967,25 @@ function FeederArt({ stageKey }) {
 function PondArt({ stageKey }) {
   if (stageKey === 'pond-puddle') return (<g><ellipse cx="0" cy="-2" rx="16" ry="7" fill="url(#gardenWater)" /><ellipse cx="-4" cy="-4" rx="6" ry="2" fill="#e4f6fb" opacity="0.8" /></g>)
   if (stageKey === 'pond-small') return (<g><ellipse cx="0" cy="-2" rx="26" ry="11" fill="url(#gardenWater)" /><ellipse cx="-7" cy="-5" rx="10" ry="3" fill="#e4f6fb" opacity="0.7" /></g>)
-  return (<g><ellipse cx="0" cy="-2" rx="34" ry="14" fill="url(#gardenWater)" /><ellipse cx="-9" cy="-6" rx="13" ry="4" fill="#e4f6fb" opacity="0.7" /><ellipse cx="10" cy="4" rx="9" ry="2.6" fill="#2f6a86" opacity="0.22" /><g stroke="#5a9e4e" strokeWidth="2.4" strokeLinecap="round"><line x1="-30" y1="-4" x2="-32" y2="-16" /><line x1="-24" y1="-2" x2="-22" y2="-14" /><line x1="30" y1="-4" x2="32" y2="-15" /></g></g>)
+  return (
+    <g>
+      <ellipse cx="0" cy="-2" rx="34" ry="14" fill="url(#gardenWater)" />
+      <ellipse cx="-9" cy="-6" rx="13" ry="4" fill="#e4f6fb" opacity="0.7" />
+      <ellipse cx="10" cy="4" rx="9" ry="2.6" fill="#2f6a86" opacity="0.22" />
+      <g stroke="#5a9e4e" strokeWidth="2.4" strokeLinecap="round">
+        <line x1="-30" y1="-4" x2="-32" y2="-16" />
+        <line x1="-24" y1="-2" x2="-22" y2="-14" />
+        <line x1="30" y1="-4" x2="32" y2="-15" />
+      </g>
+      {/* gentle ripple rings — real pondwater never sits perfectly still */}
+      <g transform="translate(6 -3)">
+        <ellipse className="garden-pond-ripple" cx="0" cy="0" rx="5" ry="2" style={{ animationDelay: '0s' }} />
+        <ellipse className="garden-pond-ripple" cx="0" cy="0" rx="5" ry="2" style={{ animationDelay: '1.6s' }} />
+        <ellipse className="garden-pond-ripple" cx="0" cy="0" rx="5" ry="2" style={{ animationDelay: '3.2s' }} />
+      </g>
+      <WaterSparkle points={[[-14, -7, 0], [8, 2, 1.4], [-3, -8, 2.6]]} />
+    </g>
+  )
 }
 
 function StonePathArt({ stageKey }) {
@@ -780,11 +994,26 @@ function StonePathArt({ stageKey }) {
 }
 
 function RockGardenArt({ stageKey }) {
-  const rocks = (<g><ellipse cx="0" cy="0" rx="15" ry="5.5" fill="#8a8078" /><ellipse cx="-6" cy="-3" rx="6.5" ry="4.5" fill="#9a9088" /><ellipse cx="6" cy="-2.5" rx="5.5" ry="4" fill="#a8a096" /></g>)
+  const rocks = (
+    <g>
+      <ellipse cx="0" cy="2" rx="15" ry="3.2" fill="#100a06" opacity="0.22" />
+      <ellipse cx="0" cy="0" rx="15" ry="5.5" fill={shadeColor('#8a8078', -0.16)} />
+      <ellipse cx="-6" cy="-3" rx="6.5" ry="4.5" fill="#9a9088" />
+      <ellipse cx="6" cy="-2.5" rx="5.5" ry="4" fill="#a8a096" />
+      <ellipse cx="-7" cy="-4.6" rx="2.6" ry="1.6" fill="#c2bcb1" opacity="0.7" />
+    </g>
+  )
   if (stageKey === 'rock-bare') return rocks
   // Real succulent tones: blue-grey, silver-green, and a reddish-tipped one —
-  // never plain garden green.
-  const succ = (x, y, c, tip) => (<g><circle cx={x} cy={y} r="3" fill={c} /><circle cx={x} cy={y} r="1.3" fill={tip} /></g>)
+  // never plain garden green. Each is now its own tiny lit clump (dark base,
+  // mid body, bright tip) rather than a flat circle with one highlight dot.
+  const succ = (x, y, c, tip) => (
+    <g transform={`translate(${x} ${y})`}>
+      <circle cx="0" cy="0.4" r="3.3" fill={shadeColor(c, -0.24)} />
+      <circle cx="-0.5" cy="-0.3" r="2.7" fill={c} />
+      <circle cx="0" cy="0" r="1.3" fill={tip} />
+    </g>
+  )
   return (
     <g>
       {rocks}
@@ -796,10 +1025,29 @@ function RockGardenArt({ stageKey }) {
 }
 
 function VegPatchArt({ stageKey }) {
-  const soil = <g><ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" /><ellipse cx="0" cy="-2" rx="16" ry="4" fill="#8a6a46" /></g>
+  const soil = (
+    <g>
+      <ellipse cx="0" cy="0.5" rx="19" ry="4.6" fill="#152410" opacity="0.18" />
+      <ellipse cx="0" cy="-1" rx="20" ry="6" fill="#7a5a3a" />
+      <ellipse cx="0" cy="-2" rx="16" ry="4" fill="#8a6a46" />
+    </g>
+  )
   if (stageKey === 'veg-soil') return (<g>{soil}{[-10, 0, 10].map((x, i) => <line key={i} x1={x} y1="-4.5" x2={x} y2="0" stroke="#6b4f30" strokeWidth="1.5" />)}</g>)
   if (stageKey === 'veg-sprouts') return (<g>{soil}{[-12, -4, 4, 12].map((x, i) => (<g key={i}><line x1={x} y1="-3" x2={x} y2="-10" stroke="#5aa05a" strokeWidth="2" strokeLinecap="round" /><ellipse cx={x - 2} cy="-10" rx="2.6" ry="1.3" fill="#6cb86f" transform={`rotate(-30 ${x - 2} -10)`} /></g>))}</g>)
-  return (<g>{soil}{[-12, -4, 4, 12].map((x, i) => (<g key={i}><path d={`M${x} -3 V-13`} stroke="#4f9a55" strokeWidth="2" strokeLinecap="round" /><path d={`M${x - 3} -11 L${x} -15 L${x + 3} -11`} fill="none" stroke="#5aa861" strokeWidth="1.6" strokeLinecap="round" /><path d={`M${x - 2} -3 L${x} 2 L${x + 2} -3 Z`} fill="#e8893a" /></g>))}</g>)
+  return (
+    <g>
+      {soil}
+      {[-12, -4, 4, 12].map((x, i) => (
+        <g key={i}>
+          <path d={`M${x} -3 V-13`} stroke="#4f9a55" strokeWidth="2" strokeLinecap="round" />
+          <path d={`M${x - 3} -11 L${x} -15 L${x + 3} -11`} fill="none" stroke="#5aa861" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx={x} cy="-2" r="4.2" fill="#c9702c" />
+          <circle cx={x - 1} cy="-2.8" r="3.4" fill="#e8893a" />
+          <circle cx={x - 1.8} cy="-3.6" r="1.2" fill="#ffb35c" opacity="0.8" />
+        </g>
+      ))}
+    </g>
+  )
 }
 
 function ShrubArt({ stageKey, seed }) {
@@ -826,7 +1074,7 @@ function BirdBathArt({ stageKey }) {
   const ped = <g><ellipse cx="0" cy="0" rx="10" ry="3.4" fill="url(#gardenStone)" /><rect x="-3" y="-16" width="6" height="16" fill="url(#gardenStone)" /><rect x="-3.5" y="-16" width="7" height="3" fill="#b8b2a8" /></g>
   if (stageKey === 'bath-base') return ped
   if (stageKey === 'bath-bowl') return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="url(#gardenStone)" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="#a39c92" /></g>)
-  return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="url(#gardenStone)" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="url(#gardenWater)" /><ellipse cx="-3" cy="-20" rx="4" ry="1.4" fill="#e4f6fb" opacity="0.8" /></g>)
+  return (<g>{ped}<ellipse cx="0" cy="-18" rx="13" ry="5" fill="url(#gardenStone)" /><ellipse cx="0" cy="-19" rx="10" ry="3.4" fill="url(#gardenWater)" /><ellipse cx="-3" cy="-20" rx="4" ry="1.4" fill="#e4f6fb" opacity="0.8" /><WaterSparkle points={[[-5, -19.5, 0.4], [3, -18.6, 1.8]]} /></g>)
 }
 
 function TrellisArt({ stageKey }) {
@@ -873,6 +1121,7 @@ function WaterfallArt({ stageKey }) {
       <ellipse cx="0" cy="-2" rx="20" ry="7" fill="url(#gardenWater)" />
       <ellipse cx="-6" cy="-5" rx="8" ry="2.6" fill="#e4f6fb" opacity="0.75" />
       <ellipse cx="0" cy="-3" rx="12" ry="3" fill="#f4fbfd" opacity="0.5" />
+      <WaterSparkle points={[[8, -2.6, 0.8], [-10, -1.6, 2.2]]} />
       {rocks}
     </g>
   )
@@ -1298,6 +1547,10 @@ function SceneCreature({ c, activeLabelId, setActiveLabelId }) {
     case 'swim': return <SwimBird c={c} active={activeLabelId === c.id} setActiveLabelId={setActiveLabelId} />
     case 'flybird': return <FlyBird c={c} />
     case 'butterfly': return <Butterfly c={c} />
+    case 'bee': return <Bee c={c} />
+    case 'firefly': return <Firefly c={c} />
+    case 'pollen': return <PollenMote c={c} />
+    case 'moth': return <Moth c={c} />
     default: return null
   }
 }
@@ -1410,12 +1663,27 @@ function composeDay(perches, collection, showcase, bounds = { x0: 26, x1: 374 })
   // butterflies near the flowers — scattered across the full unlocked width
   const nBfly = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5)
   for (let i = 0; i < nBfly; i += 1) list.push({ id: nid(), type: 'butterfly', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(150, 214), hue: pick(BFLY_HUES), delay: rand(0, 5), dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: rand(0, 0.35) })
+  // bees — a busier, jitterier cousin of the butterfly, same scatter
+  const nBee = showcase ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 3)
+  for (let i = 0; i < nBee; i += 1) list.push({ id: nid(), type: 'bee', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(152, 210), delay: rand(0, 4), dur: rand(3.6, 5), flapDur: rand(0.1, 0.15) })
+  // warm floating dust/pollen motes — atmospheric daytime ambient,
+  // independent of weather, always a small handful drifting.
+  const nPollen = showcase ? 5 : 2 + Math.floor(Math.random() * 4)
+  for (let i = 0; i < nPollen; i += 1) {
+    list.push({
+      id: nid(), type: 'pollen',
+      x: rand(bounds.x0 + 10, bounds.x1 - 10), y: rand(140, 220),
+      r: rand(0.6, 1.3), opacity: rand(0.3, 0.6),
+      drift: rand(-14, 14), rise: rand(30, 60),
+      delay: rand(0, 6), dur: rand(7, 12),
+    })
+  }
   // never an empty daytime scene
   if (!list.length) list.push({ id: nid(), type: 'butterfly', x: (bounds.x0 + bounds.x1) / 2, y: 186, hue: pick(BFLY_HUES), delay: 0, dur: rand(5, 7.5), flapDur: rand(0.26, 0.4), flapDelay: 0 })
   return list
 }
 
-function composeNight(perches, collection, showcase) {
+function composeNight(perches, collection, showcase, bounds = { x0: 26, x1: 374 }) {
   const list = []
   let land = perches.filter((p) => p.zone !== 'water')
   if (showcase && !land.length) land = [{ id: 'demo-c', x: 150, y: 150, zone: 'land' }]
@@ -1441,6 +1709,24 @@ function composeNight(perches, collection, showcase) {
       })
     })
   }
+  // fireflies — a slow drifting glow scattered across the lawn, a night-only
+  // ambient with no daytime equivalent (unlike bees/butterflies, which only
+  // make sense in daylight).
+  const nFirefly = showcase ? 3 + Math.floor(Math.random() * 3) : Math.floor(Math.random() * 4)
+  for (let i = 0; i < nFirefly; i += 1) {
+    list.push({
+      id: nid(), type: 'firefly',
+      x: rand(bounds.x0 + 20, bounds.x1 - 20), y: rand(160, 220),
+      delay: rand(0, 6), dur: rand(7, 11),
+      glowDelay: rand(0, 1.8), glowDur: rand(1.4, 2.4),
+    })
+  }
+  // a lone night moth drifting near the garden — a quieter cousin of the
+  // daytime butterfly, never more than one so fireflies stay the star.
+  const nMoth = showcase ? 2 : Math.random() < 0.5 ? 1 : 0
+  for (let i = 0; i < nMoth; i += 1) {
+    list.push({ id: nid(), type: 'moth', x: rand(bounds.x0 + 24, bounds.x1 - 24), y: rand(150, 210), delay: rand(0, 5), dur: rand(7, 10), flapDur: rand(0.45, 0.6) })
+  }
   return list
 }
 
@@ -1462,30 +1748,99 @@ const ZONE_THEMES = {
 // very low opacity) rather than the old prop-scatter system's individually
 // recognizable objects sitting on top of the ground. Seeded once per zone
 // (useMemo) so it stays put across renders.
-function GroundLight({ rect, seedKey, baseHue }) {
-  const dapples = useMemo(() => {
+function GroundLight({ rect, seedKey, baseHue, wind = false }) {
+  const { dapples, tufts, sprinkles } = useMemo(() => {
     const rng = seededRng(`${seedKey}:groundlight`)
     const warm = shadeColor(baseHue, 0.22)
     const cool = shadeColor(baseHue, -0.16)
-    const spanX = Math.max(1, rect.x1 - rect.x0 - 40)
+    const spanX = Math.max(1, rect.x1 - rect.x0 - 36)
     const spanY = Math.max(1, rect.y1 - rect.y0 - 10)
-    return Array.from({ length: 4 }, (_, i) => {
-      const x = rect.x0 + 20 + rng() * spanX
-      const y = rect.y0 + 8 + rng() * spanY
-      const rx = 26 + rng() * 22
-      const ry = 9 + rng() * 6
+    const dapples = Array.from({ length: 7 }, (_, i) => {
+      const x = rect.x0 + 18 + rng() * spanX
+      const y = rect.y0 + 6 + rng() * spanY
+      const rx = 18 + rng() * 26
+      const ry = 7 + rng() * 7
       return {
-        path: wobblyBlobPath(x, y, rx, ry, rng, 8, 0.3),
+        path: wobblyBlobPath(x, y, rx, ry, rng, 8, 0.32),
         tone: i % 2 === 0 ? warm : cool,
-        opacity: 0.1 + rng() * 0.08,
+        opacity: 0.08 + rng() * 0.08,
       }
     })
+    // Grass as small fanned tufts (3 curved blades from one base point)
+    // scattered across the whole rect, instead of a uniform straight-line
+    // hatch — reads as real clumped grass rather than a material hatch
+    // pattern. Nearer (larger y) tufts stand a touch taller, the same
+    // depth cue every planting already gets from depthScale.
+    const tuftCount = Math.round((rect.x1 - rect.x0) / 11)
+    const tufts = Array.from({ length: tuftCount }, (_, i) => {
+      const x = rect.x0 + rng() * (rect.x1 - rect.x0)
+      const y = rect.y0 + rng() * (rect.y1 - rect.y0)
+      const depth = (y - rect.y0) / (rect.y1 - rect.y0 || 1)
+      const h = (3 + rng() * 2.4) * (0.75 + depth * 0.5)
+      const lean = (rng() - 0.5) * 10
+      const blades = Array.from({ length: 3 }, (_, b) => ({
+        dx: lean + (b - 1) * (5 + rng() * 3),
+        len: h * (0.8 + rng() * 0.4),
+      }))
+      return { id: i, x, y, blades, delay: rng() * 3, dur: 2 + rng() * 1.4 }
+    })
+    // Sparse clover / tiny-daisy speckle — ground micro-texture variety, low
+    // density so it reads as detail rather than a second flower layer.
+    const sprinkleCount = Math.max(2, Math.round((rect.x1 - rect.x0) / 48))
+    const sprinkles = Array.from({ length: sprinkleCount }, (_, i) => ({
+      id: i,
+      x: rect.x0 + rng() * (rect.x1 - rect.x0),
+      y: rect.y0 + rng() * (rect.y1 - rect.y0),
+      kind: rng() < 0.5 ? 'daisy' : 'clover',
+    }))
+    return { dapples, tufts, sprinkles }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedKey, baseHue])
+  const bladeDark = shadeColor(baseHue, -0.32)
+  const bladeLight = shadeColor(baseHue, 0.3)
+  const cloverTone = shadeColor(baseHue, -0.1)
   return (
     <g style={{ pointerEvents: 'none' }} aria-hidden="true">
       {dapples.map((d, i) => (
         <path key={i} d={d.path} fill={d.tone} opacity={d.opacity.toFixed(2)} />
+      ))}
+      {tufts.map((t) => (
+        <g
+          key={t.id}
+          transform={`translate(${t.x.toFixed(1)} ${t.y.toFixed(1)})`}
+          className={wind ? 'garden-grass-gust' : undefined}
+          style={wind ? { animationDelay: `${t.delay.toFixed(2)}s`, animationDuration: `${t.dur.toFixed(2)}s` } : undefined}
+        >
+          {t.blades.map((b, bi) => (
+            <path
+              key={bi}
+              d={`M0 0 Q${(b.dx * 0.5).toFixed(1)} ${(-b.len * 0.55).toFixed(1)} ${b.dx.toFixed(1)} ${(-b.len).toFixed(1)}`}
+              fill="none"
+              stroke={bi === 1 ? bladeLight : bladeDark}
+              strokeWidth="0.9"
+              strokeLinecap="round"
+              opacity={bi === 1 ? 0.5 : 0.32}
+            />
+          ))}
+        </g>
+      ))}
+      {sprinkles.map((s) => (
+        <g key={s.id} transform={`translate(${s.x.toFixed(1)} ${s.y.toFixed(1)})`} opacity="0.85">
+          {s.kind === 'daisy' ? (
+            <>
+              {[0, 90, 180, 270].map((rot) => (
+                <ellipse key={rot} cx="0" cy="0" rx="1" ry="0.5" fill="#fff8ec" transform={`rotate(${rot})`} />
+              ))}
+              <circle r="0.6" fill="#ffd45e" />
+            </>
+          ) : (
+            <>
+              <circle cx="-0.8" cy="0" r="0.7" fill={cloverTone} />
+              <circle cx="0.8" cy="0" r="0.7" fill={cloverTone} />
+              <circle cx="0" cy="-0.9" r="0.7" fill={cloverTone} />
+            </>
+          )}
+        </g>
       ))}
     </g>
   )
@@ -1514,7 +1869,7 @@ function ZoneGateway({ x }) {
 // little grove rather than an empty clone, and a small wooden signpost
 // naming it. Back Garden gets a cooler, shaded-grove tint to feel like a
 // genuinely different, further-in part of the yard.
-function ExpansionZoneArt({ id, phase, expansions }) {
+function ExpansionZoneArt({ id, phase, expansions, weather }) {
   const rect = gardenZoneRect(id)
   if (!rect) return null
   const theme = ZONE_THEMES[id] || ZONE_THEMES.base
@@ -1540,6 +1895,7 @@ function ExpansionZoneArt({ id, phase, expansions }) {
         rect={{ x0: rect.x0 + 16, x1: rect.x1 - 16, y0: rect.y0, y1: rect.y1 }}
         seedKey={seedKey}
         baseHue={shaded ? '#3f7a52' : '#6fa84f'}
+        wind={weather === 'windy'}
       />
       <g opacity={shaded ? 0.85 : 0.5} fill={shaded ? '#1c3d24' : theme.orchard ? '#6a8a48' : '#5f8f52'}>
         <ellipse cx={rect.x0 + w * 0.28} cy="150" rx="26" ry="20" />
@@ -1586,6 +1942,42 @@ function LockedZonePlaceholder({ id }) {
         <text x="0" y="-6" textAnchor="middle" fontSize="16">🔒</text>
         <text x="0" y="12" textAnchor="middle" fontSize="8" fontWeight="700" fill="#fff">Buy {item?.name}</text>
       </g>
+    </g>
+  )
+}
+
+// A few oversized, unblurred blade tufts right at the bottom frame edges —
+// sharp and dark where the rest of the scene reads soft/lit, the classic
+// photographic "near object outside the depth of field" cue that sells real
+// depth better than blur on the far layers alone.
+function ForegroundGrass({ seedKey }) {
+  const tufts = useMemo(() => {
+    const rng = seededRng(`${seedKey}:fggrass`)
+    const spots = [{ x: -4, y: 258 }, { x: 16, y: 260 }, { x: 388, y: 259 }, { x: 404, y: 257 }]
+    return spots.map((s, i) => ({
+      id: i,
+      x: s.x + (rng() - 0.5) * 8,
+      y: s.y,
+      h: 16 + rng() * 10,
+      lean: (rng() - 0.5) * 14,
+    }))
+  }, [seedKey])
+  return (
+    <g style={{ pointerEvents: 'none' }} aria-hidden="true" opacity="0.92">
+      {tufts.map((t) => (
+        <g key={t.id} transform={`translate(${t.x.toFixed(1)} ${t.y.toFixed(1)})`}>
+          {[-1, 0, 1].map((b) => (
+            <path
+              key={b}
+              d={`M0 0 Q${(t.lean * 0.4 + b * 6).toFixed(1)} ${(-t.h * 0.6).toFixed(1)} ${(t.lean + b * 11).toFixed(1)} ${(-t.h).toFixed(1)}`}
+              fill="none"
+              stroke="#16240f"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+          ))}
+        </g>
+      ))}
     </g>
   )
 }
@@ -1857,7 +2249,7 @@ export function GardenPage({
       if (!alive) return
       setCreatures(
         isNight
-          ? composeNight(grownPerches, collection, showcase)
+          ? composeNight(grownPerches, collection, showcase, worldBounds)
           : composeDay(grownPerches, collection, showcase, worldBounds),
       )
     }
@@ -2085,9 +2477,17 @@ export function GardenPage({
               count, spacing, amplitude) rather than the same wave repeated
               at three heights, so the terrain silhouette reads as real,
               varied ground instead of parallel bands. */}
-          <path d="M0 158 Q50 140 100 148 Q140 154 165 168 Q190 180 230 162 Q270 144 310 156 Q345 166 400 152 V260 H0 Z" fill="url(#gardenGrassFar)" />
+          <path
+            d="M0 158 Q50 140 100 148 Q140 154 165 168 Q190 180 230 162 Q270 144 310 156 Q345 166 400 152 V260 H0 Z"
+            fill="url(#gardenGrassFar)"
+            style={{ filter: 'blur(0.6px)' }}
+          />
           <path d="M0 172 Q60 152 130 166 Q180 178 220 158 Q260 140 320 162 Q360 176 400 164 V260 H0 Z" fill="url(#gardenGrassMid)" />
           <path d="M0 198 Q90 182 190 194 Q260 202 340 190 Q375 186 400 192 V260 H0 Z" fill="url(#gardenGrassNear)" />
+          {/* Crepuscular light rays — morning/evening only, sits above the
+              hills but below the ground-level dressing so it reads as light
+              falling across the landscape rather than a flat overlay. */}
+          <LightRays phase={phase} />
           {/* Misty/foggy weather: a soft pale haze hugging the horizon and
               hill bands, fading out well before the near lawn — desaturates
               "toward the horizon" without ever covering plantings. */}
@@ -2097,7 +2497,7 @@ export function GardenPage({
           {/* Ground light — soft, low-contrast sun/shadow drift baked into
               the lawn's own material (see GroundLight) rather than discrete
               decorative props scattered on top of it. */}
-          <GroundLight rect={{ x0: GARDEN_REGION.x0 + 10, x1: GARDEN_REGION.x1 - 10, y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1 }} seedKey={baseZoneSeed} baseHue="#6fa84f" />
+          <GroundLight rect={{ x0: GARDEN_REGION.x0 + 10, x1: GARDEN_REGION.x1 - 10, y0: GARDEN_REGION.y0, y1: GARDEN_REGION.y1 }} seedKey={baseZoneSeed} baseHue="#6fa84f" wind={weather === 'windy'} />
 
           {/* Kallie's paw prints — a little Easter egg walking trail across
               the lawn, a fresh random path each time the garden loads. */}
@@ -2114,15 +2514,15 @@ export function GardenPage({
               Garden bought before Expand Right) renders as a fenced-off,
               non-interactive locked placeholder instead of a blank gap. */}
           {expansions.includes('expand-left') && (
-            <ExpansionZoneArt id="expand-left" phase={phase} expansions={expansions} />
+            <ExpansionZoneArt id="expand-left" phase={phase} expansions={expansions} weather={weather} />
           )}
           {expansions.includes('expand-right') ? (
-            <ExpansionZoneArt id="expand-right" phase={phase} expansions={expansions} />
+            <ExpansionZoneArt id="expand-right" phase={phase} expansions={expansions} weather={weather} />
           ) : expansions.includes('back-garden') ? (
             <LockedZonePlaceholder id="expand-right" />
           ) : null}
           {expansions.includes('back-garden') && (
-            <ExpansionZoneArt id="back-garden" phase={phase} shaded expansions={expansions} />
+            <ExpansionZoneArt id="back-garden" phase={phase} shaded expansions={expansions} weather={weather} />
           )}
 
           {/* Gateway markers at the seam between two owned zones — only once
@@ -2296,6 +2696,21 @@ export function GardenPage({
           {/* windy — loose leaves/petals blowing across the scene, same
               front-of-everything layering as rain */}
           {weather === 'windy' && <WindOverlay viewBox={viewBox} />}
+
+          {/* foreground framing — a soft, blurred bush fringe at the very
+              front-left edge, closer to the viewer than anything else in the
+              scene, for real foreground/midground/background separation.
+              Confined to the corner (partly off-canvas) so it never blocks
+              the plantable area; fixed (not seeded per save) since it's
+              scene furniture, not a per-garden random element. */}
+          <g style={{ pointerEvents: 'none', filter: 'blur(1.4px)' }} opacity="0.94">
+            <FoliageClump rng={seededRng('garden-foreground-fringe-a')} cx={-8} cy={254} rx={34} ry={26} hue="#2c4a2a" count={9} minR={10} maxR={18} />
+            <FoliageClump rng={seededRng('garden-foreground-fringe-b')} cx={4} cy={236} rx={20} ry={16} hue="#233d22" count={6} minR={6} maxR={11} />
+          </g>
+          {/* sharp foreground grass at the very bottom edge — unblurred and
+              dark against the soft blurred fringe above, so the scene reads
+              with real foreground/midground/background separation. */}
+          <ForegroundGrass seedKey={baseZoneSeed} />
 
           {/* edge vignette — painted last, over everything, never intercepts taps */}
           <rect x={viewBox.minX} y="0" width={viewBox.width} height="260" fill="url(#gardenVignette)" style={{ pointerEvents: 'none' }} />

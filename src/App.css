@@ -5061,6 +5061,87 @@ button.tweety-nest-base.gift-pop {
   88% { opacity: 0.85; }
   100% { transform: translate(var(--wind-drift), var(--wind-fall)) rotate(var(--wind-spin)); opacity: 0; }
 }
+/* Clouds glide gently back and forth (bounded, never off-frame) instead of
+   sitting frozen in the sky — see Cloud in Garden.jsx. Each cloud's own
+   distance/duration/delay is hand-tuned per call so nothing moves in lockstep. */
+.garden-cloud-drift {
+  animation-name: garden-cloud-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+}
+@keyframes garden-cloud-drift {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(var(--cloud-drift)); }
+}
+/* Grass tufts lean in a passing gust during windy weather — each tuft's own
+   delay/duration (set inline, see GroundLight in Garden.jsx) staggers the
+   sway across the lawn so it reads as a current rolling through, not a
+   single uniform twitch. */
+.garden-grass-gust {
+  animation-name: garden-grass-gust;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+@keyframes garden-grass-gust {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(7deg); }
+}
+/* A handful of a canopy's lit-face leaves gently pulse — sun glinting
+   through leaves — shared by every FoliageClump (trees, shrubs, hedges,
+   the foreground fringe). */
+.garden-leaf-shimmer {
+  animation-name: garden-leaf-shimmer;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes garden-leaf-shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+/* Warm dust/pollen motes drifting slowly up and sideways — see PollenMote. */
+.garden-pollen-drift {
+  animation-name: garden-pollen-move;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+}
+@keyframes garden-pollen-move {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate(var(--pollen-drift), calc(var(--pollen-rise) * -1)); opacity: 0; }
+}
+/* Crepuscular light rays (see LightRays) breathe very slowly so the fan
+   feels alive without drawing the eye. */
+.garden-light-ray {
+  animation-name: garden-ray-breathe;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-duration: 6s;
+}
+@keyframes garden-ray-breathe {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+/* Twinkling glints on still water — pond, bird bath, waterfall pool alike
+   (see WaterSparkle). */
+.garden-water-sparkle {
+  animation-name: garden-water-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-duration: 3.2s;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes garden-water-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.6); }
+  50% { opacity: 0.9; transform: scale(1); }
+}
 .garden-scene-svg.placing { cursor: crosshair; touch-action: none; }
 .garden-paw-prints { pointer-events: none; }
 .garden-paw-print { opacity: 0; animation: garden-paw-fade-in 1.1s ease-out forwards; }
@@ -5375,6 +5456,48 @@ button.tweety-nest-base.gift-pop {
   50%  { transform: translate(-6px, -18px); }
   75%  { transform: translate(-14px, -6px); }
   100% { transform: translate(0, 0); }
+}
+
+/* Bee: quicker, jitterier wander than a butterfly's lazy drift (wings flap
+   via the shared .g-wing pair above, much faster --flap-dur). */
+.g-bee-wander { animation: g-bee-move 4.5s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-bee-move {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(14px, -8px); }
+  45% { transform: translate(22px, 4px); }
+  70% { transform: translate(8px, 10px); }
+  85% { transform: translate(-6px, -4px); }
+}
+
+/* Firefly: a slow drifting glow that pulses on/off — a time-of-day ambient
+   (night only), unrelated to the weather-driven rain/wind particles. */
+.g-firefly-drift { animation: g-firefly-move 9s ease-in-out infinite; transform-box: fill-box; }
+@keyframes g-firefly-move {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(16px, -14px); }
+  66% { transform: translate(-10px, -6px); }
+}
+.g-firefly-glow { animation: g-firefly-pulse 1.8s ease-in-out infinite; }
+@keyframes g-firefly-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.95; }
+}
+
+/* Pond: a slow outward ripple ring, looping — real pondwater never sits
+   perfectly still (see PondArt in Garden.jsx). */
+.garden-pond-ripple {
+  fill: none;
+  stroke: #eaf9ff;
+  stroke-width: 1;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: garden-pond-ripple 4.8s ease-out infinite;
+}
+@keyframes garden-pond-ripple {
+  0% { transform: scale(0.3); opacity: 0.55; }
+  70% { opacity: 0.08; }
+  100% { transform: scale(2.6); opacity: 0; }
 }
 
 
@@ -6776,6 +6899,53 @@ button.tweety-nest-base.gift-pop {
 @keyframes gh-glow-pulse {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
+}
+
+/* Sunbeams through the glass roof breathe very slowly (see LightShafts). */
+.gh-light-shaft {
+  animation-name: gh-shaft-breathe;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-duration: 6.5s;
+}
+@keyframes gh-shaft-breathe {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+/* Drifting dust motes (see DustMotes) — a slow rise + sideways wander. */
+.gh-dust-mote {
+  animation-name: gh-dust-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+}
+@keyframes gh-dust-drift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: 0.8; }
+  88% { opacity: 0.8; }
+  100% { transform: translate(var(--mote-drift), calc(var(--mote-rise) * -1)); opacity: 0; }
+}
+/* A healthy pot's foliage gets a small idle sway (see PottedPlantArt) —
+   same idle-life idea as the outdoor Garden's swaying plants. */
+.gh-pot-sway {
+  animation-name: gh-pot-sway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+@keyframes gh-pot-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(2.2deg); }
+}
+/* The gold-trim pot's rim catches a little animated glint. */
+.gh-gold-glint {
+  animation: gh-gold-glint 3s ease-in-out infinite;
+  transform-box: fill-box; transform-origin: center;
+}
+@keyframes gh-gold-glint {
+  0%, 100% { opacity: 0.3; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 
 /* Tap-to-water feedback: a droplet falls from just above the pot into the
