@@ -480,6 +480,8 @@
 /* ---- "Birds likely near you today" home card ---- */
 .near-you-card {
   padding: 16px 16px 14px;
+  background: linear-gradient(135deg, rgba(53, 96, 74, 0.1), rgba(255, 253, 249, 1) 45%);
+  border-color: var(--dash);
 }
 .near-you-head h3 {
   margin: 2px 0 0;

@@ -8259,6 +8259,13 @@ function SeasonMotif({ seasonKey }) {
     return (
       <>
         <rect width="320" height="100" fill="url(#seasonGradSpring)" />
+        {/* soft rolling ground beneath the blossom branch, so the scene has a
+            near layer instead of flowers floating on a flat gradient */}
+        <path d="M0 70 Q60 56 130 66 Q200 76 260 60 Q300 52 320 58 V100 H0 Z" fill="#dcead1" opacity="0.8" />
+        <path d="M0 84 Q70 72 150 80 Q220 88 280 76 Q300 72 320 76 V100 H0 Z" fill="#c9e0b9" />
+        {[[50, 82], [140, 88], [230, 80], [290, 86]].map(([x, y], i) => (
+          <circle key={x} className="season-motif-twinkle" cx={x} cy={y} r="1.4" fill="#fff6c8" style={{ animationDelay: `${i * 0.6}s`, animationDuration: '3s' }} />
+        ))}
         <path d="M-10 22 Q80 6 160 24 Q240 42 330 20" fill="none" stroke="#8a6a4a" strokeWidth="2.4" strokeLinecap="round" opacity="0.6" />
         {[30, 78, 130, 190, 250, 300].map((x, i) => {
           const y = 22 + Math.sin(i * 1.3) * 10
@@ -8295,12 +8302,19 @@ function SeasonMotif({ seasonKey }) {
     return (
       <>
         <rect width="320" height="100" fill="url(#seasonGradSummer)" />
+        {/* rolling summer meadow ground, so the sunflowers root in something
+            instead of standing on a flat sky gradient */}
+        <path d="M0 66 Q60 52 140 62 Q220 72 280 56 Q300 50 320 56 V100 H0 Z" fill="#bfe6ae" opacity="0.75" />
+        <path d="M0 82 Q80 70 160 78 Q230 86 300 74 Q310 72 320 74 V100 H0 Z" fill="#a3d488" />
         <g transform="translate(258 26)" className="season-motif-sun-pulse">
           <circle r="26" fill="#ffe7a8" opacity="0.4" />
           <circle r="15" fill="#ffcf6a" />
         </g>
         {[0, 45, 90, 135].map((rot) => (
           <line key={rot} x1="258" y1="26" x2={258 + Math.cos((rot * Math.PI) / 180) * 40} y2={26 + Math.sin((rot * Math.PI) / 180) * 40} stroke="#ffe7a8" strokeWidth="2" strokeLinecap="round" opacity="0.5" className="season-motif-sun-pulse" />
+        ))}
+        {[[46, 90], [190, 92], [270, 88]].map(([x, y], i) => (
+          <circle key={x} className="season-motif-twinkle" cx={x} cy={y} r="1.3" fill="#fff6c8" style={{ animationDelay: `${i * 0.5}s`, animationDuration: '2.8s' }} />
         ))}
         {[40, 100, 160].map((x) => (
           <g key={x} transform={`translate(${x} 82)`}>
@@ -8323,6 +8337,13 @@ function SeasonMotif({ seasonKey }) {
     return (
       <>
         <rect width="320" height="100" fill="url(#seasonGradAutumn)" />
+        {/* warm amber ground, with a scatter of leaves already settled on it —
+            not everything falling has to still be in the air */}
+        <path d="M0 68 Q60 54 140 64 Q220 74 280 58 Q300 52 320 58 V100 H0 Z" fill="#e0b878" opacity="0.75" />
+        <path d="M0 84 Q80 72 160 80 Q230 88 300 76 Q310 74 320 76 V100 H0 Z" fill="#c9975e" />
+        {[[36, 90, '#c1552f'], [90, 94, '#c9a35a'], [160, 89, '#a9512f'], [220, 93, '#e8893a'], [290, 90, '#c1552f']].map(([x, y, c], i) => (
+          <ellipse key={x} cx={x} cy={y} rx="3.4" ry="2.4" fill={c} opacity="0.85" transform={`rotate(${i % 2 ? 25 : -25} ${x} ${y})`} />
+        ))}
         <path d="M-10 18 Q90 2 170 20 Q250 38 330 16" fill="none" stroke="#6b4a2a" strokeWidth="2.6" strokeLinecap="round" opacity="0.65" />
         {[[40, 24, '#c1552f'], [95, 14, '#e8893a'], [150, 26, '#c9a35a'], [210, 16, '#a9512f'], [270, 24, '#e8893a']].map(([x, y, c], i) => (
           <ellipse key={i} cx={x} cy={y} rx="6" ry="4.4" fill={c} transform={`rotate(${(i % 2 ? 20 : -20)} ${x} ${y})`} />
@@ -8338,23 +8359,74 @@ function SeasonMotif({ seasonKey }) {
     )
   }
   if (seasonKey === 'winter') {
+    // A snow-capped pine, one shared shape reused at two scales/tints for
+    // near vs mid ground — same "one shape, three tones" depth cue the
+    // outdoor Garden's own tree art uses.
+    const pine = (x, y, scale, tone, snow) => (
+      <g key={`${x}-${y}`} transform={`translate(${x} ${y}) scale(${scale})`}>
+        <ellipse cx="0" cy="2" rx="10" ry="3" fill="#16233f" opacity="0.2" />
+        <path d="M0 -26 L-15 0 L15 0 Z" fill={tone} />
+        <path d="M0 -15 L-19 14 L19 14 Z" fill={tone} />
+        <path d="M0 -15 L-7 -7 L7 -7 Z" fill={snow} opacity="0.9" />
+        <path d="M-10 8 L-2 -1 L5 8 Z" fill={snow} opacity="0.75" />
+        <rect x="-2" y="14" width="4" height="7" fill="#5a4530" />
+      </g>
+    )
+    const farPine = (x, y) => (
+      <path key={`far-${x}`} d={`M${x} ${y} L${x - 5} ${y + 12} L${x + 5} ${y + 12} Z`} fill="#5f7fa0" opacity="0.55" />
+    )
+    const twinkle = (x, y, delay, size = 2) => (
+      <path
+        key={`tw-${x}-${y}`}
+        className="season-motif-twinkle"
+        style={{ animationDelay: `${delay}s` }}
+        d={`M${x} ${y - size} L${x + size * 0.3} ${y - size * 0.3} L${x + size} ${y} L${x + size * 0.3} ${y + size * 0.3} L${x} ${y + size} L${x - size * 0.3} ${y + size * 0.3} L${x - size} ${y} L${x - size * 0.3} ${y - size * 0.3} Z`}
+        fill="#fff8e0"
+      />
+    )
     return (
       <>
         <rect width="320" height="100" fill="url(#seasonGradWinter)" />
-        <path d="M0 84 Q60 62 130 78 Q200 94 260 68 Q300 52 320 62 V100 H0 Z" fill="#e8eff6" opacity="0.85" />
-        <g transform="translate(238 52)">
-          <ellipse cx="0" cy="30" rx="9" ry="3" fill="#33507e" opacity="0.18" />
-          <path d="M0 -22 L-13 0 L13 0 Z" fill="#5f8f6e" />
-          <path d="M0 -12 L-16 12 L16 12 Z" fill="#4f7d5e" />
-          <path d="M0 -12 L-6 -6 L6 -6 Z" fill="#eef4f2" opacity="0.85" />
-          <path d="M-9 6 L-2 0 L4 6 Z" fill="#eef4f2" opacity="0.7" />
-          <rect x="-2" y="12" width="4" height="6" fill="#6b4a2a" />
+        {/* the one warm note in an otherwise cool scene — a low winter sun */}
+        <circle cx="248" cy="32" r="30" fill="#ffe9b8" opacity="0.32" />
+        <circle cx="248" cy="32" r="15" fill="#ffd98a" opacity="0.65" className="season-motif-sun-pulse" />
+        {twinkle(40, 14, 0)}{twinkle(120, 10, 1.1, 1.6)}{twinkle(200, 18, 2.2)}{twinkle(292, 14, 0.6, 1.6)}
+        {/* far hazy ridge, cooler/paler for atmospheric perspective */}
+        <path d="M0 66 Q60 50 130 60 Q200 70 260 54 Q300 44 320 52 V100 H0 Z" fill="#c3d8ea" opacity="0.75" />
+        {farPine(66, 56)}{farPine(80, 58)}{farPine(258, 48)}
+        {/* mid hills — a touch warmer where the low sun catches them */}
+        <path d="M0 80 Q70 64 140 76 Q210 88 270 70 Q300 62 320 68 V100 H0 Z" fill="#dfe9ef" />
+        {pine(255, 82, 0.85, '#3f6b52', '#eef4f2')}
+        {/* near snowdrift — brightest layer, with sparkle and a couple of dry
+            grass tufts poking through for a lived-in, un-flattened foreground */}
+        <path d="M0 90 Q60 82 130 88 Q200 94 260 84 Q300 80 320 84 V100 H0 Z" fill="#f4f8fa" />
+        {[[28, 92], [104, 95], [286, 94]].map(([x, y]) => (
+          <g key={x} transform={`translate(${x} ${y})`} stroke="#a98a5c" strokeWidth="1" opacity="0.5">
+            <line x1="0" y1="0" x2="-1.6" y2="-5.5" /><line x1="0" y1="0" x2="0" y2="-6.5" /><line x1="0" y1="0" x2="1.6" y2="-5.5" />
+          </g>
+        ))}
+        {[[20, 88], [150, 91], [220, 89], [305, 92]].map(([x, y], i) => (
+          <circle key={x} className="season-motif-twinkle" cx={x} cy={y} r="1.1" fill="#ffffff" style={{ animationDelay: `${i * 0.7}s`, animationDuration: '2.6s' }} />
+        ))}
+        {pine(90, 90, 1.15, '#3f6b52', '#eef4f2')}
+        {/* a robin warming up the foreground with a real accent color */}
+        <g transform="translate(178 92)" aria-hidden="true">
+          <ellipse cx="0" cy="9.5" rx="5" ry="1.6" fill="#16233f" opacity="0.16" />
+          <ellipse cx="0" cy="2" rx="5.6" ry="4.6" fill="#7a6b58" />
+          <circle cx="3.2" cy="2.8" r="3.1" fill="#c1552f" />
+          <circle cx="-2.4" cy="-3.4" r="3" fill="#7a6b58" />
+          <circle cx="-3.5" cy="-4" r="0.7" fill="#201a14" />
+          <path d="M-5.7 -3.6 L-8 -3 L-5.7 -2.2 Z" fill="#e8a23c" />
+          <line x1="-1" y1="6.4" x2="-1.4" y2="9.2" stroke="#3a3226" strokeWidth="0.7" />
+          <line x1="1.4" y1="6.4" x2="1.8" y2="9.2" stroke="#3a3226" strokeWidth="0.7" />
         </g>
         {fall(
           [
-            { x: 20, delay: 0, dur: 8 }, { x: 70, delay: 2, dur: 9 }, { x: 130, delay: 4, dur: 7.5 },
-            { x: 190, delay: 1.4, dur: 8.5 }, { x: 260, delay: 3, dur: 7 }, { x: 300, delay: 0.8, dur: 9 },
-          ].map((p) => ({ ...p, node: <circle r="1.7" fill="#ffffff" /> })),
+            { x: 12, delay: 0, dur: 6.5 }, { x: 48, delay: 1.6, dur: 7.5 }, { x: 84, delay: 3.2, dur: 6 },
+            { x: 118, delay: 0.8, dur: 8 }, { x: 152, delay: 2.4, dur: 7 }, { x: 186, delay: 4, dur: 6.8 },
+            { x: 218, delay: 1.2, dur: 7.8 }, { x: 250, delay: 3.6, dur: 6.4 }, { x: 282, delay: 0.4, dur: 8.2 },
+            { x: 308, delay: 2.8, dur: 7.2 },
+          ].map((p, i) => ({ ...p, node: <circle r={i % 3 === 0 ? 2.1 : 1.4} fill="#ffffff" opacity={i % 3 === 0 ? 0.95 : 0.7} /> })),
           'season-motif-fall',
         )}
       </>
@@ -8386,19 +8458,19 @@ function SeasonBanner({ season }) {
         <svg viewBox="0 0 320 100" preserveAspectRatio="xMidYMid slice" role="presentation">
           <defs>
             <linearGradient id="seasonGradSpring" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#fbe6ee" /><stop offset="1" stopColor="#eef6da" />
+              <stop offset="0" stopColor="#f3b8d0" /><stop offset="0.5" stopColor="#fbe6ee" /><stop offset="1" stopColor="#eef6da" />
             </linearGradient>
             <linearGradient id="seasonGradSummer" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#bfe6f2" /><stop offset="1" stopColor="#e8f5dc" />
+              <stop offset="0" stopColor="#7fb8d8" /><stop offset="0.5" stopColor="#bfe6f2" /><stop offset="1" stopColor="#e8f5dc" />
             </linearGradient>
             <linearGradient id="seasonGradAutumn" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#f3d9a8" /><stop offset="1" stopColor="#fde9cf" />
+              <stop offset="0" stopColor="#e2a259" /><stop offset="0.5" stopColor="#f3d9a8" /><stop offset="1" stopColor="#fde9cf" />
             </linearGradient>
             <linearGradient id="seasonGradWinter" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#c7d9ec" /><stop offset="1" stopColor="#eef3f8" />
+              <stop offset="0" stopColor="#7fa4cc" /><stop offset="0.55" stopColor="#a9c4dd" /><stop offset="1" stopColor="#dfeaf1" />
             </linearGradient>
             <linearGradient id="seasonGradCapeTown" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#bcdce8" /><stop offset="1" stopColor="#e6f3ee" />
+              <stop offset="0" stopColor="#6fabc4" /><stop offset="0.5" stopColor="#bcdce8" /><stop offset="1" stopColor="#e6f3ee" />
             </linearGradient>
           </defs>
           <SeasonMotif seasonKey={season.key} />

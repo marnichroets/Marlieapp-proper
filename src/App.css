@@ -2801,9 +2801,9 @@ textarea:focus {
 }
 
 .streak-chip {
-  background: var(--paper);
+  background: linear-gradient(135deg, rgba(201, 147, 47, 0.22), var(--paper) 65%);
   color: var(--gold-dark);
-  border: 1px solid rgba(201, 147, 47, 0.32);
+  border: 1px solid rgba(201, 147, 47, 0.45);
   box-shadow: var(--shadow-sm);
 }
 
@@ -4199,11 +4199,14 @@ textarea:focus {
     radial-gradient(circle at 88% 6%, rgba(74, 132, 188, 0.22), transparent 42%);
 }
 .season-winter .season-wash {
-  /* Cool frost wash — faint blue-grey cues at the top corners, no
-     full-width wash. The snow particles carry most of the winter feel. */
+  /* Frost wash — deepened since the old floating-particle layer that used
+     to carry most of the winter feel was removed; a warm gold corner glow
+     echoes the illustrated banner's own low winter sun instead of leaving
+     the whole page a flat cool blue-grey. */
   background:
-    radial-gradient(circle at 16% 0%, rgba(190, 214, 235, 0.26), transparent 44%),
-    radial-gradient(circle at 88% 8%, rgba(107, 123, 140, 0.16), transparent 42%);
+    radial-gradient(circle at 16% 0%, rgba(169, 196, 221, 0.36), transparent 46%),
+    radial-gradient(circle at 88% 8%, rgba(107, 123, 140, 0.22), transparent 44%),
+    radial-gradient(circle at 80% 3%, rgba(201, 147, 47, 0.12), transparent 30%);
 }
 .season-spring .season-wash {
   background:
@@ -4440,8 +4443,24 @@ textarea:focus {
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--paper);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--dash);
+  box-shadow: var(--shadow);
+}
+
+/* A thin warm accent line where the illustration meets the text — a small
+   "designed" detail instead of the art just stopping flush against paper. */
+.season-banner-art {
+  position: relative;
+}
+.season-banner-art::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--terracotta));
+  opacity: 0.7;
 }
 
 .season-banner-art {
@@ -4509,6 +4528,16 @@ textarea:focus {
 .season-motif-drift {
   animation: season-motif-drift-move var(--fdur, 20s) ease-in-out infinite;
   transform-box: fill-box;
+}
+/* Small twinkling sparkle/star accents (winter sky + snow glints). */
+.season-motif-twinkle {
+  animation: season-motif-twinkle 2.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes season-motif-twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 @keyframes season-motif-drift-move {
   0%, 100% { transform: translateX(0); }
@@ -6908,15 +6937,19 @@ button.tweety-nest-base.gift-pop {
   border-radius: var(--radius);
   cursor: pointer;
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: 1px solid var(--dash);
   box-shadow: var(--shadow-sm);
   transition:
     transform var(--dur-base) var(--ease-spring),
     box-shadow var(--dur-base) var(--ease-out),
     border-color var(--dur-base) var(--ease-out);
 }
-.home-entry-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--dash); }
+.home-entry-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-strong); border-color: var(--gold-dark); }
 .home-entry-card:active { transform: translateY(0) scale(0.985); transition-duration: var(--dur-fast); }
+/* A real tinted wash per card instead of flat paper — matches the deeper,
+   bolder palette the rest of tonight's redesign uses. */
+.bird-post-shortcut-card { background: linear-gradient(135deg, rgba(184, 169, 201, 0.18), rgba(255, 253, 249, 1) 55%); }
+.magazine-shortcut-card { background: linear-gradient(135deg, rgba(201, 147, 47, 0.2), rgba(255, 253, 249, 1) 55%); }
 .home-entry-emoji {
   display: grid;
   place-items: center;
@@ -6928,8 +6961,8 @@ button.tweety-nest-base.gift-pop {
   transition: transform var(--dur-base) var(--ease-spring);
 }
 .home-entry-card:hover .home-entry-emoji { transform: scale(1.06) rotate(-4deg); }
-.bird-post-shortcut-emoji { background: rgba(184, 169, 201, 0.16); }
-.magazine-shortcut-emoji { background: rgba(201, 147, 47, 0.14); }
+.bird-post-shortcut-emoji { background: rgba(142, 118, 168, 0.28); }
+.magazine-shortcut-emoji { background: rgba(201, 147, 47, 0.28); }
 .home-entry-text { flex: 1; display: flex; flex-direction: column; }
 .home-entry-text .eyebrow { margin: 0 0 2px; }
 .home-entry-text strong { color: var(--ink-strong); font-size: 1.02rem; font-weight: 700; }
@@ -6955,13 +6988,15 @@ button.tweety-nest-base.gift-pop {
   border-radius: var(--radius);
   cursor: pointer;
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: 1px solid var(--dash);
   box-shadow: var(--shadow-sm);
   transition:
     transform var(--dur-base) var(--ease-spring),
     box-shadow var(--dur-base) var(--ease-out),
     border-color var(--dur-base) var(--ease-out);
 }
+.garden-home-card { background: linear-gradient(135deg, rgba(53, 96, 74, 0.12), rgba(255, 253, 249, 1) 55%); }
+.greenhouse-home-card { background: linear-gradient(135deg, rgba(201, 147, 47, 0.16), rgba(255, 253, 249, 1) 55%); }
 
 .greenhouse-home-card:hover,
 .garden-home-card:hover {
@@ -6997,11 +7032,11 @@ button.tweety-nest-base.gift-pop {
 }
 
 .garden-home-emoji {
-  background: var(--mint);
+  background: rgba(53, 96, 74, 0.22);
 }
 
 .greenhouse-home-emoji {
-  background: rgba(201, 147, 47, 0.14);
+  background: rgba(201, 147, 47, 0.28);
 }
 
 .greenhouse-home-text,
