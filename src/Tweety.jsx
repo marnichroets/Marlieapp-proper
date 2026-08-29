@@ -953,6 +953,75 @@ function ColorEgg({ color = '#F6A5C0', size = 84, glow = false }) {
   )
 }
 
+// A warm liquid-fill heart — the bond meter's shell stays visible under the
+// fill (a heart path used twice: once as a static outline, once clipped to a
+// rect whose height tracks `percent`) so even an empty heart still reads as
+// a heart, never a blank shape.
+const HEART_PATH = 'M12 21s-8-4.6-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.4-8 11-8 11z'
+function HeartMeter({ percent }) {
+  const p = Math.max(0, Math.min(100, percent))
+  const fillY = 24 - (24 * p) / 100
+  return (
+    <svg viewBox="0 0 24 24" role="img" aria-label={`${Math.round(p)}% bonded`}>
+      <defs>
+        <clipPath id="tweetyHeartClip"><path d={HEART_PATH} /></clipPath>
+        <linearGradient id="tweetyHeartFill" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="var(--terracotta)" />
+          <stop offset="1" stopColor="var(--gold)" />
+        </linearGradient>
+      </defs>
+      <path className="tweety-heart-outline" d={HEART_PATH} />
+      <g clipPath="url(#tweetyHeartClip)">
+        <rect className="tweety-heart-fill-rect" x="0" y={fillY} width="24" height={24 - fillY} fill="url(#tweetyHeartFill)" />
+      </g>
+    </svg>
+  )
+}
+
+// Egg warmth: a handful of colour tiers (barely-there → gold → hot amber)
+// rather than a continuous interpolation — simple, and it still reads as
+// clearly getting warmer day by day.
+const EGG_WARMTH_COLORS = ['#d8c9a3', '#f6d488', '#ffb35c']
+function eggWarmthColor(progress) {
+  const idx = Math.min(EGG_WARMTH_COLORS.length - 1, Math.floor(progress * EGG_WARMTH_COLORS.length))
+  return EGG_WARMTH_COLORS[idx]
+}
+
+// A small woven basket the egg rests in, with a warmth glow behind it that
+// shifts colour as `progress` (0-1) climbs — replaces the egg floating alone
+// in blank space, and reuses the same wood tones as the home nest so it
+// reads as the same world.
+function EggNest({ progress = 0, children }) {
+  const color = eggWarmthColor(progress)
+  return (
+    <div className="egg-nest-wrap">
+      <div className="egg-warmth-glow" style={{ '--egg-warmth-color': color }} aria-hidden="true" />
+      {children}
+      <svg className="egg-nest-basket" viewBox="0 0 150 44" aria-hidden="true">
+        <ellipse cx="75" cy="12" rx="66" ry="15" fill="#c9975e" />
+        <ellipse cx="75" cy="9" rx="61" ry="12" fill="#e0b077" />
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <path key={i} d={`M${18 + i * 20} 4 Q${28 + i * 20} 17 ${38 + i * 20} 4`} stroke="#9c6a38" strokeWidth="2" fill="none" opacity="0.6" />
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+// A row of little embers replacing the flat hatch-progress bar — one lights
+// (and pops) per day warmed, same "fill up one satisfying tick at a time"
+// language as the Garden's own watering meter.
+function EggWarmthMeter({ warms, total, progress }) {
+  const color = eggWarmthColor(progress)
+  return (
+    <div className="egg-warmth-meter" aria-hidden="true">
+      {Array.from({ length: total }).map((_, i) => (
+        <span key={i} className={`egg-warmth-dot${i < warms ? ' on' : ''}`} style={{ '--egg-warmth-color': color }} />
+      ))}
+    </div>
+  )
+}
+
 // ---- Home card (simplified: feed/water/play, 5 moods, real-day growth) -----
 // The 5 growth stage keys map straight onto TweetyBird's stage shapes.
 const GROWTH_TO_LEVEL = {
@@ -1780,10 +1849,11 @@ export function TweetyHomeCard({
         {/* A cosy little room, not a scatter of emoji — every store item gets
             a fixed, named spot (see ROOM_ITEMS above), rendered even before
             she owns it as a faint "room to fill" outline. */}
-        <div className="tweety-room">
+        <div className="tweety-room" style={{ '--warmth': happiness / 100 }}>
           <div className="room-backdrop" aria-hidden="true">
             <RoomBackdrop theme={roomTheme} timePhase={saTimePhase()} />
           </div>
+          <div className="tweety-room-glow" aria-hidden="true" />
           {ROOM_ITEMS.map((it) => {
             // Treats is a repeatable consumable, never added to the permanent
             // gifts list — its bowl only appears while today's boost is
@@ -1890,14 +1960,16 @@ export function TweetyHomeCard({
       {/* Happiness meter — rises from care/store interactions, decays
           passively when neglected, drives tweetySimpleMood/tweetyMood. */}
       <div className="tweety-happiness">
-        <div className="tweety-happiness-top">
-          <span className="tweety-happiness-caption">
-            {happinessFace.emoji} {happinessFace.label}
+        <div className="tweety-happiness-row">
+          <span className={`tweety-heart-meter${happiness >= 80 ? ' glowing' : ''}`}>
+            <HeartMeter percent={happiness} />
           </span>
-          <span className="tweety-happiness-pct">{happiness}%</span>
-        </div>
-        <div className="progress-track" aria-hidden="true">
-          <span style={{ width: `${happiness}%` }} />
+          <div className="tweety-happiness-text">
+            <span className="tweety-happiness-caption">
+              {happinessFace.emoji} {happinessFace.label}
+            </span>
+            <span className="tweety-happiness-pct">{happiness}% bonded</span>
+          </div>
         </div>
       </div>
 
@@ -2002,12 +2074,10 @@ export function FirstEggCard({ tweety, onWarm }) {
           <h3>Warm your {egg.name} egg every day — it hatches after {FIRST_EGG_WARMS} days</h3>
         </div>
       </div>
-      <div className="first-egg-stage">
+      <EggNest progress={warms / FIRST_EGG_WARMS}>
         <ColorEgg color={egg.color} size={140} glow />
-      </div>
-      <div className="hatch-progress">
-        <span style={{ width: `${(warms / FIRST_EGG_WARMS) * 100}%` }}></span>
-      </div>
+      </EggNest>
+      <EggWarmthMeter warms={warms} total={FIRST_EGG_WARMS} progress={warms / FIRST_EGG_WARMS} />
       {warmedToday ? (
         <p className="fine-print">
           So warm and cosy 💛 Come back tomorrow to warm it again. ({warms}/{FIRST_EGG_WARMS} days)
@@ -2050,7 +2120,7 @@ export function EggSpeciesPicker({ birdLibrary = [], onChoose }) {
       {catalogued.length === 0 ? (
         <p className="fine-print">Discover a species in the wild first, then come back to choose.</p>
       ) : (
-        <div className="garden-shop-row egg-species-grid">
+        <div className="catalog-row egg-species-grid">
           {catalogued.map((bird) => {
             const entry = BIRD_COLOUR_MAP[bird.id]
             const template = entry?.template || 'songbird-small'
@@ -2059,14 +2129,14 @@ export function EggSpeciesPicker({ birdLibrary = [], onChoose }) {
               <button
                 key={bird.id}
                 type="button"
-                className="garden-shop-btn egg-species-btn"
+                className="catalog-card egg-species-btn"
                 onClick={() => onChoose?.(bird.id)}
               >
                 <span className="egg-species-preview">
                   <GardenBird template={template} zones={zones} size={48} ground={false} />
                 </span>
                 <strong>{bird.commonName}</strong>
-                {bird.afrikaansName && <small>{bird.afrikaansName}</small>}
+                {bird.afrikaansName && <span className="catalog-blurb">{bird.afrikaansName}</span>}
               </button>
             )
           })}
@@ -2096,9 +2166,18 @@ export function MysteryEggCard({ mysteryEgg, onWarm }) {
           </h3>
         </div>
       </div>
-      <div className="first-egg-stage">
-        <ColorEgg color={mysteryEgg.color} size={ready ? 96 : 140} glow={!ready} />
-      </div>
+      {ready ? (
+        <div className="first-egg-stage">
+          <ColorEgg color={mysteryEgg.color} size={96} />
+        </div>
+      ) : (
+        <>
+          <EggNest progress={warms / MYSTERY_EGG_WARMS}>
+            <ColorEgg color={mysteryEgg.color} size={140} glow />
+          </EggNest>
+          <EggWarmthMeter warms={warms} total={MYSTERY_EGG_WARMS} progress={warms / MYSTERY_EGG_WARMS} />
+        </>
+      )}
       {ready ? (
         <p className="fine-print">
           Your next companion is ready and waiting — she&apos;ll join you the moment you release
@@ -2124,6 +2203,12 @@ export function AwaitingCompanionCard({ tweety }) {
     <section className="soft-card full-span tweety-card awaiting-companion-card">
       <p className="eyebrow">Between companions 🪶</p>
       <h3>{lastName ? `${lastName} is settling into the garden` : 'Your last companion is settling into the garden'}</h3>
+      <div className="awaiting-nest-scene" aria-hidden="true">
+        <div className="awaiting-nest-wrap">
+          <span className="awaiting-nest-feather" style={{ left: '18%' }}>🪶</span>
+          <div className="awaiting-nest-base" />
+        </div>
+      </div>
       <p className="fine-print">
         Keep birding — your next companion is warming up in her mystery egg and will join you
         very soon.
@@ -2146,7 +2231,9 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
           Back
         </button>
         <div className="tweety-stats-hero">
-          <TweetyBird level={GROWTH_TO_LEVEL[growth.key] || 'chick'} mood={mood} size={120} companion={tweety?.companion} />
+          <span className="tweety-stats-portrait">
+            <TweetyBird level={GROWTH_TO_LEVEL[growth.key] || 'chick'} mood={mood} size={104} companion={tweety?.companion} />
+          </span>
           <div>
             <p className="eyebrow">Your pet bird</p>
             <h2>{name}{species && <span className="tweety-species"> ({species})</span>}</h2>
@@ -2318,18 +2405,29 @@ function BabySVG({ stage }) {
   )
 }
 
-function AviaryBird({ idle = 'hop' }) {
+// Cheap slugify matching the one saBirdLibrary.js uses to build each entry's
+// `id` (and so BIRD_COLOUR_MAP's keys) — same duplicated helper Garden.jsx
+// keeps for the same reason (not exported from there).
+function aviarySlugify(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+// An aviary bird (rescued via a "she escaped, then flew back" world event)
+// now renders as her real species — the same illustrated GardenBird art
+// every other bird in the app uses — instead of one generic pink blob shape
+// standing in for all of them.
+function AviaryBird({ idle = 'hop', species }) {
+  const entry = species && BIRD_COLOUR_MAP[aviarySlugify(species)]
+  const template = entry?.template || 'songbird-small'
+  const zones = entry?.zones || EGG_PICKER_GENERIC_ZONES
   return (
     <span className={`aviary-bird idle-${idle}`} aria-hidden="true">
-      <svg viewBox="0 0 100 100">
-        <g>
-          <ellipse cx="50" cy="58" rx="22" ry="23" fill="#F4A09A" />
-          <ellipse cx="48" cy="64" rx="13" ry="11" fill="#FBD9D2" />
-          <ellipse cx="38" cy="56" rx="8" ry="11" fill="#DA8680" />
-          <circle cx="58" cy="50" r="3" fill="#3E2F22" />
-          <path d="M70 52 l8 3 l-8 3 z" fill="#F2A24E" />
-        </g>
-      </svg>
+      <GardenBird template={template} zones={zones} size={54} ground={false} />
     </span>
   )
 }
@@ -2432,7 +2530,7 @@ export function AviaryCard({ tweety, aviaryTier = 'basic', flockDance = false, o
       <div className="aviary-stage">
         {aviary.map((bird) => (
           <div className="aviary-slot" key={bird.id}>
-            <AviaryBird idle={bird.idle} />
+            <AviaryBird idle={bird.idle} species={bird.species} />
             <small>{bird.species}</small>
             <button
               className="text-btn"

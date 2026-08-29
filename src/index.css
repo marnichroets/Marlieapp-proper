@@ -1,13 +1,18 @@
 :root {
-  --bg: #f4f7f8;
-  --paper: #ffffff;
-  --parchment: #e8eef0;
-  --ink: #2a3439;
-  --ink-strong: #1c242a;
-  --muted: #7a8a94;
-  --leaf: #2e7d77;
-  --leaf-dark: #256560;
-  --mint: rgba(46, 125, 119, 0.2);
+  /* ---- Palette (2026 refresh: "Warm Editorial") --------------------------
+     Moved off the cool blue-grey "Morning Mist" pastel wash toward a warm,
+     confident, printed-page palette — cream paper, ink, one true terracotta,
+     one deep pine green, antique gold for reward moments. Fewer, richer
+     colors used more deliberately, instead of many soft pastels. */
+  --bg: #f7f2ea;
+  --paper: #fffdf9;
+  --parchment: #efe6d6;
+  --ink: #362e26;
+  --ink-strong: #201a14;
+  --muted: #8a7c6a;
+  --leaf: #35604a;
+  --leaf-dark: #244436;
+  --mint: rgba(53, 96, 74, 0.14);
   /* Illustration-only palette: these four feed specific character/costume art
      (Tweety's plumage variants, weekly-bird skins) via var(--rose) etc. in
      Tweety.jsx/birds.jsx — kept as-is so recoloring the UI theme doesn't
@@ -22,29 +27,44 @@
   --sky-dark: #6f9baa;
   --wood: #a9713f;
   --wood-dark: #7c4f28;
-  --line: #dce6e8;
-  --dash: #b7c5c9;
-  /* Theme accents (Soft Botanical Journal redesign, "Morning Mist" palette). */
-  --terracotta: #5b9bd5;
-  --terracotta-dark: #4a84bc;
-  --plum: #6b7b8c;
-  --plum-dark: #566572;
-  --radius: 18px;
-  --radius-inner: 14px;
-  --shadow: 0 2px 8px rgba(42, 52, 57, 0.08);
-  --shadow-strong: 0 6px 20px rgba(42, 52, 57, 0.14);
+  --line: #e5dac7;
+  --dash: #cebfa4;
+  /* Theme accents ("Warm Editorial" redesign, 2026-08). Terracotta is a real
+     terracotta again; a deep pine green and antique gold round out a small,
+     deliberate accent set rather than many pastel hues. */
+  --terracotta: #c1552f;
+  --terracotta-dark: #9c4325;
+  --gold: #c9932f;
+  --gold-dark: #a2761f;
+  --plum: #6e5342;
+  --plum-dark: #4f3a2d;
+  --radius: 16px;
+  --radius-inner: 11px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(38, 26, 12, 0.06), 0 1px 1px rgba(38, 26, 12, 0.04);
+  --shadow: 0 4px 14px rgba(38, 26, 12, 0.08), 0 1px 3px rgba(38, 26, 12, 0.06);
+  --shadow-strong: 0 16px 36px rgba(38, 26, 12, 0.16), 0 4px 10px rgba(38, 26, 12, 0.08);
+  /* ---- Motion --------------------------------------------------------
+     A small, consistent set of durations/easings used everywhere instead of
+     ad-hoc transition values, so movement across the whole app feels like
+     one hand designed it. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 140ms;
+  --dur-base: 260ms;
+  --dur-slow: 460ms;
   --sans:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     sans-serif;
-  /* A warm, slightly old-fashioned serif for headings only — the "field
-     journal" note among the otherwise clean sans-serif UI chrome. System
-     stack, no font download, works identically for bird and plant content. */
-  --serif:
-    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Book Antiqua',
-    ui-serif, serif;
+  /* A warm display serif for headings only — Fraunces' low optical size
+     gives it real character (ink traps, a slight wonk) at heading sizes
+     while staying legible; the wide weight range lets big season/eyebrow
+     text and dense headings share one family instead of mixing system
+     serifs. */
+  --serif: 'Fraunces', 'Iowan Old Style', Georgia, 'Book Antiqua', ui-serif, serif;
 
   color: var(--ink);
-  /* Flat, solid cool grey-blue — no gradient, no grain/texture overlay. */
   background: var(--bg);
   font-family: var(--sans);
   font-size: 16px;
@@ -99,8 +119,9 @@ h1,
 h2,
 h3 {
   font-family: var(--serif);
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
+  font-weight: 680;
+  letter-spacing: -0.015em;
   color: var(--ink-strong);
 }
 

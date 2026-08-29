@@ -47,13 +47,6 @@
   background-size: 3px 3px, 4px 4px;
   background-position: 0 0, 1px 2px;
   mix-blend-mode: overlay;
-  animation: botrevGrain 6s steps(6) infinite;
-}
-
-@keyframes botrevGrain {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(-12px, 8px); }
-  100% { transform: translate(0, 0); }
 }
 
 .botrev-stage {

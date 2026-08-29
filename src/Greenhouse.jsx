@@ -9,7 +9,6 @@ import {
   POT_SLOTS,
   ROOM2_SLOTS,
   ROOM_SLOT_COUNT,
-  BASE_SLOTS,
   MAX_SLOTS,
   SLOT_COST,
   ROOM2_COST,
@@ -132,28 +131,63 @@ function WaterDrop() {
 // (see Garden.jsx), just re-sized per growth stage and re-coloured per
 // health tier via a CSS filter on the wrapping div — no separate sick/dead
 // art needed.
+// A neglected pot doesn't just desaturate — it visibly droops. A shallow tilt
+// on the foliage alone (never the vessel, which should stay planted upright)
+// reads as real wilting rather than only a colour-filter costume change,
+// same idea as a real houseplant leaning toward however it's been let down.
+const WILT_TILT = { vibrant: 0, wilted: -4, sick: -8, dead: -13 }
+
+// A soft ground-contact shadow under every pot on the shelf — planted,
+// empty, or locked alike — so the shelf reads as a lit surface things sit
+// ON rather than a flat backdrop with icons floating in front of it.
+function PotShadow({ rx = 12 }) {
+  return <ellipse cx="0" cy="16" rx={rx} ry={rx * 0.22} fill="#2c1c0c" opacity="0.22" />
+}
+
 function PottedPlantArt({ pot, today }) {
   const stage = potStageKey(pot)
   const tier = pot.dead ? 'dead' : healthTier(computeHealth(pot, today))
   const { template, zones, variation, scale } = plantVisual(pot.plantName, pot.family)
   const size = STAGE_SIZE[stage] * (scale ?? 1)
   const rimY = POT_RIM_Y[pot.potStyle] || 0
+  const tilt = WILT_TILT[tier] || 0
   return (
     <>
+      <PotShadow />
       <PotVessel style={pot.potStyle} />
-      <foreignObject
-        x={-size / 2}
-        y={-size * 1.22 + rimY}
-        width={size}
-        height={size * 1.3}
-        style={{ overflow: 'visible' }}
-        clipPath="url(#ghPotSlotClip)"
-      >
-        <div style={{ width: '100%', height: '100%', display: 'flex', filter: HEALTH_FILTER[tier] }}>
-          <GardenPlant template={template} zones={zones} size={size} variation={variation} flowering={stage === 'blooming'} hideSoil />
-        </div>
-      </foreignObject>
+      <g style={{ transform: `rotate(${tilt}deg)`, transformOrigin: `0px ${rimY}px`, transition: 'transform 480ms var(--ease-out)' }}>
+        <foreignObject
+          x={-size / 2}
+          y={-size * 1.22 + rimY}
+          width={size}
+          height={size * 1.3}
+          style={{ overflow: 'visible' }}
+          clipPath="url(#ghPotSlotClip)"
+        >
+          <div style={{ width: '100%', height: '100%', display: 'flex', filter: HEALTH_FILTER[tier] }}>
+            <GardenPlant template={template} zones={zones} size={size} variation={variation} flowering={stage === 'blooming'} hideSoil />
+          </div>
+        </foreignObject>
+      </g>
+      {tier === 'dead' && <CobwebAccent />}
     </>
+  )
+}
+
+// A small woven cobweb tucked in the corner of a long-neglected pot — a
+// specific, real detail (this corner has gone undisturbed) rather than only
+// a desaturated/browned filter standing in for "dead".
+function CobwebAccent() {
+  return (
+    <g className="gh-cobweb" transform="translate(10 -2)" aria-hidden="true">
+      <path
+        d="M0 0 L-9 -2 M0 0 L-7 5 M0 0 L2 7 M-9 -2 Q-5 2 0 0 Q-3 5 -7 5 Q-3 3 2 7"
+        fill="none"
+        stroke="#c9c3b6"
+        strokeWidth="0.7"
+        strokeLinecap="round"
+      />
+    </g>
   )
 }
 
@@ -177,15 +211,85 @@ function PotBadges({ pot, tier, today }) {
   )
 }
 
-function EmptySlotArt({ locked }) {
-  if (locked) {
-    return <text x="0" y="4" textAnchor="middle" fontSize="16">🔒</text>
-  }
+// A circular gauge replacing the plain "Health 72%" text stat — reads at a
+// glance and colours itself by the same tier the plant's own foliage filter
+// uses, instead of a bare number with no visual weight.
+function HealthGauge({ pct, tier }) {
+  const r = 22
+  const c = 2 * Math.PI * r
+  const filled = Math.max(0, Math.min(100, pct)) / 100
+  const color =
+    tier === 'sick' ? 'var(--terracotta)' : tier === 'wilted' ? 'var(--gold)' : tier === 'dead' ? 'var(--muted)' : 'var(--leaf)'
   return (
-    <g>
-      <ellipse cx="0" cy="0" rx="14" ry="4" fill="none" stroke="#a1512f" strokeWidth="1.4" strokeDasharray="3 3" opacity="0.45" />
-      <path d="M-14 0 L14 0 L11 18 L-11 18 Z" fill="none" stroke="#a1512f" strokeWidth="1.4" strokeDasharray="3 3" opacity="0.3" />
-      <text x="0" y="10" textAnchor="middle" fontSize="14" fill="#a1512f" opacity="0.55">+</text>
+    <svg className="gh-health-gauge" viewBox="0 0 56 56" role="img" aria-label={`Health ${Math.round(pct)}%`}>
+      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--line)" strokeWidth="6" />
+      <circle
+        cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - filled)}
+        transform="rotate(-90 28 28)"
+      />
+      <text x="28" y="32" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--ink-strong)">
+        {Math.round(pct)}%
+      </text>
+    </svg>
+  )
+}
+
+// Shop card previews — the actual pot vessel art per style (not a generic 🪴
+// for every one of them) and a dashed "empty slot" outline matching the real
+// scene's own EmptySlotArt, so browsing the shop shows exactly what's being
+// unlocked/bought instead of one repeated icon standing in for six things.
+function PotStyleIcon({ style }) {
+  return (
+    <svg className="catalog-icon-svg" viewBox="-18 -27 36 47" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      <PotVessel style={style} />
+    </svg>
+  )
+}
+function SlotIcon() {
+  return (
+    <svg className="catalog-icon-svg" viewBox="-16 -20 32 40" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      <path d="M-14 0 L14 0 L11 18 L-11 18 Z" fill="none" stroke="#a1512f" strokeWidth="1.6" strokeDasharray="3 3" opacity="0.55" />
+      <ellipse cx="0" cy="0" rx="14" ry="4" fill="none" stroke="#a1512f" strokeWidth="1.6" strokeDasharray="3 3" opacity="0.7" />
+      <text x="0" y="4" textAnchor="middle" fontSize="15" fill="#a1512f" opacity="0.7">+</text>
+    </svg>
+  )
+}
+
+// A locked slot: a small burlap-wrapped bundle sitting where a pot will
+// go once she unlocks it, with a real illustrated padlock — not a bare
+// emoji floating on the shelf. Reads as "something's coming, not yet" in
+// the same wood/warm palette as the rest of the greenhouse, rather than a
+// system icon interrupting the scene.
+function LockedSlotArt() {
+  return (
+    <g aria-hidden="true">
+      <PotShadow rx="11" />
+      <path d="M-11 -3 L11 -3 L9.5 13 L-9.5 13 Z" fill="#c9b896" stroke="#8a7350" strokeWidth="1.4" />
+      <path d="M-11 -3 L11 -3 L10.2 3 L-10.2 3 Z" fill="#dccca4" opacity="0.7" />
+      <path d="M-9 -3 Q0 1 9 -3" fill="none" stroke="#8a7350" strokeWidth="1" opacity="0.5" />
+      <path d="M-8 4 Q0 8 8 4" fill="none" stroke="#8a7350" strokeWidth="1" opacity="0.4" />
+      <g transform="translate(0 -7)">
+        <path d="M-4 0.5 V-2.6 a4 4 0 0 1 8 0 V0.5" fill="none" stroke="#8a6a2a" strokeWidth="2" strokeLinecap="round" />
+        <rect x="-5.5" y="-0.5" width="11" height="8.5" rx="2" fill="#e0b25e" stroke="#8a6a2a" strokeWidth="1.2" />
+        <circle cx="0" cy="2.8" r="1.3" fill="#5a4020" />
+      </g>
+    </g>
+  )
+}
+
+// An unlocked, unplanted slot: her actual chosen pot style sitting empty on
+// the shelf (real vessel art, not a dashed sketch) with a soft "+" hint
+// hovering over the bare soil — reads as "a real pot, waiting to be
+// planted" rather than a wireframe placeholder.
+function EmptySlotArt({ locked, potStyle }) {
+  if (locked) return <LockedSlotArt />
+  return (
+    <g className="gh-empty-pot" aria-hidden="true">
+      <PotShadow />
+      <PotVessel style={potStyle} />
+      <circle cx="0" cy="-13" r="7.5" fill="#fffaf0" opacity="0.9" stroke="#e8d9b8" strokeWidth="1" />
+      <text x="0" y="-9" textAnchor="middle" fontSize="12" fill="#a1512f" opacity="0.75">+</text>
     </g>
   )
 }
@@ -296,7 +400,7 @@ function RoomInterior({ slots, greenhouse, waterAnims, activeSlotId, onTapSlot, 
                 <PotBadges pot={pot} tier={tier} today={today} />
               </>
             ) : (
-              <EmptySlotArt locked={locked} />
+              <EmptySlotArt locked={locked} potStyle={greenhouse.selectedPotStyle} />
             )}
             {waterAnims.some((a) => a.slotId === slot.id) && <WaterDrop />}
           </g>
@@ -523,29 +627,31 @@ export function GreenhousePage({
           <p className="eyebrow">Choose a plant for this pot</p>
           <p className="fine-print">Costs 1 seed 🌱 — she'll grow into the real species you photographed.</p>
           <p className="fine-print greenhouse-picker-note">🌿 Small plants only — trees and vines go in the garden!</p>
-          <div className="garden-shop-row">
+          <div className="catalog-row">
             {plantableSpecies.map((species) => (
               <button
                 key={species.speciesKey}
-                className="garden-shop-btn"
+                className="catalog-card"
                 type="button"
                 onClick={() => {
                   onPlant(pickerSlotId, species.speciesKey)
                   setPickerSlotId(null)
                 }}
               >
-                {species.photo || species.referenceImageUrl ? (
-                  <img
-                    className="garden-shop-species-thumb"
-                    src={species.photo || species.referenceImageUrl}
-                    alt=""
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className="garden-shop-emoji">🌿</span>
-                )}
+                <span className="catalog-icon-wrap photo">
+                  {species.photo || species.referenceImageUrl ? (
+                    <img
+                      className="garden-shop-species-thumb"
+                      src={species.photo || species.referenceImageUrl}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="catalog-icon-emoji">🌿</span>
+                  )}
+                </span>
                 <strong>{species.commonName}</strong>
-                <small>Pot this 🌱</small>
+                <span className="catalog-price">Pot this 🌱</span>
               </button>
             ))}
           </div>
@@ -553,10 +659,18 @@ export function GreenhousePage({
         </section>
       )}
 
-      {selectedPot && (
+      {selectedPot && (() => {
+        const health = selectedPot.dead ? 0 : computeHealth(selectedPot)
+        const tier = selectedPot.dead ? 'dead' : healthTier(health)
+        return (
         <section className="soft-card full-span greenhouse-selected">
-          <p className="eyebrow">{selectedPot.dead ? "This one didn't make it" : STAGE_LABELS[potStageKey(selectedPot)]}</p>
-          <h3>{selectedPot.plantName}</h3>
+          <div className="greenhouse-selected-head">
+            {!selectedPot.dead && <HealthGauge pct={health} tier={tier} />}
+            <div>
+              <p className="eyebrow">{selectedPot.dead ? "This one didn't make it" : STAGE_LABELS[potStageKey(selectedPot)]}</p>
+              <h3>{selectedPot.plantName}</h3>
+            </div>
+          </div>
           {selectedPot.dead ? (
             <>
               <p className="fine-print">Tap it in the scene, or the button below, to clear the pot and start fresh.</p>
@@ -574,7 +688,7 @@ export function GreenhousePage({
           ) : (
             <>
               <p className="fine-print">
-                Health {computeHealth(selectedPot)}% · watered {selectedPot.wateredDays.length} time{selectedPot.wateredDays.length === 1 ? '' : 's'}
+                Watered {selectedPot.wateredDays.length} time{selectedPot.wateredDays.length === 1 ? '' : 's'}
                 {selectedPot.needsTrimming ? ' · needs trimming ✂️' : ''}
               </p>
               <div className="greenhouse-selected-actions">
@@ -606,123 +720,131 @@ export function GreenhousePage({
             </>
           )}
         </section>
-      )}
+        )
+      })()}
 
       <section className="soft-card full-span garden-shop">
         <p className="eyebrow">Greenhouse shop 🌿</p>
 
-        <div className="garden-shop-tier">
-          <p className="garden-shop-tier-heading">
-            Pot Slots{hasRoom2(greenhouse) ? ' — Room 1' : ''} <span className="garden-shop-tier-range">{greenhouse.unlockedSlots}/{MAX_SLOTS}</span>
-          </p>
-          <div className="garden-shop-row">
+        <div className="catalog-shelf tier-starter">
+          <div className="catalog-shelf-heading">
+            <strong>Pot Slots{hasRoom2(greenhouse) ? ' — Room 1' : ''}</strong>
+            <span>{greenhouse.unlockedSlots}/{MAX_SLOTS}</span>
+          </div>
+          <div className="catalog-row">
             <button
-              className="garden-shop-btn"
+              className="catalog-card"
               type="button"
               disabled={greenhouse.unlockedSlots >= MAX_SLOTS}
               onClick={() => onBuySlot(1)}
             >
-              <span className="garden-shop-emoji">🪴</span>
+              <span className="catalog-icon-wrap"><SlotIcon /></span>
               <strong>Unlock next slot</strong>
-              <small>{greenhouse.unlockedSlots >= MAX_SLOTS ? 'All unlocked ✓' : `${SLOT_COST} 🪙`}</small>
+              <span className="catalog-price">{greenhouse.unlockedSlots >= MAX_SLOTS ? 'All unlocked ✓' : `${SLOT_COST} 🪙`}</span>
             </button>
           </div>
         </div>
 
         {hasRoom2(greenhouse) && (
-          <div className="garden-shop-tier">
-            <p className="garden-shop-tier-heading">
-              Pot Slots — Room 2 <span className="garden-shop-tier-range">{greenhouse.unlockedSlotsRoom2 || 0}/{ROOM_SLOT_COUNT}</span>
-            </p>
-            <div className="garden-shop-row">
+          <div className="catalog-shelf tier-starter">
+            <div className="catalog-shelf-heading">
+              <strong>Pot Slots — Room 2</strong>
+              <span>{greenhouse.unlockedSlotsRoom2 || 0}/{ROOM_SLOT_COUNT}</span>
+            </div>
+            <div className="catalog-row">
               <button
-                className="garden-shop-btn"
+                className="catalog-card"
                 type="button"
                 disabled={(greenhouse.unlockedSlotsRoom2 || 0) >= ROOM_SLOT_COUNT}
                 onClick={() => onBuySlot(2)}
               >
-                <span className="garden-shop-emoji">🪴</span>
+                <span className="catalog-icon-wrap"><SlotIcon /></span>
                 <strong>Unlock next slot</strong>
-                <small>{(greenhouse.unlockedSlotsRoom2 || 0) >= ROOM_SLOT_COUNT ? 'All unlocked ✓' : `${SLOT_COST} 🪙`}</small>
+                <span className="catalog-price">{(greenhouse.unlockedSlotsRoom2 || 0) >= ROOM_SLOT_COUNT ? 'All unlocked ✓' : `${SLOT_COST} 🪙`}</span>
               </button>
             </div>
           </div>
         )}
 
         {!hasRoom2(greenhouse) && greenhouse.unlockedSlots >= MAX_SLOTS && (
-          <div className="garden-shop-tier">
-            <p className="garden-shop-tier-heading">Expand Greenhouse</p>
-            <div className="garden-shop-row">
-              <button className="garden-shop-btn" type="button" onClick={onBuyRoom2}>
-                <span className="garden-shop-emoji">🏡</span>
+          <div className="catalog-shelf tier-premium">
+            <div className="catalog-shelf-heading"><strong>Expand Greenhouse</strong></div>
+            <div className="catalog-row">
+              <button className="catalog-card" type="button" onClick={onBuyRoom2}>
+                <span className="catalog-icon-emoji">🏡</span>
                 <strong>Build a second room</strong>
-                <small>{ROOM2_COST} 🪙</small>
+                <p className="catalog-blurb">Doubles her glasshouse, with 8 more pots of its own to unlock.</p>
+                <span className="catalog-price">{ROOM2_COST} 🪙</span>
               </button>
             </div>
-            <p className="fine-print">Doubles her glasshouse — swipe the scene right to see it, with 8 more pots of its own to unlock.</p>
           </div>
         )}
 
-        <div className="garden-shop-tier">
-          <p className="garden-shop-tier-heading">Pot Styles</p>
-          <div className="garden-shop-row">
+        <div className="catalog-shelf tier-mid">
+          <div className="catalog-shelf-heading"><strong>Pot Styles</strong></div>
+          <div className="catalog-row">
             {POT_STYLES.map((style) => {
               const owned = greenhouse.ownedPotStyles.includes(style.id)
               const selected = greenhouse.selectedPotStyle === style.id
               return (
                 <button
                   key={style.id}
-                  className={`garden-shop-btn${owned ? ' owned' : ''}${selected ? ' active' : ''}`}
+                  className={`catalog-card${owned ? ' owned' : ''}${selected ? ' active' : ''}`}
                   type="button"
                   onClick={() => (owned ? onSelectPotStyle(style.id) : onBuyPotStyle(style.id))}
                 >
-                  <span className="garden-shop-emoji">🪴</span>
+                  <span className="catalog-icon-wrap"><PotStyleIcon style={style.id} /></span>
                   <strong>{style.name}</strong>
-                  <small>{owned ? (selected ? 'Selected ✓' : 'Owned — tap to select') : `${style.cost} 🪙`}</small>
+                  <p className="catalog-blurb">{style.blurb}</p>
+                  <span className={`catalog-price${owned ? ' owned-tag' : ''}`}>
+                    {owned ? (selected ? 'Selected ✓' : 'Owned — tap to select') : `${style.cost} 🪙`}
+                  </span>
                 </button>
               )
             })}
           </div>
         </div>
 
-        <div className="garden-shop-tier">
-          <p className="garden-shop-tier-heading">Tools</p>
-          <div className="garden-shop-row">
+        <div className="catalog-shelf tier-expensive">
+          <div className="catalog-shelf-heading"><strong>Tools</strong></div>
+          <div className="catalog-row">
             {TOOLS.filter((t) => !t.consumable).map((tool) => {
               const owned = hasTool(greenhouse, tool.id)
               return (
                 <button
                   key={tool.id}
-                  className={`garden-shop-btn${owned ? ' owned' : ''}`}
+                  className={`catalog-card${owned ? ' owned' : ''}`}
                   type="button"
                   disabled={owned}
                   onClick={() => onBuyTool(tool.id)}
                 >
-                  <span className="garden-shop-emoji">{tool.emoji}</span>
+                  <span className="catalog-icon-emoji">{tool.emoji}</span>
                   <strong>{tool.name}</strong>
-                  <small>{owned ? 'Owned ✓' : `${tool.cost} 🪙`}</small>
+                  <p className="catalog-blurb">{tool.blurb}</p>
+                  <span className={`catalog-price${owned ? ' owned-tag' : ''}`}>{owned ? 'Owned ✓' : `${tool.cost} 🪙`}</span>
                 </button>
               )
             })}
           </div>
         </div>
 
-        <div className="garden-shop-tier">
-          <p className="garden-shop-tier-heading">Supplies</p>
-          <div className="garden-shop-row">
+        <div className="catalog-shelf tier-starter">
+          <div className="catalog-shelf-heading"><strong>Supplies</strong></div>
+          <div className="catalog-row">
             {TOOLS.filter((t) => t.consumable).map((tool) => {
               const uses = ownedToolUses(greenhouse, tool.id)
               return (
                 <button
                   key={tool.id}
-                  className={`garden-shop-btn${uses > 0 ? ' owned' : ''}`}
+                  className={`catalog-card${uses > 0 ? ' owned' : ''}`}
                   type="button"
                   disabled={uses > 0}
                   onClick={() => onBuyTool(tool.id)}
                 >
-                  <span className="garden-shop-emoji">{tool.emoji}</span>
+                  <span className="catalog-icon-emoji">{tool.emoji}</span>
                   <strong>{tool.name}</strong>
-                  <small>{uses > 0 ? `${uses} uses left` : `${tool.cost} 🪙`}</small>
+                  <p className="catalog-blurb">{tool.blurb}</p>
+                  <span className={`catalog-price${uses > 0 ? ' owned-tag' : ''}`}>{uses > 0 ? `${uses} uses left` : `${tool.cost} 🪙`}</span>
                 </button>
               )
             })}
