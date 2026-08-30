@@ -34,6 +34,10 @@
      deliberate accent set rather than many pastel hues. */
   --terracotta: #c1552f;
   --terracotta-dark: #9c4325;
+  --coral: #cf6f78;
+  --coral-dark: #a84e5c;
+  --coral-soft: rgba(207, 111, 120, 0.14);
+  --coral-line: rgba(207, 111, 120, 0.38);
   --gold: #c9932f;
   --gold-dark: #a2761f;
   --plum: #6e5342;

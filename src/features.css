@@ -94,9 +94,9 @@
 }
 .message-row:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .message-row.unread {
-  background: linear-gradient(180deg, #fffdf3, #fff7e4);
-  border-color: rgba(223, 166, 79, 0.5);
-  box-shadow: 0 0 0 2px rgba(244, 192, 73, 0.18);
+  background: linear-gradient(180deg, #fffdf9, rgba(207, 111, 120, 0.1));
+  border-color: var(--coral-line);
+  box-shadow: 0 0 0 2px var(--coral-soft);
 }
 .message-row.message-marnich { border-left: 4px solid var(--terracotta); }
 .message-row.message-council { border-left: 4px solid var(--leaf); }
@@ -108,7 +108,7 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: var(--mint);
+  background: var(--coral-soft);
   flex: 0 0 auto;
 }
 .message-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
@@ -207,8 +207,15 @@
   border-radius: var(--radius);
   background: var(--parchment);
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--coral-line);
   overflow: hidden;
+}
+.map-location-note {
+  margin: -2px 0 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-inner);
+  background: var(--coral-soft);
+  color: var(--coral-dark);
 }
 .sa-map { position: relative; z-index: 1; width: 100%; height: auto; display: block; }
 .sa-land {

@@ -12,16 +12,19 @@ const ok = (label, condition) => {
   console.log('  ✓', label)
 }
 
-// Bird Map: confirmed coordinates are persisted, serialized as ordinary state,
-// and grouped by coordinates so equal labels do not collapse into one pin.
+// Bird Map: confirmed coordinates are persisted, legacy coordinate shapes are
+// normalized, and vague text never becomes an invented precise pin.
 ok('sightings persist latitude and longitude', /latitude:\s*Number\.isFinite/.test(app) && /longitude:\s*Number\.isFinite/.test(app))
-ok('map prefers stored coordinates and has a text fallback', /source:\s*'sighting-coordinates'/.test(map) && /source:\s*'gazetteer'/.test(map) && /source:\s*'unknown-fallback'/.test(map))
-ok('same text at different coordinates gets distinct map keys', /toFixed\(5\).*toFixed\(5\)/s.test(map))
+ok('map prefers stored coordinates and recognizes safely swapped legacy coordinates', /source:\s*'sighting-coordinates'/.test(map) && /source:\s*'swapped-sighting-coordinates'/.test(map))
+ok('map uses town/province fallbacks without fake coordinates', /source:\s*'town-gazetteer'/.test(map) && /source:\s*'province-gazetteer'/.test(map) && !/unknown-fallback/.test(map))
+ok('map groups pins by normalized geographic position', /const key = `\$\{place\.lat\.toFixed\(precision\)\}\|\$\{place\.lon\.toFixed\(precision\)\}`/.test(map))
 
 // Bird Post: the save path updates settings from the current ref, preserving
 // every unrelated account field through the object spread.
 ok('Bird Post address writes to persisted settings', /settings:\s*direction === 'to-marnich'/s.test(app) && /pooksLat: lat/.test(app) && /senderLat: lat/.test(app))
-ok('Bird Post address save preserves unrelated state', /const next = \{\s*\.\.\.dataRef\.current/s.test(app))
+ok('Bird Post address save preserves unrelated state', /const next = patchAddress\(dataRef\.current\)/.test(app))
+ok('Bird Post address is immediately visible to send and persistence flows', /dataRef\.current = next[\s\S]{0,100}setData\(next\)/.test(app) && /queueSync\(\)/.test(app))
+ok('mirror address save merges into latest shared state', /patchAddress\(normalizeLoadedState\(remote\.state\)\)/.test(app))
 
 // Garden: original purchase cost is stored and used for one-shot removal;
 // move validates numeric targets and keeps the original planting object data.

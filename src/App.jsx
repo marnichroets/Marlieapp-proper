@@ -5869,22 +5869,53 @@ function App() {
   // (used as his sender location / Pooks' destination) or Pooks' (the
   // reverse). Called from the Bird Post composer on Home, for either role.
   async function saveBirdPostAddress(direction, address, lat, lng) {
-    const next = {
-      ...dataRef.current,
-      settings:
-        direction === 'to-marnich'
-          ? { ...dataRef.current.settings, pooksAddress: address, pooksLat: lat, pooksLng: lng }
-          : { ...dataRef.current.settings, senderAddress: address, senderLat: lat, senderLng: lng },
+    const patchAddress = (state) => ({
+      ...state,
+      settings: direction === 'to-marnich'
+        ? { ...state.settings, pooksAddress: address, pooksLat: lat, pooksLng: lng }
+        : { ...state.settings, senderAddress: address, senderLat: lat, senderLng: lng },
+    })
+    const next = patchAddress(dataRef.current)
+    // Keep the synchronous ref in lockstep with the visible state. Bird Post
+    // can send immediately after confirmation and the persistence queue also
+    // reads this ref, so leaving it stale made a freshly saved address appear
+    // missing until another render and vulnerable to a reload before autosave.
+    dataRef.current = next
+    setData(next)
+
+    if (!readOnly) {
+      // Address changes are high-value and must survive an immediate reload;
+      // use the existing serialized sync path now instead of waiting for the
+      // general ten-second debounce.
+      queueSync()
+      return
     }
-    setData(() => next)
+
     // Bird Post is the deliberate shared-account exception to Marnich's
     // read-only mirror. Persist only this narrow address change; all other
-    // mirror actions remain blocked by the normal readOnly guards.
+    // mirror actions remain blocked by the normal readOnly guards. Merge the
+    // address into the latest remote document so the exception cannot replace
+    // newer Pooks state with the mirror's older snapshot.
     if (readOnly && account === 'pooks') {
       try {
         localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(next, { forLocalStorage: true })))
         const remote = await fetchRemoteState(account)
-        if (remote?.state) await saveRemoteState(account, next, remote.version)
+        if (!remote?.state) throw new Error('Shared state unavailable')
+        let merged = patchAddress(normalizeLoadedState(remote.state))
+        let saved = await saveRemoteState(account, merged, remote.version)
+        if (saved?.conflict) {
+          const latest = await fetchRemoteState(account)
+          if (!latest?.state) throw new Error('Shared state unavailable')
+          merged = patchAddress(normalizeLoadedState(latest.state))
+          saved = await saveRemoteState(account, merged, latest.version)
+        }
+        if (!saved || saved.conflict) throw new Error('Address sync failed')
+        dataRef.current = merged
+        setData(merged)
+        stateVersionRef.current = saved.version
+        lastSyncedRef.current = merged
+        everSyncedRef.current = true
+        localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(merged, { forLocalStorage: true })))
       } catch {
         setToast({ title: 'Address saved locally', body: 'The shared address will sync when the connection is available.', tone: 'warning' })
       }

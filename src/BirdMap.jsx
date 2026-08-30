@@ -1,7 +1,7 @@
 // "My Bird Map" — an illustrated South Africa outline with pins where Pooks
 // has spotted birds. No Google Maps API: a hand-projected SVG outline plus a
-// small gazetteer of common SA places. Unknown place names get a stable,
-// hashed position so every location still gets a pin somewhere sensible.
+// small gazetteer of common SA places. Vague locations are only placed when
+// they name a known town or province; the map never invents a precise point.
 import { useEffect, useState } from 'react'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
@@ -247,33 +247,75 @@ const PLACES = [
   { keys: ['vaal', 'vereeniging'], lon: 27.93, lat: -26.67 },
 ]
 
-function hashString(str) {
-  let h = 2166136261
-  for (let i = 0; i < str.length; i += 1) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
+const PROVINCE_PLACES = [
+  { keys: ['western cape'], lon: 20.59, lat: -33.01 },
+  { keys: ['eastern cape'], lon: 26.4, lat: -32.17 },
+  { keys: ['northern cape'], lon: 21.36, lat: -29.52 },
+  { keys: ['free state'], lon: 26.87, lat: -28.61 },
+  { keys: ['kwazulu-natal', 'kwazulu natal', 'kzn'], lon: 30.69, lat: -28.73 },
+  { keys: ['north west', 'north-west'], lon: 25.33, lat: -26.32 },
+  { keys: ['gauteng'], lon: 28.22, lat: -26.03 },
+  { keys: ['mpumalanga'], lon: 30.22, lat: -25.87 },
+  { keys: ['limpopo'], lon: 29.31, lat: -23.74 },
+]
+
+function inSouthAfrica(lat, lon) {
+  return lat >= -35.5 && lat <= -21.5 && lon >= 15.5 && lon <= 33.5
 }
 
-// Resolve a free-text location to lon/lat. Known place → gazetteer; otherwise a
-// stable hashed point biased toward the populated interior so it lands on land.
-function locatePlace(input) {
-  const latitude = Number(input?.latitude)
-  const longitude = Number(input?.longitude)
-  if (Number.isFinite(latitude) && Number.isFinite(longitude) && latitude >= -35.5 && latitude <= -21.5 && longitude >= 15.5 && longitude <= 33.5) {
-    return { lon: longitude, lat: latitude, exact: true, source: 'sighting-coordinates' }
+function storedCoordinates(input) {
+  const coordinateArray = Array.isArray(input?.coordinates)
+    ? input.coordinates
+    : Array.isArray(input?.locationDetails?.coordinates)
+      ? input.locationDetails.coordinates
+      : null
+  const candidates = [
+    [input?.latitude, input?.longitude],
+    [input?.lat, input?.lng ?? input?.lon],
+    [input?.locationDetails?.latitude, input?.locationDetails?.longitude],
+    [input?.coordinates?.latitude ?? input?.coordinates?.lat, input?.coordinates?.longitude ?? input?.coordinates?.lng],
+    // GeoJSON stores coordinates as [longitude, latitude]. Normalize that
+    // explicit array shape here rather than relying on swap heuristics.
+    [coordinateArray?.[1], coordinateArray?.[0]],
+  ]
+  for (const [rawLat, rawLon] of candidates) {
+    if (rawLat == null || rawLon == null || rawLat === '' || rawLon === '') continue
+    const lat = Number(rawLat)
+    const lon = Number(rawLon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+    if (inSouthAfrica(lat, lon)) return { lon, lat, exact: true, source: 'sighting-coordinates' }
+    // Historical imports occasionally stored GeoJSON-style [longitude,
+    // latitude] values in the named latitude/longitude fields. Swap only when
+    // the original order is impossible for South Africa and the swapped order
+    // is valid, so legitimate coordinates are never guessed at.
+    if (inSouthAfrica(lon, lat)) return { lon: lat, lat: lon, exact: true, source: 'swapped-sighting-coordinates' }
   }
+  return null
+}
+
+function placeNameMatches(text, key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]+')
+  return new RegExp(`(^|[^a-z])${escaped}([^a-z]|$)`, 'i').test(text)
+}
+
+// Resolve saved coordinates first, then a known town, then a province-level
+// approximation. Unknown/vague text stays unresolved instead of becoming a
+// convincing-looking but false pin.
+function locatePlace(input) {
+  const coordinates = storedCoordinates(input)
+  if (coordinates) return coordinates
   const lower = String(typeof input === 'string' ? input : input?.location || '').toLowerCase()
   for (const place of PLACES) {
-    if (place.keys.some((k) => lower.includes(k))) {
-    return { lon: place.lon, lat: place.lat, exact: true, source: 'gazetteer' }
+    if (place.keys.some((key) => placeNameMatches(lower, key))) {
+      return { lon: place.lon, lat: place.lat, exact: false, source: 'town-gazetteer' }
     }
   }
-  const h = hashString(lower || 'somewhere')
-  const lon = 19 + (h % 1000) / 1000 * 12 // 19 → 31
-  const lat = -25 - ((h >> 10) % 1000) / 1000 * 6 // -25 → -31
-  return { lon, lat, exact: false, source: 'unknown-fallback' }
+  for (const province of PROVINCE_PLACES) {
+    if (province.keys.some((key) => placeNameMatches(lower, key))) {
+      return { lon: province.lon, lat: province.lat, exact: false, source: 'province-gazetteer' }
+    }
+  }
+  return null
 }
 
 // Colour pins by bird type (water/raptor/garden/other).
@@ -344,17 +386,20 @@ function SAMapBase({ children, ariaLabel = 'Map of South Africa' }) {
 
 export function BirdMapPage({ data, onBack }) {
   const birdLibrary = data.birdLibrary || []
-  const located = (data.sightings || []).filter((s) => String(s.location || '').trim())
+  const sightings = data.sightings || []
 
-  // Group sightings by normalised location name → one pin each.
+  // Group sightings by their normalized geographic position so different
+  // labels for the same saved place do not create overlapping pins.
   const groups = new Map()
-  for (const s of located) {
-    const hasCoords = Number.isFinite(Number(s.latitude)) && Number.isFinite(Number(s.longitude))
-    const key = hasCoords
-      ? `${s.location.trim().toLowerCase()}|${Number(s.latitude).toFixed(5)}|${Number(s.longitude).toFixed(5)}`
-      : s.location.trim().toLowerCase()
+  for (const s of sightings) {
+    const place = locatePlace(s)
+    if (!place) continue
+    const hasCoords = place.source.includes('coordinates')
+    const label = String(s.location || '').trim() || 'Saved coordinates'
+    const precision = hasCoords ? 5 : 3
+    const key = `${place.lat.toFixed(precision)}|${place.lon.toFixed(precision)}`
     if (!groups.has(key)) {
-        groups.set(key, { label: s.location.trim(), sightings: [], place: locatePlace(s) })
+      groups.set(key, { label, sightings: [], place })
     }
     groups.get(key).sightings.push(s)
   }
@@ -367,6 +412,7 @@ export function BirdMapPage({ data, onBack }) {
 
   const [activeKey, setActiveKey] = useState(null)
   const active = pins.find((p) => p.key === activeKey) || null
+  const unresolvedCount = sightings.length - [...groups.values()].reduce((sum, group) => sum + group.sightings.length, 0)
 
   return (
     <div className="page-grid bird-map-page">
@@ -381,6 +427,12 @@ export function BirdMapPage({ data, onBack }) {
           </div>
           <span className="status-pill">{pins.length} spot{pins.length === 1 ? '' : 's'}</span>
         </div>
+
+        {unresolvedCount > 0 && (
+          <p className="fine-print map-location-note">
+            {unresolvedCount} {unresolvedCount === 1 ? 'sighting has' : 'sightings have'} only a vague location, so {unresolvedCount === 1 ? 'it is' : 'they are'} not pinned precisely.
+          </p>
+        )}
 
         <>
           <div className="map-legend">

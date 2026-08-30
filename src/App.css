@@ -2732,12 +2732,15 @@ textarea:focus {
      This is the root reason home didn't fit on mobile while other screens did. */
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Children must be allowed to shrink so their text wraps/ellipsizes inside the
    column instead of forcing it wider — same rule .page-grid applies. */
 .home-stack > * {
   min-width: 0;
+  max-width: 100%;
 }
 
 /* A soft staggered rise-in on first paint — one intentional "hello" moment
@@ -4481,6 +4484,8 @@ textarea:focus {
   background: var(--paper);
   border: 1px solid var(--dash);
   box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 100%;
 }
 
 /* A thin warm accent line where the illustration meets the text — a small
@@ -6617,6 +6622,11 @@ button.tweety-nest-base.gift-pop {
 }
 
 @media (max-width: 430px) {
+  .app-shell.has-bottom-nav .page-wrap {
+    width: calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    max-width: 100%;
+  }
+
   .session-code {
     font-size: 2rem;
     letter-spacing: 0.16em;
@@ -6711,8 +6721,20 @@ button.tweety-nest-base.gift-pop {
      disappearing — it's the whole point of the redesign — but stays far
      smaller than the desktop version so the card doesn't dominate the
      phone screen. */
-  .home-stack .season-greeting { padding: 0 0 8px; gap: 4px; }
-  .home-stack .season-banner-art { height: 40px; }
+  .home-stack .season-greeting {
+    width: 100%;
+    max-width: 100%;
+    padding: 0 10px 10px;
+    gap: 4px;
+    border-radius: 14px;
+  }
+  .home-stack .season-banner-art {
+    width: calc(100% + 20px);
+    max-width: none;
+    height: auto;
+    margin-inline: -10px;
+    aspect-ratio: 320 / 100;
+  }
   .home-stack .season-greeting h2 { margin-top: 6px; font-size: 16px; line-height: 1.2; }
   .home-stack .season-greeting p {
     font-size: 12px;
@@ -6806,6 +6828,38 @@ button.tweety-nest-base.gift-pop {
   }
   .home-stack .home-world-extras { display: none; }
   .home-stack .home-world-extras.open { display: grid; gap: 6px; }
+
+  .home-entry-card,
+  .garden-home-card,
+  .greenhouse-home-card {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+}
+
+/* Pink/coral is a supporting accent: it marks discovery, selection and warm
+   personal moments without replacing the app's leaf, terracotta and gold
+   semantic colours. */
+.filter-chip.active,
+.catalog-card.active {
+  border-color: var(--coral-dark);
+  box-shadow: 0 0 0 2px var(--coral-soft);
+}
+
+.library-bird-card.seen {
+  border-color: var(--coral-line);
+  box-shadow: var(--shadow-sm), inset 0 3px 0 var(--coral);
+}
+
+.garden-detail,
+.greenhouse-selected {
+  border-color: var(--coral-line);
+  background: linear-gradient(155deg, var(--paper), rgba(207, 111, 120, 0.07));
+}
+
+.garden-detail .eyebrow,
+.greenhouse-selected .eyebrow {
+  color: var(--coral-dark);
 }
 
 /* ===================== Tweety World ===================== */
@@ -6986,16 +7040,16 @@ button.tweety-nest-base.gift-pop {
 /* A real tinted wash per card instead of flat paper — matches the deeper,
    bolder palette the rest of tonight's redesign uses. */
 .bird-post-shortcut-card {
-  background: linear-gradient(135deg, rgba(142, 118, 168, 0.32), rgba(255, 253, 249, 1) 70%);
-  border-color: rgba(142, 118, 168, 0.5);
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(142, 118, 168, 0.08);
+  background: linear-gradient(135deg, var(--coral-soft), rgba(255, 253, 249, 1) 70%);
+  border-color: var(--coral-line);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(207, 111, 120, 0.08);
 }
 .magazine-shortcut-card {
   background: linear-gradient(135deg, rgba(201, 147, 47, 0.34), rgba(255, 253, 249, 1) 70%);
   border-color: rgba(201, 147, 47, 0.55);
   box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(201, 147, 47, 0.1);
 }
-.bird-post-shortcut-card:hover { border-color: #6e5387; }
+.bird-post-shortcut-card:hover { border-color: var(--coral-dark); }
 .magazine-shortcut-card:hover { border-color: var(--gold-dark); }
 .home-entry-emoji {
   display: grid;
@@ -7008,11 +7062,11 @@ button.tweety-nest-base.gift-pop {
   transition: transform var(--dur-base) var(--ease-spring);
 }
 .home-entry-card:hover .home-entry-emoji { transform: scale(1.06) rotate(-4deg); }
-.bird-post-shortcut-emoji { background: rgba(142, 118, 168, 0.4); }
+.bird-post-shortcut-emoji { background: rgba(207, 111, 120, 0.3); }
 .magazine-shortcut-emoji { background: rgba(201, 147, 47, 0.4); }
-.home-entry-text { flex: 1; display: flex; flex-direction: column; }
+.home-entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .home-entry-text .eyebrow { margin: 0 0 2px; }
-.home-entry-text strong { color: var(--ink-strong); font-size: 1.02rem; font-weight: 700; }
+.home-entry-text strong { color: var(--ink-strong); font-size: 1.02rem; font-weight: 700; overflow-wrap: anywhere; }
 .home-entry-text small { color: var(--muted); font-weight: 500; }
 .home-entry-arrow {
   flex: 0 0 auto;
