@@ -1,0 +1,41 @@
+// Offline contract checks for the cross-cutting feature fixes. These checks
+// deliberately avoid importing React/JSX or touching a real account.
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const app = fs.readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
+const map = fs.readFileSync(new URL('../src/BirdMap.jsx', import.meta.url), 'utf8')
+const garden = fs.readFileSync(new URL('../src/Garden.jsx', import.meta.url), 'utf8')
+
+const ok = (label, condition) => {
+  assert(condition, `FAILED: ${label}`)
+  console.log('  ✓', label)
+}
+
+// Bird Map: confirmed coordinates are persisted, serialized as ordinary state,
+// and grouped by coordinates so equal labels do not collapse into one pin.
+ok('sightings persist latitude and longitude', /latitude:\s*Number\.isFinite/.test(app) && /longitude:\s*Number\.isFinite/.test(app))
+ok('map prefers stored coordinates and has a text fallback', /source:\s*'sighting-coordinates'/.test(map) && /source:\s*'gazetteer'/.test(map) && /source:\s*'unknown-fallback'/.test(map))
+ok('same text at different coordinates gets distinct map keys', /toFixed\(5\).*toFixed\(5\)/s.test(map))
+
+// Bird Post: the save path updates settings from the current ref, preserving
+// every unrelated account field through the object spread.
+ok('Bird Post address writes to persisted settings', /settings:\s*direction === 'to-marnich'/s.test(app) && /pooksLat: lat/.test(app) && /senderLat: lat/.test(app))
+ok('Bird Post address save preserves unrelated state', /const next = \{\s*\.\.\.dataRef\.current/s.test(app))
+
+// Garden: original purchase cost is stored and used for one-shot removal;
+// move validates numeric targets and keeps the original planting object data.
+ok('plantings record purchase cost', /purchaseCost:\s*(SEED_PLANT_COST|item\.cost)/.test(app))
+ok('remove is locked for fully grown plantings and refunds purchase cost', /isFullyGrown\(planting\).*?return/s.test(app) && /planting\.purchaseCost/.test(app))
+ok('move rejects invalid or cross-zone targets', /Number\.isFinite\(targetX\).*?Number\.isFinite\(targetY\)/s.test(app) && /oldRegion\.y0 !== newRegion\.y0/.test(app))
+ok('remove confirmation text is exact', /Are you sure\? This can’t be undone\./.test(garden))
+
+// Species validation is centralized against the bundled official catalog and
+// runs before any reward/state mutation in every bird-confirmation path.
+ok('official catalog is the mutation-time authority', /const officialBirdMatch/.test(app) && /findOfficialBird\(defaultBirdLibrary/.test(app))
+ok('invalid species exits before state mutation', /if \(!officialBirdMatch[\s\S]{0,500}return null/.test(app))
+
+// Library cards prefer a real sighting photo over the generic catalog image.
+ok('seen cards prefer personal sighting photos', /const spottedPhoto = herPhoto \|\| bird\.imageUrl/.test(app))
+
+console.log('Feature contract checks passed.')

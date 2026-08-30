@@ -4,6 +4,7 @@ import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { dedupePhotosForStorage, rehydratePhotos, stripPhotosForLocalStorage } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
+import { findOfficialBird } from './discoveryRules'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
 import { getSeason, getSeasonInfo, isCapeTownWeek, capeTownTripSightingCount } from './seasons'
@@ -47,6 +48,7 @@ import {
   isSpeciesPlanting,
   isFullyGrown,
   GARDEN_REGION,
+  gardenRegions,
   canPlaceResidentAt,
   RESIDENT_TREAT_COST,
   SEED_PLANT_COST,
@@ -1650,6 +1652,9 @@ function getBirdLibraryMatchIndex(library, { commonName, scientificName }) {
   )
 }
 
+// The bundled catalog is the one authority for mutation-time species validation.
+const officialBirdMatch = (candidate) => findOfficialBird(defaultBirdLibrary, candidate)
+
 function buildSightingPhotoRecord(sighting, aiMatch) {
   return {
     id: sighting.id,
@@ -1705,6 +1710,9 @@ function upsertBirdLibraryFromSighting(library, sighting) {
   const aiMatch = sighting.aiMatch ? normalizeAiMatch(sighting.aiMatch) : null
   const commonName = aiMatch?.commonName || sighting.birdName
   const scientificName = aiMatch?.scientificName || ''
+  // Historical custom records are hydrated from saved state, but new
+  // sightings may only enrich the official bundled Bird Book.
+  if (!officialBirdMatch({ commonName, scientificName })) return library
   const existingIndex = getBirdLibraryMatchIndex(library, { commonName, scientificName })
 
   if (existingIndex >= 0) {
@@ -1712,45 +1720,7 @@ function upsertBirdLibraryFromSighting(library, sighting) {
       index === existingIndex ? mergeBirdLibrarySeenData(bird, sighting, aiMatch) : bird,
     )
   }
-
-  const funFacts = getFunFacts(aiMatch?.funFacts)
-  const region = aiMatch?.whereFoundInSouthAfrica || aiMatch?.habitat || sighting.location || ''
-  return [
-    ...library,
-    mergeBirdLibrarySeenData(
-      {
-        id: `ai-${getBirdLibraryId(commonName)}-${Date.now()}`,
-        commonName,
-        afrikaansName: aiMatch?.afrikaansName || '',
-        scientificName,
-        category: aiMatch ? 'Custom AI bird' : 'Custom bird',
-        tags: ['Garden birds'],
-        region,
-        habitat: aiMatch?.habitat || '',
-        diet: aiMatch?.diet || '',
-        colours: aiMatch?.colours || '',
-        size: aiMatch?.size || '',
-        whereFoundInSouthAfrica: region,
-        description: aiMatch?.cutePersonalityLine || aiMatch?.whyThisBird || sighting.notes || '',
-        funFact: funFacts[0] || '',
-        funFacts,
-        soundDescription: aiMatch?.soundDescription || '',
-        imageUrl: '',
-        soundUrl: '',
-        rarity: aiMatch ? 'AI discovered' : 'Custom',
-        featuredInMagazine: false,
-        seen: false,
-        firstSeenDate: '',
-        lastSeenDate: '',
-        timesSeen: 0,
-        herPhotos: [],
-        aiDetails: null,
-        birdCouncilReason: '',
-      },
-      sighting,
-      aiMatch,
-    ),
-  ]
+  return library
 }
 
 function normalizeLibraryBird(bird) {
@@ -2459,14 +2429,10 @@ function recalculateState(state) {
     return note
   })
 
-  // A "discovery" celebrates an OFF-BOOK bird — one the bundled catalog has never
-  // recorded. Once a species is added to the catalog (e.g. the Mandarin & Wood
-  // Ducks), it is no longer off-book, so any lingering discovery for it is stale
-  // and must go. This is the durable fix for the duck discoveries that kept
-  // reappearing: a device sitting on an old snapshot could re-upload a removed
-  // discovery (last-write-wins), but because this prune runs on EVERY load /
-  // adopt / remote-pull path (via normalizeLoadedState → recalculateState), the
-  // resurrection is pruned again on the very next normalize and can never stick.
+  // Historical discovery records are retained unless their species is now in
+  // the official catalog. New mutation paths reject non-catalog species before
+  // they can create discovery/reward state; this prune handles old snapshots
+  // that may still contain a once-off-book species now promoted to the catalog.
   const discoveries = (state.discoveries || []).filter(
     (d) =>
       getBirdLibraryMatchIndex(defaultBirdLibrary, {
@@ -2611,6 +2577,7 @@ async function identifyBirdByAudio(file) {
 function addBirdToState(state, match, photo) {
   const birdName = String(match.commonName || '').trim()
   const aiMatch = normalizeAiMatch(match)
+  if (!officialBirdMatch({ commonName: birdName, scientificName: aiMatch?.scientificName })) return state
   const speciesKey = canonicalSpeciesKey(state, birdName, aiMatch?.scientificName)
   if (!speciesKey) return state
   const isNewSpecies = !state.birds.some((bird) => bird.id === speciesKey)
@@ -4432,6 +4399,7 @@ function App() {
       wateredDays: 0,
       lastWaterDay: '',
       plantedAt: new Date().toISOString(),
+      purchaseCost: SEED_PLANT_COST,
       commonName: species.commonName,
       family: species.family,
     }
@@ -4544,6 +4512,7 @@ function App() {
       wateredDays: 0,
       lastWaterDay: '',
       plantedAt: new Date().toISOString(),
+      purchaseCost: item.cost,
     }
     const garden = data.garden || defaultGarden()
     commit(
@@ -5334,46 +5303,6 @@ function App() {
     )
   }
 
-  // Admin one-tap: add a discovered bird into the Bird Book library.
-  function addDiscoveryToLibrary(discoveryId) {
-    const discovery = data.discoveries.find((d) => d.id === discoveryId)
-    if (!discovery || discovery.addedToLibrary) return
-    const ai = discovery.aiMatch || {}
-    const newBird = normalizeLibraryBird({
-      id: `discovery-${discovery.speciesKey}-${Date.now()}`,
-      commonName: discovery.birdName,
-      afrikaansName: discovery.afrikaansName || ai.afrikaansName || '',
-      scientificName: discovery.scientificName || ai.scientificName || '',
-      category: 'Garden birds',
-      tags: ['Garden birds'],
-      region: ai.whereFoundInSouthAfrica || '',
-      habitat: ai.habitat || '',
-      diet: ai.diet || '',
-      colours: ai.colours || '',
-      size: ai.size || '',
-      whereFoundInSouthAfrica: ai.whereFoundInSouthAfrica || '',
-      description: ai.cutePersonalityLine || ai.whyThisBird || 'Discovered by Pooks.',
-      funFacts: ai.funFacts || [],
-      soundDescription: ai.soundDescription || '',
-      mysteryClue: 'A bird Pooks discovered all on her own. 🌟',
-      imageUrl: discovery.photo || '',
-      seen: true,
-      firstSeenDate: discovery.date,
-      lastSeenDate: discovery.date,
-      timesSeen: 1,
-    })
-    commit(
-      {
-        ...data,
-        birdLibrary: [...data.birdLibrary, newBird],
-        discoveries: data.discoveries.map((d) =>
-          d.id === discoveryId ? { ...d, addedToLibrary: true } : d,
-        ),
-      },
-      { title: 'Added to the Bird Book 📖', body: `${discovery.birdName} is now in the library.` },
-    )
-  }
-
   // Buy (or, when free, gift) a Bird Store item. Purchases apply immediately.
   function buyStoreItem(section, item, options = {}) {
     // dataRef.current, not `data` — buying several store items back-to-back
@@ -5939,14 +5868,59 @@ function App() {
   // Saves the geocoded address for whichever side is sending — Marnich's
   // (used as his sender location / Pooks' destination) or Pooks' (the
   // reverse). Called from the Bird Post composer on Home, for either role.
-  function saveBirdPostAddress(direction, address, lat, lng) {
-    setData((current) => ({
-      ...current,
+  async function saveBirdPostAddress(direction, address, lat, lng) {
+    const next = {
+      ...dataRef.current,
       settings:
         direction === 'to-marnich'
-          ? { ...current.settings, pooksAddress: address, pooksLat: lat, pooksLng: lng }
-          : { ...current.settings, senderAddress: address, senderLat: lat, senderLng: lng },
-    }))
+          ? { ...dataRef.current.settings, pooksAddress: address, pooksLat: lat, pooksLng: lng }
+          : { ...dataRef.current.settings, senderAddress: address, senderLat: lat, senderLng: lng },
+    }
+    setData(() => next)
+    // Bird Post is the deliberate shared-account exception to Marnich's
+    // read-only mirror. Persist only this narrow address change; all other
+    // mirror actions remain blocked by the normal readOnly guards.
+    if (readOnly && account === 'pooks') {
+      try {
+        localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(next, { forLocalStorage: true })))
+        const remote = await fetchRemoteState(account)
+        if (remote?.state) await saveRemoteState(account, next, remote.version)
+      } catch {
+        setToast({ title: 'Address saved locally', body: 'The shared address will sync when the connection is available.', tone: 'warning' })
+      }
+    }
+  }
+
+  function removeGardenPlant(plantingId) {
+    if (readOnly) return
+    const current = dataRef.current
+    const garden = current.garden || defaultGarden()
+    const planting = (garden.plantings || []).find((p) => p.id === plantingId)
+    if (!planting || isFullyGrown(planting)) return
+    const item = gardenItem(planting.type)
+    const refund = Number.isFinite(Number(planting.purchaseCost)) ? Number(planting.purchaseCost) : 0
+    commit({
+      ...current,
+      garden: { ...garden, plantings: garden.plantings.filter((p) => p.id !== plantingId) },
+      featherCoins: current.featherCoins + refund,
+    }, { title: 'Planting removed', body: refund ? `${item?.name || 'Planting'} removed — ${refund} 🪙 refunded.` : `${item?.name || 'Planting'} removed. No historical purchase price was recorded.` , tone: 'calm' })
+  }
+
+  function moveGardenPlant(plantingId, x, y) {
+    if (readOnly) return
+    const current = dataRef.current
+    const garden = current.garden || defaultGarden()
+    const planting = (garden.plantings || []).find((p) => p.id === plantingId)
+    if (!planting || isFullyGrown(planting)) return
+    const targetX = Number(x)
+    const targetY = Number(y)
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) return
+    const regions = gardenRegions(garden.expansions || [])
+    const oldRegion = regions.find((r) => planting.x >= r.x0 && planting.x <= r.x1 && planting.y >= r.y0 && planting.y <= r.y1)
+    const newRegion = regions.find((r) => targetX >= r.x0 && targetX <= r.x1 && targetY >= r.y0 && targetY <= r.y1)
+    if (!oldRegion || !newRegion || oldRegion.x0 !== newRegion.x0 || oldRegion.x1 !== newRegion.x1 || oldRegion.y0 !== newRegion.y0 || oldRegion.y1 !== newRegion.y1) return
+    const next = garden.plantings.map((p) => p.id === plantingId ? { ...p, x: targetX, y: targetY } : p)
+    commit({ ...current, garden: { ...garden, plantings: next } }, { title: 'Planting moved', body: 'Your planting found a new spot in this garden zone.', tone: 'calm' })
   }
 
   // The recipient acknowledging the arrival card — frees up the "one post at
@@ -6097,11 +6071,18 @@ function App() {
   function addBird(form, options = {}) {
     const birdName = String(form.birdName || '').trim()
     const aiMatch = form.aiMatch ? normalizeAiMatch(form.aiMatch) : null
+    if (!officialBirdMatch({ commonName: birdName, scientificName: aiMatch?.scientificName })) {
+      setToast({
+        title: 'Not in the official Bird Library',
+        body: `${birdName || 'That bird'} is not currently part of the official PooksBooks Bird Library, so it cannot be saved as an official discovery.`,
+        tone: 'warning',
+      })
+      return null
+    }
     // Canonicalise on the scientific name so a re-scan of the same species can't
     // slip through as a new entry just because the AI worded the common name
     // differently this time.
     const speciesKey = canonicalSpeciesKey(data, birdName, aiMatch?.scientificName)
-    const sciKey = normalizeBirdName(aiMatch?.scientificName)
     if (!speciesKey) return
     const isNewSpecies = !data.birds.some((bird) => bird.id === speciesKey)
     const withMarnich = Boolean(form.seenWithMarnich)
@@ -6120,6 +6101,9 @@ function App() {
       dateSpotted: form.dateSpotted || todayValue(),
       timeSpotted: form.timeSpotted || '',
       location: String(form.location || '').trim(),
+      latitude: Number.isFinite(Number(form.locationDetails?.latitude)) ? Number(form.locationDetails.latitude) : null,
+      longitude: Number.isFinite(Number(form.locationDetails?.longitude)) ? Number(form.locationDetails.longitude) : null,
+      locationSource: form.locationDetails ? (form.locationDetails.source || 'confirmed') : 'legacy-text',
       notes: String(form.notes || '').trim(),
       mood: form.mood || moodOptions[0],
       seenWithMarnich: Boolean(form.seenWithMarnich),
@@ -6140,33 +6124,6 @@ function App() {
       libraryMatchIndex >= 0 && !data.birdLibrary[libraryMatchIndex].seen
         ? data.birdLibrary[libraryMatchIndex]
         : null
-
-    // A bird the Bird Book has never recorded — a brand-new discovery!
-    const isDiscovery = isNewSpecies && libraryMatchIndex < 0 && Boolean(aiMatch)
-    const discoveryBonus = isDiscovery ? 50 : 0
-    if (isDiscovery) sighting.discovery = true
-    const nextDiscoveries =
-      isDiscovery &&
-      !data.discoveries.some(
-        (d) =>
-          d.speciesKey === speciesKey ||
-          (sciKey && normalizeBirdName(d.scientificName) === sciKey),
-      )
-        ? [
-            {
-              id: createId('discovery'),
-              speciesKey,
-              birdName,
-              scientificName: aiMatch?.scientificName || '',
-              afrikaansName: aiMatch?.afrikaansName || '',
-              aiMatch,
-              date: todayValue(),
-              photo: form.photo || '',
-              addedToLibrary: false,
-            },
-            ...data.discoveries,
-          ]
-        : data.discoveries
 
     let worldNote = ''
 
@@ -6199,9 +6156,9 @@ function App() {
       sightings,
       birds: buildBirdRecords(sightings),
       birdLibrary: upsertBirdLibraryFromSighting(data.birdLibrary, sighting),
-      featherCoins: data.featherCoins + coinsEarned + discoveryBonus + rescueCoins,
+      featherCoins: data.featherCoins + coinsEarned + rescueCoins,
       tweety: nextTweety,
-      discoveries: nextDiscoveries,
+      discoveries: data.discoveries,
       settings: {
         ...data.settings,
         birdCrush: form.makeBirdCrush ? birdName : data.settings.birdCrush,
@@ -6209,16 +6166,13 @@ function App() {
     }
 
     commit(nextState, {
-      title: isDiscovery
-        ? 'New Discovery! \ud83c\udf1f'
-        : unlockedMysteryBird
+      title: unlockedMysteryBird
           ? 'Mystery card unlocked! \ud83c\udf89'
           : isNewSpecies
             ? 'New species logged!'
             : 'Repeat sighting logged!',
       body: [
-        `${getCouncilMessage(data.sightings.length)} +${coinsEarned + discoveryBonus + rescueCoins} Feather Coins.`,
-        isDiscovery ? '+50 discovery bonus \ud83c\udf1f' : '',
+        `${getCouncilMessage(data.sightings.length)} +${coinsEarned + rescueCoins} Feather Coins.`,
         worldNote,
         options.checkedOff ? "Checked off Marlie's South African Bird List \u2705" : '',
       ]
@@ -6226,15 +6180,7 @@ function App() {
         .join(' '),
     })
 
-    if (isDiscovery) {
-      setConfetti(Date.now())
-      setReveal({
-        tone: 'bird',
-        title: 'New Discovery! \ud83c\udf1f',
-        body: `The Bird Council has never recorded the ${birdName} before! You earned a "Discovered by Pooks \ud83c\udf1f" badge and +50 bonus coins.`,
-        photo: form.photo || '',
-      })
-    } else if (unlockedMysteryBird) {
+    if (unlockedMysteryBird) {
       // Full unlock celebration: confetti + reveal the card with her own photo.
       setConfetti(Date.now())
       setReveal({
@@ -6449,6 +6395,14 @@ function App() {
     // If she proved it with a photo, identify the bird and add it to her
     // collection in the SAME commit so nothing is lost.
     const match = photoFile ? await identifyTopMatch(photoFile) : null
+    if (match && !officialBirdMatch(match)) {
+      setToast({
+        title: 'Not in the official Bird Library',
+        body: `${match.commonName} is not currently part of the official PooksBooks Bird Library, so it cannot be saved as an official sighting.`,
+        tone: 'warning',
+      })
+      return
+    }
     const finishWith = (photo) => {
       let nextState = baseState
       let birdNote = ''
@@ -7155,6 +7109,7 @@ function App() {
   return (
     <div className={`app-shell has-bottom-nav season-${season.key}${activePage === 'home' ? ' on-home' : ''}`}>
       <div className="season-wash" aria-hidden="true" />
+      {activePage === 'home' && <HomeAmbientBirds />}
       <Toast toast={toast} />
       {activePage === 'home' && <HomePawTrail />}
       <InstallPrompt />
@@ -7364,6 +7319,8 @@ function App() {
             collection={gardenVisitors}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
+            onRemove={removeGardenPlant}
+            onMove={moveGardenPlant}
             onTreatResident={treatResident}
             onWish={wishAtWell}
             onPurchaseExpansion={purchaseExpansion}
@@ -7573,7 +7530,6 @@ function App() {
             sendFlockTreat={sendFlockTreat}
             skipTweetyDay={adminSkipTweetyDay}
             advanceTweetyStage={adminAdvanceTweetyStage}
-            addDiscoveryToLibrary={addDiscoveryToLibrary}
             triggerWorldEvent={triggerWorldEvent}
             triggerEscape={triggerEscape}
             giftRoomFurniture={(item) => buyRoomFurniture(item, { free: true })}
@@ -7610,6 +7566,23 @@ function App() {
           </button>
         ))}
       </nav>
+    </div>
+  )
+}
+
+function HomeAmbientBirds() {
+  const birds = [
+    { glyph: '🪽', tone: 'coral', top: '18%', delay: '0s', duration: '26s' },
+    { glyph: '🪽', tone: 'pink', top: '34%', delay: '8s', duration: '31s' },
+    { glyph: '🪽', tone: 'gold', top: '52%', delay: '16s', duration: '29s' },
+  ]
+  return (
+    <div className="home-bird-corridor" aria-hidden="true">
+      {birds.map((bird, index) => (
+        <span key={index} className={`home-ambient-bird ${bird.tone}`} style={{ top: bird.top, animationDelay: bird.delay, animationDuration: bird.duration }}>
+          {bird.glyph}
+        </span>
+      ))}
     </div>
   )
 }
@@ -9769,6 +9742,7 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
       dateSpotted: todayValue(),
       timeSpotted: '',
       location: '',
+      locationDetails: null,
       notes: '',
       mood: moodOptions[0],
       seenWithMarnich: false,
@@ -9779,6 +9753,13 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateLocation(location) {
+    const label = location.name && location.formatted && location.name !== location.formatted
+      ? `${location.name}, ${location.formatted}`
+      : location.name || location.formatted || ''
+    setForm((current) => ({ ...current, location: label, locationDetails: location }))
   }
 
   function clearAiState() {
@@ -10408,14 +10389,21 @@ function AddBirdPage({ addBird, birdLibrary = [] }) {
                   onChange={(event) => updateField('dateSpotted', event.target.value)}
                 />
               </label>
-              <label>
-                Location
-                <input
-                  value={form.location}
-                  onChange={(event) => updateField('location', event.target.value)}
-                  placeholder="e.g. Potchefstroom garden, Kruger near Skukuza"
+              <div>
+                <LocationPicker
+                  label="Location"
+                  helperText="Confirm a place so your map pin uses its real coordinates."
+                  value={form.locationDetails}
+                  onChange={updateLocation}
                 />
-              </label>
+                <label className="fine-print">Or enter a historical/free-text label
+                  <input
+                    value={form.location}
+                    onChange={(event) => setForm((current) => ({ ...current, location: event.target.value, locationDetails: null }))}
+                    placeholder="e.g. Potchefstroom garden, Kruger near Skukuza"
+                  />
+                </label>
+              </div>
               <label>
                 Mood
                 <select
@@ -11209,8 +11197,8 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
         <section className="soft-card full-span discoveries-section">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">My Discoveries 🌟</p>
-              <h3>Birds you found that weren&apos;t in the Bird Book</h3>
+              <p className="eyebrow">Historical discoveries 🌟</p>
+              <h3>Legacy records preserved from earlier Bird Book rules</h3>
             </div>
             <span className="status-pill">{data.discoveries.length}</span>
           </div>
@@ -11223,7 +11211,7 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
                   <div className="discovery-photo-placeholder" aria-hidden="true">🌟</div>
                 )}
                 <div>
-                  <span className="status-pill rare">Discovered by Pooks 🌟</span>
+                  <span className="status-pill rare">Historical discovery</span>
                   <h4>{discovery.birdName}</h4>
                   <p className="fine-print">{discovery.scientificName || formatDate(discovery.date)}</p>
                   {discovery.addedToLibrary && (
@@ -13522,7 +13510,6 @@ function AdminPage({
   sendFlockTreat,
   skipTweetyDay,
   advanceTweetyStage,
-  addDiscoveryToLibrary,
   triggerWorldEvent,
   triggerEscape,
   giftRoomFurniture,
@@ -13560,6 +13547,7 @@ function AdminPage({
       return ''
     }
   })
+  const [libraryError, setLibraryError] = useState('')
 
   function saveXenoKey(value) {
     setXenoKey(value)
@@ -13631,6 +13619,11 @@ function AdminPage({
   function submitLibraryBird(event) {
     event.preventDefault()
     if (!libraryDraft.commonName.trim()) return
+    if (!officialBirdMatch(libraryDraft)) {
+      setLibraryError('Only official Bird Library species can be added. Historical records remain read-only.')
+      return
+    }
+    setLibraryError('')
     const id = getBirdLibraryId(libraryDraft.commonName)
     setData((current) => ({
       ...current,
@@ -14190,15 +14183,15 @@ function AdminPage({
       <section className="soft-card full-span">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">New Discoveries 🌟</p>
-            <h3>Birds Pooks found outside the Bird Book</h3>
+            <p className="eyebrow">Historical discoveries 🌟</p>
+            <h3>Legacy records preserved for viewing</h3>
           </div>
           <span className="status-pill">
-            {data.discoveries.filter((d) => !d.addedToLibrary).length} new
+            {data.discoveries.length} preserved
           </span>
         </div>
         {data.discoveries.length === 0 ? (
-          <EmptyState text="No discoveries yet — she hasn't found anything off-book." />
+          <EmptyState text="No historical discovery records yet." />
         ) : (
           <div className="admin-list-scroll">
             {data.discoveries.map((discovery) => (
@@ -14209,17 +14202,7 @@ function AdminPage({
                     {discovery.scientificName || 'unknown'} · {formatDate(discovery.date)}
                   </p>
                 </div>
-                {discovery.addedToLibrary ? (
-                  <span className="status-pill paid">In library 📖</span>
-                ) : (
-                  <button
-                    className="primary-btn"
-                    type="button"
-                    onClick={() => addDiscoveryToLibrary(discovery.id)}
-                  >
-                    Add to library 📖
-                  </button>
-                )}
+                <span className="status-pill paid">Historical discovery · read-only</span>
               </article>
             ))}
           </div>
@@ -14916,7 +14899,8 @@ function AdminPage({
             />
             Feature in weekly magazine
           </label>
-          <button className="primary-btn" type="submit">Add library bird</button>
+          <button className="primary-btn" type="submit">Add official library metadata</button>
+          {libraryError && <p className="form-error full-span">{libraryError}</p>}
         </form>
 
         <div className="admin-library-grid">

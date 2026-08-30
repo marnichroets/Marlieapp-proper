@@ -3275,6 +3275,36 @@ textarea:focus {
   bottom: 86px;
 }
 
+/* Home-only decorative flight lane. It owns its overflow so birds can enter
+   and leave the viewport without widening or clipping Home content. */
+.home-bird-corridor {
+  position: fixed;
+  inset: 74px 0 86px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.home-ambient-bird {
+  position: absolute;
+  left: -12vw;
+  font-size: 1.7rem;
+  opacity: 0.34;
+  filter: drop-shadow(0 5px 8px rgba(120, 90, 70, 0.16));
+  animation: home-bird-cross 28s linear infinite;
+  will-change: transform;
+}
+.home-ambient-bird.pink { color: #c85d86; }
+.home-ambient-bird.coral { color: #d97967; }
+.home-ambient-bird.gold { color: #c8923c; }
+@keyframes home-bird-cross {
+  0% { transform: translate3d(-12vw, 0, 0) rotate(-4deg); }
+  48% { transform: translate3d(52vw, -12px, 0) rotate(3deg); }
+  100% { transform: translate3d(120vw, 8px, 0) rotate(-2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-bird-corridor { display: none; }
+}
+
 /* --- Magical Spot page --- */
 .spot-intro {
   text-align: center;

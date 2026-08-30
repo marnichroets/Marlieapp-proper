@@ -258,17 +258,22 @@ function hashString(str) {
 
 // Resolve a free-text location to lon/lat. Known place → gazetteer; otherwise a
 // stable hashed point biased toward the populated interior so it lands on land.
-function locatePlace(name) {
-  const lower = String(name || '').toLowerCase()
+function locatePlace(input) {
+  const latitude = Number(input?.latitude)
+  const longitude = Number(input?.longitude)
+  if (Number.isFinite(latitude) && Number.isFinite(longitude) && latitude >= -35.5 && latitude <= -21.5 && longitude >= 15.5 && longitude <= 33.5) {
+    return { lon: longitude, lat: latitude, exact: true, source: 'sighting-coordinates' }
+  }
+  const lower = String(typeof input === 'string' ? input : input?.location || '').toLowerCase()
   for (const place of PLACES) {
     if (place.keys.some((k) => lower.includes(k))) {
-      return { lon: place.lon, lat: place.lat, exact: true }
+    return { lon: place.lon, lat: place.lat, exact: true, source: 'gazetteer' }
     }
   }
   const h = hashString(lower || 'somewhere')
   const lon = 19 + (h % 1000) / 1000 * 12 // 19 → 31
   const lat = -25 - ((h >> 10) % 1000) / 1000 * 6 // -25 → -31
-  return { lon, lat, exact: false }
+  return { lon, lat, exact: false, source: 'unknown-fallback' }
 }
 
 // Colour pins by bird type (water/raptor/garden/other).
@@ -344,21 +349,24 @@ export function BirdMapPage({ data, onBack }) {
   // Group sightings by normalised location name → one pin each.
   const groups = new Map()
   for (const s of located) {
-    const key = s.location.trim().toLowerCase()
+    const hasCoords = Number.isFinite(Number(s.latitude)) && Number.isFinite(Number(s.longitude))
+    const key = hasCoords
+      ? `${s.location.trim().toLowerCase()}|${Number(s.latitude).toFixed(5)}|${Number(s.longitude).toFixed(5)}`
+      : s.location.trim().toLowerCase()
     if (!groups.has(key)) {
-      groups.set(key, { label: s.location.trim(), sightings: [], place: locatePlace(s.location) })
+        groups.set(key, { label: s.location.trim(), sightings: [], place: locatePlace(s) })
     }
     groups.get(key).sightings.push(s)
   }
-  const pins = [...groups.values()].map((g) => {
+  const pins = [...groups.entries()].map(([key, g]) => {
     const first = g.sightings[0]
     const { tags, category } = birdTypeFor(birdLibrary, first.birdName)
     const [x, y] = project(g.place.lon, g.place.lat)
-    return { ...g, x, y, colour: pinColour(tags, category) }
+    return { ...g, key, x, y, colour: pinColour(tags, category) }
   })
 
   const [activeKey, setActiveKey] = useState(null)
-  const active = pins.find((p) => p.label.toLowerCase() === activeKey) || null
+  const active = pins.find((p) => p.key === activeKey) || null
 
   return (
     <div className="page-grid bird-map-page">
@@ -384,13 +392,15 @@ export function BirdMapPage({ data, onBack }) {
 
           <SAMapBase ariaLabel="Map of South Africa with bird sighting pins">
             {pins.map((p) => {
-              const on = active && active.label === p.label
+              // Use the coordinate-aware group key: identical text labels can
+              // represent different confirmed locations and must stay distinct.
+              const on = activeKey === p.key
               return (
                 <g
-                  key={p.label}
+                  key={p.key}
                   className={`map-pin${on ? ' active' : ''}`}
                   transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
-                  onClick={() => setActiveKey(on ? null : p.label.toLowerCase())}
+                  onClick={() => setActiveKey(on ? null : p.key)}
                 >
                   <circle className="map-pin-halo" r={on ? 26 : 0} fill={p.colour} />
                   <path className="map-pin-drop" d="M0 0 C -9 -16 -9 -28 0 -28 C 9 -28 9 -16 0 0 Z" fill={p.colour} />

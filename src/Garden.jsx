@@ -1989,6 +1989,8 @@ export function GardenPage({
   collection = [],
   onPlace,
   onWater,
+  onRemove,
+  onMove,
   onBack,
   onTreatResident,
   onWish,
@@ -2095,6 +2097,16 @@ export function GardenPage({
 
   const [selectedId, setSelectedId] = useState(null)
   const [selectedResidentId, setSelectedResidentId] = useState(null)
+  // Move mode: id of a non-permanent planting she's repositioning. Tapping the
+  // grass while this is set relocates that planting instead of creating a new
+  // one — same tap-to-place interaction the shop/seed-pouch flow already uses,
+  // just re-homing an existing id rather than minting one.
+  const [movingId, setMovingId] = useState(null)
+  // Remove is a two-tap confirmation, never a single accidental tap: the id
+  // here is the planting currently showing "Are you sure?" in its detail
+  // card. The detail view only renders this state when its id matches the
+  // current selection, so it can never linger onto a different planting.
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null)
   // Tap-to-reveal name label: at most one garden entity (plant/bird/
   // resident) shows its name at a time, since always-on labels overlap once
   // anything clusters. Tapping an entity SETS it active (never toggles off
@@ -2288,23 +2300,39 @@ export function GardenPage({
     return { x: p.x, y: p.y }
   }
 
+  // Move mode shares the exact tap-to-place interaction as buying a new item
+  // — the only difference is what happens on a valid tap (relocate an id
+  // instead of minting one) and that the moving planting's own old spot must
+  // never count against itself in the overlap check.
+  const movingPlanting = movingId ? plantings.find((p) => p.id === movingId) : null
+  const otherPlantings = movingId ? plantings.filter((p) => p.id !== movingId) : plantings
+
   function onScenePointerMove(evt) {
-    if (!placingType) return
+    if (!placingType && !movingId) return
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y, expansions)
-    const ok = canPlaceAt(placingType, s.x, s.y, plantings, expansions)
+    const type = movingId ? movingPlanting?.type : placingType
+    const ok = Boolean(type) && canPlaceAt(type, s.x, s.y, otherPlantings, expansions)
     setGhost({ ...s, ok })
   }
 
   function onSceneClick(evt) {
-    if (!placingType) {
+    if (!placingType && !movingId) {
       setActiveLabelId(null)
       return
     }
     const raw = toScene(evt)
     if (!raw) return
     const s = snapToGarden(raw.x, raw.y, expansions)
+    if (movingId) {
+      if (!movingPlanting || !canPlaceAt(movingPlanting.type, s.x, s.y, otherPlantings, expansions)) return
+      onMove?.(movingId, s.x, s.y)
+      setPlantBurst({ x: s.x, y: s.y })
+      setMovingId(null)
+      setGhost(null)
+      return
+    }
     if (!canPlaceAt(placingType, s.x, s.y, plantings, expansions)) return
     onPlace(placingType, s.x, s.y)
     setPlantBurst({ x: s.x, y: s.y })
@@ -2316,6 +2344,7 @@ export function GardenPage({
   function startPlacing(itemId) {
     setSelectedId(null)
     setActiveLabelId(null)
+    setMovingId(null)
     setPlacingType(itemId)
     setPlacingSpeciesMeta(null)
     setGhost(null)
@@ -2324,8 +2353,18 @@ export function GardenPage({
   function startPlacingSpecies(speciesKey, commonName) {
     setSelectedId(null)
     setActiveLabelId(null)
+    setMovingId(null)
     setPlacingType(`species:${speciesKey}`)
     setPlacingSpeciesMeta({ commonName })
+    setGhost(null)
+  }
+
+  function startMoving(plantingId) {
+    setSelectedId(null)
+    setActiveLabelId(null)
+    setPlacingType(null)
+    setPlacingSpeciesMeta(null)
+    setMovingId(plantingId)
     setGhost(null)
   }
 
@@ -2927,6 +2966,22 @@ export function GardenPage({
                   {item.verb} 💧
                 </button>
               </>
+            )}
+            {!grown && (
+              <div className="garden-detail-actions">
+                {confirmRemoveId === selected.id ? (
+                  <>
+                    <p className="fine-print garden-remove-warning">Are you sure? This can’t be undone.</p>
+                    <button className="danger-btn" type="button" onClick={() => { onRemove?.(selected.id); setConfirmRemoveId(null); setSelectedId(null) }}>Remove planting</button>
+                    <button className="text-btn" type="button" onClick={() => setConfirmRemoveId(null)}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="secondary-btn" type="button" onClick={() => startMoving(selected.id)}>Move within this zone</button>
+                    <button className="text-btn danger-text" type="button" onClick={() => setConfirmRemoveId(selected.id)}>Remove</button>
+                  </>
+                )}
+              </div>
             )}
           </section>
         )
