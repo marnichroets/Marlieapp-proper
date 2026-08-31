@@ -3,7 +3,7 @@
 // speed, deterministically derived from its id so the map is stable across
 // reloads without hand-authoring 370+ entries (same "generate, don't
 // hand-write the bulk pass" approach birdColourMap.js itself documents).
-import { BIRD_COLOUR_MAP } from './birdColourMap'
+import { BIRD_COLOUR_MAP } from './birdColourMap.js'
 
 // km/h range per template, straight from the brief.
 const TEMPLATE_SPEED_RANGE = {

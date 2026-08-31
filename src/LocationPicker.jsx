@@ -19,7 +19,7 @@ function formatCoords(lat, lng) {
 
 // The confirm card is shared between the "picked a search candidate" path
 // and the "GPS fix reverse-geocoded" path — same questions, same stakes.
-function ConfirmCard({ candidate, accuracyWarning, onConfirm, onReject }) {
+function ConfirmCard({ candidate, accuracyWarning, onConfirm, onReject, showCoordinates }) {
   return (
     <div className="location-confirm">
       {accuracyWarning && (
@@ -33,8 +33,12 @@ function ConfirmCard({ candidate, accuracyWarning, onConfirm, onReject }) {
         <br />
         <span className="fine-print">
           {candidate.formatted || candidate.country}
-          <br />
-          {formatCoords(candidate.latitude, candidate.longitude)}
+          {showCoordinates && (
+            <>
+              <br />
+              {formatCoords(candidate.latitude, candidate.longitude)}
+            </>
+          )}
         </span>
       </p>
       <p className="fine-print">
@@ -58,6 +62,8 @@ export function LocationPicker({
   placeholder = 'Search for a place…',
   value,
   onChange,
+  showCoordinates = true,
+  gpsButtonLabel = '📍 Use my current location',
 }) {
   const [draftQuery, setDraftQuery] = useState('')
   const [candidates, setCandidates] = useState([])
@@ -152,6 +158,7 @@ export function LocationPicker({
           accuracyWarning={pendingAccuracyWarning}
           onConfirm={confirmPending}
           onReject={rejectPending}
+          showCoordinates={showCoordinates}
         />
       </div>
     )
@@ -164,8 +171,12 @@ export function LocationPicker({
         <p className="fine-print">
           📍 Saved: {value.name || value.formatted}
           {value.formatted && value.name ? ` — ${value.formatted}` : ''}
-          <br />
-          {formatCoords(value.latitude, value.longitude)}
+          {showCoordinates && (
+            <>
+              <br />
+              {formatCoords(value.latitude, value.longitude)}
+            </>
+          )}
         </p>
         <button className="text-btn" type="button" onClick={() => setEditing(true)}>
           Change location
@@ -184,7 +195,7 @@ export function LocationPicker({
         onClick={useCurrentLocation}
         disabled={gpsBusy}
       >
-        {gpsBusy ? 'Finding you…' : '📍 Use my current location'}
+        {gpsBusy ? 'Finding you…' : gpsButtonLabel}
       </button>
       {gpsError && <p className="login-error">{gpsError}</p>}
       <input

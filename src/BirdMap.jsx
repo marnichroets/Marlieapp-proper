@@ -534,12 +534,6 @@ function speciesLabelForFlight(birdLibrary, speciesId) {
     .join(' ')
 }
 
-// Mirrors BIRD_POST_DEST_LAT/LNG in App.jsx (Pooks' fixed home coordinates) —
-// only ever needed as a fallback for a post created before destLat/destLng
-// were stored on every record.
-const FLIGHT_FALLBACK_DEST_LAT = -26.7145
-const FLIGHT_FALLBACK_DEST_LNG = 27.097
-
 // Live flight visualisation for the active Bird Post, reusing the exact same
 // map surface (SAMapBase) and the exact same elapsed-time/travel-time ticking
 // logic as the progress-bar card on Home (see BirdPostCard in App.jsx) — just
@@ -553,27 +547,28 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
     return () => window.clearInterval(id)
   }, [])
 
-  if (!birdPost) {
+  if (!birdPost || birdPost.destLat == null || birdPost.destLng == null) {
     return (
       <div className="page-grid bird-map-page">
         <section className="soft-card full-span">
           <button className="text-btn back-btn" type="button" onClick={onBack}>
             ← Back
           </button>
-          <p className="fine-print map-hint">No bird is currently in flight.</p>
+          <p className="fine-print map-hint">No bird is currently in flight with a confirmed destination.</p>
         </section>
       </div>
     )
   }
 
-  const destLat = birdPost.destLat ?? FLIGHT_FALLBACK_DEST_LAT
-  const destLng = birdPost.destLng ?? FLIGHT_FALLBACK_DEST_LNG
-  const createdAtMs = new Date(birdPost.createdAt).getTime()
-  const elapsedSeconds = Math.max(0, (now - createdAtMs) / 1000)
-  // Unchanged from before: progress is still purely elapsed-time /
-  // travel-time, exactly as computed on the Home progress card — only how
-  // that single number gets turned into a picture on the map is new below.
-  const progress = birdPost.delivered ? 1 : Math.min(1, elapsedSeconds / birdPost.travelTimeSeconds)
+  const destLat = birdPost.destLat
+  const destLng = birdPost.destLng
+  const departedAtMs = new Date(birdPost.departedAt || birdPost.createdAt).getTime()
+  const etaMs = birdPost.estimatedArrivalAt
+    ? new Date(birdPost.estimatedArrivalAt).getTime()
+    : departedAtMs + birdPost.travelTimeSeconds * 1000
+  const progress = birdPost.delivered
+    ? 1
+    : Math.min(1, Math.max(0, (now - departedAtMs) / Math.max(1, etaMs - departedAtMs)))
   const arrived = progress >= 1
 
   const [sx, sy] = project(birdPost.senderLng, birdPost.senderLat)
@@ -619,7 +614,6 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
   const distanceKm = haversineDistanceKm(birdPost.senderLat, birdPost.senderLng, destLat, destLng)
   const remainingKm = Math.max(0, Math.round(distanceKm * (1 - progress)))
   const flownKm = Math.max(0, Math.round(distanceKm * progress))
-  const etaMs = createdAtMs + birdPost.travelTimeSeconds * 1000
   const remainingSeconds = Math.max(0, (etaMs - now) / 1000)
   const speciesEntry = BIRD_COLOUR_MAP[birdPost.birdSpeciesId]
   const speciesLabel = speciesLabelForFlight(birdLibrary, birdPost.birdSpeciesId)
@@ -665,6 +659,7 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
           />
           <g className="flight-endpoint flight-start" transform={`translate(${sx.toFixed(1)} ${sy.toFixed(1)})`}>
             <circle r="6" />
+            <text className="flight-endpoint-label" x="0" y="18" textAnchor="middle">START</text>
           </g>
           <g
             className={`flight-endpoint flight-end${arrived ? ' arrived' : ''}`}
@@ -677,6 +672,7 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
               </>
             )}
             <circle r="6" />
+            <text className="flight-endpoint-label" x="0" y="18" textAnchor="middle">DESTINATION</text>
           </g>
           {arrived &&
             ARRIVAL_BURST_PARTICLES.map((p, i) => (

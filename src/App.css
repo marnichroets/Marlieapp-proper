@@ -4332,6 +4332,187 @@ textarea:focus {
   color: var(--leaf-dark);
 }
 
+/* Bird Post v0 — a warm correspondence flow with coral carrying the active
+   journey hierarchy while cream, pine and gold retain their semantic roles. */
+.birdpost-compose-page > .soft-card,
+.birdpost-journey-board {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(207, 111, 120, 0.12), transparent 34%),
+    var(--paper);
+  border-color: var(--coral-line);
+}
+
+.birdpost-v0-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 10px;
+}
+.birdpost-v0-step h3,
+.birdpost-v0-step p { margin: 0; }
+.birdpost-step-number {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--coral);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  box-shadow: 0 6px 16px rgba(168, 78, 92, 0.24);
+}
+
+.birdpost-recipient-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.birdpost-recipient-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 253, 249, 0.88);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color var(--dur-base) var(--ease-out), transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-base) var(--ease-out);
+}
+.birdpost-recipient-card:hover { transform: translateY(-1px); border-color: var(--coral-line); }
+.birdpost-recipient-card.selected {
+  border-color: var(--coral-dark);
+  background: linear-gradient(145deg, rgba(207, 111, 120, 0.16), var(--paper));
+  box-shadow: 0 0 0 2px var(--coral-soft), var(--shadow-sm);
+}
+.birdpost-recipient-card > span:nth-child(2) { display: grid; min-width: 0; flex: 1; }
+.birdpost-recipient-card strong { color: var(--ink-strong); }
+.birdpost-recipient-card small { color: var(--muted); overflow-wrap: anywhere; }
+.birdpost-recipient-avatar {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 15px;
+  background: var(--coral-soft);
+  font-size: 1.35rem;
+}
+.birdpost-recipient-avatar.leaf { background: var(--mint); }
+.birdpost-recipient-avatar.gold { background: rgba(201, 147, 47, 0.18); }
+.birdpost-recipient-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--line);
+  color: transparent;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+.birdpost-recipient-card.selected .birdpost-recipient-check { background: var(--coral); color: #fff; }
+
+.birdpost-location-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--coral-line);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(207, 111, 120, 0.1), rgba(255, 253, 249, 0.95));
+}
+.birdpost-privacy-note { display: flex; align-items: flex-start; gap: 10px; }
+.birdpost-privacy-note > span { font-size: 1.25rem; }
+.birdpost-privacy-note p { margin: 0; color: var(--muted); font-size: 0.84rem; }
+.birdpost-location-updated { margin: 0; color: var(--coral-dark); font-size: 0.78rem; font-weight: 800; }
+
+.birdpost-destination-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(53, 96, 74, 0.3);
+  border-radius: var(--radius);
+  background: rgba(53, 96, 74, 0.07);
+}
+.birdpost-destination-card.waiting { border-color: var(--coral-line); background: var(--coral-soft); }
+.birdpost-destination-card > div { display: grid; min-width: 0; flex: 1; }
+.birdpost-destination-card p { margin: 0; }
+.birdpost-destination-card small { color: var(--muted); overflow-wrap: anywhere; }
+.birdpost-waiting-card {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed var(--coral-dark);
+  border-radius: var(--radius);
+  background: var(--coral-soft);
+}
+.birdpost-waiting-card > span { font-size: 1.8rem; }
+.birdpost-waiting-card p { margin: 4px 0 0; color: var(--muted); }
+
+.birdpost-flight-card {
+  padding: 18px;
+  border: 1px solid var(--coral-line);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(207, 111, 120, 0.18), rgba(255, 253, 249, 0.98) 64%);
+  box-shadow: var(--shadow);
+}
+.birdpost-flight-card-head { display: flex; align-items: center; gap: 12px; }
+.birdpost-flight-card-head > div { min-width: 0; flex: 1; }
+.birdpost-flight-card-head p,
+.birdpost-flight-card-head h3 { margin: 0; }
+.birdpost-flight-bird {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 6px 16px rgba(168, 78, 92, 0.18);
+  animation: birdpost-v0-float 2.8s ease-in-out infinite;
+}
+.birdpost-live-pill {
+  padding: 6px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--coral);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.birdpost-route-people { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0; }
+.birdpost-route-people > span:not(.birdpost-route-dots) { display: grid; }
+.birdpost-route-people small,
+.birdpost-flight-stats small { color: var(--muted); font-size: 0.72rem; }
+.birdpost-route-dots { flex: 1; color: var(--coral-dark); text-align: center; letter-spacing: 0.08em; }
+.birdpost-flight-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 18px; }
+.birdpost-flight-stats > span { display: grid; gap: 2px; padding: 10px; border-radius: 12px; background: rgba(255, 253, 249, 0.72); }
+.birdpost-buckets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.birdpost-bucket { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 253, 249, 0.72); }
+.birdpost-journey-row { display: flex; align-items: center; gap: 10px; }
+.birdpost-journey-row > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--coral-soft); }
+.birdpost-journey-row > div { display: grid; min-width: 0; }
+.birdpost-journey-row small,
+.birdpost-empty { color: var(--muted); font-size: 0.78rem; }
+.birdpost-empty { margin: 0; }
+.birdpost-legacy-note { margin: 14px 0 0; color: var(--muted); font-size: 0.76rem; text-align: center; }
+@keyframes birdpost-v0-float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-4px) rotate(3deg); } }
+
+@media (max-width: 620px) {
+  .birdpost-buckets,
+  .birdpost-flight-stats { grid-template-columns: 1fr; }
+  .birdpost-route-dots { font-size: 0.72rem; letter-spacing: 0; }
+  .birdpost-flight-card-head { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .birdpost-flight-bird { animation: none; }
+}
+
 /* Send Bird Post — searchable species picker (BirdPostComposePage). */
 .species-picker {
   position: relative;

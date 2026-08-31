@@ -21,10 +21,10 @@ ok('map groups pins by normalized geographic position', /const key = `\$\{place\
 
 // Bird Post: the save path updates settings from the current ref, preserving
 // every unrelated account field through the object spread.
-ok('Bird Post address writes to persisted settings', /settings:\s*direction === 'to-marnich'/s.test(app) && /pooksLat: lat/.test(app) && /senderLat: lat/.test(app))
+ok('Bird Post location writes to per-account persisted settings', /birdPostLocations:[\s\S]{0,300}\[locationAccountId\]/.test(app) && /current:\s*currentLocation/.test(app))
 ok('Bird Post address save preserves unrelated state', /const next = patchAddress\(dataRef\.current\)/.test(app))
 ok('Bird Post address is immediately visible to send and persistence flows', /dataRef\.current = next[\s\S]{0,100}setData\(next\)/.test(app) && /queueSync\(\)/.test(app))
-ok('mirror address save merges into latest shared state', /patchAddress\(normalizeLoadedState\(remote\.state\)\)/.test(app))
+ok('mirror location save uses conflict-safe shared mutation', /persistSharedBirdPostMutation\(patchAddress, next\)/.test(app))
 
 // Garden: original purchase cost is stored and used for one-shot removal;
 // move validates numeric targets and keeps the original planting object data.

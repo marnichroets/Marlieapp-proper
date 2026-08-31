@@ -145,6 +145,17 @@ import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { flightSpeedForSpecies, haversineDistanceKm, formatDurationShort } from './birdFlightSpeed'
 import { LocationPicker } from './LocationPicker'
+import {
+  BIRD_POST_STATUS,
+  accountBirdPostLocation,
+  createBirdPostJourney,
+  journeyProgress,
+  journeysForAccount,
+  normalizeBirdPostJourneys,
+  rerouteJourney,
+  settleJourneyArrival,
+  startWaitingJourney,
+} from './birdPostJourney'
 
 // Bird Post — Pooks' fixed receiving location (see brief).
 const BIRD_POST_DEST_LAT = -26.7145
@@ -154,6 +165,46 @@ const BIRD_POST_DEST_LNG = 27.097
 // per-account via data.birdPostsSent) is free; every one after that costs
 // coins — see sendBirdPost in App().
 const BIRD_POST_SEND_COST = 150
+
+// Small account directory used by Bird Post's recipient picker. Keeping the
+// UI driven by account records (rather than branching on display names) makes
+// adding another eligible account a data change instead of a new send flow.
+const BIRD_POST_ACCOUNTS = [
+  { id: 'pooks', name: 'Pooks', avatar: '🌸', colour: 'coral' },
+  { id: 'marnich', name: 'Marnich', avatar: '🌿', colour: 'leaf' },
+]
+
+function birdPostAccount(accountId) {
+  return BIRD_POST_ACCOUNTS.find((entry) => entry.id === accountId) || {
+    id: accountId,
+    name: accountId,
+    avatar: '🐦',
+    colour: 'gold',
+  }
+}
+
+function legacyPostFromJourney(journey) {
+  if (!journey || journey.status === BIRD_POST_STATUS.WAITING || !journey.destination) return null
+  return {
+    id: journey.id,
+    message: journey.message,
+    birdSpeciesId: journey.bird,
+    direction: journey.recipient === 'marnich' ? 'to-marnich' : 'to-pooks',
+    senderLat: journey.origin.latitude,
+    senderLng: journey.origin.longitude,
+    destLat: journey.destination.latitude,
+    destLng: journey.destination.longitude,
+    createdAt: journey.sentAt,
+    departedAt: journey.departedAt,
+    estimatedArrivalAt: journey.estimatedArrivalAt,
+    travelTimeSeconds: journey.gameDurationSeconds,
+    flightSpeedKmh: journey.flightSpeedKmh,
+    delivered: journey.delivered,
+    deliveredAt: journey.deliveredAt,
+    arrivalNotifiedAt: journey.arrivalNotifiedAt,
+    read: journey.read,
+  }
+}
 
 function speciesLabelFromLibrary(birdLibrary, speciesId) {
   const found = (birdLibrary || []).find((bird) => bird.id === speciesId)
@@ -2106,9 +2157,15 @@ function buildDefaultState() {
       senderAddress: '',
       senderLat: null,
       senderLng: null,
+      senderLocationUpdatedAt: null,
       pooksAddress: '',
       pooksLat: null,
       pooksLng: null,
+      pooksLocationUpdatedAt: null,
+      birdPostLocations: {
+        pooks: { current: null },
+        marnich: { current: null },
+      },
     },
     mysteryGifts: defaultMysteryGifts,
     dateIdeas: defaultDateIdeas,
@@ -2135,6 +2192,7 @@ function buildDefaultState() {
     // Bird Post: at most one in flight at a time — see sendBirdPost/
     // deliverBirdPost in App() and BirdPostCard on Home.
     birdPost: null,
+    birdPostJourneys: [],
     // Bird Post send counter: the first send ever (birdPostsSent === 0) is
     // free, every send after that costs BIRD_POST_SEND_COST — see
     // sendBirdPost in App().
@@ -2333,6 +2391,7 @@ function normalizeLoadedState(saved) {
         ? { ...saved.mysteryEgg, needsSpeciesChoice: saved.mysteryEgg.needsSpeciesChoice !== false }
         : base.mysteryEgg,
       discoveries: Array.isArray(saved.discoveries) ? saved.discoveries : base.discoveries,
+      birdPostJourneys: normalizeBirdPostJourneys(saved.birdPostJourneys, saved.birdPost),
       birdLibrary: normalizeBirdLibrary(mergeBirdLibrary(base.birdLibrary, saved.birdLibrary)),
       plantLibrary: Array.isArray(saved.plantLibrary) ? saved.plantLibrary : base.plantLibrary,
       seeds: typeof saved.seeds === 'number' ? saved.seeds : base.seeds,
@@ -2351,6 +2410,16 @@ function normalizeLoadedState(saved) {
       settings: {
         ...base.settings,
         ...(saved.settings || {}),
+        birdPostLocations: {
+          pooks: {
+            ...base.settings.birdPostLocations.pooks,
+            ...(saved.settings?.birdPostLocations?.pooks || {}),
+          },
+          marnich: {
+            ...base.settings.birdPostLocations.marnich,
+            ...(saved.settings?.birdPostLocations?.marnich || {}),
+          },
+        },
         greenhouseResetV1: true,
         releaseFlags: {
           ...base.settings.releaseFlags,
@@ -3538,6 +3607,25 @@ function App() {
     const timer = window.setTimeout(() => setConfetti(0), 2400)
     return () => window.clearTimeout(timer)
   }, [confetti])
+
+  // Bird Post flights continue while the app is closed. On open—and on a
+  // light interval while it remains open—derive arrival from the stored ETA;
+  // no per-second progress is persisted.
+  useEffect(() => {
+    const checkArrivals = () => {
+      const current = dataRef.current
+      const due = normalizeBirdPostJourneys(current.birdPostJourneys, current.birdPost)
+        .find((journey) => journey.status === BIRD_POST_STATUS.IN_FLIGHT
+          && new Date(journey.estimatedArrivalAt).getTime() <= Date.now())
+      if (due) deliverBirdPost({ id: due.id })
+    }
+    checkArrivals()
+    const timer = window.setInterval(checkArrivals, 5000)
+    return () => window.clearInterval(timer)
+    // deliverBirdPost reads current refs and is intentionally not a dependency;
+    // recreating this timer on every render would add no correctness.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.birdPostJourneys, data.birdPost])
 
   // On app open while already logged in, pull the account's authoritative state
   // from the backend so reopening on any device shows the latest (the read-only
@@ -5725,6 +5813,40 @@ function App() {
   }
 
   // ---- Bird Post -------------------------------------------------------------
+  async function persistSharedBirdPostMutation(mutator, optimisticState) {
+    if (!readOnly || account !== 'pooks') return null
+    try {
+      let remote = await fetchRemoteState(account)
+      if (!remote?.state) throw new Error('Shared state unavailable')
+      let merged = mutator(normalizeLoadedState(remote.state))
+      let saved = await saveRemoteState(account, merged, remote.version)
+      if (saved?.conflict) {
+        remote = await fetchRemoteState(account)
+        if (!remote?.state) throw new Error('Shared state unavailable')
+        merged = mutator(normalizeLoadedState(remote.state))
+        saved = await saveRemoteState(account, merged, remote.version)
+      }
+      if (!saved || saved.conflict) throw new Error('Bird Post sync failed')
+      dataRef.current = merged
+      setData(merged)
+      stateVersionRef.current = saved.version
+      lastSyncedRef.current = merged
+      everSyncedRef.current = true
+      localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(merged, { forLocalStorage: true })))
+      return merged
+    } catch {
+      if (optimisticState) {
+        try {
+          localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(optimisticState, { forLocalStorage: true })))
+        } catch {
+          // The visible optimistic state remains available for this session.
+        }
+      }
+      setToast({ title: 'Bird Post saved locally', body: 'Open Bird Post again when the connection returns to finish syncing.', tone: 'warning' })
+      return null
+    }
+  }
+
   // Bidirectional: `direction` is 'to-pooks' (Marnich → Pooks, the original
   // flow) or 'to-marnich' (Pooks → Marnich). Both directions write into this
   // same shared account document (see dataAccountFor — Pooks' real account is
@@ -5749,7 +5871,11 @@ function App() {
       setToast({ title: 'Pick a bird to carry it', body: '', tone: 'warning' })
       return false
     }
-    if (data.birdPost && !data.birdPost.read) {
+    const current = dataRef.current
+    const senderId = direction === 'to-marnich' ? 'pooks' : 'marnich'
+    const recipientId = senderId === 'pooks' ? 'marnich' : 'pooks'
+    const visibleJourneys = normalizeBirdPostJourneys(current.birdPostJourneys, current.birdPost)
+    if (visibleJourneys.some((journey) => journey.status !== BIRD_POST_STATUS.ARRIVED || !journey.read)) {
       setToast({
         title: 'A bird is already on its way',
         body: 'Wait for it to arrive before sending another.',
@@ -5757,17 +5883,12 @@ function App() {
       })
       return false
     }
-    const toMarnich = direction === 'to-marnich'
-    const senderLat = senderLocation?.lat ?? (toMarnich ? data.settings.pooksLat ?? BIRD_POST_DEST_LAT : data.settings.senderLat)
-    const senderLng = senderLocation?.lng ?? (toMarnich ? data.settings.pooksLng ?? BIRD_POST_DEST_LNG : data.settings.senderLng)
-    const destLat = toMarnich ? data.settings.senderLat : data.settings.pooksLat ?? BIRD_POST_DEST_LAT
-    const destLng = toMarnich ? data.settings.senderLng : data.settings.pooksLng ?? BIRD_POST_DEST_LNG
-    // Two DISTINCT checks, not one combined one — the old single check used
-    // "Set Your Address first" for both cases, which was actively wrong (and
-    // confusing) when MY OWN address was already saved and it was actually
-    // the other person's that was missing (only possible for 'to-marnich':
-    // Pooks always has a fallback via BIRD_POST_DEST_LAT, Marnich doesn't).
-    if (senderLat == null || senderLng == null) {
+    const savedOrigin = accountBirdPostLocation(current.settings, senderId)
+    const origin = senderLocation
+      ? { label: savedOrigin?.label || 'Shared departure point', latitude: senderLocation.lat, longitude: senderLocation.lng, source: 'current-location', enabled: true }
+      : savedOrigin
+    const destination = accountBirdPostLocation(current.settings, recipientId)
+    if (!origin) {
       setToast({
         title: 'Set "Your Address" first',
         body: 'Save and geocode your address above before sending a bird.',
@@ -5775,16 +5896,8 @@ function App() {
       })
       return false
     }
-    if (destLat == null || destLng == null) {
-      setToast({
-        title: "Waiting on Marnich's address",
-        body: "Marnich hasn't saved his address yet — ask him to open Bird Post and save his first.",
-        tone: 'warning',
-      })
-      return false
-    }
-    const cost = (data.birdPostsSent || 0) >= 1 ? BIRD_POST_SEND_COST : 0
-    if (cost > 0 && data.featherCoins < cost) {
+    const cost = (current.birdPostsSent || 0) >= 1 ? BIRD_POST_SEND_COST : 0
+    if (cost > 0 && current.featherCoins < cost) {
       setToast({
         title: 'Not enough coins yet',
         body: `You'll need ${cost} 🪙 to send another bird — go spot some birds to earn more!`,
@@ -5792,33 +5905,80 @@ function App() {
       })
       return false
     }
-    const distanceKm = haversineDistanceKm(senderLat, senderLng, destLat, destLng)
-    const speedKmh = flightSpeedForSpecies(birdSpeciesId)
-    const travelTimeSeconds = Math.max(1, Math.round((distanceKm / speedKmh) * 3600))
-    const post = {
-      id: `birdpost-${Date.now().toString(36)}`,
+    const id = `birdpost-${Date.now().toString(36)}`
+    const sentAt = new Date().toISOString()
+    const journey = createBirdPostJourney({
+      id,
+      sender: senderId,
+      recipient: recipientId,
+      bird: birdSpeciesId,
+      message: text,
+      origin,
+      destination,
+      sentAt,
+      flightSpeedKmh: flightSpeedForSpecies(birdSpeciesId),
+    })
+    const post = journey.status === BIRD_POST_STATUS.IN_FLIGHT ? {
+      id,
       message: text,
       birdSpeciesId,
-      direction: toMarnich ? 'to-marnich' : 'to-pooks',
-      senderLat,
-      senderLng,
-      destLat,
-      destLng,
-      createdAt: new Date().toISOString(),
-      travelTimeSeconds,
+      direction,
+      senderLat: journey.origin.latitude,
+      senderLng: journey.origin.longitude,
+      destLat: journey.destination.latitude,
+      destLng: journey.destination.longitude,
+      createdAt: journey.sentAt,
+      departedAt: journey.departedAt,
+      estimatedArrivalAt: journey.estimatedArrivalAt,
+      travelTimeSeconds: journey.gameDurationSeconds,
+      flightSpeedKmh: journey.flightSpeedKmh,
       delivered: false,
       deliveredAt: null,
       read: false,
-    }
-    setData((current) => ({
+    } : null
+    const waitingMessage = journey.status === BIRD_POST_STATUS.WAITING ? {
+      id: `birdpost-destination-${id}`,
+      sender: 'Bird Post 📬',
+      icon: '🐦',
+      type: 'marnich',
+      title: `${birdPostAccount(senderId).name} sent you a bird!`,
+      body: 'Your visitor needs to know where to find you 🐦 Open Bird Post and share your current location so the journey can begin.',
+      date: sentAt,
+      read: false,
+      favourite: false,
+    } : null
+    const next = {
       ...current,
       birdPost: post,
+      birdPostJourneys: [...visibleJourneys, { ...journey, destinationPromptedAt: waitingMessage ? sentAt : null }],
+      messages: waitingMessage ? [waitingMessage, ...(current.messages || [])] : current.messages,
       featherCoins: current.featherCoins - cost,
       birdPostsSent: (current.birdPostsSent || 0) + 1,
-    }))
+    }
+    dataRef.current = next
+    setData(next)
+    if (!readOnly) queueSync()
+    else {
+      persistSharedBirdPostMutation((remoteState) => {
+        const remoteJourneys = normalizeBirdPostJourneys(remoteState.birdPostJourneys, remoteState.birdPost)
+        if (remoteJourneys.some((entry) => entry.id === journey.id)) return remoteState
+        return {
+          ...remoteState,
+          birdPost: post,
+          birdPostJourneys: [...remoteJourneys, { ...journey, destinationPromptedAt: waitingMessage ? sentAt : null }],
+          messages: waitingMessage && !(remoteState.messages || []).some((entry) => entry.id === waitingMessage.id)
+            ? [waitingMessage, ...(remoteState.messages || [])]
+            : remoteState.messages,
+          featherCoins: Math.max(0, (remoteState.featherCoins || 0) - cost),
+          birdPostsSent: (remoteState.birdPostsSent || 0) + 1,
+        }
+      }, next)
+    }
     setToast({
-      title: 'Bird sent! 📬',
-      body: `Flying ${Math.round(distanceKm)}km — should arrive in ${formatDurationShort(travelTimeSeconds)}.${
+      title: journey.status === BIRD_POST_STATUS.WAITING ? 'Bird Post is waiting safely 🐦' : 'Bird sent! 📬',
+      body: journey.status === BIRD_POST_STATUS.WAITING
+        ? `${birdPostAccount(recipientId).name} needs to share a destination before the bird departs.`
+        : `Flying ${Math.round(journey.distanceKm)}km — should arrive in ${formatDurationShort(journey.gameDurationSeconds)}.${
         cost > 0 ? ` −${cost} 🪙` : ''
       }`,
       tone: 'success',
@@ -5826,55 +5986,122 @@ function App() {
     return true
   }
 
-  // Called once, the moment a post's real elapsed time crosses its travel
-  // time (checked in BirdPostCard, on mount and on a live tick — so a post
-  // that finished flying while the app was closed is caught the instant it
-  // reopens). Sets delivered (arrival state on Home) but NOT read yet — the
-  // recipient still needs to acknowledge the arrival card before another post
-  // can send. Only the to-pooks direction drops a keepsake note in her inbox —
-  // a to-marnich post isn't hers to read, and he has no inbox of his own; the
-  // arrival card on his View Pooks mirror is the whole notification for him.
+  // Arrival is derived from persisted timestamps. The deterministic message
+  // id makes this idempotent even if Home's card and the background settlement
+  // effect notice the same arrival in adjacent renders.
   function deliverBirdPost(post) {
-    if (!post || post.delivered) return
-    setData((current) => {
-      if (!current.birdPost || current.birdPost.id !== post.id || current.birdPost.delivered) {
-        return current
-      }
-      return {
-        ...current,
-        birdPost: { ...current.birdPost, delivered: true, deliveredAt: new Date().toISOString() },
-      }
-    })
-    const distanceKm = Math.round(
-      haversineDistanceKm(
-        post.senderLat,
-        post.senderLng,
-        post.destLat ?? BIRD_POST_DEST_LAT,
-        post.destLng ?? BIRD_POST_DEST_LNG,
-      ),
-    )
-    const speciesLabel = speciesLabelFromLibrary(data.birdLibrary, post.birdSpeciesId)
-    if (post.direction !== 'to-marnich') {
-      pushMessage(birdPostDeliveredMessage(post.message, speciesLabel, distanceKm))
+    if (!post) return
+    const now = new Date().toISOString()
+    const current = dataRef.current
+    const journeys = normalizeBirdPostJourneys(current.birdPostJourneys, current.birdPost)
+    const target = journeys.find((journey) => journey.id === post.id)
+    if (!target) return
+    const settled = settleJourneyArrival(target, now)
+    if (!settled.arrivedNow) return
+    const notificationId = `birdpost-arrived-${target.id}`
+    const alreadyNotified = (current.messages || []).some((message) => message.id === notificationId)
+    const speciesLabel = speciesLabelFromLibrary(current.birdLibrary, target.bird)
+    const notification = {
+      ...birdPostDeliveredMessage(target.message, speciesLabel, Math.round(target.distanceKm || 0)),
+      id: notificationId,
+      title: `🐦 Your bird has arrived from ${birdPostAccount(target.sender).name}!`,
     }
-    setConfetti(Date.now())
-    setToast({
-      title: 'A bird has arrived! 📬',
-      body: `Delivered by ${speciesLabel} — flew ${distanceKm}km.`,
-      tone: 'success',
-    })
+    const next = {
+      ...current,
+      birdPostJourneys: journeys.map((journey) => journey.id === target.id ? settled.journey : journey),
+      birdPost: current.birdPost?.id === target.id
+        ? { ...current.birdPost, delivered: true, deliveredAt: settled.journey.deliveredAt, arrivalNotifiedAt: settled.journey.arrivalNotifiedAt }
+        : current.birdPost,
+      messages: alreadyNotified ? current.messages : [notification, ...(current.messages || [])],
+    }
+    dataRef.current = next
+    setData(next)
+    if (!readOnly) queueSync()
+    else persistSharedBirdPostMutation((remoteState) => {
+      const remoteJourneys = normalizeBirdPostJourneys(remoteState.birdPostJourneys, remoteState.birdPost)
+      const remoteTarget = remoteJourneys.find((journey) => journey.id === target.id)
+      if (!remoteTarget) return remoteState
+      const remoteSettled = settleJourneyArrival(remoteTarget, now)
+      const remoteAlreadyNotified = (remoteState.messages || []).some((message) => message.id === notificationId)
+      return {
+        ...remoteState,
+        birdPostJourneys: remoteJourneys.map((journey) => journey.id === target.id
+          ? (remoteSettled.arrivedNow ? remoteSettled.journey : journey)
+          : journey),
+        birdPost: remoteState.birdPost?.id === target.id
+          ? { ...remoteState.birdPost, delivered: true, deliveredAt: remoteTarget.deliveredAt || now, arrivalNotifiedAt: remoteTarget.arrivalNotifiedAt || now }
+          : remoteState.birdPost,
+        messages: remoteAlreadyNotified ? remoteState.messages : [notification, ...(remoteState.messages || [])],
+      }
+    }, next)
+    if (session.role === target.recipient) {
+      setConfetti(Date.now())
+      setToast({ title: 'A bird has arrived! 📬', body: `Delivered by ${speciesLabel}.`, tone: 'success' })
+    }
   }
 
   // Saves the geocoded address for whichever side is sending — Marnich's
   // (used as his sender location / Pooks' destination) or Pooks' (the
   // reverse). Called from the Bird Post composer on Home, for either role.
   async function saveBirdPostAddress(direction, address, lat, lng) {
-    const patchAddress = (state) => ({
-      ...state,
-      settings: direction === 'to-marnich'
-        ? { ...state.settings, pooksAddress: address, pooksLat: lat, pooksLng: lng }
-        : { ...state.settings, senderAddress: address, senderLat: lat, senderLng: lng },
-    })
+    const locationAccountId = direction === 'to-marnich' ? 'pooks' : 'marnich'
+    const changedAt = new Date().toISOString()
+    const hasLocation = lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+    const currentLocation = hasLocation ? {
+      label: address || 'Shared Bird Post location',
+      latitude: Number(lat),
+      longitude: Number(lng),
+      updatedAt: changedAt,
+      enabled: true,
+    } : null
+    const patchAddress = (state) => {
+      const journeys = normalizeBirdPostJourneys(state.birdPostJourneys, state.birdPost)
+      let rerouted = false
+      const nextJourneys = journeys.map((journey) => {
+        if (journey.recipient !== locationAccountId || !currentLocation) return journey
+        if (journey.status === BIRD_POST_STATUS.WAITING) return startWaitingJourney(journey, currentLocation, changedAt)
+        if (journey.status === BIRD_POST_STATUS.IN_FLIGHT) {
+          const sameDestination = journey.destination
+            && Math.abs(journey.destination.latitude - currentLocation.latitude) < 0.00001
+            && Math.abs(journey.destination.longitude - currentLocation.longitude) < 0.00001
+          if (sameDestination) return journey
+          rerouted = true
+          return rerouteJourney(journey, currentLocation, changedAt)
+        }
+        return journey
+      })
+      const activeJourney = nextJourneys.find((journey) => journey.status === BIRD_POST_STATUS.IN_FLIGHT || (journey.status === BIRD_POST_STATUS.ARRIVED && !journey.read))
+      const rerouteMessageId = `birdpost-reroute-${locationAccountId}-${changedAt}`
+      const rerouteMessage = rerouted ? {
+        id: rerouteMessageId,
+        sender: 'Bird Post 📬',
+        icon: '🐦',
+        type: 'system',
+        title: `${birdPostAccount(locationAccountId).name} moved — your bird changed course 🐦`,
+        body: 'The bird kept flying from its current position and is following the new route now.',
+        date: changedAt,
+        read: false,
+        favourite: false,
+      } : null
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          birdPostLocations: {
+            ...state.settings.birdPostLocations,
+            [locationAccountId]: {
+              ...(state.settings.birdPostLocations?.[locationAccountId] || {}),
+              current: currentLocation,
+            },
+          },
+        },
+        birdPostJourneys: nextJourneys,
+        birdPost: activeJourney ? legacyPostFromJourney(activeJourney) : state.birdPost,
+        messages: rerouteMessage && !(state.messages || []).some((message) => message.id === rerouteMessageId)
+          ? [rerouteMessage, ...(state.messages || [])]
+          : state.messages,
+      }
+    }
     const next = patchAddress(dataRef.current)
     // Keep the synchronous ref in lockstep with the visible state. Bird Post
     // can send immediately after confirmation and the persistence queue also
@@ -5891,34 +6118,8 @@ function App() {
       return
     }
 
-    // Bird Post is the deliberate shared-account exception to Marnich's
-    // read-only mirror. Persist only this narrow address change; all other
-    // mirror actions remain blocked by the normal readOnly guards. Merge the
-    // address into the latest remote document so the exception cannot replace
-    // newer Pooks state with the mirror's older snapshot.
     if (readOnly && account === 'pooks') {
-      try {
-        localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(next, { forLocalStorage: true })))
-        const remote = await fetchRemoteState(account)
-        if (!remote?.state) throw new Error('Shared state unavailable')
-        let merged = patchAddress(normalizeLoadedState(remote.state))
-        let saved = await saveRemoteState(account, merged, remote.version)
-        if (saved?.conflict) {
-          const latest = await fetchRemoteState(account)
-          if (!latest?.state) throw new Error('Shared state unavailable')
-          merged = patchAddress(normalizeLoadedState(latest.state))
-          saved = await saveRemoteState(account, merged, latest.version)
-        }
-        if (!saved || saved.conflict) throw new Error('Address sync failed')
-        dataRef.current = merged
-        setData(merged)
-        stateVersionRef.current = saved.version
-        lastSyncedRef.current = merged
-        everSyncedRef.current = true
-        localStorage.setItem(storageKeyForAccount(account), JSON.stringify(prepareStateForStorage(merged, { forLocalStorage: true })))
-      } catch {
-        setToast({ title: 'Address saved locally', body: 'The shared address will sync when the connection is available.', tone: 'warning' })
-      }
+      await persistSharedBirdPostMutation(patchAddress, next)
     }
   }
 
@@ -5955,11 +6156,25 @@ function App() {
   }
 
   // The recipient acknowledging the arrival card — frees up the "one post at
-  // a time" slot. The full record already lives in the inbox permanently.
+  // a time" slot while retaining the durable journey in History.
   function markBirdPostRead() {
-    setData((current) =>
-      current.birdPost ? { ...current, birdPost: { ...current.birdPost, read: true } } : current,
-    )
+    const current = dataRef.current
+    if (!current.birdPost) return
+    const journeys = normalizeBirdPostJourneys(current.birdPostJourneys, current.birdPost)
+    const next = {
+      ...current,
+      birdPost: { ...current.birdPost, read: true },
+      birdPostJourneys: journeys.map((journey) => journey.id === current.birdPost.id ? { ...journey, read: true } : journey),
+    }
+    dataRef.current = next
+    setData(next)
+    if (!readOnly) queueSync()
+    else persistSharedBirdPostMutation((remoteState) => ({
+      ...remoteState,
+      birdPost: remoteState.birdPost?.id === current.birdPost.id ? { ...remoteState.birdPost, read: true } : remoteState.birdPost,
+      birdPostJourneys: normalizeBirdPostJourneys(remoteState.birdPostJourneys, remoteState.birdPost)
+        .map((journey) => journey.id === current.birdPost.id ? { ...journey, read: true } : journey),
+    }), next)
   }
 
   // ---- Admin sandbox: play any animation/celebration on demand using FAKE
@@ -7337,6 +7552,7 @@ function App() {
             myRole={session.role === 'marnich' ? 'marnich' : 'pooks'}
             onSend={sendBirdPost}
             onSaveAddress={saveBirdPostAddress}
+            onSeeFlight={() => setActivePage('birdflight')}
             onBack={goBack}
           />
         )}
@@ -9096,9 +9312,13 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead, onSeeFlight })
     return () => window.clearInterval(id)
   }, [])
 
-  const createdAtMs = new Date(birdPost.createdAt).getTime()
-  const elapsedSeconds = Math.max(0, (now - createdAtMs) / 1000)
-  const arrived = elapsedSeconds >= birdPost.travelTimeSeconds
+  const departedAtMs = new Date(birdPost.departedAt || birdPost.createdAt).getTime()
+  const etaMs = birdPost.estimatedArrivalAt
+    ? new Date(birdPost.estimatedArrivalAt).getTime()
+    : departedAtMs + birdPost.travelTimeSeconds * 1000
+  const elapsedSeconds = Math.max(0, (now - departedAtMs) / 1000)
+  const totalSeconds = Math.max(1, (etaMs - departedAtMs) / 1000)
+  const arrived = now >= etaMs
 
   useEffect(() => {
     if (arrived && !birdPost.delivered && !firedRef.current) {
@@ -9141,9 +9361,8 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead, onSeeFlight })
     )
   }
 
-  const progress = Math.min(1, elapsedSeconds / birdPost.travelTimeSeconds)
+  const progress = Math.min(1, elapsedSeconds / totalSeconds)
   const remainingKm = Math.max(0, Math.round(distanceKm * (1 - progress)))
-  const etaMs = createdAtMs + birdPost.travelTimeSeconds * 1000
   const remainingSeconds = Math.max(0, (etaMs - now) / 1000)
   const iconLeftPct = Math.min(96, Math.max(2, progress * 100))
 
@@ -9173,28 +9392,45 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead, onSeeFlight })
   )
 }
 
-// Bird Post composer — a real page (not a modal) reachable from Home by
-// either side (see the "Send a Bird" card on HomePage). Direction is implied
-// by who's using it: Marnich composes 'to-pooks', Pooks composes
-// 'to-marnich'. Each side has its own saved "Your Address" (geocoded once,
-// reused after) — that's the FROM point; the TO point is simply the other
-// side's saved address (Pooks' defaults to her fixed home coords until she
-// saves her own — see sendBirdPost in App()).
-function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress, onBack }) {
-  const direction = myRole === 'marnich' ? 'to-pooks' : 'to-marnich'
-  const recipientName = myRole === 'marnich' ? 'Pooks' : 'Marnich'
-  const addressKey = direction === 'to-marnich' ? 'pooksAddress' : 'senderAddress'
-  const latKey = direction === 'to-marnich' ? 'pooksLat' : 'senderLat'
-  const lngKey = direction === 'to-marnich' ? 'pooksLng' : 'senderLng'
+function formatBirdPostLocationAge(value) {
+  if (!value) return 'Saved address fallback'
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (elapsedMinutes < 1) return 'Updated just now'
+  if (elapsedMinutes < 60) return `Updated ${elapsedMinutes} min ago`
+  const hours = Math.floor(elapsedMinutes / 60)
+  if (hours < 24) return `Updated ${hours}h ago`
+  return `Updated ${Math.floor(hours / 24)}d ago`
+}
+
+// Bird Post composer v0 — recipient-led rather than direction-led. The legacy
+// direction string is still produced at the send boundary so existing records
+// and downstream readers remain compatible while the journey model evolves.
+function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress, onSeeFlight, onBack }) {
+  const sender = birdPostAccount(myRole)
+  const recipients = BIRD_POST_ACCOUNTS.filter((entry) => entry.id !== sender.id)
+  const [recipientId, setRecipientId] = useState(recipients[0]?.id || '')
+  const recipient = birdPostAccount(recipientId)
+  const direction = recipient.id === 'marnich' ? 'to-marnich' : 'to-pooks'
+  const recipientName = recipient.name
+  const addressKey = sender.id === 'pooks' ? 'pooksAddress' : 'senderAddress'
+  const recipientAddressKey = recipient.id === 'pooks' ? 'pooksAddress' : 'senderAddress'
 
   const [justSaved, setJustSaved] = useState(null) // { address, lat, lng } — beats stale props on immediate send
   const [message, setMessage] = useState('')
   const [birdSpeciesId, setBirdSpeciesId] = useState('')
   const [speciesSearch, setSpeciesSearch] = useState('')
+  const [journeyNow, setJourneyNow] = useState(() => Date.now())
 
-  const savedLat = justSaved?.lat ?? data.settings[latKey]
-  const savedLng = justSaved?.lng ?? data.settings[lngKey]
-  const savedAddress = justSaved?.address ?? data.settings[addressKey]
+  useEffect(() => {
+    const timer = window.setInterval(() => setJourneyNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  // Display-only tick: persisted progress remains timestamp-derived.
+  const persistedSenderLocation = accountBirdPostLocation(data.settings, sender.id)
+  const recipientLocation = accountBirdPostLocation(data.settings, recipient.id)
+  const savedLat = justSaved?.lat ?? persistedSenderLocation?.latitude
+  const savedLng = justSaved?.lng ?? persistedSenderLocation?.longitude
+  const savedAddress = justSaved?.address ?? persistedSenderLocation?.label ?? data.settings[addressKey]
   // <LocationPicker> wants its saved value in its own candidate shape, not
   // the plain address/lat/lng strings this page persists to settings. Only
   // `name` is set (not `formatted`) since settings only stores one string —
@@ -9202,11 +9438,7 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const pickerValue =
     savedLat != null ? { name: savedAddress, latitude: savedLat, longitude: savedLng } : null
 
-  // Mirrors the destination fallback in sendBirdPost: Pooks always has one
-  // (BIRD_POST_DEST_LAT), Marnich doesn't — so this can only ever be true for
-  // the to-marnich direction. Surfaced here so she sees it before trying to
-  // send, not just as a toast after a blocked attempt.
-  const otherAddressMissing = direction === 'to-marnich' && data.settings.senderLat == null
+  const otherAddressMissing = !recipientLocation
 
   // First bird post ever sent (per account) is free; every one after costs
   // BIRD_POST_SEND_COST — mirrors the check in sendBirdPost in App().
@@ -9258,7 +9490,22 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
     setSpeciesSearch('')
   }
 
-  const blocked = data.birdPost && !data.birdPost.read
+  const blockingJourney = normalizeBirdPostJourneys(data.birdPostJourneys, data.birdPost)
+    .find((journey) => journey.status !== BIRD_POST_STATUS.ARRIVED || !journey.read)
+  const blocked = Boolean(blockingJourney)
+  const accountJourneys = journeysForAccount(normalizeBirdPostJourneys(data.birdPostJourneys, data.birdPost), sender.id)
+    .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+  const activeJourney = accountJourneys.find((journey) => journey.status === BIRD_POST_STATUS.IN_FLIGHT)
+  const journeySender = activeJourney ? birdPostAccount(activeJourney.sender) : null
+  const journeyRecipient = activeJourney ? birdPostAccount(activeJourney.recipient) : null
+  const journeyEta = activeJourney?.estimatedArrivalAt ? new Date(activeJourney.estimatedArrivalAt) : null
+  const journeyDistance = activeJourney ? Math.round(activeJourney.distanceKm || 0) : 0
+  const journeySpeed = activeJourney ? Math.round(activeJourney.flightSpeedKmh || flightSpeedForSpecies(activeJourney.bird)) : 0
+  const activeProgress = activeJourney ? journeyProgress(activeJourney, journeyNow) : 0
+  const activeRemainingSeconds = journeyEta ? Math.max(0, (journeyEta.getTime() - journeyNow) / 1000) : 0
+  const incomingJourneys = accountJourneys.filter((journey) => journey.recipient === sender.id && journey.status === BIRD_POST_STATUS.ARRIVED && !journey.read)
+  const flyingJourneys = accountJourneys.filter((journey) => journey.status === BIRD_POST_STATUS.IN_FLIGHT || journey.status === BIRD_POST_STATUS.WAITING)
+  const historyJourneys = accountJourneys.filter((journey) => journey.status === BIRD_POST_STATUS.ARRIVED && (journey.read || journey.sender === sender.id))
 
   return (
     <div className="page-grid birdpost-compose-page">
@@ -9269,22 +9516,105 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
         <div className="section-heading">
           <div>
             <p className="eyebrow">Bird Post</p>
-            <h2>Send a Bird to {recipientName} 🐦</h2>
+            <h2>Send a little visitor 🐦</h2>
           </div>
         </div>
 
+        <div className="birdpost-v0-step">
+          <p className="birdpost-step-number">01</p>
+          <div>
+            <p className="eyebrow">Choose a recipient</p>
+            <h3>Who should this bird visit?</h3>
+          </div>
+        </div>
+        <div className="birdpost-recipient-grid" role="radiogroup" aria-label="Bird Post recipient">
+          {recipients.map((option) => (
+            <button
+              key={option.id}
+              className={`birdpost-recipient-card${recipientId === option.id ? ' selected' : ''}`}
+              type="button"
+              role="radio"
+              aria-checked={recipientId === option.id}
+              onClick={() => setRecipientId(option.id)}
+            >
+              <span className={`birdpost-recipient-avatar ${option.colour}`} aria-hidden="true">{option.avatar}</span>
+              <span>
+                <strong>{option.name}</strong>
+                <small>{accountBirdPostLocation(data.settings, option.id) ? 'Ready to receive Bird Post' : 'Needs to share a destination'}</small>
+              </span>
+              <span className="birdpost-recipient-check" aria-hidden="true">✓</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="birdpost-v0-step">
+          <p className="birdpost-step-number">02</p>
+          <div>
+            <p className="eyebrow">Your departure point</p>
+            <h3>Let Bird Post know where I am</h3>
+          </div>
+        </div>
+        <div className="birdpost-location-panel">
+          <div className="birdpost-privacy-note">
+            <span aria-hidden="true">🌸</span>
+            <p><strong>Shared only when you choose.</strong> Bird Post asks once, saves this destination, and never tracks you continuously.</p>
+          </div>
         <LocationPicker
-          label="Your Address"
-          helperText="Where this bird sets off from — search or use your current location (South Africa only), reused until you change it."
-          placeholder="Street, Town — e.g. 5 White Street, Grahamstown"
+          label="Current Bird Post location"
+          helperText="Update when you travel, or search for a saved place. Your exact coordinates stay hidden in the normal app."
+          placeholder="Search for a town or place…"
           value={pickerValue}
           onChange={handleAddressChange}
+          showCoordinates={false}
+          gpsButtonLabel="Share my current location"
         />
+          {savedLat != null && (
+            <>
+              <p className="birdpost-location-updated">
+                {persistedSenderLocation?.source === 'saved-address' ? 'Using saved-address fallback' : formatBirdPostLocationAge(justSaved ? new Date().toISOString() : persistedSenderLocation?.updatedAt)}
+              </p>
+              {persistedSenderLocation?.source === 'current-location' && (
+                <button
+                  className="text-btn danger-text birdpost-clear-location"
+                  type="button"
+                  onClick={() => {
+                    onSaveAddress(direction, '', null, null)
+                    setJustSaved(null)
+                  }}
+                >
+                  Clear current Bird Post location
+                </button>
+              )}
+            </>
+          )}
+        </div>
 
-        <h3>Send Bird Post 📬</h3>
+        <div className={`birdpost-destination-card${otherAddressMissing ? ' waiting' : ''}`}>
+          <span className={`birdpost-recipient-avatar ${recipient.colour}`} aria-hidden="true">{recipient.avatar}</span>
+          <div>
+            <p className="eyebrow">Destination</p>
+            <strong>{recipient.name}</strong>
+            <small>
+              {otherAddressMissing
+                ? 'Waiting for a shared location — no destination will be invented.'
+                : recipientLocation?.label || data.settings[recipientAddressKey] || 'Saved Bird Post location'}
+            </small>
+          </div>
+          <span className={`status-pill ${otherAddressMissing ? 'locked' : 'unlocked'}`}>
+            {otherAddressMissing ? 'Waiting' : 'Ready'}
+          </span>
+        </div>
+
+        <div className="birdpost-v0-step">
+          <p className="birdpost-step-number">03</p>
+          <div>
+            <p className="eyebrow">Choose the messenger</p>
+            <h3>Write Bird Post to {recipientName}</h3>
+          </div>
+        </div>
         {blocked ? (
           <p className="fine-print">
-            A bird is already {data.birdPost.delivered ? 'waiting to be read' : 'in flight'} — wait
+            A bird is already {blockingJourney.status === BIRD_POST_STATUS.WAITING ? 'waiting for a destination' : blockingJourney.delivered ? 'waiting to be read' : 'in flight'} — wait
             for it to arrive before sending another.
           </p>
         ) : identifiedSpecies.length === 0 ? (
@@ -9292,12 +9622,17 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
             Identify a bird first to unlock it as a messenger! Every species you&apos;ve found becomes
             available here.
           </p>
-        ) : otherAddressMissing ? (
-          <p className="fine-print">
-            Marnich hasn&apos;t saved his address yet — ask him to open Bird Post and save his first,
-            then come back here.
-          </p>
         ) : (
+          <>
+          {otherAddressMissing && (
+            <div className="birdpost-waiting-card">
+              <span aria-hidden="true">🐦</span>
+              <div>
+                <strong>Your visitor needs to know where to find {recipientName}.</strong>
+                <p>You can still send it now. The journey will wait safely until {recipientName} shares a current location or has a saved-address fallback.</p>
+              </div>
+            </div>
+          )}
           <form className="form-grid" onSubmit={submit}>
             <textarea
               value={message}
@@ -9362,11 +9697,70 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
               Send bird 📬
             </button>
           </form>
+          </>
         )}
         <p className="fine-print">
-          Uses your saved address automatically. Flight time is the real distance divided by that
-          species&apos; real flight speed.
+          Bird Post uses an explicitly shared location first and a saved address only as a fallback.
+          Precise coordinates stay behind the scenes.
         </p>
+      </section>
+
+      <section className="soft-card full-span birdpost-journey-board">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Your Bird Post</p>
+            <h2>Journeys & letters</h2>
+          </div>
+          <span className="status-pill">v0 preview</span>
+        </div>
+
+        {activeJourney && (
+          <article className="birdpost-flight-card">
+            <div className="birdpost-flight-card-head">
+              <span className="birdpost-flight-bird" aria-hidden="true">🐦</span>
+              <div>
+                <p className="eyebrow">Live journey</p>
+                <h3>{journeyRecipient.name}&apos;s visitor is on the way</h3>
+              </div>
+              <span className="birdpost-live-pill">In flight</span>
+            </div>
+            <div className="birdpost-route-people">
+              <span><small>From</small><strong>{journeySender.name}</strong></span>
+              <span className="birdpost-route-dots" aria-hidden="true">••••• 🐦 •••••</span>
+              <span><small>To</small><strong>{journeyRecipient.name}</strong></span>
+            </div>
+            <div className="birdpost-flight-stats">
+              <span><small>Distance</small><strong>{journeyDistance} km</strong></span>
+              <span><small>Flying speed</small><strong>{journeySpeed} km/h</strong></span>
+              <span><small>Estimated arrival</small><strong>{journeyEta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+            </div>
+            <div className="progress-track bird-post-track"><span style={{ width: `${activeProgress * 100}%` }} /></div>
+            <p className="fine-print">Departed {new Date(activeJourney.departedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {formatDurationShort(activeRemainingSeconds)} remaining · {Math.round(activeProgress * 100)}% complete</p>
+            <button className="text-btn bird-post-flight-link" type="button" onClick={onSeeFlight}>See the live flight map →</button>
+          </article>
+        )}
+
+        <div className="birdpost-buckets">
+          <section className="birdpost-bucket">
+            <p className="eyebrow">Incoming</p>
+            {incomingJourneys.length ? incomingJourneys.map((journey) => (
+              <div className="birdpost-journey-row" key={journey.id}><span>💌</span><div><strong>Bird from {birdPostAccount(journey.sender).name}</strong><small>Arrived {new Date(journey.deliveredAt || journey.estimatedArrivalAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ready to open</small></div></div>
+            )) : <p className="birdpost-empty">No visitors waiting in the nest.</p>}
+          </section>
+          <section className="birdpost-bucket">
+            <p className="eyebrow">In flight</p>
+            {flyingJourneys.length ? flyingJourneys.map((journey) => (
+              <div className="birdpost-journey-row" key={journey.id}><span>🐦</span><div><strong>{birdPostAccount(journey.sender).name} → {birdPostAccount(journey.recipient).name}</strong><small>{journey.status === BIRD_POST_STATUS.WAITING ? 'Waiting for destination' : `Arrives in ${formatDurationShort(Math.max(0, (new Date(journey.estimatedArrivalAt).getTime() - journeyNow) / 1000))}`}</small></div></div>
+            )) : <p className="birdpost-empty">The sky is quiet just now.</p>}
+          </section>
+          <section className="birdpost-bucket">
+            <p className="eyebrow">History</p>
+            {historyJourneys.length ? historyJourneys.map((journey) => (
+              <div className="birdpost-journey-row delivered" key={journey.id}><span>✓</span><div><strong>{birdPostAccount(journey.sender).name} → {birdPostAccount(journey.recipient).name}</strong><small>Delivered safely {journey.recipient === sender.id && !journey.read ? '· unread' : '✓'}</small></div></div>
+            )) : <p className="birdpost-empty">Delivered letters will gather here.</p>}
+          </section>
+        </div>
+        <p className="birdpost-legacy-note">Existing Bird Post records are normalized into this journey view by ID without changing or duplicating their saved fields.</p>
       </section>
     </div>
   )
