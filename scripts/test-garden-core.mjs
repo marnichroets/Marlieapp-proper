@@ -55,9 +55,11 @@ const [appSource, cssSource] = await Promise.all([
   readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/App.css', import.meta.url), 'utf8'),
 ])
-assert.match(appSource, /className="season-spring-bunny"/, 'Spring rabbit is wired to its motion class')
+assert.match(appSource, /transform="translate\(178 91\)"[\s\S]{0,100}className="season-spring-bunny"/, 'Spring rabbit placement is isolated from its motion transform')
 assert.match(appSource, /className="season-spring-passer"/, 'occasional Spring animal passer is present')
 assert.match(cssSource, /@keyframes season-spring-bunny-hop/, 'rabbit hop animation exists')
+assert.match(cssSource, /season-spring-bunny-hop 4\.8s/, 'rabbit hops often enough to be noticed')
+assert.match(cssSource, /season-spring-passer 10\.5s/, 'Spring bird crosses during normal viewing')
 assert.match(cssSource, /prefers-reduced-motion:[\s\S]*season-spring-bunny/, 'Spring animals respect reduced motion')
 
 await vite.close()

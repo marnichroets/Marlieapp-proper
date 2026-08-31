@@ -8523,19 +8523,21 @@ function SeasonMotif({ seasonKey }) {
         })}
         {/* a bunny in the foreground — spring's own charming detail, the way
             the robin anchors the winter scene */}
-        <g className="season-spring-bunny" transform="translate(178 91)" aria-hidden="true">
-          <ellipse cx="0" cy="7.5" rx="7.5" ry="2" fill="#3a2f1e" opacity="0.14" />
-          <ellipse cx="4.5" cy="4.5" rx="2.6" ry="1.8" fill="#f2ead9" />
-          <ellipse cx="0" cy="1.5" rx="7" ry="5.4" fill="#e8dcc8" />
-          <circle cx="-4.6" cy="-4.2" r="4" fill="#e8dcc8" />
-          <path d="M-7 -6.5 Q-8.4 -13 -6 -13.8 Q-4.6 -13 -5.4 -6 Z" fill="#e8dcc8" />
-          <path d="M-2.6 -6.8 Q-2.6 -13.4 -0.6 -13.8 Q0.6 -13 -1 -6.2 Z" fill="#e8dcc8" />
-          <path d="M-6.6 -7.6 Q-7.4 -11.6 -6.2 -12.2 Q-5.4 -11.8 -5.8 -7.2 Z" fill="#f6c9d8" opacity="0.8" />
-          <circle cx="-6.4" cy="-4.6" r="0.7" fill="#201a14" />
-          <circle cx="-8.2" cy="-3.2" r="0.7" fill="#e88ba0" />
+        <g transform="translate(178 91)" aria-hidden="true">
+          <g className="season-spring-bunny">
+            <ellipse cx="0" cy="7.5" rx="7.5" ry="2" fill="#3a2f1e" opacity="0.14" />
+            <ellipse cx="4.5" cy="4.5" rx="2.6" ry="1.8" fill="#f2ead9" />
+            <ellipse cx="0" cy="1.5" rx="7" ry="5.4" fill="#e8dcc8" />
+            <circle cx="-4.6" cy="-4.2" r="4" fill="#e8dcc8" />
+            <path d="M-7 -6.5 Q-8.4 -13 -6 -13.8 Q-4.6 -13 -5.4 -6 Z" fill="#e8dcc8" />
+            <path d="M-2.6 -6.8 Q-2.6 -13.4 -0.6 -13.8 Q0.6 -13 -1 -6.2 Z" fill="#e8dcc8" />
+            <path d="M-6.6 -7.6 Q-7.4 -11.6 -6.2 -12.2 Q-5.4 -11.8 -5.8 -7.2 Z" fill="#f6c9d8" opacity="0.8" />
+            <circle cx="-6.4" cy="-4.6" r="0.7" fill="#201a14" />
+            <circle cx="-8.2" cy="-3.2" r="0.7" fill="#e88ba0" />
+          </g>
         </g>
         <g className="season-spring-passer" aria-hidden="true">
-          <path d="M0 0 q5 -5 10 0 q5 -5 10 0" fill="none" stroke="#9b6472" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M0 0 q5 -6 10 0 q5 -6 10 0" fill="none" stroke="#7d4656" strokeWidth="2.35" strokeLinecap="round" />
         </g>
         <g className="g-flutter" style={{ animationDelay: '0.4s', animationDuration: '6.4s', '--flap-dur': '0.3s', '--flap-delay': '0s' }} transform="translate(90 62)">
           <ellipse className="g-wing g-wing-l" cx="-3.1" cy="0" rx="3.3" ry="4.3" fill="#c9a8e8" />
