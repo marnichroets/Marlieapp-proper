@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import {
   BIRD_POST_STATUS,
   accountBirdPostLocation,
@@ -93,5 +94,10 @@ const visible = [journey, createBirdPostJourney({
 assert.equal(journeysForAccount(visible, 'pooks').length, 2, 'Pooks sees sent and received journeys')
 assert.equal(journeysForAccount(visible, 'marnich').length, 2, 'Marnich sees sent and received journeys')
 assert.throws(() => createBirdPostJourney({ id: 'bad', sender: 'pooks', recipient: 'pooks', bird: 'x', origin, destination, flightSpeedKmh: 40 }))
+
+const mapSource = await readFile(new URL('../src/BirdMap.jsx', import.meta.url), 'utf8')
+assert.match(mapSource, /routeViewBox/, 'live flight map uses a route-focused viewport')
+assert.match(mapSource, /bird-flight-arrow/, 'live flight path shows direction with an arrow marker')
+assert.match(mapSource, /flight-current-marker/, 'live flight map marks the bird current position')
 
 console.log('Bird Post journey checks passed.')

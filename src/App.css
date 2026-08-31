@@ -8359,3 +8359,33 @@ button.tweety-nest-base.gift-pop {
 .app-shell .progress-track:not(.tweety-progress) span {
   background: linear-gradient(90deg, var(--coral), var(--terracotta));
 }
+
+/* Bird Post flight map: route-focused contrast layered over the shared map. */
+.app-shell .bird-post-map {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.92) 0 5%, transparent 6%),
+    radial-gradient(circle at 84% 22%, rgba(255, 229, 218, 0.88), transparent 24%),
+    linear-gradient(155deg, #dff1ee, #f8e4e7 58%, #fff0d2);
+  border: 2px solid rgba(207, 111, 120, 0.42);
+  box-shadow: 0 16px 36px rgba(168, 78, 92, 0.15), inset 0 0 0 4px rgba(255, 255, 255, 0.5);
+}
+.app-shell .bird-post-map .sa-land { fill: #b8d8bb; stroke: #6e9d78; filter: drop-shadow(0 6px 8px rgba(66, 105, 70, 0.25)); }
+.app-shell .bird-post-map .sa-lesotho { fill: #a6cba9; stroke: #6e9d78; }
+.app-shell .bird-post-map .sa-province { stroke: #6e9d78; opacity: 0.52; }
+.app-shell .bird-post-map .province-label { fill: #426b50; }
+.app-shell .bird-post-map .flight-route-guide { stroke: rgba(207, 111, 120, 0.58); stroke-width: 5; stroke-dasharray: 3 11; }
+.app-shell .bird-post-map .flight-route-flown { stroke: var(--coral); stroke-width: 8; filter: drop-shadow(0 3px 3px rgba(168, 78, 92, 0.28)); }
+.app-shell .bird-post-map .flight-endpoint circle { fill: #fff9f5; stroke: var(--coral-dark); stroke-width: 4; }
+.app-shell .bird-post-map .flight-endpoint.flight-end circle { fill: var(--coral); stroke: #fff9f5; }
+.app-shell .bird-post-map .flight-map-magic { fill: var(--coral); font-size: 25px; opacity: 0.68; }
+.app-shell .bird-post-map .flight-current-halo { fill: rgba(207, 111, 120, 0.2); stroke: var(--coral); stroke-width: 2; animation: flight-current-pulse 1.8s ease-in-out infinite; }
+.app-shell .bird-post-map .flight-current-label { fill: var(--coral-dark); font-size: 11px; font-weight: 900; letter-spacing: 0.08em; paint-order: stroke; stroke: #fff9f5; stroke-width: 4px; }
+@keyframes flight-current-pulse { 0%, 100% { opacity: 0.45; transform: scale(0.85); } 50% { opacity: 0.95; transform: scale(1.08); } }
+.app-shell .bird-post-map .flight-bird-icon { filter: drop-shadow(0 5px 5px rgba(104, 62, 58, 0.35)); }
+.flight-progress-summary { display: grid; gap: 6px; margin-top: 12px; color: var(--muted); font-size: 0.8rem; }
+.flight-progress-summary strong { color: var(--coral-dark); }
+.flight-progress-summary .progress-track { height: 9px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .bird-post-map .flight-current-halo { animation: none; }
+}

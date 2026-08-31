@@ -341,7 +341,7 @@ const toPath = (pts) => `M ${pts.map(([lo, la]) => project(lo, la).map((n) => n.
 // flight) so the two views stay pixel-for-pixel consistent — the exact same
 // coordinate system, drawn once. Extra markers are passed as `children` and
 // rendered on top, inside the same <svg>.
-function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '' }) {
+function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '', viewBox = `0 0 ${VIEW_W} ${VIEW_H}` }) {
   const outlinePath = toPath(OUTLINE)
   const lesothoPath = toPath(LESOTHO)
   const provincePaths = PROVINCES.map((p) => ({ name: p.name, d: toPath(p.outline) }))
@@ -356,7 +356,7 @@ function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '' }
 
   return (
     <div className={`sa-map-wrap${variant ? ` ${variant}` : ''}`}>
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label={ariaLabel}>
+      <svg viewBox={viewBox} className="sa-map" role="img" aria-label={ariaLabel}>
         <path className="sa-land" d={outlinePath} />
         {/* Province boundaries — internal reference lines only, no fill,
             so the land colour/shadow from .sa-land shows through. */}
@@ -618,6 +618,11 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
   const fromProvince = provinceForPoint(birdPost.senderLng, birdPost.senderLat) || 'the field'
   const toProvince = provinceForPoint(destLng, destLat) || 'home'
   const curvePath = `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`
+  const routeMinX = Math.max(0, Math.min(sx, ex, cx) - 58)
+  const routeMaxX = Math.min(VIEW_W, Math.max(sx, ex, cx) + 58)
+  const routeMinY = Math.max(0, Math.min(sy, ey, cy) - 58)
+  const routeMaxY = Math.min(VIEW_H, Math.max(sy, ey, cy) + 58)
+  const routeViewBox = `${routeMinX.toFixed(1)} ${routeMinY.toFixed(1)} ${(routeMaxX - routeMinX).toFixed(1)} ${(routeMaxY - routeMinY).toFixed(1)}`
 
   return (
     <div className="page-grid bird-map-page">
@@ -647,7 +652,12 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
           </blockquote>
         )}
 
-        <SAMapBase variant="bird-post-map" ariaLabel={`Map showing a ${speciesLabel} flying from ${fromProvince} to ${toProvince}`}>
+        <SAMapBase variant="bird-post-map" viewBox={routeViewBox} ariaLabel={`Map showing a ${speciesLabel} flying from ${fromProvince} to ${toProvince}`}>
+          <defs>
+            <marker id="bird-flight-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--coral)" />
+            </marker>
+          </defs>
           <g className="flight-map-magic" aria-hidden="true">
             <text x="105" y="145">✦</text><text x="795" y="185">♡</text>
             <text x="190" y="650">· ✦</text><text x="850" y="610">✦</text>
@@ -665,6 +675,7 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
             pathLength="100"
             strokeDasharray="100"
             strokeDashoffset={100 - progress * 100}
+            markerEnd={arrived ? undefined : 'url(#bird-flight-arrow)'}
           />
           <g className="flight-endpoint flight-start" transform={`translate(${sx.toFixed(1)} ${sy.toFixed(1)})`}>
             <circle r="6" />
@@ -695,6 +706,12 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
                 {p.glyph}
               </text>
             ))}
+          {!arrived && (
+            <g className="flight-current-marker" transform={`translate(${bx.toFixed(1)} ${(by + bob).toFixed(1)})`} aria-label="Bird's current position">
+              <circle className="flight-current-halo" r="18" />
+              <text className="flight-current-label" x="0" y="-22" textAnchor="middle">NOW</text>
+            </g>
+          )}
           {speciesEntry ? (
             // GardenBird renders its own <svg> sized via CSS px — nesting
             // that directly inside another <svg> doesn't reliably respect
@@ -739,6 +756,13 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
             </text>
           )}
         </SAMapBase>
+
+        {!arrived && (
+          <div className="flight-progress-summary" aria-label={`Flight progress ${Math.round(progress * 100)} percent`}>
+            <span><strong>{Math.round(progress * 100)}%</strong> of the journey flown</span>
+            <div className="progress-track"><span style={{ width: `${progress * 100}%` }} /></div>
+          </div>
+        )}
 
         {arrived ? (
           <p className="flight-arrived-banner">Delivered! 📬 {distanceKm ? `Flew ${Math.round(distanceKm)}km to get here.` : ''}</p>
