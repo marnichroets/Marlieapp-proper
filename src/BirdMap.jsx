@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { haversineDistanceKm, formatDurationShort, flightSpeedForSpecies } from './birdFlightSpeed'
+import { getSeason } from './seasons'
 
 const VIEW_W = 1000
 const VIEW_H = 820
@@ -341,10 +342,10 @@ const toPath = (pts) => `M ${pts.map(([lo, la]) => project(lo, la).map((n) => n.
 // flight) so the two views stay pixel-for-pixel consistent — the exact same
 // coordinate system, drawn once. Extra markers are passed as `children` and
 // rendered on top, inside the same <svg>.
-function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '', viewBox = `0 0 ${VIEW_W} ${VIEW_H}` }) {
+function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '', seasonKey = '', provinceActivity = {}, viewBox = `0 0 ${VIEW_W} ${VIEW_H}` }) {
   const outlinePath = toPath(OUTLINE)
   const lesothoPath = toPath(LESOTHO)
-  const provincePaths = PROVINCES.map((p) => ({ name: p.name, d: toPath(p.outline) }))
+  const provincePaths = PROVINCES.map((p) => ({ name: p.name, d: toPath(p.outline), activity: provinceActivity[p.name] || 0 }))
   const provinceLabels = PROVINCE_LABELS.map((l) => {
     const [x, y] = project(l.lon, l.lat)
     return { ...l, x: x + (l.dx || 0), y: y + (l.dy || 0) }
@@ -355,13 +356,13 @@ function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '', 
   })
 
   return (
-    <div className={`sa-map-wrap${variant ? ` ${variant}` : ''}`}>
+    <div className={`sa-map-wrap${variant ? ` ${variant}` : ''}${seasonKey ? ` map-season-${seasonKey}` : ''}`}>
       <svg viewBox={viewBox} className="sa-map" role="img" aria-label={ariaLabel}>
         <path className="sa-land" d={outlinePath} />
         {/* Province boundaries — internal reference lines only, no fill,
             so the land colour/shadow from .sa-land shows through. */}
         {provincePaths.map((p) => (
-          <path key={p.name} className="sa-province" d={p.d} />
+          <path key={p.name} className={`sa-province province-activity-${Math.min(3, p.activity)}`} d={p.d} />
         ))}
         {/* Province name labels — small and muted so they read as map
             context, not competing with pins/reference markers on top. */}
@@ -407,12 +408,21 @@ export function BirdMapPage({ data, onBack }) {
     const first = g.sightings[0]
     const { tags, category } = birdTypeFor(birdLibrary, first.birdName)
     const [x, y] = project(g.place.lon, g.place.lat)
-    return { ...g, key, x, y, colour: pinColour(tags, category) }
+    return { ...g, key, x, y, province: provinceForPoint(g.place.lon, g.place.lat), colour: pinColour(tags, category) }
   })
 
   const [activeKey, setActiveKey] = useState(null)
   const active = pins.find((p) => p.key === activeKey) || null
   const unresolvedCount = sightings.length - [...groups.values()].reduce((sum, group) => sum + group.sightings.length, 0)
+  const newestValidSighting = [...groups.values()]
+    .flatMap((group) => group.sightings)
+    .sort((a, b) => new Date(b.dateSpotted || b.createdAt || 0).getTime() - new Date(a.dateSpotted || a.createdAt || 0).getTime())[0]
+  const provinceActivity = pins.reduce((activity, pin) => {
+    if (pin.province) activity[pin.province] = (activity[pin.province] || 0) + pin.sightings.length
+    return activity
+  }, {})
+  const exploredProvinceCount = Object.keys(provinceActivity).length
+  const seasonKey = getSeason()
 
   return (
     <div className="page-grid bird-map-page">
@@ -425,7 +435,10 @@ export function BirdMapPage({ data, onBack }) {
             <p className="eyebrow">Field guide</p>
             <h2>My Bird Map 🗺️</h2>
           </div>
-          <span className="status-pill">{pins.length} spot{pins.length === 1 ? '' : 's'}</span>
+          <div className="map-heading-meta">
+            <span className="status-pill">{pins.length} spot{pins.length === 1 ? '' : 's'}</span>
+            <span className="map-province-progress"><strong>{exploredProvinceCount}</strong> / 9 provinces explored</span>
+          </div>
         </div>
 
         {unresolvedCount > 0 && (
@@ -442,7 +455,7 @@ export function BirdMapPage({ data, onBack }) {
             <span><i style={{ background: '#E0A53A' }} /> Other</span>
           </div>
 
-          <SAMapBase ariaLabel="Map of South Africa with bird sighting pins">
+          <SAMapBase seasonKey={seasonKey} provinceActivity={provinceActivity} ariaLabel="Map of South Africa with bird sighting pins">
             {pins.map((p) => {
               // Use the coordinate-aware group key: identical text labels can
               // represent different confirmed locations and must stay distinct.
@@ -450,7 +463,7 @@ export function BirdMapPage({ data, onBack }) {
               return (
                 <g
                   key={p.key}
-                  className={`map-pin${on ? ' active' : ''}`}
+                  className={`map-pin${on ? ' active' : ''}${newestValidSighting && p.sightings.some((s) => s.id === newestValidSighting.id) ? ' recent' : ''}`}
                   transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}
                   onClick={() => setActiveKey(on ? null : p.key)}
                 >
@@ -470,7 +483,7 @@ export function BirdMapPage({ data, onBack }) {
               📍 Add a location when you save a bird and it will appear here on the map.
             </p>
           ) : active ? (
-              <div className="map-detail">
+              <div className="map-detail map-postcard">
                 <div className="section-heading">
                   <div>
                     <p className="eyebrow">📍 {active.label}</p>
@@ -478,6 +491,7 @@ export function BirdMapPage({ data, onBack }) {
                   </div>
                   <button className="text-btn" type="button" onClick={() => setActiveKey(null)}>Close</button>
                 </div>
+                <p className="map-postcard-location">📍 {active.label}</p>
                 <div className="map-sighting-list">
                   {active.sightings.map((s) => (
                     <article className="map-sighting" key={s.id}>
