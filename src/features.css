@@ -888,3 +888,40 @@
   .flight-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .flight-stat-value { font-size: 0.95rem; }
 }
+/* Normal My Bird Map only: a warm illustrated field-map palette. The
+   Bird Post tracker has its own .bird-post-map treatment and is excluded. */
+.sa-map-wrap:not(.bird-post-map) {
+  border: 2px solid rgba(207, 111, 120, 0.38);
+  background:
+    radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.72) 0 4%, transparent 5%),
+    radial-gradient(circle at 88% 78%, rgba(179, 226, 226, 0.78), transparent 30%),
+    linear-gradient(145deg, #b9e1df, #d9efea 52%, #f7e3e4);
+  box-shadow: 0 12px 28px rgba(73, 117, 105, 0.16), inset 0 0 0 4px rgba(255, 255, 255, 0.44);
+}
+.sa-map-wrap:not(.bird-post-map) .sa-land {
+  fill: #9fc99f;
+  stroke: #527e62;
+  stroke-width: 3.6;
+  filter: drop-shadow(0 4px 6px rgba(55, 96, 62, 0.25));
+}
+.sa-map-wrap:not(.bird-post-map) .sa-lesotho {
+  fill: #82b58c;
+  stroke: #527e62;
+  stroke-width: 2.5;
+}
+.sa-map-wrap:not(.bird-post-map) .sa-province {
+  stroke: #5f9271;
+  stroke-width: 1.7;
+  stroke-dasharray: 4 3;
+  opacity: 0.74;
+}
+.sa-map-wrap:not(.bird-post-map) .province-label {
+  fill: #3f6c55;
+  stroke: rgba(244, 255, 247, 0.92);
+  stroke-width: 4px;
+}
+.sa-map-wrap:not(.bird-post-map) .map-ref-dot { fill: #d47b86; stroke: #fff9f5; }
+.sa-map-wrap:not(.bird-post-map) .map-ref-label { fill: #72515a; }
+.sa-map-wrap:not(.bird-post-map) .map-pin-drop { filter: drop-shadow(0 3px 3px rgba(77, 53, 47, 0.24)); }
+.sa-map-wrap:not(.bird-post-map) .map-pin-halo { opacity: 0.32; }
+.sa-map-wrap:not(.bird-post-map) .map-pin-count { fill: #543e3f; }
