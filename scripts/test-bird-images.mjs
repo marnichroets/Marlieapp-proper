@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { getBirdImageSources } from '../src/birdImage.js'
 
 const bird = { id: 'loerie', commonName: 'Knysna Loerie', scientificName: 'Tauraco corythaix', imageUrl: 'https://library.example/loerie.jpg' }
@@ -11,4 +12,7 @@ assert.equal(getBirdImageSources({ ...bird, imageUrl: 'https://library.example/l
   { speciesKey: 'loerie', photo: 'data:image/jpeg;base64,older' },
 ])[0], 'data:image/jpeg;base64,older', 'legacy species-key sightings are supported')
 assert.deepEqual(getBirdImageSources({ ...bird, imageUrl: '' }, []), [], 'placeholder is the final UI fallback')
+const app = fs.readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
+assert.match(app, /function GenericBirdFallback/, 'a shared illustrated bird fallback exists')
+assert.doesNotMatch(app, /getBirdPhotoPlaceholderLabel/, 'bird UI no longer renders letter initials')
 console.log('bird image fallback tests passed')

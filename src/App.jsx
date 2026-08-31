@@ -2046,16 +2046,6 @@ function getDailyStreak(completions = {}) {
   return streak
 }
 
-function getBirdPhotoPlaceholderLabel(name) {
-  return (name || 'Bird')
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 3)
-    .toUpperCase()
-}
-
 function buildDefaultState() {
   return {
     birds: [],
@@ -7822,6 +7812,25 @@ function App() {
   )
 }
 
+// A consistent image fallback for every bird surface. Keep this illustrated
+// rather than deriving initials from a name, so unusual/custom species never
+// render as letter placeholders.
+function GenericBirdFallback({ className = '' }) {
+  return (
+    <div className={`generic-bird-fallback ${className}`.trim()} role="img" aria-label="Illustrated bird">
+      <svg viewBox="0 0 120 100" aria-hidden="true">
+        <ellipse cx="57" cy="57" rx="34" ry="25" fill="#e58a78" />
+        <circle cx="83" cy="39" r="19" fill="#f3b08f" />
+        <path d="M99 39l17 6-17 6z" fill="#d8894c" />
+        <ellipse cx="49" cy="58" rx="18" ry="13" fill="#f7c2a6" transform="rotate(-18 49 58)" />
+        <circle cx="89" cy="35" r="3" fill="#4e4138" />
+        <path d="M45 81v11m18-11v11M39 92h12m6 0h12" stroke="#8e5b4d" strokeWidth="3" strokeLinecap="round" />
+        <path d="M26 56l-15 5 15 6z" fill="#d8894c" />
+      </svg>
+    </div>
+  )
+}
+
 function HomeAmbientBirds() {
   const birds = [
     { glyph: '🪽', tone: 'coral', top: '18%', delay: '0s', duration: '26s' },
@@ -9229,17 +9238,12 @@ function StatCard({ label, value, detail }) {
   )
 }
 
-// A real bird photo with a graceful fall-back to soft initials when the library
-// has no usable image (placehold.co URLs and broken links both count as "none").
+// A real bird photo with a graceful fall-back to the shared illustrated bird.
 function FieldGuidePhoto({ bird, className = '' }) {
   const [errored, setErrored] = useState(false)
   const usable = bird.imageUrl && !bird.imageUrl.includes('placehold')
   if (errored || !usable) {
-    return (
-      <div className={`field-guide-photo placeholder-photo ${className}`.trim()} aria-hidden="true">
-        <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
-      </div>
-    )
+    return <GenericBirdFallback className={`field-guide-photo ${className}`.trim()} />
   }
   return (
     <img
@@ -10932,11 +10936,7 @@ function MatchPhoto({ libraryImageUrl, scientificName, commonName }) {
   if (src) {
     return <img className="compare-img" src={src} alt={commonName} loading="lazy" />
   }
-  return (
-    <div className="compare-img placeholder-photo">
-      <span>{getBirdPhotoPlaceholderLabel(commonName)}</span>
-    </div>
-  )
+  return <GenericBirdFallback className="compare-img" />
 }
 
 function AiMatchCard({ match, index, onConfirm, userPhoto, birdLibrary = [] }) {
@@ -11391,7 +11391,7 @@ function PlantMatchCard({ match, index = 0, userPhoto, onConfirm, busy = false, 
           {match.imageUrl ? (
             <img className="compare-img" src={match.imageUrl} alt={match.commonName} loading="lazy" />
           ) : (
-            <div className="compare-img placeholder-photo"><span>🌿</span></div>
+            <GenericBirdFallback className="compare-img" />
           )}
           <figcaption>{match.commonName}</figcaption>
         </figure>
@@ -11477,10 +11477,7 @@ function BirdsPage({ data, openBirdProfile }) {
               {bird.photo ? (
                 <img className="bird-card-photo" src={bird.photo} alt={bird.birdName} />
               ) : (
-                <div className="bird-card-photo placeholder-photo no-photo-yet">
-                  <span className="no-photo-icon" aria-hidden="true">📷</span>
-                  <span className="no-photo-label">No photo yet</span>
-                </div>
+                <GenericBirdFallback className="bird-card-photo no-photo-yet" />
               )}
               <div className="bird-card-body">
                 <p className="eyebrow">Polaroid memory</p>
@@ -11762,8 +11759,8 @@ function SeenBirdPhoto({ bird, sightings = [], className = 'bird-card-photo' }) 
   useEffect(() => setFailed(0), [bird.id])
   const src = sources[failed] || ''
   if (src) return <img className={className} src={src} alt={bird.commonName} loading="lazy" onError={() => setFailed((index) => index + 1)} />
-  if (status === 'loading') return <div className="bird-card-photo placeholder-photo" aria-label="Finding a bird photo…">🐦</div>
-  return <div className="bird-card-photo placeholder-photo"><span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span></div>
+  if (status === 'loading') return <GenericBirdFallback className="bird-card-photo" />
+  return <GenericBirdFallback className="bird-card-photo" />
 }
 
 function LibraryCard({ bird, sightings, marnichSpecies, openBirdProfile, goToSpot }) {
@@ -12668,9 +12665,7 @@ function BirdProfilePage({ data, profile, onBack, saveFieldGuideNotes }) {
                 {sighting.photo ? (
                   <img src={sighting.photo} alt={sighting.birdName} />
                 ) : (
-                  <div className="placeholder-photo">
-                    <span>{getBirdPhotoPlaceholderLabel(sighting.birdName)}</span>
-                  </div>
+                  <GenericBirdFallback />
                 )}
                 <div>
                   <strong>{formatDate(sighting.dateSpotted)}</strong>
@@ -13584,9 +13579,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
       {imageUrl ? (
         <img className="magazine-cover-photo" src={imageUrl} alt={commonName} />
       ) : (
-        <div className="magazine-cover-photo placeholder-photo">
-          <span>{getBirdPhotoPlaceholderLabel(commonName)}</span>
-        </div>
+        <GenericBirdFallback className="magazine-cover-photo" />
       )}
     </div>
   )
@@ -13756,9 +13749,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
             {bird.imageUrl ? (
               <img src={bird.imageUrl} alt={bird.commonName} />
             ) : (
-              <div className="magazine-photo-placeholder">
-                <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
-              </div>
+              <GenericBirdFallback className="magazine-photo-placeholder" />
             )}
             <div>
               <h3>{bird.commonName}</h3>
@@ -14690,9 +14681,7 @@ function AdminPage({
                 {sighting.photo ? (
                   <img src={sighting.photo} alt={sighting.birdName} loading="lazy" />
                 ) : (
-                  <div className="admin-thumb placeholder-photo">
-                    <span>{getBirdPhotoPlaceholderLabel(sighting.birdName)}</span>
-                  </div>
+                  <GenericBirdFallback className="admin-thumb" />
                 )}
                 <small>{sighting.birdName}</small>
                 <small>{formatDate(sighting.dateSpotted)}</small>
