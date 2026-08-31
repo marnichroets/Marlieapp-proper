@@ -4,6 +4,8 @@ import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { dedupePhotosForStorage, rehydratePhotos, stripPhotosForLocalStorage } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
+import { getBirdImageSources, getPersonalBirdPhotos, usableBirdImage } from './birdImage'
+import { rankBirdMatches, identificationIsUncertain } from './aiIdentification'
 import { findOfficialBird } from './discoveryRules'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
 import { shouldAdoptRemote } from './syncReconcile'
@@ -1621,12 +1623,14 @@ function normalizeAiIdentificationResponse(payload) {
   const matchList = Array.isArray(rawMatches) ? rawMatches : []
 
   const secondOpinion = payload?.secondOpinion
+  const matches = rankBirdMatches(matchList
+    .map((match) => normalizeAiMatch(match))
+    .filter((match) => match.commonName),
+    (match) => Boolean(findOfficialBird(defaultBirdLibrary, { commonName: match.commonName, scientificName: match.scientificName })),
+  )
   return {
-    uncertain: Boolean(payload?.uncertain),
-    matches: matchList
-      .slice(0, 3)
-      .map((match) => normalizeAiMatch(match))
-      .filter((match) => match.commonName),
+    uncertain: identificationIsUncertain(matches, payload?.uncertain),
+    matches,
     secondOpinion: secondOpinion
       ? {
           source: normalizeAiText(secondOpinion.source) || 'iNaturalist',
@@ -1844,6 +1848,7 @@ function getSightingsForLibraryBird(data, bird) {
     const aiCommon = normalizeBirdName(sighting.aiMatch?.commonName)
     const aiScientific = normalizeBirdName(sighting.aiMatch?.scientificName)
     return (
+      sighting.speciesKey === bird?.id ||
       sightingCommon === commonKey ||
       aiCommon === commonKey ||
       (scientificKey && aiScientific === scientificKey)
@@ -11685,6 +11690,7 @@ function SaBirdLibraryPage({ data, openBirdProfile, goToSpot }) {
           <LibraryCard
             key={bird.id}
             bird={bird}
+            sightings={data.sightings}
             marnichSpecies={marnichSpecies}
             openBirdProfile={openBirdProfile}
             goToSpot={goToSpot}
@@ -11747,9 +11753,20 @@ function MysterySilhouette({ bird }) {
   )
 }
 
-function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
-  const herPhoto = bird.herPhotos?.find((photo) => photo.photo)?.photo || ''
-  const spottedPhoto = herPhoto || bird.imageUrl
+function SeenBirdPhoto({ bird, sightings = [], className = 'bird-card-photo' }) {
+  const personalPhotos = getPersonalBirdPhotos(bird, sightings)
+  const libraryPhoto = usableBirdImage(bird.imageUrl)
+  const { status, photos } = useWikipediaPhotos(!libraryPhoto ? bird.scientificName : '', !libraryPhoto ? bird.commonName : '')
+  const sources = [...new Set([...personalPhotos, libraryPhoto, ...photos.map((photo) => photo.src).filter(Boolean)])]
+  const [failed, setFailed] = useState(0)
+  useEffect(() => setFailed(0), [bird.id])
+  const src = sources[failed] || ''
+  if (src) return <img className={className} src={src} alt={bird.commonName} loading="lazy" onError={() => setFailed((index) => index + 1)} />
+  if (status === 'loading') return <div className="bird-card-photo placeholder-photo" aria-label="Finding a bird photo…">🐦</div>
+  return <div className="bird-card-photo placeholder-photo"><span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span></div>
+}
+
+function LibraryCard({ bird, sightings, marnichSpecies, openBirdProfile, goToSpot }) {
   const withMarnich =
     bird.seen &&
     (marnichSpecies.has(normalizeBirdName(bird.commonName)) ||
@@ -11763,13 +11780,7 @@ function LibraryCard({ bird, marnichSpecies, openBirdProfile, goToSpot }) {
         onClick={() => openBirdProfile({ source: 'library', id: bird.id })}
       >
         <div className="bird-card-photo-frame">
-          {spottedPhoto ? (
-            <img className="bird-card-photo" src={spottedPhoto} alt={bird.commonName} />
-          ) : (
-            <div className="bird-card-photo placeholder-photo">
-              <span>{getBirdPhotoPlaceholderLabel(bird.commonName)}</span>
-            </div>
-          )}
+          <SeenBirdPhoto bird={bird} sightings={sightings} />
           {withMarnich && <span className="marnich-heart" aria-hidden="true">❤️</span>}
         </div>
         <div className="bird-card-body">
@@ -12229,7 +12240,7 @@ function useWikipediaPhotos(scientificName, commonName) {
 
 function BirdPhotoStrip({ scientificName, commonName, fallbackPhoto }) {
   const { status, photos } = useWikipediaPhotos(scientificName, commonName)
-  const showFallback = status !== 'ready' && fallbackPhoto
+  const showFallback = Boolean(fallbackPhoto)
 
   return (
     <section className="soft-card full-span photo-strip-card">
@@ -12474,13 +12485,8 @@ function BirdProfilePage({ data, profile, onBack, saveFieldGuideNotes }) {
     imageUrl: '',
     soundUrl: '',
   }
-  const sightings = memoryBird
-    ? data.sightings.filter((sighting) => sighting.speciesKey === memoryBird.id)
-    : getSightingsForLibraryBird(data, profileBird)
-  const latestPhoto =
-    sightings.find((sighting) => sighting.photo)?.photo ||
-    profileBird.herPhotos?.find((photo) => photo.photo)?.photo ||
-    profileBird.imageUrl
+  const sightings = getSightingsForLibraryBird(data, memoryBird || profileBird)
+  const latestPhoto = getBirdImageSources(profileBird, sightings)[0] || ''
   const aiDetails = profileBird.aiDetails || memoryBird?.aiMatch || sightings.find((sighting) => sighting.aiMatch)?.aiMatch
   const funFacts = getFunFacts(profileBird.funFacts?.length ? profileBird.funFacts : aiDetails?.funFacts)
   const sortedSightings = [...sightings].sort((a, b) =>
@@ -12551,19 +12557,13 @@ function BirdProfilePage({ data, profile, onBack, saveFieldGuideNotes }) {
             <span className="tag">{profileBird.category}</span>
           </div>
         </div>
-        {latestPhoto ? (
-          <img className="profile-main-photo" src={latestPhoto} alt={profileBird.commonName} />
-        ) : (
-          <div className="profile-main-photo placeholder-photo">
-            <span>{getBirdPhotoPlaceholderLabel(profileBird.commonName)}</span>
-          </div>
-        )}
+        <SeenBirdPhoto bird={profileBird} sightings={sightings} className="profile-main-photo" />
       </section>
 
       <BirdPhotoStrip
         scientificName={profileBird.scientificName || aiDetails?.scientificName}
         commonName={profileBird.commonName}
-        fallbackPhoto={profileBird.imageUrl || latestPhoto}
+        fallbackPhoto={latestPhoto || usableBirdImage(profileBird.imageUrl)}
       />
 
       {fieldGuideRows.length > 0 && (

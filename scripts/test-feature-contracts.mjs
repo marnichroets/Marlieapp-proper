@@ -39,6 +39,6 @@ ok('official catalog is the mutation-time authority', /const officialBirdMatch/.
 ok('invalid species exits before state mutation', /if \(!officialBirdMatch[\s\S]{0,500}return null/.test(app))
 
 // Library cards prefer a real sighting photo over the generic catalog image.
-ok('seen cards prefer personal sighting photos', /const spottedPhoto = herPhoto \|\| bird\.imageUrl/.test(app))
+ok('seen cards prefer personal sighting photos', /getPersonalBirdPhotos\(bird, sightings\)/.test(app) && /<SeenBirdPhoto bird=\{bird\}/.test(app))
 
 console.log('Feature contract checks passed.')
