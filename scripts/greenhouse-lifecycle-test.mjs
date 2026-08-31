@@ -1,14 +1,22 @@
 // Standalone lifecycle simulation for the greenhouse care loop, exercising the
 // pure functions in src/greenhouseData.js directly (no React/browser needed).
 // Run: node scripts/greenhouse-lifecycle-test.mjs
-import {
+import { createServer } from 'vite'
+
+const vite = await createServer({
+  appType: 'custom',
+  configFile: false,
+  server: { middlewareMode: true, hmr: false },
+  optimizeDeps: { noDiscovery: true },
+})
+const {
   defaultGreenhouse, defaultPot, waterPots, finalizeWatering, computeHealth, healthTier,
   potStageKey, crossedTrimThreshold, allSlotsBlooming, ageGreenhouseByOneDay,
   TRIM_INTERVAL, FIRST_BLOOM_COINS, TRIM_COINS, STREAK_DAYS, STREAK_COINS, ALL_BLOOM_COINS,
   HEALTH_DECAY_PER_DAY, hasTool, ownedToolUses,
   POT_SLOTS, ROOM2_SLOTS, ROOM_SLOT_COUNT, MAX_SLOTS, ROOM2_COST, hasRoom2, isSlotLocked, slotById,
-} from '../src/greenhouseData.js'
-import { saDateKey } from '../src/saDate.js'
+} = await vite.ssrLoadModule('/src/greenhouseData.js')
+const { saDateKey } = await vite.ssrLoadModule('/src/saDate.js')
 
 let failures = 0
 function check(label, cond) {
@@ -113,6 +121,15 @@ check('tier at day3 (40) = sick', healthTier(healthByDaysUnwatered[3]) === 'sick
 check('health hits 0 by day5 (100 - 5*20)', healthByDaysUnwatered[5] === 0)
 check('health clamps at 0, not negative, by day6', healthByDaysUnwatered[6] === 0)
 check('tier at 0 health = dead', healthTier(healthByDaysUnwatered[6]) === 'dead')
+
+// Mist is persisted as lastMistDate and must reconstruct the same derived
+// health after serialisation/reload instead of losing its +10 bonus.
+const mistDay = saDateKey(new Date(new Date(`${today}T12:00:00Z`).getTime() + 3 * 86400000))
+const mistedPot = { ...pot3, lastMistDate: mistDay }
+const mistedHealth = computeHealth(mistedPot, mistDay)
+const reloadedMistedPot = JSON.parse(JSON.stringify(mistedPot))
+check('mist adds 10 health on the care day', mistedHealth === Math.min(100, healthByDaysUnwatered[3] + 10))
+check('mist health survives JSON reload reconstruction', computeHealth(reloadedMistedPot, mistDay) === mistedHealth)
 // The actual `dead: true` flag + slot-clearing is applied by App.jsx's
 // recalcGreenhouseHealth (health<=0 -> dead:true), which is a thin wrapper around
 // computeHealth — confirmed logically dead-eligible above; UI removal (removeDeadGreenhousePot)
@@ -242,4 +259,5 @@ check('all 16 pots across both rooms reach blooming', ghAll.pots.every((p) => po
 check('allSlotsBlooming true once every unlocked slot in BOTH rooms is filled+blooming', allSlotsBlooming(ghAll))
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)
+await vite.close()
 process.exit(failures === 0 ? 0 : 1)

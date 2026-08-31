@@ -188,6 +188,9 @@ export function computeHealth(pot, today = saDateKey()) {
       health -= (daysSinceTrim - TRIM_GRACE_DAYS + 1) * TRIM_EXTRA_DECAY
     }
   }
+  // Mist is a persisted care action, so its same-day bonus must be part of
+  // derived health too. Otherwise the stored boost disappears on reload.
+  if (pot.lastMistDate === today) health += SPRAY_HEALTH_BONUS
   return Math.max(0, Math.min(100, Math.round(health)))
 }
 

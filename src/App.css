@@ -4766,6 +4766,95 @@ textarea:focus {
   50% { transform: translateX(14px); }
 }
 
+/* Spring banner life: one soft hop followed by a long rest, plus a tiny
+   distant bird crossing occasionally. Both stay inside the fixed SVG box. */
+.season-spring-bunny {
+  animation: season-spring-bunny-hop 6.8s var(--ease-spring) infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes season-spring-bunny-hop {
+  0%, 7%, 18%, 100% { transform: translateY(0) rotate(0); }
+  10% { transform: translateY(-7px) rotate(-2deg); }
+  14% { transform: translateY(-1px) rotate(1deg); }
+}
+.season-spring-passer {
+  animation: season-spring-passer 17s linear infinite;
+  opacity: 0;
+}
+@keyframes season-spring-passer {
+  0%, 58% { transform: translate(-28px, 34px); opacity: 0; }
+  62% { opacity: 0.48; }
+  78% { transform: translate(350px, 17px); opacity: 0.48; }
+  82%, 100% { transform: translate(350px, 17px); opacity: 0; }
+}
+
+/* Spring theme extension: coral marks selected, personal and celebratory
+   moments while cream, leaf, terracotta and gold keep their existing roles. */
+.season-spring .tab:hover,
+.season-spring .tab:focus-visible,
+.season-spring .secondary-btn:hover,
+.season-spring .ghost-btn:hover {
+  border-color: var(--coral-line);
+  background: var(--coral-soft);
+}
+.season-spring .tab.active {
+  border-color: var(--coral-dark);
+  background: var(--coral);
+  box-shadow: 0 10px 22px rgba(207, 111, 120, 0.28);
+}
+.season-spring .eyebrow { color: var(--coral-dark); }
+.season-spring .status-pill,
+.season-spring .tag:not(.warm) {
+  border-color: var(--coral-line);
+  background: var(--coral-soft);
+  color: var(--coral-dark);
+}
+.season-spring .section-heading::after {
+  align-self: center;
+  width: 28px;
+  height: 3px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--coral), var(--gold));
+  content: '';
+  opacity: 0.72;
+}
+.season-spring .checklist-hero,
+.season-spring .collection-page,
+.season-spring .bird-map-page > .soft-card,
+.season-spring .garden-page > .soft-card:first-child,
+.season-spring .greenhouse-stage,
+.season-spring .inbox-page > .soft-card:first-child,
+.season-spring .profile-page > .soft-card:first-child {
+  border-color: var(--coral-line);
+  background-image: radial-gradient(circle at 100% 0%, rgba(207, 111, 120, 0.1), transparent 38%);
+}
+.season-spring .home-entry-emoji,
+.season-spring .catalog-icon-wrap,
+.season-spring .collection-icon,
+.season-spring .empty-state-icon,
+.season-spring .inbox-empty-icon,
+.season-spring .message-avatar,
+.season-spring .gift-box {
+  background-color: var(--coral-soft);
+  box-shadow: inset 0 0 0 1px var(--coral-line);
+}
+.season-spring .note-card,
+.season-spring .gift-card,
+.season-spring .collection-card,
+.season-spring .memory-card {
+  border-color: color-mix(in srgb, var(--coral-line) 62%, var(--line));
+}
+.season-spring .progress-track span { background: var(--coral); }
+.season-spring .garden-progress span.on { background: var(--coral); }
+
+@media (prefers-reduced-motion: reduce) {
+  .season-spring-bunny,
+  .season-spring-passer { animation: none; }
+  .season-spring-passer { display: none; }
+}
+
 .magazine-season {
   margin: 0;
   font-weight: 800;
