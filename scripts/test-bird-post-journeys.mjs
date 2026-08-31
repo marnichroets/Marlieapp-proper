@@ -41,6 +41,7 @@ const journey = createBirdPostJourney({
 })
 assert.equal(journey.sender, 'marnich')
 assert.equal(journey.recipient, 'pooks')
+assert.equal(journey.message, 'Hello', 'the letter remains attached to its durable journey')
 assert.notEqual(journey.sender, journey.recipient, 'sender and recipient cannot reverse into one account')
 assert.equal(journey.status, BIRD_POST_STATUS.IN_FLIGHT)
 assert(journey.distanceKm > 700 && journey.distanceKm < 800, 'real SA distance is calculated')
@@ -83,6 +84,7 @@ assert.equal(normalizedAgain[0].recipient, 'pooks', 'legacy direction remains co
 assert.equal(normalizeBirdPostJourneys([journey, journey], null).length, 1, 'duplicate durable journey IDs are collapsed')
 const reloaded = JSON.parse(JSON.stringify(journey))
 assert.equal(journeyProgress(reloaded, midpointMs), journeyProgress(journey, midpointMs), 'reload reconstructs timestamp progress exactly')
+assert.equal(reloaded.message, 'Hello', 'reload preserves the message carried by the bird')
 
 const visible = [journey, createBirdPostJourney({
   id: 'other', sender: 'pooks', recipient: 'marnich', bird: 'hadeda-ibis', message: 'Back',

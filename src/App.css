@@ -4430,6 +4430,37 @@ textarea:focus {
 .birdpost-privacy-note p { margin: 0; color: var(--muted); font-size: 0.84rem; }
 .birdpost-location-updated { margin: 0; color: var(--coral-dark); font-size: 0.78rem; font-weight: 800; }
 
+.birdpost-letter-field {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--coral-line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(207, 111, 120, 0.12), rgba(255, 253, 249, 0.96));
+}
+.birdpost-letter-field-label { color: var(--coral-dark); font-weight: 900; }
+.birdpost-letter-field textarea { min-height: 104px; background: rgba(255, 253, 249, 0.9); }
+.birdpost-letter-field small { color: var(--muted); text-align: right; }
+.birdpost-letter {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 14px 0;
+  padding: 13px 15px;
+  border: 1px solid var(--coral-line);
+  border-left: 4px solid var(--coral);
+  border-radius: 4px 16px 16px 4px;
+  background: rgba(255, 250, 243, 0.92);
+  box-shadow: 0 7px 18px rgba(168, 78, 92, 0.1);
+  color: var(--ink);
+}
+.birdpost-letter > span { font-size: 1.35rem; }
+.birdpost-letter div { min-width: 0; }
+.birdpost-letter small { color: var(--coral-dark); font-size: 0.7rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
+.birdpost-letter p { margin: 3px 0 0; font-size: 1rem; font-style: italic; line-height: 1.45; overflow-wrap: anywhere; }
+.birdpost-letter-compact { margin-bottom: 20px; }
+.birdpost-letter-arrived { background: linear-gradient(145deg, var(--coral-soft), rgba(255, 253, 249, 0.98)); }
+
 .birdpost-destination-card {
   display: flex;
   align-items: center;

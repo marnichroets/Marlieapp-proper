@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
-import { haversineDistanceKm, formatDurationShort } from './birdFlightSpeed'
+import { haversineDistanceKm, formatDurationShort, flightSpeedForSpecies } from './birdFlightSpeed'
 
 const VIEW_W = 1000
 const VIEW_H = 820
@@ -341,7 +341,7 @@ const toPath = (pts) => `M ${pts.map(([lo, la]) => project(lo, la).map((n) => n.
 // flight) so the two views stay pixel-for-pixel consistent — the exact same
 // coordinate system, drawn once. Extra markers are passed as `children` and
 // rendered on top, inside the same <svg>.
-function SAMapBase({ children, ariaLabel = 'Map of South Africa' }) {
+function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '' }) {
   const outlinePath = toPath(OUTLINE)
   const lesothoPath = toPath(LESOTHO)
   const provincePaths = PROVINCES.map((p) => ({ name: p.name, d: toPath(p.outline) }))
@@ -355,7 +355,7 @@ function SAMapBase({ children, ariaLabel = 'Map of South Africa' }) {
   })
 
   return (
-    <div className="sa-map-wrap">
+    <div className={`sa-map-wrap${variant ? ` ${variant}` : ''}`}>
       <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="sa-map" role="img" aria-label={ariaLabel}>
         <path className="sa-land" d={outlinePath} />
         {/* Province boundaries — internal reference lines only, no fill,
@@ -612,8 +612,6 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
   const bob = arrived ? 0 : Math.sin(now / 420 + t * 9) * 3.5
 
   const distanceKm = haversineDistanceKm(birdPost.senderLat, birdPost.senderLng, destLat, destLng)
-  const remainingKm = Math.max(0, Math.round(distanceKm * (1 - progress)))
-  const flownKm = Math.max(0, Math.round(distanceKm * progress))
   const remainingSeconds = Math.max(0, (etaMs - now) / 1000)
   const speciesEntry = BIRD_COLOUR_MAP[birdPost.birdSpeciesId]
   const speciesLabel = speciesLabelForFlight(birdLibrary, birdPost.birdSpeciesId)
@@ -635,14 +633,25 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
         </div>
 
         <p className="flight-route-label">
-          <span>{fromProvince}</span>
+          <span><small>From</small>{fromProvince}</span>
           <span className="flight-route-arrow" aria-hidden="true">
             ⟶
           </span>
-          <span>{toProvince}</span>
+          <span><small>To</small>{toProvince}</span>
         </p>
 
-        <SAMapBase ariaLabel={`Map showing a ${speciesLabel} flying from ${fromProvince} to ${toProvince}`}>
+        {birdPost.message && (
+          <blockquote className="flight-letter">
+            <span aria-hidden="true">💌</span>
+            <div><small>Carrying this little letter</small><p>{birdPost.message}</p></div>
+          </blockquote>
+        )}
+
+        <SAMapBase variant="bird-post-map" ariaLabel={`Map showing a ${speciesLabel} flying from ${fromProvince} to ${toProvince}`}>
+          <g className="flight-map-magic" aria-hidden="true">
+            <text x="105" y="145">✦</text><text x="795" y="185">♡</text>
+            <text x="190" y="650">· ✦</text><text x="850" y="610">✦</text>
+          </g>
           {/* Full planned route, faint — the "distance not yet flown". */}
           <path className="flight-route-guide" d={curvePath} />
           {/* Same curve, revealed only up to the current progress via
@@ -736,16 +745,20 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
         ) : (
           <div className="flight-stats-row">
             <div className="flight-stat">
-              <span className="flight-stat-label">Flown</span>
-              <span className="flight-stat-value">{flownKm}km</span>
+              <span className="flight-stat-label">Distance</span>
+              <span className="flight-stat-value">{Math.round(distanceKm)}km</span>
             </div>
             <div className="flight-stat">
-              <span className="flight-stat-label">To go</span>
-              <span className="flight-stat-value">{remainingKm}km</span>
+              <span className="flight-stat-label">Speed</span>
+              <span className="flight-stat-value">{Math.round(birdPost.flightSpeedKmh || flightSpeedForSpecies(birdPost.birdSpeciesId))} km/h</span>
             </div>
             <div className="flight-stat">
-              <span className="flight-stat-label">ETA</span>
+              <span className="flight-stat-label">Time remaining</span>
               <span className="flight-stat-value">{formatDurationShort(remainingSeconds)}</span>
+            </div>
+            <div className="flight-stat">
+              <span className="flight-stat-label">Arrival</span>
+              <span className="flight-stat-value">{new Date(etaMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
           </div>
         )}

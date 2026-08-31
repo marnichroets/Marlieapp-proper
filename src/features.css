@@ -816,3 +816,75 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Bird Post's tracker uses the shared geographic map, with its own warm,
+   magical presentation so the field-guide map remains calm and factual. */
+.bird-post-map {
+  padding: 14px;
+  border: 2px solid rgba(207, 111, 120, 0.42);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.92) 0 5%, transparent 6%),
+    radial-gradient(circle at 84% 22%, rgba(255, 229, 218, 0.88), transparent 24%),
+    linear-gradient(155deg, #dff1ee, #f8e4e7 58%, #fff0d2);
+  box-shadow: 0 16px 36px rgba(168, 78, 92, 0.15), inset 0 0 0 4px rgba(255, 255, 255, 0.5);
+}
+.bird-post-map .sa-land {
+  fill: #f4dfc4;
+  stroke: #a5655e;
+  filter: drop-shadow(0 6px 8px rgba(116, 71, 65, 0.2));
+}
+.bird-post-map .sa-lesotho { fill: #ead4c4; stroke: #b87c74; }
+.bird-post-map .sa-province { stroke: #bd817c; opacity: 0.48; }
+.bird-post-map .province-label { fill: #80545b; }
+.flight-map-magic { fill: var(--coral); font-size: 25px; opacity: 0.62; }
+
+.flight-route-label > span:not(.flight-route-arrow) {
+  display: grid;
+  min-width: 110px;
+  padding: 9px 13px;
+  border: 1px solid var(--coral-line);
+  border-radius: 14px;
+  background: var(--coral-soft);
+  color: var(--ink-strong);
+  text-align: center;
+}
+.flight-route-label small { color: var(--coral-dark); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.flight-route-arrow { color: var(--coral); font-size: 1.55rem; }
+.flight-route-guide { stroke: rgba(207, 111, 120, 0.5); stroke-width: 5; stroke-dasharray: 3 11; }
+.flight-route-flown { stroke: var(--coral); stroke-width: 7; filter: drop-shadow(0 3px 3px rgba(168, 78, 92, 0.25)); }
+.flight-route-flown.arrived { stroke: var(--leaf); }
+.flight-endpoint circle { fill: #fff9f5; stroke: var(--coral-dark); stroke-width: 4; }
+.flight-endpoint.flight-end circle { fill: var(--coral); stroke: #fff9f5; stroke-width: 4; }
+.flight-endpoint-label { font-size: 11px; }
+.flight-bird-icon {
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.82);
+  filter: drop-shadow(0 5px 5px rgba(104, 62, 58, 0.3));
+}
+.flight-letter {
+  display: flex;
+  gap: 11px;
+  margin: 0 0 12px;
+  padding: 12px 15px;
+  border: 1px solid var(--coral-line);
+  border-radius: 16px;
+  background: linear-gradient(145deg, var(--coral-soft), rgba(255, 253, 249, 0.98));
+  color: var(--ink);
+}
+.flight-letter > span { font-size: 1.45rem; }
+.flight-letter small { color: var(--coral-dark); font-size: 0.68rem; font-weight: 900; letter-spacing: 0.07em; text-transform: uppercase; }
+.flight-letter p { margin: 3px 0 0; font-style: italic; line-height: 1.4; overflow-wrap: anywhere; }
+.flight-stats-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.flight-stat { border-color: var(--coral-line); background: linear-gradient(145deg, #fffaf4, var(--coral-soft)); }
+.flight-stat-label { color: var(--coral-dark); }
+
+@media (max-width: 620px) {
+  .flight-route-label { gap: 6px; }
+  .flight-route-label > span:not(.flight-route-arrow) { min-width: 0; flex: 1; padding-inline: 7px; }
+  .flight-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flight-stat-value { font-size: 0.95rem; }
+}

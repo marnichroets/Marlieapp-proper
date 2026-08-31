@@ -9359,6 +9359,12 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead, onSeeFlight })
             <p className="fine-print">Flew {Math.round(distanceKm)}km to reach you.</p>
           </div>
         </div>
+        {birdPost.message && (
+          <blockquote className="birdpost-letter birdpost-letter-arrived">
+            <span aria-hidden="true">💌</span>
+            <div><small>Your delivered letter</small><p>{birdPost.message}</p></div>
+          </blockquote>
+        )}
         <button className="primary-btn wide" type="button" onClick={onRead}>
           {birdPost.direction === 'to-marnich' ? 'Nice! ✓' : 'Read it in your inbox →'}
         </button>
@@ -9375,6 +9381,12 @@ function BirdPostCard({ birdPost, birdLibrary, onArrival, onRead, onSeeFlight })
     <section className="soft-card bird-post-card">
       <p className="eyebrow">Bird Post</p>
       <h3 className="bird-post-heading">📬 A {speciesLabel} is flying to you!</h3>
+      {birdPost.message && (
+        <blockquote className="birdpost-letter birdpost-letter-compact">
+          <span aria-hidden="true">💌</span>
+          <div><small>Carrying a little letter</small><p>{birdPost.message}</p></div>
+        </blockquote>
+      )}
       <div className="bird-post-progress">
         <div className="progress-track bird-post-track">
           <span style={{ width: `${progress * 100}%` }}></span>
@@ -9638,12 +9650,17 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
               </div>
             </div>
           )}
-          <form className="form-grid" onSubmit={submit}>
-            <textarea
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder={`What should the bird carry to ${recipientName}?`}
-            />
+          <form className="form-grid birdpost-letter-form" onSubmit={submit}>
+            <label className="birdpost-letter-field">
+              <span className="birdpost-letter-field-label"><span aria-hidden="true">💌</span> Your little letter</span>
+              <textarea
+                value={message}
+                maxLength={280}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder={`Write a sweet note for ${recipientName}…`}
+              />
+              <small>{message.length}/280 · Your bird will carry this all the way there</small>
+            </label>
             <div className="species-picker">
               <input
                 value={speciesSearch}
@@ -9734,6 +9751,12 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
               <span className="birdpost-route-dots" aria-hidden="true">••••• 🐦 •••••</span>
               <span><small>To</small><strong>{journeyRecipient.name}</strong></span>
             </div>
+            {activeJourney.message && (
+              <blockquote className="birdpost-letter">
+                <span aria-hidden="true">💌</span>
+                <div><small>Letter on board</small><p>{activeJourney.message}</p></div>
+              </blockquote>
+            )}
             <div className="birdpost-flight-stats">
               <span><small>Distance</small><strong>{journeyDistance} km</strong></span>
               <span><small>Flying speed</small><strong>{journeySpeed} km/h</strong></span>
@@ -9749,7 +9772,7 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
           <section className="birdpost-bucket">
             <p className="eyebrow">Incoming</p>
             {incomingJourneys.length ? incomingJourneys.map((journey) => (
-              <div className="birdpost-journey-row" key={journey.id}><span>💌</span><div><strong>Bird from {birdPostAccount(journey.sender).name}</strong><small>Arrived {new Date(journey.deliveredAt || journey.estimatedArrivalAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ready to open</small></div></div>
+              <div className="birdpost-journey-row" key={journey.id}><span>💌</span><div><strong>Bird from {birdPostAccount(journey.sender).name}</strong><small>“{journey.message}” · arrived {new Date(journey.deliveredAt || journey.estimatedArrivalAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div></div>
             )) : <p className="birdpost-empty">No visitors waiting in the nest.</p>}
           </section>
           <section className="birdpost-bucket">
@@ -9761,7 +9784,7 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
           <section className="birdpost-bucket">
             <p className="eyebrow">History</p>
             {historyJourneys.length ? historyJourneys.map((journey) => (
-              <div className="birdpost-journey-row delivered" key={journey.id}><span>✓</span><div><strong>{birdPostAccount(journey.sender).name} → {birdPostAccount(journey.recipient).name}</strong><small>Delivered safely {journey.recipient === sender.id && !journey.read ? '· unread' : '✓'}</small></div></div>
+              <div className="birdpost-journey-row delivered" key={journey.id}><span>💌</span><div><strong>{birdPostAccount(journey.sender).name} → {birdPostAccount(journey.recipient).name}</strong><small>“{journey.message}” · delivered safely {journey.recipient === sender.id && !journey.read ? '· unread' : '✓'}</small></div></div>
             )) : <p className="birdpost-empty">Delivered letters will gather here.</p>}
           </section>
         </div>
