@@ -42,6 +42,7 @@ import {
 } from './Tweety'
 import { ReleaseCeremony } from './ReleaseCeremony'
 import { GardenPage } from './Garden'
+import { plantScannerAvailableForAccount } from './plantScannerAccess'
 import { GreenhousePage } from './Greenhouse'
 import {
   defaultGarden,
@@ -2726,11 +2727,10 @@ function App() {
   // exactly what Pooks sees by default, and never leaks anything ahead of an
   // explicit toggle on either side.
   const plantsReleased = Boolean(data.settings.releaseFlags?.plants)
-  // The single combined gate every plant-scanning UI checks: released for this
-  // account AND she's read the promotion letter. Passed down instead of raw
-  // settings.plantScanningUnlocked so no component can show the scanner to
-  // Pooks purely because her own in-narrative flag flipped pre-release.
-  const plantScannerVisible = plantsReleased && Boolean(data.settings.plantScanningUnlocked)
+  // Plant scanning is now a normal Pooks feature. Keep the old two-part gate
+  // only for Marnich's sandbox; existing Pooks saves remain compatible even if
+  // their historical staged-release flags were never flipped.
+  const plantScannerVisible = plantScannerAvailableForAccount(account, data.settings)
   // Always-current snapshot of data so a flush-on-exit save sends the latest.
   const dataRef = useRef(data)
   dataRef.current = data

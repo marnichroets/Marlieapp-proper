@@ -46,8 +46,18 @@ assert.equal(journey.message, 'Hello', 'the letter remains attached to its durab
 assert.notEqual(journey.sender, journey.recipient, 'sender and recipient cannot reverse into one account')
 assert.equal(journey.status, BIRD_POST_STATUS.IN_FLIGHT)
 assert(journey.distanceKm > 700 && journey.distanceKm < 800, 'real SA distance is calculated')
-assert(journey.gameDurationSeconds >= 120 && journey.gameDurationSeconds <= 1800, 'game ETA is bounded')
+assert(journey.gameDurationSeconds >= 5 * 3600 && journey.gameDurationSeconds <= 10 * 3600, 'long SA journey lasts hours')
 assert.equal(gameFlightDurationSeconds(800, 90) < gameFlightDurationSeconds(800, 30), true, 'faster species arrives sooner')
+
+const shortDuration = gameFlightDurationSeconds(20, 45)
+const nearbyDuration = gameFlightDurationSeconds(120, 45)
+const mediumDuration = gameFlightDurationSeconds(400, 45)
+const longDuration = gameFlightDurationSeconds(800, 45)
+assert(shortDuration >= 20 * 60 && shortDuration <= 45 * 60, 'short/local journey lasts about 20–45 minutes')
+assert(nearbyDuration >= 3600 && nearbyDuration <= 2 * 3600, 'nearby town journey lasts about 1–2 hours')
+assert(mediumDuration >= 2 * 3600 && mediumDuration <= 5 * 3600, 'medium SA journey lasts about 2–5 hours')
+assert(longDuration >= 5 * 3600 && longDuration <= 10 * 3600, 'long cross-country journey lasts about 5–10 hours')
+assert(gameFlightDurationSeconds(400, 90) < gameFlightDurationSeconds(400, 30), 'species speed changes ETA')
 
 const midpointMs = (new Date(journey.departedAt).getTime() + new Date(journey.estimatedArrivalAt).getTime()) / 2
 assert(Math.abs(journeyProgress(journey, midpointMs) - 0.5) < 0.0001, 'progress derives from timestamps')
@@ -63,6 +73,8 @@ const rerouted = rerouteJourney(journey, movedDestination, rerouteAt)
 assert(Math.abs(rerouted.origin.latitude - beforeReroute.latitude) < 0.000001, 'reroute starts at current bird position')
 assert.equal(rerouted.destination.label, 'Cape Town')
 assert.equal(rerouted.routeHistory.length, 1, 'reroute preserves route history')
+assert.equal(rerouted.gameDurationSeconds, gameFlightDurationSeconds(rerouted.distanceKm, journey.flightSpeedKmh), 'reroute recalculates ETA from remaining geographic distance and species speed')
+assert.equal(new Date(rerouted.estimatedArrivalAt).getTime(), new Date(rerouteAt).getTime() + rerouted.gameDurationSeconds * 1000, 'reroute ETA starts from change-of-course time')
 
 const beforeEta = new Date(journey.estimatedArrivalAt).getTime() - 1
 assert.equal(settleJourneyArrival(journey, new Date(beforeEta).toISOString()).arrivedNow, false)

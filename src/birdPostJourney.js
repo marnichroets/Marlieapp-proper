@@ -6,8 +6,10 @@ export const BIRD_POST_STATUS = Object.freeze({
   ARRIVED: 'arrived',
 })
 
-const MIN_GAME_SECONDS = 120
-const MAX_GAME_SECONDS = 1800
+const MIN_GAME_SECONDS = 20 * 60
+const MAX_GAME_SECONDS = 18 * 60 * 60
+const DEPARTURE_OVERHEAD_SECONDS = 15 * 60
+const GAME_TIME_COMPRESSION = 0.5
 
 const finiteCoordinate = (value) => value !== null && value !== '' && Number.isFinite(Number(value))
 
@@ -36,15 +38,18 @@ export function accountBirdPostLocation(settings = {}, accountId) {
   return accountHomeLocation(settings, accountId)
 }
 
-// Real distance drives the story, while this compression keeps play sessions
-// enjoyable: roughly two minutes nearby, around 10–18 minutes between cities,
-// and no more than 30 minutes across the country. Species speed still appears
-// as the bird's believable cruise speed; it slightly adjusts the game duration.
+// Compress half of the bird's real distance/speed travel time into game time,
+// with a small departure overhead so even a local delivery feels like a trip.
+// The broad 18-hour ceiling prevents extreme South African routes flown by a
+// slow species from routinely becoming multi-day waits.
 export function gameFlightDurationSeconds(distanceKm, speciesSpeedKmh = 45) {
   const distance = Math.max(0, Number(distanceKm) || 0)
   const speed = Math.max(20, Number(speciesSpeedKmh) || 45)
-  const speedFactor = Math.sqrt(45 / speed)
-  return Math.round(Math.min(MAX_GAME_SECONDS, Math.max(MIN_GAME_SECONDS, (120 + distance * 1.1) * speedFactor)))
+  const compressedTravelSeconds = (distance / speed) * 60 * 60 * GAME_TIME_COMPRESSION
+  return Math.round(Math.min(
+    MAX_GAME_SECONDS,
+    Math.max(MIN_GAME_SECONDS, DEPARTURE_OVERHEAD_SECONDS + compressedTravelSeconds),
+  ))
 }
 
 export function journeyProgress(journey, now = Date.now()) {
