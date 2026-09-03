@@ -7116,6 +7116,10 @@ button.tweety-nest-base.gift-pop {
     border-bottom-width: 12px;
   }
   .home-stack .tweety-card .nest-base-treehouse::after { width: 13px; height: 13px; bottom: 3px; }
+  /* Tree decoration scales with the birdhouse box above (same ~0.47x
+     ratio) -- otherwise it stays desktop-sized and dwarfs the now-
+     correctly-scaled house. left stays % so it tracks position on its own. */
+  .home-stack .tweety-card .nest-tree { font-size: 18px; top: 5px; }
   .home-stack .tweety-card .tweety-level-pill { display: none; }
   .home-stack .tweety-card .tweety-streak-pill { font-size: 0.6rem; padding: 2px 7px; }
   .home-stack .tweety-card .tweety-growth { display: none; }
