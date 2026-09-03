@@ -88,8 +88,8 @@ function mutedZones(zones, amount) {
 // already use elsewhere (see aviarySlugify below), so Tweety's Home card
 // avatar always matches whichever bird she actually hatched/has as her
 // companion instead of one fixed placeholder species.
-function speciesArtFor(companionId) {
-  const slug = aviarySlugify(companionSpecies(companionId))
+function speciesArtFor(companionId, realSpecies) {
+  const slug = aviarySlugify(realSpecies || companionSpecies(companionId))
   return BIRD_COLOUR_MAP[slug] || BIRD_COLOUR_MAP[TWEETY_FALLBACK_SPECIES_KEY]
 }
 
@@ -1272,7 +1272,7 @@ function CottageBackdrop({ timePhase = 'midday' }) {
       {/* warm wood-panelled wall */}
       <rect x="0" y="0" width="300" height="149" fill="#f5efe4" />
       {[20, 40, 60, 80, 100, 120, 140].map((y) => (
-        <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#a9713f" strokeOpacity="0.12" strokeWidth="1" />
+        <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#8c5a36" strokeOpacity="0.18" strokeWidth="1" />
       ))}
       <ellipse cx="150" cy="4" rx="170" ry="90" fill="url(#roomWarmGlow-cottage)" />
 
@@ -1308,10 +1308,13 @@ function CottageBackdrop({ timePhase = 'midday' }) {
 
       {/* planked floor, alternating warm tones with thin gaps between boards */}
       {[0, 1, 2, 3, 4].map((i) => (
-        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#c79358' : '#b8814a'} />
+        <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#b77a46' : '#9f633b'} />
       ))}
       {[0, 1, 2, 3, 4].map((i) => (
-        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#00000018" strokeWidth="1" />
+        <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#4f2f20" strokeOpacity="0.28" strokeWidth="1" />
+      ))}
+      {[60, 150, 240].map((x) => (
+        <line key={x} x1={x} y1="149" x2={x} y2="240" stroke="#4f2f20" strokeOpacity="0.13" strokeWidth="1" />
       ))}
       {timePhase === 'night' && <rect x="0" y="0" width="300" height="240" fill="#182544" opacity="0.16" />}
     </>
@@ -1744,6 +1747,8 @@ export function TweetyHomeCard({
   // Tapping any gift brightens her mood for the moment — transient, never
   // persisted, and it clears the instant justTapped does.
   const [justTapped, setJustTapped] = useState(null)
+  const justTappedTimerRef = useRef(null)
+  useEffect(() => () => window.clearTimeout(justTappedTimerRef.current), [])
   const brightened = Boolean(justTapped)
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
@@ -1757,7 +1762,7 @@ export function TweetyHomeCard({
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
   const stageScale = TWEETY_STAGE_SCALE[birdLevel] ?? 1
   const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
-  const speciesArt = speciesArtFor(tweety?.companion)
+  const speciesArt = speciesArtFor(tweety?.companion, tweety?.realSpecies)
   const tweetyZones = mutedZones(speciesArt.zones, stageMute)
   const roomTheme = tweety?.roomTheme || 'cottage'
   const fedToday = tweetyFedToday(tweety)
@@ -1784,7 +1789,8 @@ export function TweetyHomeCard({
   // other item plays a single chirp + motion straight off GIFT_REACTIONS.
   function tapGift(id) {
     setJustTapped(id)
-    window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
+    window.clearTimeout(justTappedTimerRef.current)
+    justTappedTimerRef.current = window.setTimeout(() => setJustTapped((c) => (c === id ? null : c)), 1100)
     if (id === 'chimes') {
       playChirp('play')
       setTimeout(() => playChirp('water'), 160)
@@ -1807,16 +1813,20 @@ export function TweetyHomeCard({
   useEffect(() => {
     if (!hasMirror) return undefined
     let preenTimer
+    let preenResetTimer
     const scheduleNext = () => {
       const delay = 18000 + Math.random() * 22000
       preenTimer = window.setTimeout(() => {
         setPreening(true)
-        window.setTimeout(() => setPreening(false), 2200)
+        preenResetTimer = window.setTimeout(() => setPreening(false), 2200)
         scheduleNext()
       }, delay)
     }
     scheduleNext()
-    return () => window.clearTimeout(preenTimer)
+    return () => {
+      window.clearTimeout(preenTimer)
+      window.clearTimeout(preenResetTimer)
+    }
   }, [hasMirror])
 
   // Perch Branch: every so often Tweety hops over, sits a moment, and hops
@@ -1828,16 +1838,20 @@ export function TweetyHomeCard({
   useEffect(() => {
     if (!hasPerch) return undefined
     let hopTimer
+    let hopResetTimer
     const scheduleNext = () => {
       const delay = 24000 + Math.random() * 26000
       hopTimer = window.setTimeout(() => {
         setHopping(true)
-        window.setTimeout(() => setHopping(false), 3400)
+        hopResetTimer = window.setTimeout(() => setHopping(false), 3400)
         scheduleNext()
       }, delay)
     }
     scheduleNext()
-    return () => window.clearTimeout(hopTimer)
+    return () => {
+      window.clearTimeout(hopTimer)
+      window.clearTimeout(hopResetTimer)
+    }
   }, [hasPerch])
 
   const interactionActiveRef = useRef(false)
@@ -1885,10 +1899,13 @@ export function TweetyHomeCard({
   // off the song's own duration. The "tap to hear" hint shows once ever,
   // persisted via tweety.songHintSeen (see onHeardSong in App.jsx).
   const [singingNote, setSingingNote] = useState(false)
+  const singingNoteTimerRef = useRef(null)
+  useEffect(() => () => window.clearTimeout(singingNoteTimerRef.current), [])
   function singSong() {
     const duration = playTweetySong(growth.key)
     setSingingNote(true)
-    window.setTimeout(() => setSingingNote(false), duration * 1000 + 500)
+    window.clearTimeout(singingNoteTimerRef.current)
+    singingNoteTimerRef.current = window.setTimeout(() => setSingingNote(false), duration * 1000 + 500)
     if (!tweety?.songHintSeen) onHeardSong?.()
   }
 
