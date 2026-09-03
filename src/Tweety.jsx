@@ -29,7 +29,7 @@ import {
   tweetySongsLearned,
   tweetyFedToday,
 } from './tweetyData'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { saTimePhase } from './saDate'
@@ -1840,6 +1840,11 @@ export function TweetyHomeCard({
     return () => window.clearTimeout(hopTimer)
   }, [hasPerch])
 
+  const interactionActiveRef = useRef(false)
+  useEffect(() => {
+    interactionActiveRef.current = Boolean(dancing || tapReaction || preening || hopping)
+  }, [dancing, tapReaction, preening, hopping])
+
   // Luxury Birdhouse: an occasional, tasteful sleep visit — same "occasional
   // idle behaviour" pattern as Mirror's preen / Perch's hop above, just with
   // more phases since it's a full approach → enter → sleep → wake → leave
@@ -1856,6 +1861,10 @@ export function TweetyHomeCard({
     const after = (ms, fn) => timers.push(window.setTimeout(fn, ms))
     const scheduleNext = () => after(45000 + Math.random() * 50000, runVisit)
     function runVisit() {
+      if (interactionActiveRef.current) {
+        scheduleNext()
+        return
+      }
       setSleepPhase('approaching')
       after(1200, () => setSleepPhase('entering'))
       after(2100, () => setSleepPhase('sleeping'))
