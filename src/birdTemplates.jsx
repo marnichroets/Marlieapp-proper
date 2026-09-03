@@ -559,40 +559,40 @@ function SouthernDoubleCollaredSunbird({ zones, size = 160, ground = true, flyin
     <svg viewBox="0 0 620 460" style={{ width: size, height: size * (460 / 620), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
       <defs>
         <clipPath id="clip-sunbird-double-collared">
-          <path d="M 236 232 C 232 198 270 174 314 178 C 358 182 380 208 376 238 C 372 264 344 286 304 286 C 268 286 242 268 236 248 C 234 242 234 236 236 232 Z" />
+          <path d="M 244 222 C 250 190 282 170 322 176 C 358 182 378 210 370 246 C 364 274 338 292 300 288 C 268 284 244 262 240 238 C 239 232 240 226 244 222 Z" />
         </clipPath>
       </defs>
       {ground && <Ground />}
       <g stroke={INK} strokeWidth="2.5" strokeLinejoin="round">
-        <path d="M 236 246 Q 196 238 162 246 Q 198 256 238 258 Z" fill="var(--z-tail)" />
+        <path d="M 246 238 Q 192 230 132 244 Q 190 250 248 254 Z" fill="var(--z-tail)" />
       </g>
       <g fill="var(--z-tail)" opacity="0.95">
-        <path d="M 232 248 C 166 250 92 258 28 270 C 96 254 168 246 234 244 Z" stroke={INK} strokeWidth="1.5" />
-        <path d="M 234 254 C 166 260 92 272 30 286 C 100 264 170 254 236 250 Z" stroke={INK} strokeWidth="1.5" />
+        <path d="M 242 244 C 174 242 98 248 24 266 C 104 248 180 238 244 240 Z" stroke={INK} strokeWidth="1.5" />
+        <path d="M 244 250 C 176 254 104 268 42 292 C 112 266 184 248 246 246 Z" stroke={INK} strokeWidth="1.5" />
       </g>
       {!flying && (
         <>
           <g stroke="var(--z-legs)" strokeWidth="4.5" strokeLinecap="round">
-            <path d="M 278 280 L 273 380" className="bird-leg-a" style={{ transformOrigin: '278px 280px' }} fill="none" />
-            <path d="M 310 278 L 316 380" className="bird-leg-b" style={{ transformOrigin: '310px 278px' }} fill="none" />
+            <path d="M 282 282 L 274 380" className="bird-leg-a" style={{ transformOrigin: '282px 282px' }} fill="none" />
+            <path d="M 312 280 L 320 380" className="bird-leg-b" style={{ transformOrigin: '312px 280px' }} fill="none" />
           </g>
-          <ThreeToeFeet x1={273} x2={316} />
+          <ThreeToeFeet x1={274} x2={320} />
         </>
       )}
-      <path d="M 236 232 C 232 198 270 174 314 178 C 358 182 380 208 376 238 C 372 264 344 286 304 286 C 268 286 242 268 236 248 C 234 242 234 236 236 232 Z"
+      <path d="M 244 222 C 250 190 282 170 322 176 C 358 182 378 210 370 246 C 364 274 338 292 300 288 C 268 284 244 262 240 238 C 239 232 240 226 244 222 Z"
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-sunbird-double-collared)">
-        <path d="M 252 208 C 278 198 306 204 322 230 C 302 246 270 248 250 236 C 246 226 246 216 252 208 Z" fill="var(--z-wing)" />
-        <path d="M 246 226 C 274 218 326 218 358 228 L 354 240 C 322 234 278 234 248 240 Z" fill="var(--z-collar)" />
-        <path d="M 248 240 C 278 234 326 234 360 242 L 356 256 C 324 250 282 250 250 256 Z" fill="var(--z-breast)" />
-        <path d="M 252 256 C 282 264 326 264 356 254 L 350 286 C 320 296 280 294 258 280 Z" fill="var(--z-belly)" />
+        <path d="M 246 216 C 270 190 310 194 334 222 C 322 256 286 270 252 252 C 244 240 241 228 246 216 Z" fill="var(--z-wing)" />
+        <path d="M 242 224 C 274 214 332 214 372 226 L 368 238 C 326 232 278 232 242 240 Z" fill="var(--z-collar)" />
+        <path d="M 242 240 C 278 234 334 234 372 244 L 366 258 C 326 252 280 252 244 258 Z" fill="var(--z-breast)" />
+        <path d="M 246 258 C 282 264 334 264 366 256 L 354 292 C 320 304 278 298 254 280 Z" fill="var(--z-belly)" />
       </g>
-      <circle cx="394" cy="184" r="38" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
-      <path d="M 428 180 C 468 174 522 184 570 204 C 526 198 482 198 446 204 C 436 204 430 196 428 180 Z"
+      <path d="M 316 188 C 332 156 370 144 406 162 C 424 172 432 190 424 208 C 412 224 382 226 356 214 C 334 206 320 198 316 188 Z" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
+      <path d="M 416 178 C 462 164 526 174 588 202 C 532 196 482 198 434 210 C 424 204 418 192 416 178 Z"
         fill="var(--z-beak)" stroke={INK} strokeWidth="2.5" strokeLinejoin="round" />
-      <circle cx="406" cy="171" r="7.5" fill="var(--z-eye)" />
-      <circle cx="406" cy="171" r="4.3" fill="#1c1712" />
-      <circle cx="404" cy="169" r="1.5" fill="#fffdf8" />
+      <circle cx="388" cy="172" r="7.5" fill="var(--z-eye)" />
+      <circle cx="388" cy="172" r="4.3" fill="#1c1712" />
+      <circle cx="386" cy="170" r="1.5" fill="#fffdf8" />
     </svg>
   )
 }
