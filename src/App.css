@@ -5190,6 +5190,38 @@ textarea:focus {
   inset: 0;
   pointer-events: none;
 }
+
+/* Care actions: one short, visible motion per button while the existing
+   callback continues to handle the persisted care result. */
+.tweety-care-feed { animation: tweety-care-feed 1.8s ease-in-out both; }
+.tweety-care-drink { animation: tweety-care-drink 2.2s ease-in-out both; }
+.tweety-care-play { animation: tweety-care-play 1.2s ease-in-out both; }
+@keyframes tweety-care-feed {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  24% { transform: translate(-16%, 3%) scale(0.96); }
+  42% { transform: translate(-18%, 10%) rotate(-5deg) scale(0.94); }
+  56% { transform: translate(-18%, 7%) rotate(3deg) scale(0.96); }
+  72% { transform: translate(-12%, 4%) rotate(-2deg); }
+}
+@keyframes tweety-care-drink {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  24% { transform: translate(16%, 3%) scale(0.96); }
+  46% { transform: translate(18%, 10%) rotate(5deg) scale(0.94); }
+  60% { transform: translate(18%, 6%) rotate(-3deg) scale(0.96); }
+  78% { transform: translate(10%, 3%) rotate(2deg); }
+}
+@keyframes tweety-care-play {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  25% { transform: rotate(-5deg) translateY(-4px); }
+  50% { transform: rotate(5deg) translateY(0); }
+  75% { transform: rotate(-4deg) translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tweety-care-feed,
+  .tweety-care-drink,
+  .tweety-care-play { animation: none; }
+}
 /* Window light and a few quiet floating highlights add depth without adding
    another layer of room objects to the scene. */
 .room-backdrop::before {

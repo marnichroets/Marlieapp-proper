@@ -372,8 +372,9 @@ export const BIRD_COLOUR_MAP = {
   },
   'southern-double-collared-sunbird': {
     template: 'sunbird',
-    zones: { head: '#2f6b4a', beak: '#221e1a', eye: '#1c1712', body: '#3e6b4a', breast: '#c0392b', wing: '#1c1a17', tail: '#2f6b4a', legs: '#221e1a' },
-    // Southern Double-collared Sunbird — "Metallic green male with red chest band and blue collar."
+    zones: { head: '#176b57', beak: '#2b211b', eye: '#101d18', body: '#245f4b', breast: '#b73532', collar: '#2b5c78', belly: '#242b27', wing: '#263f3a', tail: '#183f36', legs: '#493d2d' },
+    // Southern Double-collared Sunbird — emerald head/back, blue collar, scarlet
+    // chest band and dark lower belly; the shared sunbird silhouette remains.
   },
   'amethyst-sunbird': {
     template: 'sunbird',

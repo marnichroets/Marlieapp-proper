@@ -10,6 +10,7 @@
 //
 // Zone shape (used by every template + BIRD_COLOUR_MAP):
 //   { head, beak, eye, body, breast, wing, tail, legs } — all CSS colour strings.
+//   Some templates also opt into extra zones such as collar/belly.
 //
 // `wing` and `breast` are always clipped to the body silhouette (see the
 // per-template <clipPath>), so they can never poke outside it no matter how
@@ -27,6 +28,8 @@ function ZoneStyle({ zones }) {
     '--z-eye': zones.eye,
     '--z-body': zones.body,
     '--z-breast': zones.breast,
+    '--z-collar': zones.collar || zones.breast,
+    '--z-belly': zones.belly || zones.body,
     '--z-wing': zones.wing,
     '--z-tail': zones.tail,
     '--z-legs': zones.legs,
@@ -207,7 +210,9 @@ export function Sunbird({ zones, size = 160, ground = true, flying = false }) {
         fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
       <g clipPath="url(#clip-sunbird)">
         <path d="M 250 206 C 276 196 302 202 314 228 C 298 242 272 246 252 236 C 244 224 244 214 250 206 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '250px 206px' }} fill="var(--z-wing)" />
+        <path d="M 248 232 C 274 222 322 222 352 232 L 348 246 C 318 238 278 238 250 246 Z" fill="var(--z-collar)" />
         <ellipse cx="304" cy="252" rx="52" ry="36" fill="var(--z-breast)" />
+        <path d="M 260 264 C 284 274 324 274 350 262 L 344 284 C 318 294 282 292 264 280 Z" fill="var(--z-belly)" />
       </g>
       <circle cx="398" cy="186" r="42" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
       {/* long thin decurved bill */}

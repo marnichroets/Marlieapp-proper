@@ -1749,6 +1749,9 @@ export function TweetyHomeCard({
   const [justTapped, setJustTapped] = useState(null)
   const justTappedTimerRef = useRef(null)
   useEffect(() => () => window.clearTimeout(justTappedTimerRef.current), [])
+  const [careMotion, setCareMotion] = useState(null)
+  const careMotionTimerRef = useRef(null)
+  useEffect(() => () => window.clearTimeout(careMotionTimerRef.current), [])
   const brightened = Boolean(justTapped)
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
@@ -1806,6 +1809,17 @@ export function TweetyHomeCard({
   }
   const tapReaction = justTapped ? GIFT_REACTIONS[justTapped] : null
 
+  function triggerCareMotion(kind, callback) {
+    interactionActiveRef.current = true
+    setCareMotion(kind)
+    window.clearTimeout(careMotionTimerRef.current)
+    careMotionTimerRef.current = window.setTimeout(() => {
+      setCareMotion(null)
+      careMotionTimerRef.current = null
+    }, kind === 'drink' ? 2200 : kind === 'feed' ? 1800 : 1200)
+    callback?.()
+  }
+
   // Small Mirror: every so often Tweety catches her reflection and preens for
   // a few seconds — a little bit of "alive" behaviour, not player-triggered.
   const hasMirror = ownedGiftIds.has('mirror')
@@ -1856,8 +1870,8 @@ export function TweetyHomeCard({
 
   const interactionActiveRef = useRef(false)
   useEffect(() => {
-    interactionActiveRef.current = Boolean(dancing || tapReaction || preening || hopping)
-  }, [dancing, tapReaction, preening, hopping])
+    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || preening || hopping)
+  }, [dancing, tapReaction, careMotion, preening, hopping])
 
   // Luxury Birdhouse: an occasional, tasteful sleep visit — same "occasional
   // idle behaviour" pattern as Mirror's preen / Perch's hop above, just with
@@ -1921,6 +1935,12 @@ export function TweetyHomeCard({
     ? `tweety-sleep-${sleepPhase}`
     : dancing
       ? 'tweety-dance'
+      : careMotion === 'feed'
+        ? 'tweety-care-feed'
+        : careMotion === 'drink'
+          ? 'tweety-care-drink'
+          : careMotion === 'play'
+            ? 'tweety-care-play'
       : tapMotion === 'dance'
         ? 'tweety-dance'
         : tapMotion === 'preen'
@@ -2095,7 +2115,7 @@ export function TweetyHomeCard({
             <button
               className={`tweety-care-btn${care.fed ? ' done' : ''}`}
               type="button"
-              onClick={onFeed}
+              onClick={() => triggerCareMotion('feed', onFeed)}
               disabled={care.fed}
             >
               <span className="tweety-care-icon" aria-hidden="true">🌾</span>
@@ -2104,7 +2124,7 @@ export function TweetyHomeCard({
             <button
               className={`tweety-care-btn${care.watered ? ' done' : ''}`}
               type="button"
-              onClick={onWater}
+              onClick={() => triggerCareMotion('drink', onWater)}
               disabled={care.watered}
             >
               <span className="tweety-care-icon" aria-hidden="true">💧</span>
@@ -2113,7 +2133,7 @@ export function TweetyHomeCard({
             <button
               className={`tweety-care-btn${care.played ? ' done' : ''}`}
               type="button"
-              onClick={onPlay}
+              onClick={() => triggerCareMotion('play', onPlay)}
               disabled={care.played}
             >
               <span className="tweety-care-icon" aria-hidden="true">💕</span>
