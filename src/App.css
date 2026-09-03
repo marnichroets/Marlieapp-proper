@@ -7103,6 +7103,19 @@ button.tweety-nest-base.gift-pop {
   .home-stack .tweety-card .tweety-room { width: 220px; }
   .home-stack .tweety-card .tweety-bird { width: 60px !important; height: 60px !important; }
   .home-stack .tweety-card .tweety-nest-base { width: 70px; height: 16px; margin-top: -12px; }
+  /* Luxury Birdhouse keeps its own silhouette on mobile instead of being
+     squashed by the generic nest-base rule above: same 110x62 ratio as
+     desktop, just scaled down (~0.47x), with its roof/door pseudo-elements
+     scaled to match so the house shape doesn't fall apart. */
+  .home-stack .tweety-card .tweety-nest-base.nest-base-treehouse { width: 52px; height: 29px; margin-top: -14px; }
+  .home-stack .tweety-card .nest-base-treehouse::before {
+    top: -11px;
+    left: -7px;
+    border-left-width: 33px;
+    border-right-width: 33px;
+    border-bottom-width: 12px;
+  }
+  .home-stack .tweety-card .nest-base-treehouse::after { width: 13px; height: 13px; bottom: 3px; }
   .home-stack .tweety-card .tweety-level-pill { display: none; }
   .home-stack .tweety-card .tweety-streak-pill { font-size: 0.6rem; padding: 2px 7px; }
   .home-stack .tweety-card .tweety-growth { display: none; }
