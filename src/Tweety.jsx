@@ -2034,7 +2034,7 @@ export function TweetyHomeCard({
               title={`Tap to hear ${name} sing`}
               onClick={singSong}
             >
-              <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale} />
+              <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale * (speciesArt.sizeScale || 1)} />
               {birdLevel === 'crowned' && <TweetyCrown />}
               {roomTheme === 'winter-cabin' && (
                 <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>

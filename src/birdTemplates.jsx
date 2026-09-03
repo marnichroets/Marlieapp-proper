@@ -551,6 +551,52 @@ export function Starling({ zones, size = 160, ground = true, flying = false }) {
   )
 }
 
+// Southern Double-collared Sunbird: a slimmer, more elegant perched variant.
+// It reuses the shared zones/helpers but gives this species its own proportions
+// and longer curved bill without changing the other bird templates.
+function SouthernDoubleCollaredSunbird({ zones, size = 160, ground = true, flying = false }) {
+  return (
+    <svg viewBox="0 0 620 460" style={{ width: size, height: size * (460 / 620), ...ZoneStyle({ zones }) }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <clipPath id="clip-sunbird-double-collared">
+          <path d="M 236 232 C 232 198 270 174 314 178 C 358 182 380 208 376 238 C 372 264 344 286 304 286 C 268 286 242 268 236 248 C 234 242 234 236 236 232 Z" />
+        </clipPath>
+      </defs>
+      {ground && <Ground />}
+      <g stroke={INK} strokeWidth="2.5" strokeLinejoin="round">
+        <path d="M 236 246 Q 196 238 162 246 Q 198 256 238 258 Z" fill="var(--z-tail)" />
+      </g>
+      <g fill="var(--z-tail)" opacity="0.95">
+        <path d="M 232 248 C 166 250 92 258 28 270 C 96 254 168 246 234 244 Z" stroke={INK} strokeWidth="1.5" />
+        <path d="M 234 254 C 166 260 92 272 30 286 C 100 264 170 254 236 250 Z" stroke={INK} strokeWidth="1.5" />
+      </g>
+      {!flying && (
+        <>
+          <g stroke="var(--z-legs)" strokeWidth="4.5" strokeLinecap="round">
+            <path d="M 278 280 L 273 380" className="bird-leg-a" style={{ transformOrigin: '278px 280px' }} fill="none" />
+            <path d="M 310 278 L 316 380" className="bird-leg-b" style={{ transformOrigin: '310px 278px' }} fill="none" />
+          </g>
+          <ThreeToeFeet x1={273} x2={316} />
+        </>
+      )}
+      <path d="M 236 232 C 232 198 270 174 314 178 C 358 182 380 208 376 238 C 372 264 344 286 304 286 C 268 286 242 268 236 248 C 234 242 234 236 236 232 Z"
+        fill="var(--z-body)" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <g clipPath="url(#clip-sunbird-double-collared)">
+        <path d="M 252 208 C 278 198 306 204 322 230 C 302 246 270 248 250 236 C 246 226 246 216 252 208 Z" fill="var(--z-wing)" />
+        <path d="M 246 226 C 274 218 326 218 358 228 L 354 240 C 322 234 278 234 248 240 Z" fill="var(--z-collar)" />
+        <path d="M 248 240 C 278 234 326 234 360 242 L 356 256 C 324 250 282 250 250 256 Z" fill="var(--z-breast)" />
+        <path d="M 252 256 C 282 264 326 264 356 254 L 350 286 C 320 296 280 294 258 280 Z" fill="var(--z-belly)" />
+      </g>
+      <circle cx="394" cy="184" r="38" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
+      <path d="M 428 180 C 468 174 522 184 570 204 C 526 198 482 198 446 204 C 436 204 430 196 428 180 Z"
+        fill="var(--z-beak)" stroke={INK} strokeWidth="2.5" strokeLinejoin="round" />
+      <circle cx="406" cy="171" r="7.5" fill="var(--z-eye)" />
+      <circle cx="406" cy="171" r="4.3" fill="#1c1712" />
+      <circle cx="404" cy="169" r="1.5" fill="#fffdf8" />
+    </svg>
+  )
+}
+
 // Not exported — react-refresh only wants component exports from a file
 // like this. GardenBird (below) is the only thing other modules need.
 const BIRD_TEMPLATES = {
@@ -558,6 +604,7 @@ const BIRD_TEMPLATES = {
   'songbird-crested': SongbirdCrested,
   weaver: Weaver,
   sunbird: Sunbird,
+  'sunbird-double-collared': SouthernDoubleCollaredSunbird,
   kingfisher: Kingfisher,
   barbet: Barbet,
   longtail: Longtail,
