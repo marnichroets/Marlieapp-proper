@@ -211,7 +211,11 @@ export function Sunbird({ zones, size = 160, ground = true, flying = false }) {
       <g clipPath="url(#clip-sunbird)">
         <path d="M 250 206 C 276 196 302 202 314 228 C 298 242 272 246 252 236 C 244 224 244 214 250 206 Z" className={flying ? 'bird-wing-flap' : undefined} style={{ transformOrigin: '250px 206px' }} fill="var(--z-wing)" />
         <path d="M 248 232 C 274 222 322 222 352 232 L 348 246 C 318 238 278 238 250 246 Z" fill="var(--z-collar)" />
-        <ellipse cx="304" cy="252" rx="52" ry="36" fill="var(--z-breast)" />
+        {zones.breastBand ? (
+          <path d="M 250 244 C 278 238 322 238 354 246 L 350 260 C 320 254 280 254 252 260 Z" fill="var(--z-breast)" />
+        ) : (
+          <ellipse cx="304" cy="252" rx="52" ry="36" fill="var(--z-breast)" />
+        )}
         <path d="M 260 264 C 284 274 324 274 350 262 L 344 284 C 318 294 282 292 264 280 Z" fill="var(--z-belly)" />
       </g>
       <circle cx="398" cy="186" r="42" fill="var(--z-head)" stroke={INK} strokeWidth="3" />
