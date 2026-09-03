@@ -34,10 +34,12 @@ import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { saTimePhase } from './saDate'
 
-// Tweety is a Cape Robin-Chat — same species-accurate template/colour system
-// the garden's visiting birds use (see birdTemplates.jsx/birdColourMap.js),
-// replacing the old hand-drawn cartoon TweetyBird on the home card.
-const TWEETY_SPECIES_KEY = 'cape-robin-chat'
+// Tweety's Home-card avatar uses the same species-accurate template/colour
+// system the garden's visiting birds use (see birdTemplates.jsx/
+// birdColourMap.js), resolved from her actual companion — see speciesArtFor
+// below. This is only ever the fallback when a companion id somehow doesn't
+// resolve to a known species (shouldn't happen for the six real companions).
+const TWEETY_FALLBACK_SPECIES_KEY = 'cape-robin-chat'
 
 // Real-time growth only has 5 milestones today (see GROWTH_STAGES in
 // tweetyData.js: chick/fledgling/young/adult/crowned) — the original design
@@ -79,6 +81,16 @@ function lightenHex(hex, amount) {
 function mutedZones(zones, amount) {
   if (!amount) return zones
   return Object.fromEntries(Object.entries(zones).map(([key, value]) => [key, lightenHex(value, amount)]))
+}
+
+// Resolves the actual illustrated species art (template + colour zones) for a
+// companion id — the same BIRD_COLOUR_MAP lookup AviaryBird/EggSpeciesPicker
+// already use elsewhere (see aviarySlugify below), so Tweety's Home card
+// avatar always matches whichever bird she actually hatched/has as her
+// companion instead of one fixed placeholder species.
+function speciesArtFor(companionId) {
+  const slug = aviarySlugify(companionSpecies(companionId))
+  return BIRD_COLOUR_MAP[slug] || BIRD_COLOUR_MAP[TWEETY_FALLBACK_SPECIES_KEY]
 }
 
 // A small crown overlay for the crowned-adult stage — GardenBird's templates
@@ -1588,6 +1600,33 @@ export function RoomBackdrop({ theme = 'cottage', timePhase = 'midday' }) {
   )
 }
 
+// Luxury Birdhouse — walls, pitched roof, round entrance and its tree
+// decoration, all drawn as one flat-shaded, viewBox-scaled SVG (same style as
+// IconWindow etc. above) so the whole illustration scales as a single piece
+// from its wrapper's box (see .nest-base-treehouse in App.css) instead of
+// needing separately hand-tuned pixel math per breakpoint.
+function LuxuryBirdhouseArt() {
+  return (
+    <svg viewBox="0 0 150 92" className="birdhouse-svg" aria-hidden="true">
+      {/* tree decoration */}
+      <rect x="20" y="50" width="8" height="30" rx="3" fill="var(--wood-dark)" />
+      <circle cx="24" cy="44" r="17" fill="var(--leaf)" />
+      <circle cx="13" cy="52" r="12" fill="var(--leaf)" />
+      <circle cx="36" cy="52" r="12" fill="var(--leaf-dark)" />
+      {/* premium glow ring */}
+      <circle cx="96" cy="54" r="36" fill="none" stroke="var(--gold)" strokeOpacity="0.35" strokeWidth="3" />
+      {/* pitched roof */}
+      <polygon points="46,46 96,8 146,46" fill="var(--wood-dark)" />
+      {/* walls */}
+      <rect x="54" y="42" width="84" height="48" rx="8" fill="var(--wood)" />
+      <rect x="54" y="42" width="84" height="16" rx="8" fill="#ffffff" opacity="0.14" />
+      {/* round entrance */}
+      <circle cx="96" cy="76" r="15" fill="#2a1a0e" />
+      <circle cx="96" cy="76" r="15" fill="none" stroke="#1a0f08" strokeWidth="2" />
+    </svg>
+  )
+}
+
 // A fixed, always-rendered spot in the room scene. Unowned items stay visible
 // as a faint, desaturated ghost of the real thing — "room to fill", never a
 // gap — and only become a tappable button once she actually owns them.
@@ -1663,7 +1702,11 @@ export function TweetyHomeCard({
   onHeardSong,
 }) {
   const name = tweety?.name || 'Tweety'
-  const species = companionSpecies(tweety?.companion)
+  // The exact species she chose (set at hatch time — see warmMysteryEgg in
+  // App.jsx) always wins over the generic companion-family name, so e.g. a
+  // Southern Double-collared Sunbird she hatched still reads as exactly that,
+  // not the family's "Malachite Sunbird" placeholder text.
+  const species = tweety?.realSpecies || companionSpecies(tweety?.companion)
   const care = tweetyCareState(tweety)
   const win = care.window
   const next = nextCareWindow()
@@ -1714,7 +1757,8 @@ export function TweetyHomeCard({
   const birdLevel = GROWTH_TO_LEVEL[growth.key] || 'chick'
   const stageScale = TWEETY_STAGE_SCALE[birdLevel] ?? 1
   const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
-  const tweetyZones = mutedZones(BIRD_COLOUR_MAP[TWEETY_SPECIES_KEY].zones, stageMute)
+  const speciesArt = speciesArtFor(tweety?.companion)
+  const tweetyZones = mutedZones(speciesArt.zones, stageMute)
   const roomTheme = tweety?.roomTheme || 'cottage'
   const fedToday = tweetyFedToday(tweety)
   // "Tweety's cosy home ✨" — a small badge once she's actually filled the
@@ -1796,6 +1840,37 @@ export function TweetyHomeCard({
     return () => window.clearTimeout(hopTimer)
   }, [hasPerch])
 
+  // Luxury Birdhouse: an occasional, tasteful sleep visit — same "occasional
+  // idle behaviour" pattern as Mirror's preen / Perch's hop above, just with
+  // more phases since it's a full approach → enter → sleep → wake → leave
+  // sequence rather than a single motion (see the tweety-sleep-* keyframes
+  // and .nest-sleep-* glow/sway in App.css). idle means the sequence isn't
+  // running; every other phase drives both the bird wrapper (motionClass,
+  // below — hidden for entering/sleeping/waking, animated in for
+  // approaching/leaving) and the birdhouse itself (glow + sway + Zzz).
+  const hasBirdhouse = nestTier === 'treehouse'
+  const [sleepPhase, setSleepPhase] = useState('idle')
+  useEffect(() => {
+    if (!hasBirdhouse) return undefined
+    const timers = []
+    const after = (ms, fn) => timers.push(window.setTimeout(fn, ms))
+    const scheduleNext = () => after(45000 + Math.random() * 50000, runVisit)
+    function runVisit() {
+      setSleepPhase('approaching')
+      after(1200, () => setSleepPhase('entering'))
+      after(2100, () => setSleepPhase('sleeping'))
+      const sleepFor = 8000 + Math.random() * 6000
+      after(2100 + sleepFor, () => setSleepPhase('waking'))
+      after(2800 + sleepFor, () => setSleepPhase('leaving'))
+      after(3700 + sleepFor, () => {
+        setSleepPhase('idle')
+        scheduleNext()
+      })
+    }
+    scheduleNext()
+    return () => timers.forEach((t) => window.clearTimeout(t))
+  }, [hasBirdhouse])
+
   // Tweety's songs: tapping her plays her current growth stage's tune (Web
   // Audio, see playTweetySong) plus a little floating note that times itself
   // off the song's own duration. The "tap to hear" hint shows once ever,
@@ -1808,25 +1883,29 @@ export function TweetyHomeCard({
     if (!tweety?.songHintSeen) onHeardSong?.()
   }
 
-  // Which wrapper animation plays right now, in priority order: a
+  // Which wrapper animation plays right now, in priority order: a Luxury
+  // Birdhouse sleep visit (a whole narrative sequence, not a quick reaction)
+  // beats everything else so nothing interrupts it mid-way; then a
   // care/store-triggered happy dance beats whatever the just-tapped gift
   // asked for, which beats Mirror's occasional idle preen, which beats a
   // Perch hop. None of these means the bird just holds its mood posture
   // (tweety-posture-*, below).
   const tapMotion = tapReaction?.motion
-  const motionClass = dancing
-    ? 'tweety-dance'
-    : tapMotion === 'dance'
+  const motionClass = hasBirdhouse && sleepPhase !== 'idle'
+    ? `tweety-sleep-${sleepPhase}`
+    : dancing
       ? 'tweety-dance'
-      : tapMotion === 'preen'
-        ? 'tweety-preen'
-        : tapMotion === 'sway'
-          ? 'tweety-gift-sway'
-          : preening
-            ? 'tweety-preen'
-            : hopping
-              ? 'tweety-hop-perch'
-              : ''
+      : tapMotion === 'dance'
+        ? 'tweety-dance'
+        : tapMotion === 'preen'
+          ? 'tweety-preen'
+          : tapMotion === 'sway'
+            ? 'tweety-gift-sway'
+            : preening
+              ? 'tweety-preen'
+              : hopping
+                ? 'tweety-hop-perch'
+                : ''
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -1909,7 +1988,7 @@ export function TweetyHomeCard({
               title={`Tap to hear ${name} sing`}
               onClick={singSong}
             >
-              <GardenBird template="songbird-small" zones={tweetyZones} size={110 * stageScale} />
+              <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale} />
               {birdLevel === 'crowned' && <TweetyCrown />}
               {roomTheme === 'winter-cabin' && (
                 <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
@@ -1917,25 +1996,34 @@ export function TweetyHomeCard({
               {singingNote && <span className="tweety-song-note" aria-hidden="true">🎵</span>}
             </button>
             {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
-            {nestTier === 'basic' ? (
-              <div className={`tweety-nest-base nest-base-${nestTier}`} aria-hidden="true" />
-            ) : (
+            {nestTier === 'treehouse' ? (
+              // Walls, roof, entrance and its tree decoration all drawn as ONE
+              // self-contained, viewBox-scaled SVG (see LuxuryBirdhouseArt
+              // below) inside a single stable bounding wrapper — same pattern
+              // every other room item uses (see .room-slot in App.css) —
+              // instead of the old CSS triangle-hack roof plus a separately
+              // positioned emoji tree that needed hand-tuned pixel overrides
+              // to avoid falling apart on mobile.
               <button
                 type="button"
-                className={`tweety-nest-base nest-base-${nestTier}${justTapped === (nestTier === 'treehouse' ? 'birdhouse' : 'cozynest') ? ' tapped' : ''}${justPurchasedItem === (nestTier === 'treehouse' ? 'birdhouse' : 'cozynest') ? ' gift-pop' : ''}`}
-                title={nestTier === 'treehouse' ? 'Luxury Birdhouse' : 'Cozy Nest Upgrade'}
-                onClick={() => tapGift(nestTier === 'treehouse' ? 'birdhouse' : 'cozynest')}
-              />
-            )}
-            {nestTier === 'treehouse' && (
-              <button
-                type="button"
-                className={`nest-decor nest-tree${justTapped === 'birdhouse' ? ' tapped' : ''}${justPurchasedItem === 'birdhouse' ? ' gift-pop' : ''}`}
+                className={`tweety-nest-base nest-base-treehouse${justTapped === 'birdhouse' ? ' tapped' : ''}${justPurchasedItem === 'birdhouse' ? ' gift-pop' : ''}${sleepPhase !== 'idle' ? ` nest-sleep-${sleepPhase}` : ''}`}
                 title="Luxury Birdhouse"
                 onClick={() => tapGift('birdhouse')}
               >
-                🌳
+                <LuxuryBirdhouseArt />
+                {(sleepPhase === 'entering' || sleepPhase === 'sleeping' || sleepPhase === 'waking') && (
+                  <span className="birdhouse-zzz" aria-hidden="true">Zzz</span>
+                )}
               </button>
+            ) : nestTier === 'basic' ? (
+              <div className="tweety-nest-base nest-base-basic" aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                className={`tweety-nest-base nest-base-cosy${justTapped === 'cozynest' ? ' tapped' : ''}${justPurchasedItem === 'cozynest' ? ' gift-pop' : ''}`}
+                title="Cozy Nest Upgrade"
+                onClick={() => tapGift('cozynest')}
+              />
             )}
           </div>
         </div>
@@ -2222,7 +2310,8 @@ export function TweetyStatsPage({ tweety, onBack, onRename }) {
   const growth = tweetyGrowth(tweety)
   const mood = tweetySimpleMood(tweety)
   const name = tweety?.name || 'Tweety'
-  const species = companionSpecies(tweety?.companion)
+  // Same exact-species-first rule as TweetyHomeCard's species line above.
+  const species = tweety?.realSpecies || companionSpecies(tweety?.companion)
   const songsLearned = tweetySongsLearned(tweety)
   return (
     <div className="page-grid">
