@@ -66,6 +66,22 @@ const TWEETY_STAGE_MUTE = {
   crowned: 0,
 }
 
+// Cage-view base render size at full (adult) growth-stage scale — up from the
+// pre-redesign 110px so Tweety reads as the scene's focal point rather than
+// one more small object among the room items (Phase 1 cage redesign). Still
+// multiplied by TWEETY_STAGE_SCALE and each species' own sizeScale below —
+// neither of those changes, so relative growth-stage and per-species
+// proportions stay exactly as they were.
+const TWEETY_BASE_SIZE = 190
+// Narrow-viewport render scale — replaces the old fixed ".tweety-bird { width:
+// 60px !important }" mobile override (App.css), which fought the JS-computed
+// size below rather than actually shrinking it (the SVG has its own explicit
+// inline pixel size, which always wins over an unrelated CSS width on an
+// ancestor). Driven from JS instead so mobile gets a real, proportionate size
+// — never the old 60px collapse.
+const TWEETY_NARROW_SIZE_FACTOR = 0.74
+const TWEETY_NARROW_MEDIA_QUERY = '(max-width: 430px)'
+
 // Same blend-toward-white used for the garden plant templates' secondary-leaf
 // tone (see Garden.jsx's lightenHex) — duplicated locally rather than shared
 // across files for one small pure function.
@@ -1603,6 +1619,55 @@ export function RoomBackdrop({ theme = 'cottage', timePhase = 'midday' }) {
   )
 }
 
+// ---- Home Cage shell (Phase 1 redesign) ------------------------------------
+// A warm illustrated aviary frame layered ON TOP of RoomBackdrop rather than
+// replacing it — the existing Room Themes (cottage/winter-cabin/etc, still
+// sold and previewed via RoomBackdrop above) keep showing through as the
+// backdrop behind the cage, so none of that shop/theme logic has to change.
+// Split into a back layer (dome silhouette + base tray — sits behind Tweety
+// and every room item, reads as floor/structure) and a front layer (corner
+// posts + brass rings + sparse vertical bars — sits in front of everything).
+// A past pass on the plain room backdrop deliberately drew its window
+// WITHOUT cross-bars "so it never reads as barred" (see CottageBackdrop's
+// comment below) — this is a deliberate reversal for the new brief (Tweety
+// now explicitly needs a home cage), so the front bars stay thin, widely
+// spaced and warm brass rather than a tight grey grid, to read as an elegant
+// aviary rather than the "prison" look that comment was originally avoiding.
+function CageFrameBack() {
+  return (
+    <svg className="cage-frame-back-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M16 52 Q150 -14 284 52" fill="none" stroke="var(--gold-dark)" strokeWidth="7" strokeLinecap="round" opacity="0.85" />
+      <path d="M16 52 Q150 -2 284 52" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+      <circle cx="150" cy="10" r="6.5" fill="var(--gold)" stroke="var(--gold-dark)" strokeWidth="1.5" />
+      <ellipse cx="150" cy="225" rx="140" ry="14" fill="var(--wood)" />
+      <ellipse cx="150" cy="220" rx="135" ry="12" fill="var(--honey)" opacity="0.8" />
+    </svg>
+  )
+}
+
+// Vertical bar x-positions. Deliberately just 4, evenly spaced with a gap
+// CENTRED on x=150 — at rest Tweety's motion-shell sits horizontally centred
+// in the cage (see TweetyHomeCard's .tweety-nest), so a bar at dead centre
+// would sit right across her face every time she's idle. Original geometry
+// audit (Phase 1 acceptance pass) found 9 evenly-spaced bars put 7 of them
+// crossing her body at her new, much larger render size — cut down to 4 with
+// a clear central gap instead, so she reads clearly at rest and only briefly
+// passes behind a bar mid-hop, same as a real aviary viewed front-on.
+const CAGE_BAR_X = [60, 120, 180, 240]
+function CageFrameFront() {
+  return (
+    <svg className="cage-frame-front-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="16" y="48" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.8" />
+      <rect x="16" y="206" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.8" />
+      <rect x="18" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" />
+      <rect x="277" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" />
+      {CAGE_BAR_X.map((x) => (
+        <line key={x} x1={x} y1="52" x2={x} y2="206" stroke="var(--gold)" strokeWidth="1.6" opacity="0.3" />
+      ))}
+    </svg>
+  )
+}
+
 // Luxury Birdhouse — walls, pitched roof, round entrance and its tree
 // decoration, all drawn as one flat-shaded, viewBox-scaled SVG (same style as
 // IconWindow etc. above) so the whole illustration scales as a single piece
@@ -1630,18 +1695,12 @@ function LuxuryBirdhouseArt() {
   )
 }
 
-// A fixed, always-rendered spot in the room scene. Unowned items stay visible
-// as a faint, desaturated ghost of the real thing — "room to fill", never a
-// gap — and only become a tappable button once she actually owns them.
-function RoomItem({ className, title, icon, owned, popping, tapped, onTap }) {
-  const cls = `room-slot ${className}${owned ? ' owned' : ' empty'}${popping ? ' gift-pop' : ''}${tapped ? ' tapped' : ''}`
-  if (!owned) {
-    return (
-      <div className={cls} aria-hidden="true">
-        {icon}
-      </div>
-    )
-  }
+// A spot in the cage scene for one owned store item — only ever rendered once
+// she actually owns it (see the ROOM_ITEMS.map call site below), so an
+// unfurnished cage reads as clean and complete rather than a grid of grey
+// placeholder ghosts.
+function RoomItem({ className, title, icon, popping, tapped, onTap }) {
+  const cls = `room-slot ${className} owned${popping ? ' gift-pop' : ''}${tapped ? ' tapped' : ''}`
   return (
     <button type="button" className={cls} title={title} onClick={onTap}>
       {icon}
@@ -1908,6 +1967,20 @@ export function TweetyHomeCard({
   // eslint-disable-next-line no-unused-vars
   const worn = tweety?.wardrobe?.worn || null
   const ownedGiftIds = useMemo(() => new Set(gifts.map((g) => g.id)), [gifts])
+
+  // See TWEETY_NARROW_SIZE_FACTOR above — the bird's render size responds to
+  // viewport width in JS instead of a CSS override, so it actually shrinks
+  // proportionately on phones rather than fighting the SVG's own inline size.
+  const [isNarrowViewport, setIsNarrowViewport] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(TWEETY_NARROW_MEDIA_QUERY).matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(TWEETY_NARROW_MEDIA_QUERY)
+    const update = () => setIsNarrowViewport(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   // Nothing else re-renders this card purely because the clock ticked, so a
   // "Feed" button rendered while a window was open would stay visually
@@ -2235,19 +2308,25 @@ export function TweetyHomeCard({
 
         {cosyHomeEarned && <p className="tweety-cosy-home-label">Tweety&apos;s cosy home ✨</p>}
 
-        {/* A cosy little room, not a scatter of emoji — every store item gets
-            a fixed, named spot (see ROOM_ITEMS above), rendered even before
-            she owns it as a faint "room to fill" outline. */}
+        {/* Her home cage (Phase 1 redesign) — every store item still gets a
+            fixed, named spot (see ROOM_ITEMS above), but now only renders
+            once she actually owns it, so an unfurnished cage stays clean
+            rather than showing 11 grey ghost placeholders. */}
         <div className="tweety-room" style={{ '--warmth': happiness / 100 }}>
           <div className="room-backdrop" aria-hidden="true">
             <RoomBackdrop theme={roomTheme} timePhase={saTimePhase()} />
           </div>
+          <div className="cage-frame-back" aria-hidden="true"><CageFrameBack /></div>
           <div className="tweety-room-glow" aria-hidden="true" />
           {ROOM_ITEMS.map((it) => {
             // Treats is a repeatable consumable, never added to the permanent
             // gifts list — its bowl only appears while today's boost is
             // active (plus any legacy one-off 'treats' id, kept recognized).
             const owned = it.id === 'treats' ? boosted || ownedGiftIds.has('treats') : ownedGiftIds.has(it.id)
+            // Unowned items simply don't render (see RoomItem above) — a
+            // sparsely-furnished cage should look clean, not full of grey
+            // ghost placeholders.
+            if (!owned) return null
             // Feeding Bowl reads full/sparse off whether she's fed today —
             // every other item's icon is static.
             const icon = it.id === 'feedingbowl' ? <IconFeedingBowl filled={fedToday} /> : it.icon
@@ -2257,7 +2336,6 @@ export function TweetyHomeCard({
                 className={it.className}
                 title={it.title}
                 icon={icon}
-                owned={owned}
                 popping={justPurchasedItem === it.id}
                 tapped={justTapped === it.id}
                 onTap={() => tapGift(it.id)}
@@ -2269,9 +2347,10 @@ export function TweetyHomeCard({
             {boosted && <div className="gift-boost-sparkle" title="Treats Bag boost — happy all day" aria-hidden="true">✨</div>}
             {/* Cozy Nest Blanket is its own purchase, independent of the
                 nest-tier upgrade below — a warm lining that can sit under
-                any tier, basic through birdhouse. */}
-            <div className={`tweety-blanket${ownedGiftIds.has('blanket') ? ' owned' : ' empty'}${justPurchasedItem === 'blanket' ? ' gift-pop' : ''}`}>
-              {ownedGiftIds.has('blanket') ? (
+                any tier, basic through birdhouse. Only rendered once owned,
+                same "no ghost placeholders" rule as the room items above. */}
+            {ownedGiftIds.has('blanket') && (
+              <div className={`tweety-blanket owned${justPurchasedItem === 'blanket' ? ' gift-pop' : ''}`}>
                 <button
                   type="button"
                   className={`tweety-blanket-btn${justTapped === 'blanket' ? ' tapped' : ''}`}
@@ -2280,10 +2359,8 @@ export function TweetyHomeCard({
                 >
                   <IconBlanket />
                 </button>
-              ) : (
-                <span aria-hidden="true"><IconBlanket /></span>
-              )}
-            </div>
+              </div>
+            )}
             {/* The button owns layout/tap/mood posture; the inner shell owns
                 motion animations so static transforms and active animations
                 do not overwrite each other. */}
@@ -2295,7 +2372,11 @@ export function TweetyHomeCard({
               disabled={sleepPhase !== 'idle'}
             >
               <span className={`tweety-motion-shell${motionClass ? ` ${motionClass}` : ''}`}>
-                <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale * (speciesArt.sizeScale || 1)} />
+                <GardenBird
+                  template={speciesArt.template || 'songbird-small'}
+                  zones={tweetyZones}
+                  size={TWEETY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * stageScale * (speciesArt.sizeScale || 1)}
+                />
                 {birdLevel === 'crowned' && <TweetyCrown />}
                 {roomTheme === 'winter-cabin' && (
                   <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
@@ -2334,6 +2415,12 @@ export function TweetyHomeCard({
               />
             )}
           </div>
+          {/* Front cage bars — the last child so they paint above the bird
+              and every room item, "looking into the aviary" from outside.
+              Thin, sparse and pointer-events:none (see .cage-frame-front in
+              App.css) so Tweety stays clearly the focal point and every tap
+              target underneath still works. */}
+          <div className="cage-frame-front" aria-hidden="true"><CageFrameFront /></div>
         </div>
         {!tweety?.songHintSeen && (
           <p className="tweety-song-hint">🎵 Tap to hear {name} sing</p>
