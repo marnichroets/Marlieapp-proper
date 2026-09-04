@@ -1688,6 +1688,37 @@ const GIFT_REACTIONS = {
   birdhouse: { sound: 'play', motion: 'dance' },
 }
 
+// Idle ambient behaviour — the lowest-priority tier in motionClass below.
+// Which of these plays, and how often, shifts with the real time of day
+// (already-available saTimePhase — see the room backdrop's own use of it)
+// and her current happiness, but neither value is ever changed or saved by
+// this — it only decides which harmless class plays next.
+const IDLE_ACTION_DURATION = {
+  lookaround: 2400,
+  stretch: 1800,
+  wingshake: 1000,
+  wander: 2800,
+}
+
+function idleIntervalRange(timePhase, happiness) {
+  const calm = timePhase === 'evening' || timePhase === 'night'
+  const base = calm ? [32000, 58000] : [15000, 28000]
+  const factor = happiness >= 80 ? 0.82 : happiness <= 30 ? 1.35 : 1
+  return [base[0] * factor, base[1] * factor]
+}
+
+function pickIdleAction(timePhase, happiness) {
+  const calm = timePhase === 'evening' || timePhase === 'night'
+  const low = happiness <= 30
+  const lively = happiness >= 80 && !calm
+  const pool = calm || low
+    ? ['lookaround', 'lookaround', 'stretch']
+    : lively
+      ? ['lookaround', 'stretch', 'wingshake', 'wander', 'wander']
+      : ['lookaround', 'stretch', 'wingshake', 'wander']
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
 export function TweetyHomeCard({
   tweety,
   dancing = false,
@@ -1752,6 +1783,17 @@ export function TweetyHomeCard({
   const [careMotion, setCareMotion] = useState(null)
   const careMotionTimerRef = useRef(null)
   useEffect(() => () => window.clearTimeout(careMotionTimerRef.current), [])
+  // A direct tap/pet on the bird herself — distinct from singSong's floating
+  // note below, a real little happy-wiggle reaction (see .tweety-pet).
+  const [petting, setPetting] = useState(false)
+  const pettingTimerRef = useRef(null)
+  useEffect(() => () => window.clearTimeout(pettingTimerRef.current), [])
+  // Whether a Luxury Birdhouse sleep visit is currently in progress — read by
+  // Mirror's preen timer, Perch's hop timer and the idle-ambient timer below
+  // so a timer landing mid-sleep reschedules instead of quietly setting state
+  // that the top-priority sleep class would just hide anyway (kept in sync
+  // once sleepPhase itself is declared further down).
+  const sleepActiveRef = useRef(false)
   const brightened = Boolean(justTapped)
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
@@ -1831,6 +1873,10 @@ export function TweetyHomeCard({
     const scheduleNext = () => {
       const delay = 18000 + Math.random() * 22000
       preenTimer = window.setTimeout(() => {
+        if (sleepActiveRef.current) {
+          scheduleNext()
+          return
+        }
         setPreening(true)
         preenResetTimer = window.setTimeout(() => setPreening(false), 2200)
         scheduleNext()
@@ -1856,6 +1902,10 @@ export function TweetyHomeCard({
     const scheduleNext = () => {
       const delay = 24000 + Math.random() * 26000
       hopTimer = window.setTimeout(() => {
+        if (sleepActiveRef.current) {
+          scheduleNext()
+          return
+        }
         setHopping(true)
         hopResetTimer = window.setTimeout(() => setHopping(false), 3400)
         scheduleNext()
@@ -1870,8 +1920,8 @@ export function TweetyHomeCard({
 
   const interactionActiveRef = useRef(false)
   useEffect(() => {
-    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || preening || hopping)
-  }, [dancing, tapReaction, careMotion, preening, hopping])
+    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || preening || hopping || petting)
+  }, [dancing, tapReaction, careMotion, preening, hopping, petting])
 
   // Luxury Birdhouse: an occasional, tasteful sleep visit — same "occasional
   // idle behaviour" pattern as Mirror's preen / Perch's hop above, just with
@@ -1883,6 +1933,9 @@ export function TweetyHomeCard({
   // approaching/leaving) and the birdhouse itself (glow + sway + Zzz).
   const hasBirdhouse = nestTier === 'treehouse'
   const [sleepPhase, setSleepPhase] = useState('idle')
+  useEffect(() => {
+    sleepActiveRef.current = sleepPhase !== 'idle'
+  }, [sleepPhase])
   useEffect(() => {
     if (!hasBirdhouse) return undefined
     const timers = []
@@ -1908,6 +1961,42 @@ export function TweetyHomeCard({
     return () => timers.forEach((t) => window.clearTimeout(t))
   }, [hasBirdhouse])
 
+  // Idle ambient motion — look-around / stretch / wing-shake / a small
+  // purposeful wander toward the window, the lowest-priority tier in
+  // motionClass below (see IDLE_ACTION_DURATION/idleIntervalRange/
+  // pickIdleAction above). Always eligible (not gated by any owned item,
+  // unlike Mirror/Perch), but — like the birdhouse visit above — only ever
+  // fires when nothing higher-priority is active, rescheduling instead of
+  // firing invisibly otherwise. Read via a ref (not the `happiness` prop
+  // directly) so this recursive timer never closes over a stale value.
+  const happinessRef = useRef(happiness)
+  useEffect(() => {
+    happinessRef.current = happiness
+  }, [happiness])
+  const [idleAction, setIdleAction] = useState(null)
+  useEffect(() => {
+    let idleTimer
+    let idleResetTimer
+    const scheduleNext = () => {
+      const [min, max] = idleIntervalRange(saTimePhase(), happinessRef.current)
+      idleTimer = window.setTimeout(() => {
+        if (interactionActiveRef.current || sleepActiveRef.current) {
+          scheduleNext()
+          return
+        }
+        const action = pickIdleAction(saTimePhase(), happinessRef.current)
+        setIdleAction(action)
+        idleResetTimer = window.setTimeout(() => setIdleAction(null), IDLE_ACTION_DURATION[action])
+        scheduleNext()
+      }, min + Math.random() * (max - min))
+    }
+    scheduleNext()
+    return () => {
+      window.clearTimeout(idleTimer)
+      window.clearTimeout(idleResetTimer)
+    }
+  }, [])
+
   // Tweety's songs: tapping her plays her current growth stage's tune (Web
   // Audio, see playTweetySong) plus a little floating note that times itself
   // off the song's own duration. The "tap to hear" hint shows once ever,
@@ -1923,35 +2012,60 @@ export function TweetyHomeCard({
     if (!tweety?.songHintSeen) onHeardSong?.()
   }
 
-  // Which wrapper animation plays right now, in priority order: a Luxury
-  // Birdhouse sleep visit (a whole narrative sequence, not a quick reaction)
-  // beats everything else so nothing interrupts it mid-way; then a
-  // care/store-triggered happy dance beats whatever the just-tapped gift
-  // asked for, which beats Mirror's occasional idle preen, which beats a
-  // Perch hop. None of these means the bird just holds its mood posture
-  // (tweety-posture-*, below).
+  // Tapping the bird herself: sings (as before) AND shows a distinct little
+  // happy-wiggle "petted" reaction (see .tweety-pet) — sing on its own was
+  // audio + a floating note with no body motion, which didn't read as a
+  // real pet/tap reaction.
+  function handleBirdTap() {
+    singSong()
+    setPetting(true)
+    window.clearTimeout(pettingTimerRef.current)
+    pettingTimerRef.current = window.setTimeout(() => setPetting(false), 900)
+  }
+
+  // Which wrapper animation plays right now, in priority order (see the
+  // brief's 5-tier model): 1) a Luxury Birdhouse sleep visit — a whole
+  // narrative sequence, not a quick reaction — beats everything so nothing
+  // interrupts it mid-way; 2) a care action (feed/water/play) — her own
+  // specific gesture, not the generic dance, even though careTweety (App.jsx)
+  // also sets `dancing` on every care tap; 3) direct user interaction — the
+  // generic dance (from a purchase/redeem elsewhere, or a bonus-streak
+  // celebration outlasting its care gesture), a tap/pet reaction, or a
+  // just-tapped gift's own reaction; 4) Mirror's occasional idle preen or a
+  // Perch hop — room-item interaction; 5) idle ambient motion. None of these
+  // means the bird just holds its mood posture (tweety-posture-*, below).
   const tapMotion = tapReaction?.motion
   const motionClass = hasBirdhouse && sleepPhase !== 'idle'
     ? `tweety-sleep-${sleepPhase}`
-    : dancing
-      ? 'tweety-dance'
-      : careMotion === 'feed'
-        ? 'tweety-care-feed'
-        : careMotion === 'drink'
-          ? 'tweety-care-drink'
-          : careMotion === 'play'
-            ? 'tweety-care-play'
-      : tapMotion === 'dance'
-        ? 'tweety-dance'
-        : tapMotion === 'preen'
-          ? 'tweety-preen'
-          : tapMotion === 'sway'
-            ? 'tweety-gift-sway'
-            : preening
-              ? 'tweety-preen'
-              : hopping
-                ? 'tweety-hop-perch'
-                : ''
+    : careMotion === 'feed'
+      ? 'tweety-care-feed'
+      : careMotion === 'drink'
+        ? 'tweety-care-drink'
+        : careMotion === 'play'
+          ? 'tweety-care-play'
+          : dancing
+            ? 'tweety-dance'
+            : petting
+              ? 'tweety-pet'
+              : tapMotion === 'dance'
+                ? 'tweety-dance'
+                : tapMotion === 'preen'
+                  ? 'tweety-preen'
+                  : tapMotion === 'sway'
+                    ? 'tweety-gift-sway'
+                    : preening
+                      ? 'tweety-preen'
+                      : hopping
+                        ? 'tweety-hop-perch'
+                        : idleAction === 'lookaround'
+                          ? 'tweety-lookaround'
+                          : idleAction === 'stretch'
+                            ? 'tweety-stretch'
+                            : idleAction === 'wingshake'
+                              ? 'tweety-wingshake'
+                              : idleAction === 'wander'
+                                ? 'tweety-wander'
+                                : ''
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -2027,12 +2141,13 @@ export function TweetyHomeCard({
                 whichever dance/preen/sway reaction is playing (motionClass) —
                 the same CSS classes the old cartoon body used, just applied
                 to this wrapper instead. Now also a real button: tapping her
-                plays her current stage's song (see singSong above). */}
+                plays her current stage's song and a little pet reaction (see
+                handleBirdTap above). */}
             <button
               type="button"
               className={`tweety-bird${motionClass ? ` ${motionClass}` : ''} tweety-posture-${posture}`}
-              title={`Tap to hear ${name} sing`}
-              onClick={singSong}
+              title={`Tap to pet or hear ${name} sing`}
+              onClick={handleBirdTap}
             >
               <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale * (speciesArt.sizeScale || 1)} />
               {birdLevel === 'crowned' && <TweetyCrown />}

@@ -5217,10 +5217,30 @@ textarea:focus {
   75% { transform: rotate(-4deg) translateY(-3px); }
 }
 
+/* Constant idle loop (bob/wing-shiver/blink) plus every occasional reaction
+   — dance, sad droop, preen, gift sway, perch hop, tap/pet, and the four
+   idle-ambient behaviours — previously had no reduced-motion coverage at
+   all; closing that gap here alongside the care actions rather than only
+   covering the new additions, per the same "no purposeless motion" bar the
+   rest of the app already holds itself to. */
 @media (prefers-reduced-motion: reduce) {
   .tweety-care-feed,
   .tweety-care-drink,
-  .tweety-care-play { animation: none; }
+  .tweety-care-play,
+  .tweety-bob,
+  .tweety-wing,
+  .tweety-eyes,
+  .tweety-sad .tweety-bob,
+  .tweety-dance,
+  .tweety-preen,
+  .tweety-gift-sway,
+  .tweety-hop-perch,
+  .tweety-pet,
+  .tweety-lookaround,
+  .tweety-stretch,
+  .tweety-wingshake,
+  .tweety-wander,
+  .tweety-song-note { animation: none; }
 }
 /* Window light and a few quiet floating highlights add depth without adding
    another layer of room objects to the scene. */
@@ -5411,6 +5431,52 @@ button.tweety-nest-base.gift-pop {
   0%, 100% { transform: rotate(0); }
   25% { transform: rotate(-4deg); }
   75% { transform: rotate(4deg); }
+}
+
+/* Tap/pet reaction — tapping the bird herself (see handleBirdTap in
+   Tweety.jsx), distinct from both the gift-tap sway above and the bigger
+   happy-dance: a quick, warm little bounce-and-tilt. */
+.tweety-pet { animation: tweety-pet 0.9s ease-in-out; }
+@keyframes tweety-pet {
+  0%, 100% { transform: scale(1) rotate(0); }
+  30% { transform: scale(1.06) rotate(-4deg); }
+  60% { transform: scale(1.04) rotate(3deg); }
+  85% { transform: scale(1.01) rotate(-1deg); }
+}
+
+/* Idle ambient motion (see the idle-ambient timer in Tweety.jsx) — four
+   small, purposeful behaviours, never all at once, each a plain whole-sprite
+   transform like every other Tweety reaction above. */
+.tweety-lookaround { animation: tweety-lookaround 2.4s ease-in-out; }
+@keyframes tweety-lookaround {
+  0%, 100% { transform: rotate(0) translateX(0); }
+  20% { transform: rotate(-3deg) translateX(-2%); }
+  50% { transform: rotate(3deg) translateX(2%); }
+  80% { transform: rotate(-1deg) translateX(-1%); }
+}
+.tweety-stretch { animation: tweety-stretch 1.8s ease-in-out; }
+@keyframes tweety-stretch {
+  0%, 100% { transform: scaleY(1) translateY(0); }
+  40% { transform: scaleY(1.08) translateY(-3px); }
+  70% { transform: scaleY(0.97) translateY(1px); }
+}
+.tweety-wingshake { animation: tweety-wingshake 1s ease-in-out; }
+@keyframes tweety-wingshake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-4deg); }
+  40% { transform: rotate(4deg); }
+  60% { transform: rotate(-3deg); }
+  80% { transform: rotate(3deg); }
+}
+/* A small, purposeful hop toward the window (upper-left, see .slot-window) —
+   the one room fixture that's always there whether owned or not — rather
+   than a vague wander in place. */
+.tweety-wander { animation: tweety-wander 2.8s ease-in-out; }
+@keyframes tweety-wander {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-10%, -4%) scale(0.97); }
+  55% { transform: translate(-10%, -4%) scale(0.97); }
+  80% { transform: translate(-3%, -1%) scale(0.99); }
 }
 
 /* Bond meter (2026 redesign): a warm liquid-fill heart instead of the same
