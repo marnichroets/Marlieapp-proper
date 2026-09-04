@@ -1688,85 +1688,194 @@ const GIFT_REACTIONS = {
   birdhouse: { sound: 'play', motion: 'dance' },
 }
 
-// Idle ambient behaviour — the lowest-priority tier in motionClass below.
-// Which of these plays, and how often, shifts with the real time of day
-// (already-available saTimePhase — see the room backdrop's own use of it)
-// and her current happiness, but neither value is ever changed or saved by
-// this — it only decides which harmless class plays next.
-const IDLE_ACTION_DURATION = {
-  lookaround: 2400,
-  stretch: 1800,
-  wingshake: 1000,
-  wander: 2800,
+// Idle ambient behaviour is split into two layers: frequent tiny micro-idles
+// and less frequent whole-room macro actions. All timing is presentation only;
+// it never mutates happiness, care, inventory, hatch state, or saved data.
+const TIME_PHASE_ACTIVITY = {
+  morning: {
+    micro: [3000, 6500],
+    macro: [8000, 16000],
+    sleepCheck: [180000, 300000],
+    sleepChance: 0.08,
+    sleepDuration: [5500, 8500],
+    postWake: [180000, 300000],
+  },
+  midday: {
+    micro: [3500, 7000],
+    macro: [9000, 18000],
+    sleepCheck: [240000, 420000],
+    sleepChance: 0.06,
+    sleepDuration: [5500, 8500],
+    postWake: [210000, 360000],
+  },
+  evening: {
+    micro: [5000, 9000],
+    macro: [12000, 24000],
+    sleepCheck: [90000, 180000],
+    sleepChance: 0.3,
+    sleepDuration: [8000, 12000],
+    postWake: [120000, 220000],
+  },
+  night: {
+    micro: [8000, 14000],
+    macro: [18000, 32000],
+    sleepCheck: [55000, 105000],
+    sleepChance: 0.65,
+    sleepDuration: [11000, 17000],
+    postWake: [90000, 180000],
+  },
 }
 
-function idleIntervalRange(timePhase, happiness) {
-  const calm = timePhase === 'evening' || timePhase === 'night'
-  const base = calm ? [32000, 58000] : [15000, 28000]
-  const factor = happiness >= 80 ? 0.82 : happiness <= 30 ? 1.35 : 1
-  return [base[0] * factor, base[1] * factor]
+const MICRO_IDLE_ACTION_DURATION = {
+  glance: 900,
+  tilt: 1100,
+  bob: 950,
+  tailflick: 850,
+  wingtwitch: 850,
 }
 
-function pickIdleAction(timePhase, happiness) {
+const MACRO_IDLE_ACTION_DURATION = {
+  stretch: 1900,
+  wingshake: 1200,
+  wander: 3200,
+  preen: 2400,
+  perch: 3600,
+  bowl: 3000,
+  water: 3200,
+}
+
+const MACRO_MOTION_CLASS = {
+  stretch: 'tweety-stretch',
+  wingshake: 'tweety-wingshake',
+  wander: 'tweety-wander',
+  preen: 'tweety-preen',
+  perch: 'tweety-hop-perch',
+  bowl: 'tweety-visit-bowl',
+  water: 'tweety-visit-water',
+}
+
+const MICRO_MOTION_CLASS = {
+  glance: 'tweety-micro-glance',
+  tilt: 'tweety-micro-tilt',
+  bob: 'tweety-micro-bob',
+  tailflick: 'tweety-micro-tailflick',
+  wingtwitch: 'tweety-micro-wingtwitch',
+}
+
+const ITEM_AMBIENT_ACTIONS = {
+  preen: {
+    giftId: 'mirror',
+    cooldown: 28000,
+    weight: { morning: 1, midday: 1, evening: 3, night: 2 },
+  },
+  perch: {
+    giftId: 'perch',
+    cooldown: 32000,
+    weight: { morning: 2, midday: 2, evening: 3, night: 2 },
+  },
+  bowl: {
+    giftId: 'feedingbowl',
+    cooldown: 30000,
+    weight: { morning: 2, midday: 2, evening: 1, night: 1 },
+  },
+  water: {
+    giftId: 'watertank',
+    cooldown: 32000,
+    weight: { morning: 2, midday: 2, evening: 1, night: 1 },
+  },
+}
+
+function activityTiming(timePhase) {
+  return TIME_PHASE_ACTIVITY[timePhase] || TIME_PHASE_ACTIVITY.midday
+}
+
+function randomBetween(range) {
+  const [min, max] = range
+  return min + Math.random() * (max - min)
+}
+
+function happinessIntervalFactor(happiness) {
+  if (happiness >= 80) return 0.84
+  if (happiness <= 30) return 1.28
+  return 1
+}
+
+function weightedPick(entries, previousAction) {
+  if (!entries.length) return null
+  const candidates = entries.length > 1 ? entries.filter((entry) => entry.action !== previousAction) : entries
+  const pool = candidates.length ? candidates : entries
+  const total = pool.reduce((sum, entry) => sum + entry.weight, 0)
+  let roll = Math.random() * total
+  for (const entry of pool) {
+    roll -= entry.weight
+    if (roll <= 0) return entry.action
+  }
+  return pool[pool.length - 1].action
+}
+
+function pickMicroIdleAction(timePhase, happiness, previousAction) {
   const calm = timePhase === 'evening' || timePhase === 'night'
   const low = happiness <= 30
   const lively = happiness >= 80 && !calm
-  const pool = calm || low
-    ? ['lookaround', 'lookaround', 'stretch']
+  const entries = calm || low
+    ? [
+        { action: 'glance', weight: 3 },
+        { action: 'tilt', weight: 2 },
+        { action: 'bob', weight: 1 },
+      ]
     : lively
-      ? ['lookaround', 'stretch', 'wingshake', 'wander', 'wander']
-      : ['lookaround', 'stretch', 'wingshake', 'wander']
-  return pool[Math.floor(Math.random() * pool.length)]
+      ? [
+          { action: 'glance', weight: 2 },
+          { action: 'tilt', weight: 2 },
+          { action: 'tailflick', weight: 2 },
+          { action: 'wingtwitch', weight: 2 },
+          { action: 'bob', weight: 1 },
+        ]
+      : [
+          { action: 'glance', weight: 3 },
+          { action: 'tilt', weight: 2 },
+          { action: 'tailflick', weight: 1 },
+          { action: 'wingtwitch', weight: 1 },
+          { action: 'bob', weight: 1 },
+        ]
+  return weightedPick(entries, previousAction)
 }
 
-// Feeding Bowl / Water Tank occasional ambient visits — timing only (see
-// useOccasionalRoomAction below); `duration` matches its CSS animation's own
-// length (.tweety-visit-bowl / .tweety-visit-water in App.css) so the reset
-// timer clears right as the animation finishes.
-const ITEM_ACTION_TIMING = {
-  bowl: { range: [26000, 42000], duration: 2600 },
-  water: { range: [30000, 48000], duration: 3000 },
+function pickMacroIdleAction(timePhase, happiness, ownedGiftIds, cooldownUntil, previousAction) {
+  const low = happiness <= 30
+  const day = timePhase === 'morning' || timePhase === 'midday'
+  const now = Date.now()
+  const entries = day
+    ? [
+        { action: 'wander', weight: low ? 1 : 3 },
+        { action: 'stretch', weight: 2 },
+        { action: 'wingshake', weight: low ? 1 : 2 },
+      ]
+    : timePhase === 'evening'
+      ? [
+          { action: 'stretch', weight: 2 },
+          { action: 'wingshake', weight: low ? 0 : 1 },
+          { action: 'wander', weight: low ? 0 : 1 },
+        ]
+      : [
+          { action: 'stretch', weight: 2 },
+          { action: 'wingshake', weight: low ? 0 : 1 },
+        ]
+
+  for (const [action, config] of Object.entries(ITEM_AMBIENT_ACTIONS)) {
+    if (!ownedGiftIds.has(config.giftId)) continue
+    if ((cooldownUntil[action] || 0) > now) continue
+    const weight = config.weight[timePhase] || 1
+    entries.push({ action, weight: low ? Math.max(1, Math.round(weight * 0.75)) : weight })
+  }
+
+  return weightedPick(entries.filter((entry) => entry.weight > 0), previousAction)
 }
 
-// A small reusable scheduler for "every so often, if she owns this item, do
-// a quick visit" — the same reschedule-rather-than-fire-invisibly guard
-// Mirror's preen / Perch's hop / the idle-ambient timer above all use, once
-// per owned item instead of another hand-duplicated effect per item. Not
-// used for Mirror/Perch themselves (unchanged, see above) — only for the two
-// new room-item interactions below, to avoid touching already-shipped code.
-function useOccasionalRoomAction(enabled, timing, sleepActiveRef, interactionActiveRef, happinessRef) {
-  const [active, setActive] = useState(false)
-  useEffect(() => {
-    if (!enabled) return undefined
-    let timer
-    let resetTimer
-    const scheduleNext = () => {
-      const calm = saTimePhase() === 'evening' || saTimePhase() === 'night'
-      const happinessFactor = happinessRef.current >= 80 ? 0.85 : happinessRef.current <= 30 ? 1.3 : 1
-      const [min, max] = timing.range
-      const delay = (min + Math.random() * (max - min)) * (calm ? 1.8 : 1) * happinessFactor
-      timer = window.setTimeout(() => {
-        if (sleepActiveRef.current || interactionActiveRef.current) {
-          scheduleNext()
-          return
-        }
-        setActive(true)
-        resetTimer = window.setTimeout(() => setActive(false), timing.duration)
-        scheduleNext()
-      }, delay)
-    }
-    scheduleNext()
-    return () => {
-      window.clearTimeout(timer)
-      window.clearTimeout(resetTimer)
-    }
-    // sleepActiveRef/interactionActiveRef/happinessRef are stable ref
-    // objects (their callers only ever create them once via useRef) and
-    // `timing` is one of the two stable ITEM_ACTION_TIMING entries — only
-    // `enabled` should ever actually restart this schedule.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled])
-  return active
+function sleepChanceForHappiness(baseChance, happiness) {
+  if (happiness >= 80) return baseChance * 0.85
+  if (happiness <= 30) return baseChance * 1.15
+  return baseChance
 }
 
 export function TweetyHomeCard({
@@ -1838,12 +1947,14 @@ export function TweetyHomeCard({
   const [petting, setPetting] = useState(false)
   const pettingTimerRef = useRef(null)
   useEffect(() => () => window.clearTimeout(pettingTimerRef.current), [])
-  // Whether a Luxury Birdhouse sleep visit is currently in progress — read by
-  // Mirror's preen timer, Perch's hop timer and the idle-ambient timer below
-  // so a timer landing mid-sleep reschedules instead of quietly setting state
-  // that the top-priority sleep class would just hide anyway (kept in sync
-  // once sleepPhase itself is declared further down).
+  // Shared scheduler refs. Sleep stays top priority; user/care/macro actions
+  // block each other so ambient timers do not fire invisibly under a stronger
+  // motion class.
   const sleepActiveRef = useRef(false)
+  const interactionActiveRef = useRef(false)
+  const lastMicroActionRef = useRef(null)
+  const lastMacroActionRef = useRef(null)
+  const itemCooldownUntilRef = useRef({})
   const brightened = Boolean(justTapped)
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
@@ -1883,6 +1994,8 @@ export function TweetyHomeCard({
     : ownedGiftIds.has('cozynest') || ownedGiftIds.has('nest') || legacyNestTier === 'cosy'
       ? 'cosy'
       : 'basic'
+  const hasFeedingBowl = ownedGiftIds.has('feedingbowl')
+  const hasWaterTank = ownedGiftIds.has('watertank')
 
   // Every gift is a tap-for-delight moment (no persisted state, always safe) —
   // brightens her mood for the moment only, never a real happiness gain (that
@@ -1919,9 +2032,9 @@ export function TweetyHomeCard({
     // original short durations otherwise. Presentation timing only — this
     // doesn't touch what Feed/Water actually do to happiness/state.
     const duration = kind === 'drink'
-      ? (hasWaterTank ? 3000 : 2200)
+      ? (hasWaterTank ? 3200 : 2200)
       : kind === 'feed'
-        ? (hasFeedingBowl ? 2600 : 1800)
+        ? (hasFeedingBowl ? 3000 : 1800)
         : 1200
     careMotionTimerRef.current = window.setTimeout(() => {
       setCareMotion(null)
@@ -1930,88 +2043,19 @@ export function TweetyHomeCard({
     callback?.()
   }
 
-  // Small Mirror: every so often Tweety catches her reflection and preens for
-  // a few seconds — a little bit of "alive" behaviour, not player-triggered.
-  const hasMirror = ownedGiftIds.has('mirror')
-  const [preening, setPreening] = useState(false)
-  useEffect(() => {
-    if (!hasMirror) return undefined
-    let preenTimer
-    let preenResetTimer
-    const scheduleNext = () => {
-      const delay = 18000 + Math.random() * 22000
-      preenTimer = window.setTimeout(() => {
-        if (sleepActiveRef.current) {
-          scheduleNext()
-          return
-        }
-        setPreening(true)
-        preenResetTimer = window.setTimeout(() => setPreening(false), 2200)
-        scheduleNext()
-      }, delay)
-    }
-    scheduleNext()
-    return () => {
-      window.clearTimeout(preenTimer)
-      window.clearTimeout(preenResetTimer)
-    }
-  }, [hasMirror])
-
-  // Perch Branch: every so often Tweety hops over, sits a moment, and hops
-  // back — same "occasional idle behaviour" pattern as Mirror's preen above,
-  // just its own timing window and its own wrapper class (.tweety-hop-perch
-  // in App.css actually moves the sprite toward the perch slot and back).
-  const hasPerch = ownedGiftIds.has('perch')
-  const [hopping, setHopping] = useState(false)
-  useEffect(() => {
-    if (!hasPerch) return undefined
-    let hopTimer
-    let hopResetTimer
-    const scheduleNext = () => {
-      const delay = 24000 + Math.random() * 26000
-      hopTimer = window.setTimeout(() => {
-        if (sleepActiveRef.current) {
-          scheduleNext()
-          return
-        }
-        setHopping(true)
-        hopResetTimer = window.setTimeout(() => setHopping(false), 3400)
-        scheduleNext()
-      }, delay)
-    }
-    scheduleNext()
-    return () => {
-      window.clearTimeout(hopTimer)
-      window.clearTimeout(hopResetTimer)
-    }
-  }, [hasPerch])
-
-  const interactionActiveRef = useRef(false)
-
-  // Feeding Bowl: an occasional visit to eat — same "occasional idle
-  // behaviour" pattern as Mirror/Perch above, sharing the small scheduler
-  // hook (see useOccasionalRoomAction above) instead of another duplicated
-  // effect. Also drives the Feed care button's own animation below when she
-  // owns the bowl (see hasFeedingBowl in triggerCareMotion and motionClass).
-  const hasFeedingBowl = ownedGiftIds.has('feedingbowl')
-  const pecking = useOccasionalRoomAction(hasFeedingBowl, ITEM_ACTION_TIMING.bowl, sleepActiveRef, interactionActiveRef, happinessRef)
-
-  // Water Tank: same pattern, for drinking.
-  const hasWaterTank = ownedGiftIds.has('watertank')
-  const drinkingAmbient = useOccasionalRoomAction(hasWaterTank, ITEM_ACTION_TIMING.water, sleepActiveRef, interactionActiveRef, happinessRef)
+  // One macro lane owns mirror/perch/bowl/water plus larger idle gestures.
+  // This prevents independent item timers from stacking, repeating the same
+  // owned item back-to-back, or firing under a higher-priority class.
+  const [macroAction, setMacroAction] = useState(null)
+  const [microAction, setMicroAction] = useState(null)
 
   useEffect(() => {
-    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || preening || hopping || petting || pecking || drinkingAmbient)
-  }, [dancing, tapReaction, careMotion, preening, hopping, petting, pecking, drinkingAmbient])
+    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || petting || macroAction)
+  }, [dancing, tapReaction, careMotion, petting, macroAction])
 
-  // Luxury Birdhouse: an occasional, tasteful sleep visit — same "occasional
-  // idle behaviour" pattern as Mirror's preen / Perch's hop above, just with
-  // more phases since it's a full approach → enter → sleep → wake → leave
-  // sequence rather than a single motion (see the tweety-sleep-* keyframes
-  // and .nest-sleep-* glow/sway in App.css). idle means the sequence isn't
-  // running; every other phase drives both the bird wrapper (motionClass,
-  // below — hidden for entering/sleeping/waking, animated in for
-  // approaching/leaving) and the birdhouse itself (glow + sway + Zzz).
+  // Luxury Birdhouse: an occasional sleep visit, now phase-aware and protected
+  // by an explicit post-wake cooldown so she cannot wake and fall asleep again
+  // shortly afterward.
   const hasBirdhouse = nestTier === 'treehouse'
   const [sleepPhase, setSleepPhase] = useState('idle')
   useEffect(() => {
@@ -2020,56 +2064,102 @@ export function TweetyHomeCard({
   useEffect(() => {
     if (!hasBirdhouse) return undefined
     const timers = []
-    const after = (ms, fn) => timers.push(window.setTimeout(fn, ms))
-    const scheduleNext = () => after(45000 + Math.random() * 50000, runVisit)
+    const after = (ms, fn) => {
+      const id = window.setTimeout(fn, ms)
+      timers.push(id)
+      return id
+    }
+    const scheduleNext = (range = activityTiming(saTimePhase()).sleepCheck) => after(randomBetween(range), runVisit)
     function runVisit() {
+      const timing = activityTiming(saTimePhase())
       if (interactionActiveRef.current) {
-        scheduleNext()
+        scheduleNext(timing.sleepCheck)
         return
       }
+      if (Math.random() > sleepChanceForHappiness(timing.sleepChance, happinessRef.current)) {
+        scheduleNext(timing.sleepCheck)
+        return
+      }
+
+      const sleepFor = randomBetween(timing.sleepDuration)
+      sleepActiveRef.current = true
+      setMicroAction(null)
+      setMacroAction(null)
       setSleepPhase('approaching')
       after(1200, () => setSleepPhase('entering'))
       after(2100, () => setSleepPhase('sleeping'))
-      const sleepFor = 8000 + Math.random() * 6000
       after(2100 + sleepFor, () => setSleepPhase('waking'))
       after(2800 + sleepFor, () => setSleepPhase('leaving'))
       after(3700 + sleepFor, () => {
         setSleepPhase('idle')
-        scheduleNext()
+        sleepActiveRef.current = false
+        scheduleNext(activityTiming(saTimePhase()).postWake)
       })
     }
     scheduleNext()
     return () => timers.forEach((t) => window.clearTimeout(t))
   }, [hasBirdhouse])
 
-  // Idle ambient motion — look-around / stretch / wing-shake / a small
-  // purposeful wander toward the window, the lowest-priority tier in
-  // motionClass below (see IDLE_ACTION_DURATION/idleIntervalRange/
-  // pickIdleAction above). Always eligible (not gated by any owned item,
-  // unlike Mirror/Perch), but — like the birdhouse visit above — only ever
-  // fires when nothing higher-priority is active, rescheduling instead of
-  // firing invisibly otherwise.
-  const [idleAction, setIdleAction] = useState(null)
   useEffect(() => {
-    let idleTimer
-    let idleResetTimer
+    let macroTimer
+    let macroResetTimer
     const scheduleNext = () => {
-      const [min, max] = idleIntervalRange(saTimePhase(), happinessRef.current)
-      idleTimer = window.setTimeout(() => {
-        if (interactionActiveRef.current || sleepActiveRef.current) {
+      const phase = saTimePhase()
+      const delay = randomBetween(activityTiming(phase).macro) * happinessIntervalFactor(happinessRef.current)
+      macroTimer = window.setTimeout(() => {
+        if (sleepActiveRef.current || interactionActiveRef.current) {
           scheduleNext()
           return
         }
-        const action = pickIdleAction(saTimePhase(), happinessRef.current)
-        setIdleAction(action)
-        idleResetTimer = window.setTimeout(() => setIdleAction(null), IDLE_ACTION_DURATION[action])
+        const action = pickMacroIdleAction(
+          saTimePhase(),
+          happinessRef.current,
+          ownedGiftIds,
+          itemCooldownUntilRef.current,
+          lastMacroActionRef.current,
+        )
+        if (!action) {
+          scheduleNext()
+          return
+        }
+        const itemConfig = ITEM_AMBIENT_ACTIONS[action]
+        if (itemConfig) itemCooldownUntilRef.current[action] = Date.now() + itemConfig.cooldown
+        lastMacroActionRef.current = action
+        interactionActiveRef.current = true
+        setMacroAction(action)
+        macroResetTimer = window.setTimeout(() => setMacroAction(null), MACRO_IDLE_ACTION_DURATION[action])
         scheduleNext()
-      }, min + Math.random() * (max - min))
+      }, delay)
     }
     scheduleNext()
     return () => {
-      window.clearTimeout(idleTimer)
-      window.clearTimeout(idleResetTimer)
+      window.clearTimeout(macroTimer)
+      window.clearTimeout(macroResetTimer)
+    }
+  }, [ownedGiftIds])
+
+  useEffect(() => {
+    let microTimer
+    let microResetTimer
+    const scheduleNext = () => {
+      const phase = saTimePhase()
+      const delay = randomBetween(activityTiming(phase).micro) * happinessIntervalFactor(happinessRef.current)
+      microTimer = window.setTimeout(() => {
+        if (sleepActiveRef.current || interactionActiveRef.current) {
+          scheduleNext()
+          return
+        }
+        const action = pickMicroIdleAction(saTimePhase(), happinessRef.current, lastMicroActionRef.current)
+        lastMicroActionRef.current = action
+        setMicroAction(action)
+        microResetTimer = window.setTimeout(() => setMicroAction(null), MICRO_IDLE_ACTION_DURATION[action])
+        scheduleNext()
+      }, delay)
+    }
+    scheduleNext()
+    return () => {
+      window.clearTimeout(microTimer)
+      window.clearTimeout(microResetTimer)
     }
   }, [])
 
@@ -2099,58 +2189,33 @@ export function TweetyHomeCard({
     pettingTimerRef.current = window.setTimeout(() => setPetting(false), 900)
   }
 
-  // Which wrapper animation plays right now, in priority order (see the
-  // brief's 5-tier model): 1) a Luxury Birdhouse sleep visit — a whole
-  // narrative sequence, not a quick reaction — beats everything so nothing
-  // interrupts it mid-way; 2) a care action (feed/water/play) — her own
-  // specific gesture, not the generic dance, even though careTweety (App.jsx)
-  // also sets `dancing` on every care tap — Feed/Water use the fuller
-  // walk-to-the-bowl/tank-and-back visit when she owns it (see
-  // triggerCareMotion above), the plain in-place wiggle otherwise; 3) direct
-  // user interaction — the generic dance (from a purchase/redeem elsewhere,
-  // or a bonus-streak celebration outlasting its care gesture), a tap/pet
-  // reaction, or a just-tapped gift's own reaction; 4) room-item
-  // interaction — Mirror's occasional idle preen, a Perch hop, or an
-  // occasional unprompted Feeding Bowl/Water Tank visit (the same
-  // .tweety-visit-bowl/-water classes Feed/Water use above); 5) idle ambient
-  // motion. None of these means the bird just holds its mood posture
-  // (tweety-posture-*, below).
+  // Which visual-shell animation plays right now, in priority order:
+  // sleep, care, direct user interaction, macro ambient, then micro ambient.
+  // The outer button keeps layout/tap/posture transforms separate from this
+  // animated shell so the classes compose instead of replacing each other.
   const tapMotion = tapReaction?.motion
-  const motionClass = hasBirdhouse && sleepPhase !== 'idle'
-    ? `tweety-sleep-${sleepPhase}`
-    : careMotion === 'feed'
-      ? (hasFeedingBowl ? 'tweety-visit-bowl' : 'tweety-care-feed')
-      : careMotion === 'drink'
-        ? (hasWaterTank ? 'tweety-visit-water' : 'tweety-care-drink')
-        : careMotion === 'play'
-          ? 'tweety-care-play'
-          : dancing
-            ? 'tweety-dance'
-            : petting
-              ? 'tweety-pet'
-              : tapMotion === 'dance'
-                ? 'tweety-dance'
-                : tapMotion === 'preen'
-                  ? 'tweety-preen'
-                  : tapMotion === 'sway'
-                    ? 'tweety-gift-sway'
-                    : preening
-                      ? 'tweety-preen'
-                      : hopping
-                        ? 'tweety-hop-perch'
-                        : pecking
-                          ? 'tweety-visit-bowl'
-                          : drinkingAmbient
-                            ? 'tweety-visit-water'
-                            : idleAction === 'lookaround'
-                              ? 'tweety-lookaround'
-                              : idleAction === 'stretch'
-                                ? 'tweety-stretch'
-                                : idleAction === 'wingshake'
-                                  ? 'tweety-wingshake'
-                                  : idleAction === 'wander'
-                                    ? 'tweety-wander'
-                                    : ''
+  let motionClass
+  if (hasBirdhouse && sleepPhase !== 'idle') {
+    motionClass = `tweety-sleep-${sleepPhase}`
+  } else if (careMotion === 'feed') {
+    motionClass = hasFeedingBowl ? 'tweety-visit-bowl' : 'tweety-care-feed'
+  } else if (careMotion === 'drink') {
+    motionClass = hasWaterTank ? 'tweety-visit-water' : 'tweety-care-drink'
+  } else if (careMotion === 'play') {
+    motionClass = 'tweety-care-play'
+  } else if (dancing) {
+    motionClass = 'tweety-dance'
+  } else if (petting) {
+    motionClass = 'tweety-pet'
+  } else if (tapMotion === 'dance') {
+    motionClass = 'tweety-dance'
+  } else if (tapMotion === 'preen') {
+    motionClass = 'tweety-preen'
+  } else if (tapMotion === 'sway') {
+    motionClass = 'tweety-gift-sway'
+  } else {
+    motionClass = MACRO_MOTION_CLASS[macroAction] || MICRO_MOTION_CLASS[microAction] || ''
+  }
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
@@ -2219,27 +2284,24 @@ export function TweetyHomeCard({
                 <span aria-hidden="true"><IconBlanket /></span>
               )}
             </div>
-            {/* Tweety visual overhaul — steps 1-3: the species-accurate
-                GardenBird template, scaled/muted by her real growth stage,
-                plus a small crown once fully grown. The wrapper also carries
-                her idle mood posture (tweety-posture-*) and, temporarily,
-                whichever dance/preen/sway reaction is playing (motionClass) —
-                the same CSS classes the old cartoon body used, just applied
-                to this wrapper instead. Now also a real button: tapping her
-                plays her current stage's song and a little pet reaction (see
-                handleBirdTap above). */}
+            {/* The button owns layout/tap/mood posture; the inner shell owns
+                motion animations so static transforms and active animations
+                do not overwrite each other. */}
             <button
               type="button"
-              className={`tweety-bird${motionClass ? ` ${motionClass}` : ''} tweety-posture-${posture}`}
+              className={`tweety-bird tweety-posture-${posture}`}
               title={`Tap to pet or hear ${name} sing`}
               onClick={handleBirdTap}
+              disabled={sleepPhase !== 'idle'}
             >
-              <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale * (speciesArt.sizeScale || 1)} />
-              {birdLevel === 'crowned' && <TweetyCrown />}
-              {roomTheme === 'winter-cabin' && (
-                <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
-              )}
-              {singingNote && <span className="tweety-song-note" aria-hidden="true">🎵</span>}
+              <span className={`tweety-motion-shell${motionClass ? ` ${motionClass}` : ''}`}>
+                <GardenBird template={speciesArt.template || 'songbird-small'} zones={tweetyZones} size={110 * stageScale * (speciesArt.sizeScale || 1)} />
+                {birdLevel === 'crowned' && <TweetyCrown />}
+                {roomTheme === 'winter-cabin' && (
+                  <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
+                )}
+                {singingNote && <span className="tweety-song-note" aria-hidden="true">🎵</span>}
+              </span>
             </button>
             {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
             {nestTier === 'treehouse' ? (
