@@ -8835,6 +8835,16 @@ function HomePage({
     scrollToMagazineSection()
   }
 
+  // Stable identity across renders (only recomputes when the owned-items list
+  // itself changes) — TweetyHomeCard derives ownedGiftIds from this via
+  // useMemo, and its macro-idle scheduler effect depends on that Set. A fresh
+  // array/objects here on every render was resetting that effect's timer
+  // before it could ever fire.
+  const tweetyGifts = useMemo(
+    () => (data.tweetyStore || []).map((id) => ({ id })),
+    [data.tweetyStore],
+  )
+
   return (
     <>
       {showIssueModal && (
@@ -8974,7 +8984,7 @@ function HomePage({
               // TWEETY_STORE_ITEMS catalog — a legacy id no longer sold in the
               // shop (e.g. pre-redesign 'nest') must still count as owned for
               // rendering. TweetyHomeCard only ever reads gift.id.
-              gifts={(data.tweetyStore || []).map((id) => ({ id }))}
+              gifts={tweetyGifts}
               onFeed={() => careTweety('feed')}
               onWater={() => careTweety('water')}
               onPlay={() => careTweety('play')}
