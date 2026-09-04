@@ -7537,14 +7537,14 @@ function App() {
             birdPost={data.birdPost}
             onBirdPostArrival={deliverBirdPost}
             onBirdPostRead={markBirdPostRead}
-            myRole={session.role === 'marnich' ? 'marnich' : 'pooks'}
+            myRole={session.role === 'marnich' || session.role === 'admin' ? 'marnich' : 'pooks'}
           />
         )}
         {activePage === 'birdpostcompose' && (session.role === 'pooks' || session.role === 'marnich' || session.role === 'admin') && (
           <BirdPostComposePage
             data={data}
             birdLibrary={data.birdLibrary}
-            myRole={session.role === 'marnich' ? 'marnich' : 'pooks'}
+            myRole={session.role === 'marnich' || session.role === 'admin' ? 'marnich' : 'pooks'}
             onSend={sendBirdPost}
             onSaveAddress={saveBirdPostAddress}
             onSeeFlight={() => setActivePage('birdflight')}
