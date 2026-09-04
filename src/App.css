@@ -5240,6 +5240,8 @@ textarea:focus {
   .tweety-stretch,
   .tweety-wingshake,
   .tweety-wander,
+  .tweety-visit-bowl,
+  .tweety-visit-water,
   .tweety-song-note { animation: none; }
 }
 /* Window light and a few quiet floating highlights add depth without adding
@@ -5417,11 +5419,11 @@ button.tweety-nest-base.gift-pop {
    happy-dance — triggers on its own timer, not on tap. */
 .tweety-preen { animation: tweety-preen 2.2s ease-in-out; }
 @keyframes tweety-preen {
-  0%, 100% { transform: rotate(0) translateY(0); }
-  20% { transform: rotate(-5deg) translateY(1px); }
-  40% { transform: rotate(4deg) translateY(0); }
-  60% { transform: rotate(-4deg) translateY(1px); }
-  80% { transform: rotate(3deg) translateY(0); }
+  0%, 100% { transform: rotate(0) translate(0, 0); }
+  20% { transform: rotate(-5deg) translate(4%, 1px); }
+  40% { transform: rotate(4deg) translate(6%, 0); }
+  60% { transform: rotate(-4deg) translate(4%, 1px); }
+  80% { transform: rotate(3deg) translate(2%, 0); }
 }
 
 /* Tweety Store gift tap: a gentle sway, distinct from the bigger happy-dance
@@ -5477,6 +5479,36 @@ button.tweety-nest-base.gift-pop {
   30% { transform: translate(-10%, -4%) scale(0.97); }
   55% { transform: translate(-10%, -4%) scale(0.97); }
   80% { transform: translate(-3%, -1%) scale(0.99); }
+}
+
+/* Feeding Bowl / Water Tank visits (see triggerCareMotion and the
+   pecking/drinkingAmbient timers in Tweety.jsx) -- a real walk-there,
+   eat-or-drink, walk-back, not an in-place wiggle. Directions come from
+   each item's real room position (.slot-feedingbowl sits bottom-left,
+   .slot-watertank sits bottom-right of the nest -- see App.css above), the
+   same "roughly right across breakpoints" translate-percent approach the
+   existing Perch hop already uses, since the room and the bird both scale
+   together as the card resizes. */
+.tweety-visit-bowl { animation: tweety-visit-bowl 2.6s ease-in-out; }
+@keyframes tweety-visit-bowl {
+  0%, 100% { transform: translate(0, 0) rotate(0) scale(1); }
+  18% { transform: translate(-48%, 3%) rotate(0) scale(0.9); }
+  30% { transform: translate(-50%, 7%) rotate(-10deg) scale(0.88); }
+  40% { transform: translate(-49%, 3%) rotate(5deg) scale(0.9); }
+  52% { transform: translate(-50%, 7%) rotate(-9deg) scale(0.88); }
+  62% { transform: translate(-49%, 3%) rotate(4deg) scale(0.9); }
+  82% { transform: translate(-46%, 2%) rotate(0) scale(0.91); }
+  95% { transform: translate(-14%, 1%) rotate(0) scale(0.97); }
+}
+.tweety-visit-water { animation: tweety-visit-water 3s ease-in-out; }
+@keyframes tweety-visit-water {
+  0%, 100% { transform: translate(0, 0) rotate(0) scale(1); }
+  18% { transform: translate(34%, 2%) rotate(0) scale(0.92); }
+  32% { transform: translate(36%, 8%) rotate(6deg) scale(0.9); }
+  46% { transform: translate(34%, 3%) rotate(-3deg) scale(0.92); }
+  60% { transform: translate(36%, 8%) rotate(6deg) scale(0.9); }
+  74% { transform: translate(34%, 2%) rotate(0) scale(0.92); }
+  95% { transform: translate(12%, 1%) rotate(0) scale(0.97); }
 }
 
 /* Bond meter (2026 redesign): a warm liquid-fill heart instead of the same

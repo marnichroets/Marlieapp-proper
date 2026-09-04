@@ -1719,6 +1719,56 @@ function pickIdleAction(timePhase, happiness) {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+// Feeding Bowl / Water Tank occasional ambient visits — timing only (see
+// useOccasionalRoomAction below); `duration` matches its CSS animation's own
+// length (.tweety-visit-bowl / .tweety-visit-water in App.css) so the reset
+// timer clears right as the animation finishes.
+const ITEM_ACTION_TIMING = {
+  bowl: { range: [26000, 42000], duration: 2600 },
+  water: { range: [30000, 48000], duration: 3000 },
+}
+
+// A small reusable scheduler for "every so often, if she owns this item, do
+// a quick visit" — the same reschedule-rather-than-fire-invisibly guard
+// Mirror's preen / Perch's hop / the idle-ambient timer above all use, once
+// per owned item instead of another hand-duplicated effect per item. Not
+// used for Mirror/Perch themselves (unchanged, see above) — only for the two
+// new room-item interactions below, to avoid touching already-shipped code.
+function useOccasionalRoomAction(enabled, timing, sleepActiveRef, interactionActiveRef, happinessRef) {
+  const [active, setActive] = useState(false)
+  useEffect(() => {
+    if (!enabled) return undefined
+    let timer
+    let resetTimer
+    const scheduleNext = () => {
+      const calm = saTimePhase() === 'evening' || saTimePhase() === 'night'
+      const happinessFactor = happinessRef.current >= 80 ? 0.85 : happinessRef.current <= 30 ? 1.3 : 1
+      const [min, max] = timing.range
+      const delay = (min + Math.random() * (max - min)) * (calm ? 1.8 : 1) * happinessFactor
+      timer = window.setTimeout(() => {
+        if (sleepActiveRef.current || interactionActiveRef.current) {
+          scheduleNext()
+          return
+        }
+        setActive(true)
+        resetTimer = window.setTimeout(() => setActive(false), timing.duration)
+        scheduleNext()
+      }, delay)
+    }
+    scheduleNext()
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(resetTimer)
+    }
+    // sleepActiveRef/interactionActiveRef/happinessRef are stable ref
+    // objects (their callers only ever create them once via useRef) and
+    // `timing` is one of the two stable ITEM_ACTION_TIMING entries — only
+    // `enabled` should ever actually restart this schedule.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled])
+  return active
+}
+
 export function TweetyHomeCard({
   tweety,
   dancing = false,
@@ -1798,6 +1848,13 @@ export function TweetyHomeCard({
   const mood = tweetySimpleMood(tweety, new Date(), { neverSad, boosted: boosted || brightened })
   const face = MOOD_FACE[mood] || MOOD_FACE.content
   const happiness = typeof tweety?.happiness === 'number' ? tweety.happiness : 70
+  // A few recursive room-item timers below (idle-ambient, Feeding Bowl,
+  // Water Tank) read happiness through this ref rather than the plain
+  // `happiness` const above, so they never close over a stale value.
+  const happinessRef = useRef(happiness)
+  useEffect(() => {
+    happinessRef.current = happiness
+  }, [happiness])
   // happy/content/lonely/sad — the same 4-value mood happinessFace already
   // reads off, reused as the bird's idle body-language posture below.
   const posture = happinessMood(happiness)
@@ -1855,10 +1912,21 @@ export function TweetyHomeCard({
     interactionActiveRef.current = true
     setCareMotion(kind)
     window.clearTimeout(careMotionTimerRef.current)
+    // When she owns the matching room item, Feed/Water play the fuller
+    // "walk over, eat/drink, walk back" animation (.tweety-visit-bowl /
+    // .tweety-visit-water — see motionClass below), which needs a bit longer
+    // than the plain in-place wiggle to read clearly; falls back to the
+    // original short durations otherwise. Presentation timing only — this
+    // doesn't touch what Feed/Water actually do to happiness/state.
+    const duration = kind === 'drink'
+      ? (hasWaterTank ? 3000 : 2200)
+      : kind === 'feed'
+        ? (hasFeedingBowl ? 2600 : 1800)
+        : 1200
     careMotionTimerRef.current = window.setTimeout(() => {
       setCareMotion(null)
       careMotionTimerRef.current = null
-    }, kind === 'drink' ? 2200 : kind === 'feed' ? 1800 : 1200)
+    }, duration)
     callback?.()
   }
 
@@ -1919,9 +1987,22 @@ export function TweetyHomeCard({
   }, [hasPerch])
 
   const interactionActiveRef = useRef(false)
+
+  // Feeding Bowl: an occasional visit to eat — same "occasional idle
+  // behaviour" pattern as Mirror/Perch above, sharing the small scheduler
+  // hook (see useOccasionalRoomAction above) instead of another duplicated
+  // effect. Also drives the Feed care button's own animation below when she
+  // owns the bowl (see hasFeedingBowl in triggerCareMotion and motionClass).
+  const hasFeedingBowl = ownedGiftIds.has('feedingbowl')
+  const pecking = useOccasionalRoomAction(hasFeedingBowl, ITEM_ACTION_TIMING.bowl, sleepActiveRef, interactionActiveRef, happinessRef)
+
+  // Water Tank: same pattern, for drinking.
+  const hasWaterTank = ownedGiftIds.has('watertank')
+  const drinkingAmbient = useOccasionalRoomAction(hasWaterTank, ITEM_ACTION_TIMING.water, sleepActiveRef, interactionActiveRef, happinessRef)
+
   useEffect(() => {
-    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || preening || hopping || petting)
-  }, [dancing, tapReaction, careMotion, preening, hopping, petting])
+    interactionActiveRef.current = Boolean(dancing || tapReaction || careMotion || preening || hopping || petting || pecking || drinkingAmbient)
+  }, [dancing, tapReaction, careMotion, preening, hopping, petting, pecking, drinkingAmbient])
 
   // Luxury Birdhouse: an occasional, tasteful sleep visit — same "occasional
   // idle behaviour" pattern as Mirror's preen / Perch's hop above, just with
@@ -1967,12 +2048,7 @@ export function TweetyHomeCard({
   // pickIdleAction above). Always eligible (not gated by any owned item,
   // unlike Mirror/Perch), but — like the birdhouse visit above — only ever
   // fires when nothing higher-priority is active, rescheduling instead of
-  // firing invisibly otherwise. Read via a ref (not the `happiness` prop
-  // directly) so this recursive timer never closes over a stale value.
-  const happinessRef = useRef(happiness)
-  useEffect(() => {
-    happinessRef.current = happiness
-  }, [happiness])
+  // firing invisibly otherwise.
   const [idleAction, setIdleAction] = useState(null)
   useEffect(() => {
     let idleTimer
@@ -2028,19 +2104,24 @@ export function TweetyHomeCard({
   // narrative sequence, not a quick reaction — beats everything so nothing
   // interrupts it mid-way; 2) a care action (feed/water/play) — her own
   // specific gesture, not the generic dance, even though careTweety (App.jsx)
-  // also sets `dancing` on every care tap; 3) direct user interaction — the
-  // generic dance (from a purchase/redeem elsewhere, or a bonus-streak
-  // celebration outlasting its care gesture), a tap/pet reaction, or a
-  // just-tapped gift's own reaction; 4) Mirror's occasional idle preen or a
-  // Perch hop — room-item interaction; 5) idle ambient motion. None of these
-  // means the bird just holds its mood posture (tweety-posture-*, below).
+  // also sets `dancing` on every care tap — Feed/Water use the fuller
+  // walk-to-the-bowl/tank-and-back visit when she owns it (see
+  // triggerCareMotion above), the plain in-place wiggle otherwise; 3) direct
+  // user interaction — the generic dance (from a purchase/redeem elsewhere,
+  // or a bonus-streak celebration outlasting its care gesture), a tap/pet
+  // reaction, or a just-tapped gift's own reaction; 4) room-item
+  // interaction — Mirror's occasional idle preen, a Perch hop, or an
+  // occasional unprompted Feeding Bowl/Water Tank visit (the same
+  // .tweety-visit-bowl/-water classes Feed/Water use above); 5) idle ambient
+  // motion. None of these means the bird just holds its mood posture
+  // (tweety-posture-*, below).
   const tapMotion = tapReaction?.motion
   const motionClass = hasBirdhouse && sleepPhase !== 'idle'
     ? `tweety-sleep-${sleepPhase}`
     : careMotion === 'feed'
-      ? 'tweety-care-feed'
+      ? (hasFeedingBowl ? 'tweety-visit-bowl' : 'tweety-care-feed')
       : careMotion === 'drink'
-        ? 'tweety-care-drink'
+        ? (hasWaterTank ? 'tweety-visit-water' : 'tweety-care-drink')
         : careMotion === 'play'
           ? 'tweety-care-play'
           : dancing
@@ -2057,15 +2138,19 @@ export function TweetyHomeCard({
                       ? 'tweety-preen'
                       : hopping
                         ? 'tweety-hop-perch'
-                        : idleAction === 'lookaround'
-                          ? 'tweety-lookaround'
-                          : idleAction === 'stretch'
-                            ? 'tweety-stretch'
-                            : idleAction === 'wingshake'
-                              ? 'tweety-wingshake'
-                              : idleAction === 'wander'
-                                ? 'tweety-wander'
-                                : ''
+                        : pecking
+                          ? 'tweety-visit-bowl'
+                          : drinkingAmbient
+                            ? 'tweety-visit-water'
+                            : idleAction === 'lookaround'
+                              ? 'tweety-lookaround'
+                              : idleAction === 'stretch'
+                                ? 'tweety-stretch'
+                                : idleAction === 'wingshake'
+                                  ? 'tweety-wingshake'
+                                  : idleAction === 'wander'
+                                    ? 'tweety-wander'
+                                    : ''
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
