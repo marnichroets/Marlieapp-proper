@@ -74,6 +74,20 @@ const GROUND_WASH = {
 // to the existing per-phase lighting above.
 const RAIN_GROUND_WASH = { fill: '#2c3a4a', opacity: 0.22 }
 
+// A very soft, low-opacity seasonal atmosphere — painted once, near the very
+// top of the scene (see the edge vignette below), independent of the
+// phase/weather washes above so all three layer together rather than any
+// one overriding another. Deliberately subtle (opacity capped well under the
+// existing washes' own values above) — this nudges the scene's warmth, not
+// its hue; no per-season theme for the temporary Cape Town Special Week
+// (getSeasonInfo's 'capetown' key), which the Garden doesn't otherwise skin.
+const SEASON_WASH = {
+  summer: { fill: '#ffcf7e', opacity: 0.05 },
+  autumn: { fill: '#c67a3a', opacity: 0.055 },
+  winter: { fill: '#9fb6d2', opacity: 0.05 },
+  spring: { fill: '#cdeab8', opacity: 0.045 },
+}
+
 const WEATHER_META = {
   clear: { label: 'Clear', icon: '☀️' },
   cloudy: { label: 'Cloudy', icon: '☁️' },
@@ -1987,6 +2001,7 @@ export function GardenPage({
   garden,
   coins,
   collection = [],
+  season = null,
   onPlace,
   onWater,
   onRemove,
@@ -2094,6 +2109,10 @@ export function GardenPage({
       window.clearInterval(iv)
     }
   }, [])
+  // Presentation only — see SEASON_WASH above. `season` already comes from
+  // the same app-wide getSeasonInfo() the Home page's own banner uses (see
+  // App.jsx), so this never computes or persists anything of its own.
+  const seasonWash = SEASON_WASH[season?.key] || null
 
   const [selectedId, setSelectedId] = useState(null)
   const [selectedResidentId, setSelectedResidentId] = useState(null)
@@ -2750,6 +2769,23 @@ export function GardenPage({
               dark against the soft blurred fringe above, so the scene reads
               with real foreground/midground/background separation. */}
           <ForegroundGrass seedKey={baseZoneSeed} />
+
+          {/* seasonal atmosphere — a very soft, low-opacity wash over the
+              whole scene (see SEASON_WASH above), independent of the
+              phase/weather washes elsewhere so all three combine rather than
+              one overriding another; painted just under the vignette so
+              foreground detail still reads clearly through it. */}
+          {seasonWash && (
+            <rect
+              x={viewBox.minX}
+              y="0"
+              width={viewBox.width}
+              height="260"
+              fill={seasonWash.fill}
+              opacity={seasonWash.opacity}
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
 
           {/* edge vignette — painted last, over everything, never intercepts taps */}
           <rect x={viewBox.minX} y="0" width={viewBox.width} height="260" fill="url(#gardenVignette)" style={{ pointerEvents: 'none' }} />

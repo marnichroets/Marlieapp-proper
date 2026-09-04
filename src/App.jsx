@@ -7559,6 +7559,7 @@ function App() {
             garden={data.garden}
             coins={data.featherCoins}
             collection={gardenVisitors}
+            season={season}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
             onRemove={removeGardenPlant}
