@@ -28,7 +28,7 @@ import {
   healthTier,
 } from './greenhouseData'
 import { plantVisual } from './gardenData'
-import { saDateKey } from './saDate'
+import { saDateKey, saTimePhase } from './saDate'
 import { GardenPlant } from './plantTemplates'
 
 // CSS filters standing in for the four health tiers — vibrant needs none,
@@ -40,6 +40,23 @@ const HEALTH_FILTER = {
   wilted: 'saturate(0.55) brightness(0.97)',
   sick: 'saturate(0.22) sepia(0.35) brightness(0.82)',
   dead: 'grayscale(0.9) sepia(0.35) brightness(0.55)',
+}
+
+// Time-of-day lighting — same real SA local-time phase the outdoor Garden
+// already reads (see saTimePhase), applied on top of the existing static
+// interior wash/sun-glow/light-shafts/dust-motes rather than replacing any
+// of them: `sunGlowOpacity`/`shaftOpacity`/`moteOpacity` dim or brighten
+// those existing elements, `wash` is one additional soft rect layered right
+// after the base interior wash (before the roof/shelves/plants), and
+// `lampGlow` only ever brightens the room's existing hanging light, never
+// dims it. midday is the current always-on look, unchanged (`wash: null`,
+// every opacity at 1) — every other phase is a variation on top of it, so
+// there's no regression to the baseline daytime view.
+const GH_PHASE_LIGHT = {
+  morning: { sunGlowOpacity: 0.85, shaftOpacity: 0.8, moteOpacity: 0.85, wash: { fill: '#ffd98a', opacity: 0.06 }, lampGlow: 0.35 },
+  midday: { sunGlowOpacity: 1, shaftOpacity: 1, moteOpacity: 1, wash: null, lampGlow: 0.35 },
+  evening: { sunGlowOpacity: 0.85, shaftOpacity: 0.7, moteOpacity: 0.8, wash: { fill: '#ff9a4c', opacity: 0.1 }, lampGlow: 0.42 },
+  night: { sunGlowOpacity: 0.22, shaftOpacity: 0.18, moteOpacity: 0.35, wash: { fill: '#22335a', opacity: 0.24 }, lampGlow: 0.55 },
 }
 
 // ---- pot vessels (cosmetic, per style) -------------------------------------
@@ -352,14 +369,14 @@ const POT_SLOT_HALF_SPACING = (POT_SLOTS[1].x - POT_SLOTS[0].x) / 2
 // quads (no gradient math) under a screen blend, same trick as the outdoor
 // Garden's crepuscular rays, so they lighten whatever's beneath without ever
 // looking like a flat overlay.
-function LightShafts() {
+function LightShafts({ opacity = 1 }) {
   const beams = [
     { x1: 96, x2: 46, w: 26 },
     { x1: 176, x2: 236, w: 34 },
     { x1: 248, x2: 292, w: 20 },
   ]
   return (
-    <g style={{ pointerEvents: 'none', mixBlendMode: 'screen' }} aria-hidden="true">
+    <g style={{ pointerEvents: 'none', mixBlendMode: 'screen', opacity }} aria-hidden="true">
       {beams.map((b, i) => (
         <polygon
           key={i}
@@ -378,7 +395,7 @@ function LightShafts() {
 // fresh random scatter each mount (this is pure ambience, not per-save
 // terrain, so unlike the outdoor Garden's seeded texture it doesn't need to
 // stay identical across renders).
-function DustMotes({ count = 10 }) {
+function DustMotes({ count = 10, opacity = 1 }) {
   const [motes] = useState(() =>
     Array.from({ length: count }, () => ({
       x: 55 + Math.random() * 210,
@@ -391,7 +408,7 @@ function DustMotes({ count = 10 }) {
     })),
   )
   return (
-    <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+    <g style={{ pointerEvents: 'none', opacity }} aria-hidden="true">
       {motes.map((m, i) => (
         <circle
           key={i}
@@ -436,14 +453,20 @@ function BenchTrowel() {
 // translate group by GreenhouseScene so a second room is just this same
 // drawing shifted one ROOM_WIDTH to the right, sharing the gradients defined
 // once on the parent <svg>.
-function RoomInterior({ slots, greenhouse, waterAnims, activeSlotId, onTapSlot, today, growLight }) {
+function RoomInterior({ slots, greenhouse, waterAnims, activeSlotId, onTapSlot, today, growLight, light = GH_PHASE_LIGHT.midday }) {
   return (
     <>
       {/* interior wash fills the whole scene before the glass structure sits on top */}
       <rect x="0" y="0" width={ROOM_WIDTH} height={ROOM_HEIGHT} fill="url(#ghInteriorG)" />
-      <ellipse cx="160" cy="8" rx="170" ry="90" fill="url(#ghSunGlow)" />
-      <LightShafts />
-      <DustMotes />
+      <ellipse cx="160" cy="8" rx="170" ry="90" fill="url(#ghSunGlow)" opacity={light.sunGlowOpacity} />
+      {/* time-of-day atmosphere (see GH_PHASE_LIGHT) — one extra soft wash
+          layered here, before the glass/shelves/plants, so structure and
+          plantings keep reading crisply regardless of phase */}
+      {light.wash && (
+        <rect x="0" y="0" width={ROOM_WIDTH} height={ROOM_HEIGHT} fill={light.wash.fill} opacity={light.wash.opacity} style={{ pointerEvents: 'none' }} />
+      )}
+      <LightShafts opacity={light.shaftOpacity} />
+      <DustMotes opacity={light.moteOpacity} />
 
       {/* ---- pitched glass roof ---- */}
       <path d="M8 62 L160 14 L312 62 L312 70 L160 24 L8 70 Z" fill="url(#ghWoodG)" />
@@ -487,10 +510,12 @@ function RoomInterior({ slots, greenhouse, waterAnims, activeSlotId, onTapSlot, 
         <line key={x} x1={x} y1="70" x2={x} y2="332" stroke="#00000010" strokeWidth="1" />
       ))}
 
-      {/* warm hanging light for cosiness */}
+      {/* warm hanging light for cosiness — its glow only ever brightens at
+          night (see GH_PHASE_LIGHT.lampGlow), reading as the room's own
+          light source keeping the shelves visible after dark */}
       <line x1="160" y1="24" x2="160" y2="58" stroke="#8a5f33" strokeWidth="1.5" />
       <ellipse cx="160" cy="63" rx="9" ry="7" fill="#ffe9b8" stroke="#c9a758" strokeWidth="1.5" />
-      <circle cx="160" cy="66" r="16" fill="#ffd98a" opacity="0.35" />
+      <circle cx="160" cy="66" r="16" fill="#ffd98a" opacity={light.lampGlow} />
 
       {/* grow light glow — a warm wash above each shelf once she owns one,
           a brighter inner core layered over the wider soft spread so it
@@ -574,6 +599,26 @@ function GreenhouseScene({ greenhouse, waterAnims, activeSlotId, onTapSlot }) {
   const growLight = hasTool(greenhouse, 'grow-light')
   const today = saDateKey()
   const room2 = hasRoom2(greenhouse)
+  // Time-of-day lighting — same real SA local-time phase the outdoor Garden
+  // already reads off saTimePhase (see Garden.jsx's own identical effect),
+  // computed independently here rather than threaded down as a prop, so
+  // this stays self-contained and doesn't need a GreenhousePage/App.jsx
+  // call-site change. Presentation only — never touches greenhouse/plant
+  // state.
+  const [phase, setPhase] = useState(() => saTimePhase())
+  useEffect(() => {
+    const tick = () => setPhase(saTimePhase())
+    const iv = window.setInterval(tick, 60000)
+    const onVis = () => { if (!document.hidden) tick() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
+    return () => {
+      window.clearInterval(iv)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
+    }
+  }, [])
+  const light = GH_PHASE_LIGHT[phase] || GH_PHASE_LIGHT.midday
   const wrapRef = useRef(null)
   const [unitPx, setUnitPx] = useState(1)
   useEffect(() => {
@@ -644,6 +689,7 @@ function GreenhouseScene({ greenhouse, waterAnims, activeSlotId, onTapSlot }) {
             onTapSlot={onTapSlot}
             today={today}
             growLight={growLight}
+            light={light}
           />
         </g>
         {room2 && (
@@ -656,6 +702,7 @@ function GreenhouseScene({ greenhouse, waterAnims, activeSlotId, onTapSlot }) {
               onTapSlot={onTapSlot}
               today={today}
               growLight={growLight}
+              light={light}
             />
           </g>
         )}
