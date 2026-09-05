@@ -469,11 +469,6 @@ button.bird-card:active {
   transition: width 640ms var(--ease-out);
 }
 
-/* Happiness meter (Tweety card): solid sky blue (--terracotta), no gradient. */
-.tweety-happiness .progress-track span {
-  background: var(--terracotta);
-}
-
 .council-card {
   background: var(--paper);
 }
@@ -5656,40 +5651,27 @@ button.tweety-nest-base.gift-pop {
   95% { transform: translate(4%, 1%) rotate(0) scale(0.97); }
 }
 
-/* Bond meter (2026 redesign): a warm liquid-fill heart instead of the same
-   flat --plum bar every other stat on the site uses — this is the one screen
-   framed around a relationship, not a task, so what "70%" MEANS should read
-   at a glance as warmth, not inventory. The heart-shell outline stays visible
-   under the fill so an empty/low heart still reads as a heart, not a blob. */
-.tweety-happiness { margin: 12px 0; }
-.tweety-happiness-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* Phase 2 home-UI cleanup: one light two-line status readout replaces the
+   old separate growth-bar block (features.css, untouched — not this file's
+   file to edit, left as inert dead CSS) and the heart-meter/happiness-row
+   block that used to live here (removed along with the now-unused
+   HeartMeter component in Tweety.jsx — nothing else referenced it). Still
+   driven by the exact same happiness/happinessFace/progress values, just
+   read as two quiet lines of text instead of a bar + a liquid-fill heart. */
+.tweety-status-line {
+  margin: 10px 0 2px;
+  display: grid;
+  gap: 2px;
 }
-.tweety-heart-meter { flex: 0 0 auto; width: 40px; height: 40px; }
-.tweety-heart-meter svg { width: 100%; height: 100%; overflow: visible; }
-.tweety-heart-outline {
-  fill: none;
-  stroke: var(--dash);
-  stroke-width: 1.4;
-}
-.tweety-heart-fill-rect { transition: y 640ms var(--ease-out), height 640ms var(--ease-out); }
-.tweety-heart-meter.glowing {
-  animation: tweety-heart-glow 2.4s ease-in-out infinite;
-}
-@keyframes tweety-heart-glow {
-  0%, 100% { filter: drop-shadow(0 0 0 rgba(201, 147, 47, 0)); }
-  50% { filter: drop-shadow(0 0 6px rgba(201, 147, 47, 0.55)); }
-}
-.tweety-happiness-text { display: flex; flex-direction: column; gap: 2px; }
-.tweety-happiness-caption {
-  font-size: 0.86rem;
+.tweety-status-bonded {
+  margin: 0;
+  font-size: 0.88rem;
   font-weight: 800;
   color: var(--ink-strong);
 }
-.tweety-happiness-pct {
-  font-size: 0.76rem;
+.tweety-status-growth {
+  margin: 0;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -5763,6 +5745,17 @@ button.tweety-nest-base.gift-pop {
   60% { transform: scale(1.18); }
   100% { transform: scale(1); }
 }
+
+/* Phase 2 home-UI cleanup: a scoped modifier on TweetyHomeCard's care row
+   only — restyles size/spacing, same .tweety-care-btn base rules above
+   (hover/active/done states, handlers, disabled logic) untouched, and the
+   unrelated baby-bird care card elsewhere in Tweety.jsx (which reuses the
+   same base classes without this modifier) is unaffected. Smaller so the
+   row reads as a secondary, everyday action rather than the card's main
+   event — still a comfortable tap target (34px icon + generous padding). */
+.tweety-care-row-compact { gap: 8px; margin-top: 6px; }
+.tweety-care-row-compact .tweety-care-btn { padding: 10px 6px 8px; }
+.tweety-care-row-compact .tweety-care-icon { width: 34px; height: 34px; font-size: 1.1rem; }
 
 .tweety-hint {
   margin: 10px 0 0;
@@ -6522,13 +6515,8 @@ button.tweety-nest-base.gift-pop {
 }
 
 /* Species label, e.g. "Tweety (Cape Robin-Chat)" — makes it clear which bird
-   she chose, on the home card and her stats profile. */
-.tweety-species-line {
-  margin: 2px 0 0;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--muted);
-}
+   she chose, on her stats profile (Phase 2 home-UI cleanup moved this off
+   the home card itself; TweetyStatsPage still shows it in full). */
 .tweety-species {
   font-size: 0.62em;
   font-weight: 600;
@@ -6536,16 +6524,25 @@ button.tweety-nest-base.gift-pop {
   opacity: 0.85;
 }
 
-/* Tweety is resting between care windows — shown instead of the care buttons. */
+/* Phase 2 home-UI cleanup: the mood/personality line under the "Tweety's
+   Home" heading — quiet and small, same weight class as the old species
+   line it replaces in that spot. */
+.tweety-mood-line {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Tweety is resting between care windows — shown instead of the care
+   buttons. Phase 2 home-UI cleanup: dropped the dashed-border/background box
+   (read as another small dashboard panel) for plain centred text, matching
+   .tweety-hint's weight just above it — same content, same logic, quieter. */
 .tweety-resting {
-  margin-top: 12px;
+  margin-top: 10px;
   display: grid;
   justify-items: center;
   gap: 2px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(120, 132, 150, 0.1);
-  border: 1px dashed rgba(120, 132, 150, 0.35);
   text-align: center;
 }
 
@@ -7458,8 +7455,8 @@ button.tweety-nest-base.gift-pop {
      inline size — see the Phase 1 cage redesign notes on .tweety-bird. */
   .home-stack .tweety-card { padding: 8px; }
   .home-stack .tweety-card .section-heading { margin-bottom: 2px; }
-  .home-stack .tweety-card .section-heading .eyebrow { display: none; }
   .home-stack .tweety-card .section-heading h3 { font-size: 0.9rem; }
+  .home-stack .tweety-card .tweety-mood-line { font-size: 0.75rem; }
   .home-stack .tweety-card .text-btn { font-size: 0.8rem; }
   .home-stack .tweety-card .tweety-stage { padding: 0; gap: 0; }
   .home-stack .tweety-card .tweety-room { width: 240px; }
@@ -7477,9 +7474,8 @@ button.tweety-nest-base.gift-pop {
   }
   .home-stack .tweety-card .tweety-level-pill { display: none; }
   .home-stack .tweety-card .tweety-streak-pill { font-size: 0.6rem; padding: 2px 7px; }
-  .home-stack .tweety-card .tweety-growth { display: none; }
   .home-stack .tweety-card .tweety-hint { display: none; }
-  .home-stack .tweety-card .tweety-resting { margin-top: 6px; padding: 8px; }
+  .home-stack .tweety-card .tweety-resting { margin-top: 6px; }
   .home-stack .tweety-card .tweety-resting-emoji { font-size: 1.3rem; }
   .home-stack .tweety-card .tweety-resting-line { font-size: 0.95rem; }
   .home-stack .tweety-card .tweety-resting-sub { font-size: 0.75rem; }

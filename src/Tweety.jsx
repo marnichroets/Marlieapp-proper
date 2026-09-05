@@ -996,31 +996,6 @@ function ColorEgg({ color = '#F6A5C0', size = 84, glow = false }) {
   )
 }
 
-// A warm liquid-fill heart — the bond meter's shell stays visible under the
-// fill (a heart path used twice: once as a static outline, once clipped to a
-// rect whose height tracks `percent`) so even an empty heart still reads as
-// a heart, never a blank shape.
-const HEART_PATH = 'M12 21s-8-4.6-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.4-8 11-8 11z'
-function HeartMeter({ percent }) {
-  const p = Math.max(0, Math.min(100, percent))
-  const fillY = 24 - (24 * p) / 100
-  return (
-    <svg viewBox="0 0 24 24" role="img" aria-label={`${Math.round(p)}% bonded`}>
-      <defs>
-        <clipPath id="tweetyHeartClip"><path d={HEART_PATH} /></clipPath>
-        <linearGradient id="tweetyHeartFill" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="var(--terracotta)" />
-          <stop offset="1" stopColor="var(--gold)" />
-        </linearGradient>
-      </defs>
-      <path className="tweety-heart-outline" d={HEART_PATH} />
-      <g clipPath="url(#tweetyHeartClip)">
-        <rect className="tweety-heart-fill-rect" x="0" y={fillY} width="24" height={24 - fillY} fill="url(#tweetyHeartFill)" />
-      </g>
-    </svg>
-  )
-}
-
 // Egg warmth: a handful of colour tiers (barely-there → gold → hot amber)
 // rather than a continuous interpolation — simple, and it still reads as
 // clearly getting warmer day by day.
@@ -1989,11 +1964,6 @@ export function TweetyHomeCard({
   onHeardSong,
 }) {
   const name = tweety?.name || 'Tweety'
-  // The exact species she chose (set at hatch time — see warmMysteryEgg in
-  // App.jsx) always wins over the generic companion-family name, so e.g. a
-  // Southern Double-collared Sunbird she hatched still reads as exactly that,
-  // not the family's "Malachite Sunbird" placeholder text.
-  const species = tweety?.realSpecies || companionSpecies(tweety?.companion)
   const care = tweetyCareState(tweety)
   const win = care.window
   const next = nextCareWindow()
@@ -2350,11 +2320,14 @@ export function TweetyHomeCard({
 
   return (
     <section className={`soft-card full-span tweety-card tweety-mood-${mood}`}>
+      {/* Phase 2 home-UI cleanup: title first (matches every other card's
+          h3 pattern), one light mood/personality line under it — species
+          name and the full growth-stage label both still live on Stats
+          (TweetyStatsPage), so nothing shown here is lost, just decluttered. */}
       <div className="section-heading">
         <div>
-          <p className="eyebrow">{name}&apos;s Home 🪺</p>
-          <h3>{face.emoji} {name} {face.line}</h3>
-          {species && <p className="tweety-species-line">{name} ({species})</p>}
+          <h3>{name}&apos;s Home 🪺</h3>
+          <p className="tweety-mood-line">{face.emoji} {name} {face.line}</p>
         </div>
         <button className="text-btn" type="button" onClick={onOpenStats}>
           Stats →
@@ -2508,38 +2481,28 @@ export function TweetyHomeCard({
         <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
       </div>
 
-      {/* Real-day growth tracker */}
-      <div className="tweety-growth">
-        <div className="tweety-growth-top">
-          <span className="tweety-growth-caption">{progress.caption}</span>
-          <span className="tweety-growth-stage">{growth.short}</span>
-        </div>
-        <div className="tweety-growth-bar" aria-hidden="true">
-          <span style={{ width: `${progress.percent}%` }} />
-        </div>
-      </div>
-
-      {/* Happiness meter — rises from care/store interactions, decays
-          passively when neglected, drives tweetySimpleMood/tweetyMood. */}
-      <div className="tweety-happiness">
-        <div className="tweety-happiness-row">
-          <span className={`tweety-heart-meter${happiness >= 80 ? ' glowing' : ''}`}>
-            <HeartMeter percent={happiness} />
-          </span>
-          <div className="tweety-happiness-text">
-            <span className="tweety-happiness-caption">
-              {happinessFace.emoji} {happinessFace.label}
-            </span>
-            <span className="tweety-happiness-pct">{happiness}% bonded</span>
-          </div>
-        </div>
+      {/* Phase 2 home-UI cleanup: the old separate growth-bar block and
+          happiness-meter block collapse into one light two-line readout —
+          same underlying values (happiness, happinessFace, progress.caption),
+          nothing recalculated. Percent bar / heart-fill visuals and the full
+          stage label still live on Stats; this is presentation only. */}
+      <div className="tweety-status-line">
+        <p className="tweety-status-bonded">
+          {happinessFace.emoji} {happinessFace.label} · {happiness}% bonded
+        </p>
+        <p className="tweety-status-growth">{progress.caption}</p>
       </div>
 
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
       {win ? (
         <>
-          <div className="tweety-care-row">
+          {/* tweety-care-row-compact: a scoped modifier (see App.css), not a
+              change to the shared .tweety-care-row/.tweety-care-btn rules —
+              those are also used by the unrelated baby-bird care card below
+              in this file, which stays exactly as it was. Same handlers,
+              same disabled/done logic, only lighter/smaller presentation. */}
+          <div className="tweety-care-row tweety-care-row-compact">
             <button
               className={`tweety-care-btn${care.fed ? ' done' : ''}`}
               type="button"
