@@ -88,6 +88,14 @@ const TWEETY_NARROW_MEDIA_QUERY = '(max-width: 430px)'
 // here to convert a render WIDTH into the matching render HEIGHT, for the
 // stage-aware perch rest offset below (see stageRestOffsetPx).
 const SONGBIRD_SVG_ASPECT = 460 / 620
+// Every template's legs end at y=380 of that same 620x460 viewBox (verified
+// across all of them, not just songbird-small) — i.e. her actual feet sit at
+// ~82.6% down her own rendered box, not at its very bottom edge (there's
+// empty margin below, meant for the templates' own built-in Ground rect,
+// which TweetyHomeCard now disables — see ground={false} below). Used to
+// calibrate stageRestOffsetPx against her REAL foot line instead of her
+// box's bottom edge.
+const SONGBIRD_FEET_FRACTION = 380 / 460
 
 // Same blend-toward-white used for the garden plant templates' secondary-leaf
 // tone (see Garden.jsx's lightenHex) — duplicated locally rather than shared
@@ -1646,23 +1654,30 @@ function CageFrameBack() {
       <path d="M16 52 Q150 -14 284 52" fill="none" stroke="var(--gold-dark)" strokeWidth="7" strokeLinecap="round" opacity="0.85" />
       <path d="M16 52 Q150 -2 284 52" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
       <circle cx="150" cy="10" r="6.5" fill="var(--gold)" stroke="var(--gold-dark)" strokeWidth="1.5" />
-      {/* Main perch — refinement pass. Tweety's new rest position (see the
-          .tweety-nest top-anchor in App.css) sits with her feet at roughly
-          this branch's height, so she reads as seated on it rather than
+      {/* Main perch — refinement pass. Tweety's rest position (see the
+          .tweety-nest top-anchor + stageRestOffsetPx in TweetyHomeCard) puts
+          her real foot line (per SONGBIRD_FEET_FRACTION) right at this
+          branch's top surface, so she reads as standing on it rather than
           floating in open cage air. A short trunk + shadow below ties
           whichever nest-base tier is showing (basic/cosy/birdhouse) into the
           same branch structure instead of it reading as a separate object on
           the floor — see the item hierarchy note in the refinement brief. */}
-      <rect x="145" y="163" width="10" height="41" rx="4" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <rect x="145" y="149" width="10" height="56" rx="4" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
       <ellipse cx="150" cy="205" rx="36" ry="7" fill="var(--wood-dark)" opacity="0.32" />
-      {/* Main perch branch — thickened and given a warm top sheen + a grain
-          line in the refinement pass (was reading as too thin a stroke for
-          Tweety to visibly stand on). */}
-      <rect x="93" y="154" width="114" height="10" rx="5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
-      <path d="M99 158.5 Q150 161 201 158.5" stroke="var(--wood-dark)" strokeWidth="1" opacity="0.3" fill="none" />
-      <rect x="98" y="155.5" width="104" height="2.6" rx="1.3" fill="var(--honey)" opacity="0.4" />
-      <ellipse cx="88" cy="159" rx="8" ry="4.6" fill="var(--leaf)" transform="rotate(-20 88 159)" />
-      <ellipse cx="212" cy="159" rx="8" ry="4.6" fill="var(--leaf-dark)" transform="rotate(20 212 159)" />
+      {/* Main perch branch — moved up to y=140 (was 154) in the final polish
+          pass to match her ACTUAL foot line now that ground={false} removes
+          each template's own built-in ground rect (TweetyHomeCard) — the
+          previous position was tuned against her box's bottom EDGE, not her
+          real, higher-up foot line, which is what produced the visible
+          double "floating line" under her feet. The earlier wood-grain
+          texture line was removed rather than repositioned — it was landing
+          almost exactly on the foot line and reading as its own stray mark
+          once the real cause was found; the warm top sheen alone still
+          reads as a lit branch surface without a hard line across it. */}
+      <rect x="93" y="140" width="114" height="10" rx="5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <rect x="98" y="141.5" width="104" height="2.6" rx="1.3" fill="var(--honey)" opacity="0.4" />
+      <ellipse cx="88" cy="145" rx="8" ry="4.6" fill="var(--leaf)" transform="rotate(-20 88 145)" />
+      <ellipse cx="212" cy="145" rx="8" ry="4.6" fill="var(--leaf-dark)" transform="rotate(20 212 145)" />
       <ellipse cx="150" cy="225" rx="140" ry="14" fill="var(--wood)" />
       <ellipse cx="150" cy="220" rx="135" ry="12" fill="var(--honey)" opacity="0.8" />
     </svg>
@@ -1686,8 +1701,17 @@ function CageFrameFront() {
     <svg className="cage-frame-front-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
       <rect x="16" y="48" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
       <rect x="16" y="206" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
-      <rect x="18" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
-      <rect x="277" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
+      {/* Final polish pass: posts now start/end at x=16/279 (were 18/277) so
+          their outer edges land exactly on the rails' own span (16-284) and
+          the dome's springline (CageFrameBack's arc also starts/ends at
+          x=16/284) instead of sitting ~2-4 units inset from both — "whether
+          the side posts visually land where they should". Height extended
+          160->168 (was 48-208, now 48-216) so they run a few units INTO the
+          base tray (tray's own top edge sits at y=211, see CageFrameBack)
+          rather than stopping short of it — "posts should feel planted",
+          not floating just above the floor. */}
+      <rect x="16" y="48" width="5" height="168" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
+      <rect x="279" y="48" width="5" height="168" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
       {CAGE_BAR_X.map((x) => (
         <line key={x} x1={x} y1="52" x2={x} y2="206" stroke="var(--gold)" strokeWidth="1.3" opacity="0.22" />
       ))}
@@ -2085,16 +2109,17 @@ export function TweetyHomeCard({
   // birdSizeMul is the same per-render multiplier the size prop below uses,
   // just without the stageScale factor — i.e. what her height WOULD be at
   // full (adult) scale. Nudging every non-adult stage down by the difference
-  // between that and its own (smaller) height lands every stage's feet on
-  // the exact same line adult already sits on, with zero effect at
-  // adult/crowned (stageScale 1 -> offset 0). Purely a static translateY on a
-  // new middle wrapper (.tweety-stage-offset, between the existing posture
-  // wrapper and the animated motion-shell) — doesn't touch growth logic,
-  // species art, or the motion-shell's own keyframes.
+  // between that and its own (smaller) FOOT line — not its box-bottom, see
+  // SONGBIRD_FEET_FRACTION above — lands every stage's actual feet on the
+  // exact same line adult already sits on, with zero effect at adult/crowned
+  // (stageScale 1 -> offset 0). Purely a static translateY on a new middle
+  // wrapper (.tweety-stage-offset, between the existing posture wrapper and
+  // the animated motion-shell) — doesn't touch growth logic, species art, or
+  // the motion-shell's own keyframes.
   const birdSizeMul = TWEETY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * (speciesArt.sizeScale || 1)
   const birdSize = birdSizeMul * stageScale
   const birdHeightAtFullScale = birdSizeMul * SONGBIRD_SVG_ASPECT
-  const stageRestOffsetPx = birdHeightAtFullScale * (1 - stageScale)
+  const stageRestOffsetPx = birdHeightAtFullScale * SONGBIRD_FEET_FRACTION * (1 - stageScale)
   const roomTheme = tweety?.roomTheme || 'cottage'
   const fedToday = tweetyFedToday(tweety)
   // "Tweety's cosy home ✨" — a small badge once she's actually filled the
@@ -2421,10 +2446,19 @@ export function TweetyHomeCard({
             >
               <span className="tweety-stage-offset" style={{ transform: `translateY(${stageRestOffsetPx}px)` }}>
                 <span className={`tweety-motion-shell${motionClass ? ` ${motionClass}` : ''}`}>
+                  {/* ground={false}: every template draws its OWN built-in
+                      branch/ground rect by default (see Ground/GardenBird in
+                      birdTemplates.jsx) — with the cage's own main perch now
+                      behind her, that second, independently-positioned line
+                      was the "awkward line under her feet" (root cause of the
+                      final visual polish issue: two unaligned perch lines,
+                      not one). Same ground={false} the species picker/quiz
+                      previews already use elsewhere in this file. */}
                   <GardenBird
                     template={speciesArt.template || 'songbird-small'}
                     zones={tweetyZones}
                     size={birdSize}
+                    ground={false}
                   />
                   {birdLevel === 'crowned' && <TweetyCrown />}
                   {roomTheme === 'winter-cabin' && (
