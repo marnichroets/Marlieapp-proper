@@ -66,10 +66,10 @@ const TWEETY_STAGE_MUTE = {
   crowned: 0,
 }
 
-// Cage-view base render size at full (adult) growth-stage scale — up from the
-// pre-redesign 110px so Tweety reads as the scene's focal point rather than
-// one more small object among the room items (Phase 1 cage redesign; bumped
-// again 190→213, ~12%, in the refinement pass — re-verified against every
+// Home-view base render size at full (adult) growth-stage scale — up from
+// the original 110px so Tweety reads as the scene's focal point rather than
+// one more small object among the room items (bumped 190→213, ~12%, in a
+// later pass — re-verified against every
 // travel keyframe's clipping margin at this size, see the rescaled
 // .tweety-hop-perch/.tweety-visit-bowl/.tweety-visit-water keyframes in
 // App.css). Still multiplied by TWEETY_STAGE_SCALE and each species' own
@@ -84,11 +84,6 @@ const TWEETY_BASE_SIZE = 213
 // — never the old 60px collapse.
 const TWEETY_NARROW_SIZE_FACTOR = 0.74
 const TWEETY_NARROW_MEDIA_QUERY = '(max-width: 430px)'
-// Phase 3a: Play Mode base size — "the bird must become the focus of the
-// screen", ~40% bigger than the already-large home size. Same
-// narrow-viewport factor and per-stage/per-species scaling as home (see the
-// Play scene render), just a bigger starting point.
-const PLAY_BASE_SIZE = 300
 // Every bird template's viewBox is 620x460 (see birdTemplates.jsx) — used
 // here to convert a render WIDTH into the matching render HEIGHT, for the
 // stage-aware perch rest offset below (see stageRestOffsetPx).
@@ -1643,9 +1638,9 @@ function LuxuryBirdhouseArt() {
   )
 }
 
-// A spot in the cage scene for one owned store item — only ever rendered once
-// she actually owns it (see the ROOM_ITEMS.map call site below), so an
-// unfurnished cage reads as clean and complete rather than a grid of grey
+// A spot in the room scene for one owned store item — only ever rendered
+// once she actually owns it (see the ROOM_ITEMS.map call site below), so an
+// unfurnished room reads as clean and complete rather than a grid of grey
 // placeholder ghosts.
 function RoomItem({ className, title, icon, popping, tapped, onTap }) {
   const cls = `room-slot ${className} owned${popping ? ' gift-pop' : ''}${tapped ? ' tapped' : ''}`
@@ -1902,12 +1897,6 @@ export function TweetyHomeCard({
   onHeardSong,
 }) {
   const name = tweety?.name || 'Tweety'
-  // Phase 3a: Play Mode is transient UI state only — never persisted, never
-  // read from `tweety`, resets to 'home' on remount (e.g. navigating away
-  // and back). Reusing the SAME care/happiness/scheduler state and handlers
-  // regardless of which view is showing — nothing about her data changes
-  // when she's "out" versus "home".
-  const [homeView, setHomeView] = useState('home')
   const care = tweetyCareState(tweety)
   const win = care.window
   const next = nextCareWindow()
@@ -2273,12 +2262,6 @@ export function TweetyHomeCard({
         </button>
       </div>
 
-      {/* Phase 3a: Play Mode is a sibling view, not a separate route — same
-          card, same header, same underlying tweety/care/happiness state and
-          handlers either way. Wrapped in a fragment since this is several
-          sibling elements (the room, status line, care row, etc), not one. */}
-      {homeView === 'home' && (
-      <>
       <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
 
@@ -2300,7 +2283,7 @@ export function TweetyHomeCard({
             // active (plus any legacy one-off 'treats' id, kept recognized).
             const owned = it.id === 'treats' ? boosted || ownedGiftIds.has('treats') : ownedGiftIds.has(it.id)
             // Unowned items simply don't render (see RoomItem above) — a
-            // sparsely-furnished cage should look clean, not full of grey
+            // sparsely-furnished room should look clean, not full of grey
             // ghost placeholders.
             if (!owned) return null
             // Feeding Bowl reads full/sparse off whether she's fed today —
@@ -2353,12 +2336,10 @@ export function TweetyHomeCard({
                 <span className={`tweety-motion-shell${motionClass ? ` ${motionClass}` : ''}`}>
                   {/* ground={false}: every template draws its OWN built-in
                       branch/ground rect by default (see Ground/GardenBird in
-                      birdTemplates.jsx) — with the cage's own main perch now
-                      behind her, that second, independently-positioned line
-                      was the "awkward line under her feet" (root cause of the
-                      final visual polish issue: two unaligned perch lines,
-                      not one). Same ground={false} the species picker/quiz
-                      previews already use elsewhere in this file. */}
+                      birdTemplates.jsx) — a stray extra line under her feet
+                      that doesn't belong in this open room. Same
+                      ground={false} the species picker/quiz previews already
+                      use elsewhere in this file. */}
                   <GardenBird
                     template={speciesArt.template || 'songbird-small'}
                     zones={tweetyZones}
@@ -2440,13 +2421,6 @@ export function TweetyHomeCard({
 
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
 
-      {/* Phase 3a: the promised primary CTA Phase 2 deliberately left out
-          (a dead button with no Play Mode behind it would have been worse
-          than no button) — now wired to the real thing. */}
-      <button className="primary-btn tweety-take-out-btn" type="button" onClick={() => setHomeView('play')}>
-        🚪 Take {name} out
-      </button>
-
       {win ? (
         <>
           {/* tweety-care-row-compact: a scoped modifier (see App.css), not a
@@ -2509,33 +2483,6 @@ export function TweetyHomeCard({
         <button className="secondary-btn tweety-release-btn" type="button" onClick={onReleaseToGarden}>
           🌳 Release {name} to the Garden
         </button>
-      )}
-      </>
-      )}
-
-      {/* Phase 3a: Play Mode shell only — a warm open scene with two landing
-          spots and a much bigger Tweety, purely to prove the transition
-          works. No idle animation, no Pet/Treat/Play/Call reactions, no
-          hopping between the two spots yet — those are Phase 3b/3c. Her
-          care/happiness state is completely unaffected: this is local view
-          state only (homeView), nothing here reads or writes `tweety`. */}
-      {homeView === 'play' && (
-        <div className="tweety-play-scene">
-          <div className="tweety-play-glow" aria-hidden="true" />
-          <div className="tweety-play-perch tweety-play-perch-a" aria-hidden="true" />
-          <div className="tweety-play-perch tweety-play-perch-b" aria-hidden="true" />
-          <span className="tweety-play-bird" aria-hidden="true">
-            <GardenBird
-              template={speciesArt.template || 'songbird-small'}
-              zones={tweetyZones}
-              size={PLAY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * stageScale * (speciesArt.sizeScale || 1)}
-              ground={false}
-            />
-          </span>
-          <button className="secondary-btn tweety-play-back-btn" type="button" onClick={() => setHomeView('home')}>
-            ← Back to Home
-          </button>
-        </div>
       )}
     </section>
   )

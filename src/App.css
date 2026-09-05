@@ -5221,59 +5221,6 @@ textarea:focus {
   box-shadow: inset 0 1px 8px rgba(255, 244, 219, 0.5), 0 6px 16px rgba(124, 79, 40, 0.1);
 }
 
-/* Phase 3a: the promised primary CTA, above the (still secondary) care row. */
-.tweety-take-out-btn {
-  width: 100%;
-  margin-top: 10px;
-}
-
-/* Phase 3a Play Mode shell — a wider, shorter "tabletop/window ledge" scene
-   (landscape, unlike the taller portrait home room), warm sunlit gradient +
-   a soft glow, two simple perch spots, Tweety much bigger than at home. Kept
-   deliberately simple for this first pass — no idle animation, no per-stage
-   foot alignment beyond centering her on the occupied perch — Phase 3b adds
-   real interactions and can revisit alignment once those exist. */
-.tweety-play-scene {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  margin: 4px auto 0;
-  border-radius: 20px;
-  overflow: hidden;
-  border: 1px solid rgba(180, 140, 70, 0.25);
-  background: linear-gradient(165deg, #fff6e0 0%, #fbe8c4 60%, #f3d69e 100%);
-}
-.tweety-play-glow {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 60% 20%, rgba(255, 244, 200, 0.9), transparent 55%);
-  pointer-events: none;
-}
-.tweety-play-perch {
-  position: absolute;
-  bottom: 30%;
-  width: 20%;
-  height: 5%;
-  border-radius: 999px;
-  background: var(--wood);
-  border: 1px solid var(--wood-dark);
-}
-.tweety-play-perch-a { left: 18%; }
-.tweety-play-perch-b { left: 62%; }
-.tweety-play-bird {
-  position: absolute;
-  left: 28%;
-  bottom: 33%;
-  transform: translateX(-50%);
-  line-height: 0;
-}
-.tweety-play-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.tweety-play-back-btn {
-  position: absolute;
-  left: 10px;
-  top: 10px;
-}
-
 /* Sits behind every room-slot item and the nest (z-index 0, pointer-events
    none) — decorative only, never intercepts taps meant for the items on top.
    RoomBackdrop's own <svg> (Tweety.jsx) is a 300x240 (5:4) viewBox with
@@ -5311,9 +5258,10 @@ textarea:focus {
   opacity: 0.55;
   filter: saturate(0.7) brightness(1.08);
 }
-/* A flat cream veil over the backdrop art, between it and the cage structure
-   (dome/tray paint over this, staying crisp) — the other half of quietening
-   the backdrop without touching the shared RoomBackdrop component. */
+/* A flat cream veil over the backdrop art, between it and the room's own
+   items/nest (which paint over this, staying crisp) — the other half of
+   quietening the backdrop without touching the shared RoomBackdrop
+   component. */
 .room-backdrop-wash {
   position: absolute;
   inset: 0;
@@ -5436,21 +5384,21 @@ button.room-slot:hover svg { transform: scale(1.08); }
   30%, 60%, 90% { transform: rotate(10deg); }
 }
 
-/* Cage map (Phase 1 remap) — small accents along the top rail (window, wind
-   chimes, mirror, music box) and a side perch below them; the base tray holds
-   two clusters either side of the centre, left to right: feeding bowl, special
-   treats, ribbon .. watertank, herb bundle, flower bouquet — leaving the
-   cage's own centre (roughly 33–67%) clear for Tweety's main perch. Directions
-   preserved from the old room map (bowl bottom-left, water bottom-right, perch
-   upper-left) so the existing macro-idle travel animations (.tweety-visit-bowl
-   / .tweety-visit-water / .tweety-hop-perch in Tweety.jsx) still land in
-   roughly the right place without needing their own keyframes touched. */
+/* Room item map — small accents along the top (window, wind chimes, mirror,
+   music box) and a side perch below them; the floor row holds two clusters
+   either side of the centre, left to right: feeding bowl, special treats,
+   ribbon .. watertank, herb bundle, flower bouquet — leaving the room's own
+   centre (roughly 33–67%) clear for Tweety's main perch/nest. Directions
+   (bowl bottom-left, water bottom-right, perch upper-left) matter because the
+   macro-idle travel animations (.tweety-visit-bowl / .tweety-visit-water /
+   .tweety-hop-perch in Tweety.jsx) rely on them to still land in roughly the
+   right place without needing their own keyframes touched. */
 .slot-window { left: 6%; top: 5%; width: 13%; z-index: 1; }
 .slot-chimes { left: 44%; top: 3%; width: 12%; z-index: 1; }
 .slot-mirror { left: 64%; top: 6%; width: 15%; z-index: 1; }
 .slot-musicbox { left: 82%; top: 5%; width: 14%; z-index: 1; }
 .slot-perch { left: 4%; top: 20%; width: 17%; z-index: 1; }
-/* Base-tray row sits closer to the room's floor than the nest's own bounding
+/* Floor row sits closer to the room's floor than the nest's own bounding
    box, so it's bumped above it (z-index 4 > .tweety-nest's 3) — otherwise the
    nest rim would paint over its edge on narrower cards. */
 .slot-feedingbowl { left: 0%; top: 80%; width: 13%; z-index: 4; }
@@ -5614,7 +5562,7 @@ button.tweety-nest-base.gift-pop {
    than a vague wander in place. X rescaled in the refinement pass for the
    213px adult size (13/18 of its prior magnitude) — margin was down to
    ~5px at the bigger size, now back to a comfortable ~16px. Y untouched,
-   still well clear of the cage top at the new higher rest position. */
+   still well clear of the room's top edge at the current rest position. */
 .tweety-wander { animation: tweety-wander 3.2s ease-in-out; }
 @keyframes tweety-wander {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -5697,8 +5645,8 @@ button.tweety-nest-base.gift-pop {
    driven by the exact same happiness/happinessFace/progress values, just
    read as two quiet lines of text instead of a bar + a liquid-fill heart. */
 /* Repair pass: this block was left-aligned by default (no text-align/
-   justify-items set), while everything else in this card — the cage itself,
-   .tweety-hint, .tweety-resting — reads centered. That mismatch is what made
+   justify-items set), while everything else in this card — the room scene
+   itself, .tweety-hint, .tweety-resting — reads centered. That mismatch is what made
    it look like it had drifted to the left with empty space on the right;
    centering it here brings it back in line with the rest of the card. */
 .tweety-status-line {
@@ -7494,11 +7442,11 @@ button.tweety-nest-base.gift-pop {
   /* Birds strip → ~120px (sizing for the cards lives in features.css). */
   .home-stack .near-you-card { padding: 6px 8px; }
 
-  /* Tweety card, cage view — the bird's own render size now comes from JS
+  /* Tweety card — the bird's own render size comes from JS
      (TWEETY_NARROW_SIZE_FACTOR in Tweety.jsx, gated on this same 430px
      breakpoint) rather than a CSS override, so it actually shrinks
      proportionately instead of a fixed pixel cap fighting the SVG's own
-     inline size — see the Phase 1 cage redesign notes on .tweety-bird. */
+     inline size — see the sizing notes on .tweety-bird. */
   .home-stack .tweety-card { padding: 8px; }
   .home-stack .tweety-card .section-heading { margin-bottom: 2px; }
   .home-stack .tweety-card .section-heading h3 { font-size: 0.9rem; }
