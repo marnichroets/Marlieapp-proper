@@ -5152,6 +5152,13 @@ textarea:focus {
   animation: float-a 3s ease-in-out infinite;
 }
 
+/* Repair pass: groups the two pills into one centred row (see the wrapper
+   div in Tweety.jsx) instead of each being its own full-width grid row. */
+.tweety-pill-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
 .tweety-level-pill,
 .tweety-streak-pill {
   display: inline-block;
@@ -5658,10 +5665,17 @@ button.tweety-nest-base.gift-pop {
    HeartMeter component in Tweety.jsx — nothing else referenced it). Still
    driven by the exact same happiness/happinessFace/progress values, just
    read as two quiet lines of text instead of a bar + a liquid-fill heart. */
+/* Repair pass: this block was left-aligned by default (no text-align/
+   justify-items set), while everything else in this card — the cage itself,
+   .tweety-hint, .tweety-resting — reads centered. That mismatch is what made
+   it look like it had drifted to the left with empty space on the right;
+   centering it here brings it back in line with the rest of the card. */
 .tweety-status-line {
   margin: 10px 0 2px;
   display: grid;
+  justify-items: center;
   gap: 2px;
+  text-align: center;
 }
 .tweety-status-bonded {
   margin: 0;
@@ -6526,9 +6540,10 @@ button.tweety-nest-base.gift-pop {
 
 /* Phase 2 home-UI cleanup: the mood/personality line under the "Tweety's
    Home" heading — quiet and small, same weight class as the old species
-   line it replaces in that spot. */
+   line it replaces in that spot. Repair pass: margin nudged 2px->4px, a bit
+   more breathing room under the bolder 1.3rem title above it. */
 .tweety-mood-line {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);

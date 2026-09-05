@@ -88,14 +88,29 @@ const TWEETY_NARROW_MEDIA_QUERY = '(max-width: 430px)'
 // here to convert a render WIDTH into the matching render HEIGHT, for the
 // stage-aware perch rest offset below (see stageRestOffsetPx).
 const SONGBIRD_SVG_ASPECT = 460 / 620
-// Every template's legs end at y=380 of that same 620x460 viewBox (verified
-// across all of them, not just songbird-small) — i.e. her actual feet sit at
-// ~82.6% down her own rendered box, not at its very bottom edge (there's
-// empty margin below, meant for the templates' own built-in Ground rect,
-// which TweetyHomeCard now disables — see ground={false} below). Used to
-// calibrate stageRestOffsetPx against her REAL foot line instead of her
-// box's bottom edge.
-const SONGBIRD_FEET_FRACTION = 380 / 460
+// Every template's ThreeToeFeet toe-tips reach y=390-396 of that same
+// 620x460 viewBox (legs themselves end at y=380, toes splay out and down
+// from there — verified across every template, not just songbird-small),
+// i.e. her actual toe-contact point sits at ~85.4% down her own rendered
+// box, not at its very bottom edge (there's empty margin below, meant for
+// the templates' own built-in Ground rect, which TweetyHomeCard now
+// disables — see ground={false} below). Used to calibrate stageRestOffsetPx
+// against where her toes actually touch down, not her box's bottom edge.
+const SONGBIRD_FEET_FRACTION = 393 / 460
+// The main perch branch's own top edge sits at y=154 of CageFrameBack's
+// 0-240 viewBox (see the <rect> in CageFrameBack below) — this is a few
+// units past that, into the branch's own 10-unit thickness, so her toes
+// read as gripping the wood rather than resting exactly on a mathematical
+// boundary line. Expressed as a fraction of the CAGE's own height (not the
+// bird's) because .tweety-room stretches this SAME viewBox non-uniformly
+// per breakpoint (preserveAspectRatio="none") — but since the room's own
+// aspect-ratio is fixed (4/5, see .tweety-room), this fraction of room
+// height is identical at every breakpoint, unlike a fraction of the bird's
+// own (independently-scaled) box height would be.
+const CAGE_PERCH_LINE_FRACTION = 157 / 240
+// .tweety-nest's own anchor (top: 25%, see App.css) — must stay in sync with
+// that CSS rule; stageRestOffsetPx below is measured from this line.
+const TWEETY_REST_ANCHOR_FRACTION = 0.25
 
 // Same blend-toward-white used for the garden plant templates' secondary-leaf
 // tone (see Garden.jsx's lightenHex) — duplicated locally rather than shared
@@ -1669,8 +1684,14 @@ function CageFrameFront() {
     <svg className="cage-frame-front-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
       <rect x="16" y="48" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
       <rect x="16" y="206" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
-      <rect x="18" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
-      <rect x="277" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
+      {/* Height extended 160->166 (posts now run 48-214, was 48-208) so
+          they visibly run into the base tray (its own top edge sits at
+          y=211, see CageFrameBack) instead of stopping short of it — same
+          x-position/thickness/opacity as before, purely a length fix so the
+          cage reads as resting ON the tray rather than floating just above
+          it. */}
+      <rect x="18" y="48" width="5" height="166" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
+      <rect x="277" y="48" width="5" height="166" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
       {CAGE_BAR_X.map((x) => (
         <line key={x} x1={x} y1="52" x2={x} y2="206" stroke="var(--gold)" strokeWidth="1.3" opacity="0.22" />
       ))}
@@ -2055,29 +2076,46 @@ export function TweetyHomeCard({
   const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
   const speciesArt = speciesArtFor(tweety?.companion, tweety?.realSpecies)
   const tweetyZones = mutedZones(speciesArt.zones, stageMute)
-  // Cage-view render size, and the stage-aware rest offset that keeps her
-  // FEET on the main perch (see CageFrameBack's perch branch, unchanged
-  // since the refinement pass — this offset is the only moving part) at
-  // every growth stage. Two things push her down from .tweety-nest's plain
-  // top:25% anchor (see App.css), stacked together:
-  //  1) a shorter chick/fledgling/young box naturally ends higher up than
-  //     the adult box the perch was originally tuned against ((1-stageScale)
-  //     term, present since the growth-stage alignment fix);
-  //  2) now that ground={false} removes each template's own built-in ground
-  //     rect (see below), her real feet sit at SONGBIRD_FEET_FRACTION down
-  //     her OWN box, not at its bottom edge — so even at adult scale she
-  //     needs a small constant extra nudge down to reach the same perch line
-  //     the box-bottom used to represent (the (1 - FEET_FRACTION) term).
+  // Cage-view render size, and the stage-aware rest offset that puts her
+  // actual TOES (SONGBIRD_FEET_FRACTION down her own box) exactly on the
+  // main perch branch's own rendered line (CAGE_PERCH_LINE_FRACTION down the
+  // cage), at every growth stage.
+  //
+  // Earlier passes derived this offset from her box-BOTTOM reaching a fixed
+  // line (matching where she used to sit before the cage/perch existed at
+  // all) — that line was never actually checked against where the perch
+  // graphic renders, which is what let the "floating"/"legs through the
+  // branch" mismatch persist across a few rounds. This version instead
+  // targets the perch's real drawn position directly:
+  //   roomHeightPx        — .tweety-room is a fixed 240px/300px wide box
+  //                         (App.css) at its own fixed 4:5 aspect ratio, so
+  //                         its height only ever takes one of two values.
+  //   perchLinePx         — CAGE_PERCH_LINE_FRACTION of that height (the
+  //                         branch's own position never changes, but where
+  //                         it lands in real px does, per breakpoint).
+  //   restAnchorPx        — TWEETY_REST_ANCHOR_FRACTION of that height,
+  //                         matching .tweety-nest's own top:25% anchor.
+  //   K*stageScale*FEET   — how far down her own toes sit, at this stage's
+  //                         actual render height.
+  // offset = (perchLinePx - restAnchorPx) - K*stageScale*FEET_FRACTION,
+  // which algebraically keeps her toe-line pinned to perchLinePx at every
+  // stage (verified: chick/fledgling/young/adult all land on the exact same
+  // line), with zero re-derivation needed if the branch itself ever moves —
+  // only CAGE_PERCH_LINE_FRACTION would need updating.
+  //
   // birdSizeMul is the same per-render multiplier the size prop below uses,
   // just without the stageScale factor — i.e. what her height WOULD be at
-  // full (adult) scale, used to express both nudges in real pixels. Purely a
-  // static translateY on a new middle wrapper (.tweety-stage-offset, between
-  // the existing posture wrapper and the animated motion-shell) — doesn't
-  // touch growth logic, species art, or the motion-shell's own keyframes.
+  // full (adult) scale. Purely a static translateY on a new middle wrapper
+  // (.tweety-stage-offset, between the existing posture wrapper and the
+  // animated motion-shell) — doesn't touch growth logic, species art, or the
+  // motion-shell's own keyframes.
   const birdSizeMul = TWEETY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * (speciesArt.sizeScale || 1)
   const birdSize = birdSizeMul * stageScale
   const birdHeightAtFullScale = birdSizeMul * SONGBIRD_SVG_ASPECT
-  const stageRestOffsetPx = birdHeightAtFullScale * (1 - stageScale * SONGBIRD_FEET_FRACTION)
+  const roomHeightPx = isNarrowViewport ? 300 : 375
+  const perchLinePx = roomHeightPx * CAGE_PERCH_LINE_FRACTION
+  const restAnchorPx = roomHeightPx * TWEETY_REST_ANCHOR_FRACTION
+  const stageRestOffsetPx = (perchLinePx - restAnchorPx) - birdHeightAtFullScale * stageScale * SONGBIRD_FEET_FRACTION
   const roomTheme = tweety?.roomTheme || 'cottage'
   const fedToday = tweetyFedToday(tweety)
   // "Tweety's cosy home ✨" — a small badge once she's actually filled the
@@ -2477,8 +2515,15 @@ export function TweetyHomeCard({
         {!tweety?.songHintSeen && (
           <p className="tweety-song-hint">🎵 Tap to hear {name} sing</p>
         )}
-        <span className="tweety-level-pill">{growth.label}</span>
-        <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
+        {/* Repair pass: the stage/mood pills now sit side by side in one
+            compact row instead of stacking as two separate full-width
+            centred rows — reads tighter, and ties this row visually to the
+            equally-compact status line right below it. No text/values
+            changed, just how the two spans are grouped. */}
+        <div className="tweety-pill-row">
+          <span className="tweety-level-pill">{growth.label}</span>
+          <span className="tweety-streak-pill">{face.label} {face.emoji}</span>
+        </div>
       </div>
 
       {/* Phase 2 home-UI cleanup: the old separate growth-bar block and
