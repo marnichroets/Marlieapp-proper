@@ -68,11 +68,14 @@ const TWEETY_STAGE_MUTE = {
 
 // Cage-view base render size at full (adult) growth-stage scale — up from the
 // pre-redesign 110px so Tweety reads as the scene's focal point rather than
-// one more small object among the room items (Phase 1 cage redesign). Still
-// multiplied by TWEETY_STAGE_SCALE and each species' own sizeScale below —
-// neither of those changes, so relative growth-stage and per-species
-// proportions stay exactly as they were.
-const TWEETY_BASE_SIZE = 190
+// one more small object among the room items (Phase 1 cage redesign; bumped
+// again 190→213, ~12%, in the refinement pass — re-verified against every
+// travel keyframe's clipping margin at this size, see the rescaled
+// .tweety-hop-perch/.tweety-visit-bowl/.tweety-visit-water keyframes in
+// App.css). Still multiplied by TWEETY_STAGE_SCALE and each species' own
+// sizeScale below — neither of those changes, so relative growth-stage and
+// per-species proportions stay exactly as they were.
+const TWEETY_BASE_SIZE = 213
 // Narrow-viewport render scale — replaces the old fixed ".tweety-bird { width:
 // 60px !important }" mobile override (App.css), which fought the JS-computed
 // size below rather than actually shrinking it (the SVG has its own explicit
@@ -1639,6 +1642,18 @@ function CageFrameBack() {
       <path d="M16 52 Q150 -14 284 52" fill="none" stroke="var(--gold-dark)" strokeWidth="7" strokeLinecap="round" opacity="0.85" />
       <path d="M16 52 Q150 -2 284 52" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
       <circle cx="150" cy="10" r="6.5" fill="var(--gold)" stroke="var(--gold-dark)" strokeWidth="1.5" />
+      {/* Main perch — refinement pass. Tweety's new rest position (see the
+          .tweety-nest top-anchor in App.css) sits with her feet at roughly
+          this branch's height, so she reads as seated on it rather than
+          floating in open cage air. A short trunk + shadow below ties
+          whichever nest-base tier is showing (basic/cosy/birdhouse) into the
+          same branch structure instead of it reading as a separate object on
+          the floor — see the item hierarchy note in the refinement brief. */}
+      <rect x="145" y="160" width="10" height="44" rx="4" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <ellipse cx="150" cy="205" rx="36" ry="7" fill="var(--wood-dark)" opacity="0.32" />
+      <rect x="95" y="155" width="110" height="7" rx="3.5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <ellipse cx="90" cy="158" rx="7" ry="4" fill="var(--leaf)" transform="rotate(-20 90 158)" />
+      <ellipse cx="210" cy="158" rx="7" ry="4" fill="var(--leaf-dark)" transform="rotate(20 210 158)" />
       <ellipse cx="150" cy="225" rx="140" ry="14" fill="var(--wood)" />
       <ellipse cx="150" cy="220" rx="135" ry="12" fill="var(--honey)" opacity="0.8" />
     </svg>
@@ -1653,16 +1668,19 @@ function CageFrameBack() {
 // crossing her body at her new, much larger render size — cut down to 4 with
 // a clear central gap instead, so she reads clearly at rest and only briefly
 // passes behind a bar mid-hop, same as a real aviary viewed front-on.
+// Refinement pass: opacity/stroke trimmed again (0.3→0.22, 1.6→1.3) and the
+// top/bottom rails lightened (0.8→0.55) so the whole front layer reads as a
+// quiet frame rather than a layer drawn over the scene.
 const CAGE_BAR_X = [60, 120, 180, 240]
 function CageFrameFront() {
   return (
     <svg className="cage-frame-front-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
-      <rect x="16" y="48" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.8" />
-      <rect x="16" y="206" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.8" />
-      <rect x="18" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" />
-      <rect x="277" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" />
+      <rect x="16" y="48" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
+      <rect x="16" y="206" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
+      <rect x="18" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
+      <rect x="277" y="48" width="5" height="160" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
       {CAGE_BAR_X.map((x) => (
-        <line key={x} x1={x} y1="52" x2={x} y2="206" stroke="var(--gold)" strokeWidth="1.6" opacity="0.3" />
+        <line key={x} x1={x} y1="52" x2={x} y2="206" stroke="var(--gold)" strokeWidth="1.3" opacity="0.22" />
       ))}
     </svg>
   )
@@ -2316,6 +2334,7 @@ export function TweetyHomeCard({
           <div className="room-backdrop" aria-hidden="true">
             <RoomBackdrop theme={roomTheme} timePhase={saTimePhase()} />
           </div>
+          <div className="room-backdrop-wash" aria-hidden="true" />
           <div className="cage-frame-back" aria-hidden="true"><CageFrameBack /></div>
           <div className="tweety-room-glow" aria-hidden="true" />
           {ROOM_ITEMS.map((it) => {

@@ -4969,10 +4969,19 @@ textarea:focus {
   padding: 6px 0 2px;
 }
 
+/* Refinement pass: anchored from the TOP instead of the bottom. Bottom-
+   anchoring made Tweety's own position depend on the height of whichever
+   nest-base tier sits below her in this same flow (basic/cosy/birdhouse all
+   differ), which is why she used to read as sitting low near the floor.
+   Anchoring from the top means her position is fixed at a "main perch" height
+   regardless of which nest-base tier is showing — the tier just extends
+   further down below her. Re-verified against every travel/sleep keyframe at
+   this new origin (see App.css's .tweety-hop-perch/.tweety-visit-bowl/
+   .tweety-visit-water and Tweety.jsx's birdhouse sleep sequence). */
 .tweety-nest {
   position: absolute;
   left: 50%;
-  bottom: 6%;
+  top: 25%;
   transform: translateX(-50%);
   z-index: 3;
   display: grid;
@@ -5065,22 +5074,22 @@ textarea:focus {
 }
 
 /* Perch Branch: an occasional hop up-left toward the perch slot, a moment's
-   sit, then back — offsets are relative to the bird's own box (the nest sits
-   centred/near the room's bottom, the perch slot sits upper-left), so this
-   stays roughly right regardless of card width. X offsets scaled down (~46%
-   of their pre-Phase-1 magnitude) for the Phase 1 size bump — at the old
-   110px bird these numbers left enough side margin inside .tweety-room's
-   overflow:hidden; at the new ~190px desktop / ~141px mobile bird they would
-   push part of her past the cage's left edge mid-hop. Y is untouched — the
-   taller cage (aspect-ratio 4/5 vs the old 5/4) already gives more headroom
-   than before, not less. */
+   sit, then back — offsets are relative to the bird's own box (the perch
+   slot sits upper-left of her rest position), so this stays roughly right
+   regardless of card width. Rescaled twice now: X first for the Phase 1 size
+   bump (110px→190px), then BOTH X and Y again in the refinement pass for the
+   190px→213px size bump AND the new higher top-anchored rest position (see
+   .tweety-nest above) — raising her meant less headroom above for this
+   upward hop than the old bottom-anchored position had, so Y needed
+   rescaling this time too, not just X. Re-verified against room bounds at
+   both breakpoints, adult stage (worst case, biggest box). */
 .tweety-hop-perch { animation: tweety-hop-perch 3.6s ease-in-out; }
 @keyframes tweety-hop-perch {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  12% { transform: translate(-18%, -60%) scale(0.84); }
-  38% { transform: translate(-22%, -68%) scale(0.82); }
-  70% { transform: translate(-22%, -68%) scale(0.82); }
-  88% { transform: translate(-7%, -22%) scale(0.92); }
+  12% { transform: translate(-12%, -44%) scale(0.84); }
+  38% { transform: translate(-15%, -50%) scale(0.82); }
+  70% { transform: translate(-15%, -50%) scale(0.82); }
+  88% { transform: translate(-5%, -16%) scale(0.92); }
 }
 
 /* Crowned-adult overlay (see TweetyCrown in Tweety.jsx) — songbird-small's
@@ -5245,6 +5254,23 @@ textarea:focus {
   width: auto;
   aspect-ratio: 5 / 4;
   transform: translateX(-50%);
+  /* Refinement pass: quieten the backdrop art itself (e.g. a theme's
+     windowsill greenery) so it never competes with Tweety for attention —
+     RoomBackdrop's own markup/colours are untouched, this only dims/desaturates
+     the rendered result. Paired with .room-backdrop-wash below for a soft
+     cream veil on top. */
+  opacity: 0.55;
+  filter: saturate(0.7) brightness(1.08);
+}
+/* A flat cream veil over the backdrop art, between it and the cage structure
+   (dome/tray paint over this, staying crisp) — the other half of quietening
+   the backdrop without touching the shared RoomBackdrop component. */
+.room-backdrop-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgba(255, 248, 232, 0.4);
 }
 .room-backdrop::before,
 .room-backdrop::after {
@@ -5536,14 +5562,17 @@ button.tweety-nest-base.gift-pop {
 }
 /* A small, purposeful hop toward the window (upper-left, see .slot-window) —
    the one room fixture that's always there whether owned or not — rather
-   than a vague wander in place. */
+   than a vague wander in place. X rescaled in the refinement pass for the
+   213px adult size (13/18 of its prior magnitude) — margin was down to
+   ~5px at the bigger size, now back to a comfortable ~16px. Y untouched,
+   still well clear of the cage top at the new higher rest position. */
 .tweety-wander { animation: tweety-wander 3.2s ease-in-out; }
 @keyframes tweety-wander {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  18% { transform: translate(-8%, -3%) scale(0.98); }
-  42% { transform: translate(-18%, -7%) scale(0.95); }
-  64% { transform: translate(-18%, -7%) scale(0.95); }
-  84% { transform: translate(-6%, -2%) scale(0.98); }
+  18% { transform: translate(-6%, -3%) scale(0.98); }
+  42% { transform: translate(-13%, -7%) scale(0.95); }
+  64% { transform: translate(-13%, -7%) scale(0.95); }
+  84% { transform: translate(-4%, -2%) scale(0.98); }
 }
 
 .tweety-micro-glance { animation: tweety-micro-glance 0.9s ease-in-out; }
@@ -5581,35 +5610,34 @@ button.tweety-nest-base.gift-pop {
    macro-idle scheduler's bowl/water actions in Tweety.jsx) -- a real walk-there,
    eat-or-drink, walk-back, not an in-place wiggle. Directions come from
    each item's real room position (.slot-feedingbowl sits bottom-left,
-   .slot-watertank sits bottom-right of the nest -- see App.css above), the
-   same "roughly right across breakpoints" translate-percent approach the
-   existing Perch hop already uses, since the room and the bird both scale
-   together as the card resizes. X offsets scaled down (~46% of their
-   pre-Phase-1 magnitude, same reasoning as tweety-hop-perch above) so the
-   Phase 1 size bump doesn't push part of her past .tweety-room's left/right
-   edge (clipped by its overflow:hidden) mid-visit -- verified against the
-   actual desktop (300px/190px bird) and mobile (240px/~141px bird) box math,
-   not just eyeballed. Y is untouched, plenty of headroom either way. */
+   .slot-watertank sits bottom-right -- see App.css above), the same "roughly
+   right across breakpoints" translate-percent approach the existing Perch hop
+   already uses. X offsets rescaled TWICE now: once for the Phase 1 size bump
+   (110px->190px), again in the refinement pass for the 190px->213px bump --
+   re-verified against actual room-box math at both breakpoints, adult stage.
+   Y untouched both times -- she moves down toward the tray here, and her new
+   higher top-anchored rest position (.tweety-nest) only added headroom below,
+   never took any away. */
 .tweety-visit-bowl { animation: tweety-visit-bowl 3s ease-in-out; }
 @keyframes tweety-visit-bowl {
   0%, 100% { transform: translate(0, 0) rotate(0) scale(1); }
-  18% { transform: translate(-23%, 4%) rotate(0) scale(0.9); }
-  30% { transform: translate(-25%, 9%) rotate(-11deg) scale(0.87); }
-  42% { transform: translate(-24%, 4%) rotate(6deg) scale(0.9); }
-  54% { transform: translate(-25%, 9%) rotate(-10deg) scale(0.87); }
-  66% { transform: translate(-24%, 4%) rotate(5deg) scale(0.9); }
-  84% { transform: translate(-22%, 2%) rotate(0) scale(0.91); }
-  95% { transform: translate(-7%, 1%) rotate(0) scale(0.97); }
+  18% { transform: translate(-15%, 4%) rotate(0) scale(0.9); }
+  30% { transform: translate(-16%, 9%) rotate(-11deg) scale(0.87); }
+  42% { transform: translate(-15%, 4%) rotate(6deg) scale(0.9); }
+  54% { transform: translate(-16%, 9%) rotate(-10deg) scale(0.87); }
+  66% { transform: translate(-15%, 4%) rotate(5deg) scale(0.9); }
+  84% { transform: translate(-14%, 2%) rotate(0) scale(0.91); }
+  95% { transform: translate(-4%, 1%) rotate(0) scale(0.97); }
 }
 .tweety-visit-water { animation: tweety-visit-water 3.2s ease-in-out; }
 @keyframes tweety-visit-water {
   0%, 100% { transform: translate(0, 0) rotate(0) scale(1); }
-  18% { transform: translate(17%, 2%) rotate(0) scale(0.92); }
-  32% { transform: translate(19%, 9%) rotate(7deg) scale(0.9); }
-  46% { transform: translate(17%, 3%) rotate(-4deg) scale(0.92); }
-  60% { transform: translate(19%, 9%) rotate(7deg) scale(0.9); }
-  76% { transform: translate(17%, 2%) rotate(0) scale(0.92); }
-  95% { transform: translate(6%, 1%) rotate(0) scale(0.97); }
+  18% { transform: translate(12%, 2%) rotate(0) scale(0.92); }
+  32% { transform: translate(13%, 9%) rotate(7deg) scale(0.9); }
+  46% { transform: translate(12%, 3%) rotate(-4deg) scale(0.92); }
+  60% { transform: translate(13%, 9%) rotate(7deg) scale(0.9); }
+  76% { transform: translate(12%, 2%) rotate(0) scale(0.92); }
+  95% { transform: translate(4%, 1%) rotate(0) scale(0.97); }
 }
 
 /* Bond meter (2026 redesign): a warm liquid-fill heart instead of the same
