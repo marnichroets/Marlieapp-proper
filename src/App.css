@@ -5023,12 +5023,12 @@ textarea:focus {
 }
 .tweety-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
-/* Stage-aware rest offset (refinement pass) — a static translateY (set
-   inline per-render from stageRestOffsetPx in Tweety.jsx) so Tweety's feet
-   land on the main perch (see CageFrameBack) at every growth stage, and the
-   nest-base/birdhouse below moves down together with her instead of being
-   left at its un-offset position. Deliberately its own element rather than a
-   value merged into an existing rule: an inline style here would otherwise
+/* Stage-aware rest offset — a static translateY (set inline per-render from
+   stageRestOffsetPx in Tweety.jsx) so Tweety's toes land at the same
+   consistent line at every growth stage, and the nest-base/birdhouse below
+   moves down together with her instead of being left at its un-offset
+   position. Deliberately its own element rather than a value merged into an
+   existing rule: an inline style here would otherwise
    override .tweety-bird's posture transform or .tweety-nest-base's
    hover:scale (inline always wins over a class for the same property),
    which is exactly the conflict this separate wrapper avoids. Purely a
@@ -5201,71 +5201,78 @@ textarea:focus {
   color: #7a4a1e;
 }
 
-/* Tweety's home cage (Phase 1 redesign) — a tall illustrated aviary instead of
-   the old wide 5:4 "display box", so Tweety (now rendered much larger, see
-   TWEETY_BASE_SIZE in Tweety.jsx) reads as living inside a real enclosure
-   rather than standing in an open diorama. Percentage-based item positioning
-   still applies (see .slot-* below) so the whole cage scales as one piece.
-   RoomBackdrop (the Room Theme wall/window art) still renders underneath,
-   unchanged — CageFrameBack/CageFrameFront (Tweety.jsx) layer the cage's own
-   dome/tray/bars on top of it, purely additively. */
+/* Tweety's home — an open, warm room (cage concept removed; see the
+   room-open pass). Tweety (TWEETY_BASE_SIZE in Tweety.jsx) is the focal
+   point, standing in a softly-lit room rather than any kind of enclosure.
+   Percentage-based item positioning still applies (see .slot-* below).
+   RoomBackdrop (the Room Theme wall/window art) renders underneath,
+   unchanged. Plain rounded-rect shape and a soft window-light gradient —
+   deliberately NOT the dome-arch silhouette / display-box shadows the cage
+   pass used, which read as an enclosure rather than a room. */
 .tweety-room {
   position: relative;
   width: min(100%, 300px);
   aspect-ratio: 4 / 5;
   margin: 4px auto 0;
-  border-radius: 46% 46% 16px 16px / 24% 24% 10px 10px;
+  border-radius: 20px;
   overflow: hidden;
-  border: 1px solid rgba(180, 140, 70, 0.35);
-  background: radial-gradient(circle at 50% 28%, #fff8e6, #f4e4c0 62%, #e7cf9c 100%);
-  box-shadow: inset 0 3px 14px rgba(255, 232, 182, 0.4), inset 0 -16px 26px rgba(124, 79, 40, 0.16), 0 10px 22px rgba(124, 79, 40, 0.16);
+  border: 1px solid rgba(180, 140, 70, 0.25);
+  background: linear-gradient(160deg, #fff9ee 0%, #f7ecd6 55%, #f0ddb8 100%);
+  box-shadow: inset 0 1px 8px rgba(255, 244, 219, 0.5), 0 6px 16px rgba(124, 79, 40, 0.1);
 }
 
-/* Ground-shift wrapper (repair pass) — groups every cage-content layer
-   (dome/tray, room items, Tweety's nest/bird/perch/birdhouse, front bars —
-   see the wrapper div in Tweety.jsx) so the whole composition can move down
-   as ONE rigid unit, closing the small perceived gap between the tray (an
-   ellipse — its soft curved edge reads as "not quite touching" well before
-   its actual mathematical bounding box does) and the room's real bottom
-   edge. No child's own coordinates change: this wrapper is inset:0 (exactly
-   the room's own size), so every percentage/inset a child already had
-   resolves to the identical value as before — only the wrapper's own paint
-   position shifts. translateY uses a PERCENTAGE, which the transform spec
-   resolves against THIS element's own height — since that's the room's
-   height, the same value keeps the same proportional effect at both the
-   240px (mobile) and 300px (desktop) room widths automatically, no
-   JS/breakpoint-specific value needed. No pointer-events set here — leaving
-   it unset (default) means it doesn't affect hit-testing for any of its
-   interactive children (room items, the bird, the birdhouse), unlike
-   pointer-events:none would (that cascades to descendants unless they
-   explicitly opt back in, which none of these buttons do). */
-.tweety-cage-ground-shift {
-  position: absolute;
-  inset: 0;
-  transform: translateY(2.5%);
+/* Phase 3a: the promised primary CTA, above the (still secondary) care row. */
+.tweety-take-out-btn {
+  width: 100%;
+  margin-top: 10px;
 }
 
-/* Cage back layer (dome silhouette + base tray) — behind Tweety and every
-   room item, so it reads as floor/structure without covering anything. */
-.cage-frame-back {
+/* Phase 3a Play Mode shell — a wider, shorter "tabletop/window ledge" scene
+   (landscape, unlike the taller portrait home room), warm sunlit gradient +
+   a soft glow, two simple perch spots, Tweety much bigger than at home. Kept
+   deliberately simple for this first pass — no idle animation, no per-stage
+   foot alignment beyond centering her on the occupied perch — Phase 3b adds
+   real interactions and can revisit alignment once those exist. */
+.tweety-play-scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  margin: 4px auto 0;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(180, 140, 70, 0.25);
+  background: linear-gradient(165deg, #fff6e0 0%, #fbe8c4 60%, #f3d69e 100%);
+}
+.tweety-play-glow {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  background: radial-gradient(circle at 60% 20%, rgba(255, 244, 200, 0.9), transparent 55%);
   pointer-events: none;
 }
-.cage-frame-back-svg { display: block; width: 100%; height: 100%; }
-
-/* Cage front layer (corner posts, brass rings, sparse vertical bars) — the
-   last thing painted, above Tweety (z-index 3) and every room item (z-index
-   up to 4), so it reads as "looking into the aviary" — never intercepts taps
-   since it's pointer-events: none. */
-.cage-frame-front {
+.tweety-play-perch {
   position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
+  bottom: 30%;
+  width: 20%;
+  height: 5%;
+  border-radius: 999px;
+  background: var(--wood);
+  border: 1px solid var(--wood-dark);
 }
-.cage-frame-front-svg { display: block; width: 100%; height: 100%; }
+.tweety-play-perch-a { left: 18%; }
+.tweety-play-perch-b { left: 62%; }
+.tweety-play-bird {
+  position: absolute;
+  left: 28%;
+  bottom: 33%;
+  transform: translateX(-50%);
+  line-height: 0;
+}
+.tweety-play-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.tweety-play-back-btn {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+}
 
 /* Sits behind every room-slot item and the nest (z-index 0, pointer-events
    none) — decorative only, never intercepts taps meant for the items on top.

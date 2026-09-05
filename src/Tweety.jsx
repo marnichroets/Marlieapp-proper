@@ -84,6 +84,11 @@ const TWEETY_BASE_SIZE = 213
 // — never the old 60px collapse.
 const TWEETY_NARROW_SIZE_FACTOR = 0.74
 const TWEETY_NARROW_MEDIA_QUERY = '(max-width: 430px)'
+// Phase 3a: Play Mode base size — "the bird must become the focus of the
+// screen", ~40% bigger than the already-large home size. Same
+// narrow-viewport factor and per-stage/per-species scaling as home (see the
+// Play scene render), just a bigger starting point.
+const PLAY_BASE_SIZE = 300
 // Every bird template's viewBox is 620x460 (see birdTemplates.jsx) — used
 // here to convert a render WIDTH into the matching render HEIGHT, for the
 // stage-aware perch rest offset below (see stageRestOffsetPx).
@@ -95,22 +100,9 @@ const SONGBIRD_SVG_ASPECT = 460 / 620
 // box, not at its very bottom edge (there's empty margin below, meant for
 // the templates' own built-in Ground rect, which TweetyHomeCard now
 // disables — see ground={false} below). Used to calibrate stageRestOffsetPx
-// against where her toes actually touch down, not her box's bottom edge.
+// so a shorter chick/fledgling/young stage's toes land on the same line
+// adult's do, instead of floating higher the shorter her box is.
 const SONGBIRD_FEET_FRACTION = 393 / 460
-// The main perch branch's own top edge sits at y=154 of CageFrameBack's
-// 0-240 viewBox (see the <rect> in CageFrameBack below) — this is a few
-// units past that, into the branch's own 10-unit thickness, so her toes
-// read as gripping the wood rather than resting exactly on a mathematical
-// boundary line. Expressed as a fraction of the CAGE's own height (not the
-// bird's) because .tweety-room stretches this SAME viewBox non-uniformly
-// per breakpoint (preserveAspectRatio="none") — but since the room's own
-// aspect-ratio is fixed (4/5, see .tweety-room), this fraction of room
-// height is identical at every breakpoint, unlike a fraction of the bird's
-// own (independently-scaled) box height would be.
-const CAGE_PERCH_LINE_FRACTION = 157 / 240
-// .tweety-nest's own anchor (top: 25%, see App.css) — must stay in sync with
-// that CSS rule; stageRestOffsetPx below is measured from this line.
-const TWEETY_REST_ANCHOR_FRACTION = 0.25
 
 // Same blend-toward-white used for the garden plant templates' secondary-leaf
 // tone (see Garden.jsx's lightenHex) — duplicated locally rather than shared
@@ -1624,81 +1616,6 @@ export function RoomBackdrop({ theme = 'cottage', timePhase = 'midday' }) {
   )
 }
 
-// ---- Home Cage shell (Phase 1 redesign) ------------------------------------
-// A warm illustrated aviary frame layered ON TOP of RoomBackdrop rather than
-// replacing it — the existing Room Themes (cottage/winter-cabin/etc, still
-// sold and previewed via RoomBackdrop above) keep showing through as the
-// backdrop behind the cage, so none of that shop/theme logic has to change.
-// Split into a back layer (dome silhouette + base tray — sits behind Tweety
-// and every room item, reads as floor/structure) and a front layer (corner
-// posts + brass rings + sparse vertical bars — sits in front of everything).
-// A past pass on the plain room backdrop deliberately drew its window
-// WITHOUT cross-bars "so it never reads as barred" (see CottageBackdrop's
-// comment below) — this is a deliberate reversal for the new brief (Tweety
-// now explicitly needs a home cage), so the front bars stay thin, widely
-// spaced and warm brass rather than a tight grey grid, to read as an elegant
-// aviary rather than the "prison" look that comment was originally avoiding.
-function CageFrameBack() {
-  return (
-    <svg className="cage-frame-back-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M16 52 Q150 -14 284 52" fill="none" stroke="var(--gold-dark)" strokeWidth="7" strokeLinecap="round" opacity="0.85" />
-      <path d="M16 52 Q150 -2 284 52" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
-      <circle cx="150" cy="10" r="6.5" fill="var(--gold)" stroke="var(--gold-dark)" strokeWidth="1.5" />
-      {/* Main perch — refinement pass. Tweety's new rest position (see the
-          .tweety-nest top-anchor in App.css) sits with her feet at roughly
-          this branch's height, so she reads as seated on it rather than
-          floating in open cage air. A short trunk + shadow below ties
-          whichever nest-base tier is showing (basic/cosy/birdhouse) into the
-          same branch structure instead of it reading as a separate object on
-          the floor — see the item hierarchy note in the refinement brief. */}
-      <rect x="145" y="163" width="10" height="41" rx="4" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
-      <ellipse cx="150" cy="205" rx="36" ry="7" fill="var(--wood-dark)" opacity="0.32" />
-      {/* Main perch branch — thickened and given a warm top sheen + a grain
-          line in the refinement pass (was reading as too thin a stroke for
-          Tweety to visibly stand on). */}
-      <rect x="93" y="154" width="114" height="10" rx="5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
-      <path d="M99 158.5 Q150 161 201 158.5" stroke="var(--wood-dark)" strokeWidth="1" opacity="0.3" fill="none" />
-      <rect x="98" y="155.5" width="104" height="2.6" rx="1.3" fill="var(--honey)" opacity="0.4" />
-      <ellipse cx="88" cy="159" rx="8" ry="4.6" fill="var(--leaf)" transform="rotate(-20 88 159)" />
-      <ellipse cx="212" cy="159" rx="8" ry="4.6" fill="var(--leaf-dark)" transform="rotate(20 212 159)" />
-      <ellipse cx="150" cy="225" rx="140" ry="14" fill="var(--wood)" />
-      <ellipse cx="150" cy="220" rx="135" ry="12" fill="var(--honey)" opacity="0.8" />
-    </svg>
-  )
-}
-
-// Vertical bar x-positions. Deliberately just 4, evenly spaced with a gap
-// CENTRED on x=150 — at rest Tweety's motion-shell sits horizontally centred
-// in the cage (see TweetyHomeCard's .tweety-nest), so a bar at dead centre
-// would sit right across her face every time she's idle. Original geometry
-// audit (Phase 1 acceptance pass) found 9 evenly-spaced bars put 7 of them
-// crossing her body at her new, much larger render size — cut down to 4 with
-// a clear central gap instead, so she reads clearly at rest and only briefly
-// passes behind a bar mid-hop, same as a real aviary viewed front-on.
-// Refinement pass: opacity/stroke trimmed again (0.3→0.22, 1.6→1.3) and the
-// top/bottom rails lightened (0.8→0.55) so the whole front layer reads as a
-// quiet frame rather than a layer drawn over the scene.
-const CAGE_BAR_X = [60, 120, 180, 240]
-function CageFrameFront() {
-  return (
-    <svg className="cage-frame-front-svg" viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden="true">
-      <rect x="16" y="48" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
-      <rect x="16" y="206" width="268" height="4" rx="2" fill="var(--gold-dark)" opacity="0.55" />
-      {/* Height extended 160->166 (posts now run 48-214, was 48-208) so
-          they visibly run into the base tray (its own top edge sits at
-          y=211, see CageFrameBack) instead of stopping short of it — same
-          x-position/thickness/opacity as before, purely a length fix so the
-          cage reads as resting ON the tray rather than floating just above
-          it. */}
-      <rect x="18" y="48" width="5" height="166" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
-      <rect x="277" y="48" width="5" height="166" rx="2.5" fill="var(--gold-dark)" opacity="0.9" />
-      {CAGE_BAR_X.map((x) => (
-        <line key={x} x1={x} y1="52" x2={x} y2="206" stroke="var(--gold)" strokeWidth="1.3" opacity="0.22" />
-      ))}
-    </svg>
-  )
-}
-
 // Luxury Birdhouse — walls, pitched roof, round entrance and its tree
 // decoration, all drawn as one flat-shaded, viewBox-scaled SVG (same style as
 // IconWindow etc. above) so the whole illustration scales as a single piece
@@ -1985,6 +1902,12 @@ export function TweetyHomeCard({
   onHeardSong,
 }) {
   const name = tweety?.name || 'Tweety'
+  // Phase 3a: Play Mode is transient UI state only — never persisted, never
+  // read from `tweety`, resets to 'home' on remount (e.g. navigating away
+  // and back). Reusing the SAME care/happiness/scheduler state and handlers
+  // regardless of which view is showing — nothing about her data changes
+  // when she's "out" versus "home".
+  const [homeView, setHomeView] = useState('home')
   const care = tweetyCareState(tweety)
   const win = care.window
   const next = nextCareWindow()
@@ -2076,46 +1999,24 @@ export function TweetyHomeCard({
   const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
   const speciesArt = speciesArtFor(tweety?.companion, tweety?.realSpecies)
   const tweetyZones = mutedZones(speciesArt.zones, stageMute)
-  // Cage-view render size, and the stage-aware rest offset that puts her
-  // actual TOES (SONGBIRD_FEET_FRACTION down her own box) exactly on the
-  // main perch branch's own rendered line (CAGE_PERCH_LINE_FRACTION down the
-  // cage), at every growth stage.
-  //
-  // Earlier passes derived this offset from her box-BOTTOM reaching a fixed
-  // line (matching where she used to sit before the cage/perch existed at
-  // all) — that line was never actually checked against where the perch
-  // graphic renders, which is what let the "floating"/"legs through the
-  // branch" mismatch persist across a few rounds. This version instead
-  // targets the perch's real drawn position directly:
-  //   roomHeightPx        — .tweety-room is a fixed 240px/300px wide box
-  //                         (App.css) at its own fixed 4:5 aspect ratio, so
-  //                         its height only ever takes one of two values.
-  //   perchLinePx         — CAGE_PERCH_LINE_FRACTION of that height (the
-  //                         branch's own position never changes, but where
-  //                         it lands in real px does, per breakpoint).
-  //   restAnchorPx        — TWEETY_REST_ANCHOR_FRACTION of that height,
-  //                         matching .tweety-nest's own top:25% anchor.
-  //   K*stageScale*FEET   — how far down her own toes sit, at this stage's
-  //                         actual render height.
-  // offset = (perchLinePx - restAnchorPx) - K*stageScale*FEET_FRACTION,
-  // which algebraically keeps her toe-line pinned to perchLinePx at every
-  // stage (verified: chick/fledgling/young/adult all land on the exact same
-  // line), with zero re-derivation needed if the branch itself ever moves —
-  // only CAGE_PERCH_LINE_FRACTION would need updating.
-  //
-  // birdSizeMul is the same per-render multiplier the size prop below uses,
-  // just without the stageScale factor — i.e. what her height WOULD be at
-  // full (adult) scale. Purely a static translateY on a new middle wrapper
-  // (.tweety-stage-offset, between the existing posture wrapper and the
-  // animated motion-shell) — doesn't touch growth logic, species art, or the
-  // motion-shell's own keyframes.
+  // Room-view render size, and the stage-aware rest offset that keeps her
+  // real TOE line (SONGBIRD_FEET_FRACTION down her own box, not its bottom
+  // edge — see that constant above) at the SAME spot regardless of growth
+  // stage. .tweety-nest anchors from the TOP (see App.css's top:25%), so a
+  // shorter chick/fledgling/young box naturally ends higher up than the
+  // adult box does — this offset pushes each shorter stage down by exactly
+  // the difference, so every stage's toes land on one consistent line
+  // instead of floating higher the younger/smaller she is. birdSizeMul is
+  // the same per-render multiplier the size prop below uses, just without
+  // the stageScale factor — i.e. what her height WOULD be at full (adult)
+  // scale, used to express the nudge in real pixels. Purely a static
+  // translateY on a middle wrapper (.tweety-stage-offset, between the
+  // existing posture wrapper and the animated motion-shell) — doesn't touch
+  // growth logic, species art, or the motion-shell's own keyframes.
   const birdSizeMul = TWEETY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * (speciesArt.sizeScale || 1)
   const birdSize = birdSizeMul * stageScale
   const birdHeightAtFullScale = birdSizeMul * SONGBIRD_SVG_ASPECT
-  const roomHeightPx = isNarrowViewport ? 300 : 375
-  const perchLinePx = roomHeightPx * CAGE_PERCH_LINE_FRACTION
-  const restAnchorPx = roomHeightPx * TWEETY_REST_ANCHOR_FRACTION
-  const stageRestOffsetPx = (perchLinePx - restAnchorPx) - birdHeightAtFullScale * stageScale * SONGBIRD_FEET_FRACTION
+  const stageRestOffsetPx = birdHeightAtFullScale * SONGBIRD_FEET_FRACTION * (1 - stageScale)
   const roomTheme = tweety?.roomTheme || 'cottage'
   const fedToday = tweetyFedToday(tweety)
   // "Tweety's cosy home ✨" — a small badge once she's actually filled the
@@ -2372,33 +2273,26 @@ export function TweetyHomeCard({
         </button>
       </div>
 
+      {/* Phase 3a: Play Mode is a sibling view, not a separate route — same
+          card, same header, same underlying tweety/care/happiness state and
+          handlers either way. Wrapped in a fragment since this is several
+          sibling elements (the room, status line, care row, etc), not one. */}
+      {homeView === 'home' && (
+      <>
       <div className={`tweety-stage nest-${nestTier}`}>
         {mood === 'sad' && <div className="tweety-raincloud" aria-hidden="true">🌧️</div>}
 
         {cosyHomeEarned && <p className="tweety-cosy-home-label">Tweety&apos;s cosy home ✨</p>}
 
-        {/* Her home cage (Phase 1 redesign) — every store item still gets a
-            fixed, named spot (see ROOM_ITEMS above), but now only renders
-            once she actually owns it, so an unfurnished cage stays clean
-            rather than showing 11 grey ghost placeholders. */}
+        {/* Her home room (cage concept removed — see the room-open pass) —
+            every store item still gets a fixed, named spot (see ROOM_ITEMS
+            above), but only renders once she actually owns it, so a sparse
+            room stays clean rather than showing 11 grey ghost placeholders. */}
         <div className="tweety-room" style={{ '--warmth': happiness / 100 }}>
           <div className="room-backdrop" aria-hidden="true">
             <RoomBackdrop theme={roomTheme} timePhase={saTimePhase()} />
           </div>
           <div className="room-backdrop-wash" aria-hidden="true" />
-          {/* Ground-shift wrapper (repair pass) — a single shared wrapper
-              around every cage-content layer below, so the whole
-              composition moves down as ONE rigid unit (see
-              .tweety-cage-ground-shift in App.css) to close the small
-              visual gap between the tray and the room's own bottom edge.
-              No child inside has its own coordinates touched — they're all
-              still positioned exactly as before, just relative to this
-              wrapper instead of .tweety-room directly, and since this
-              wrapper is inset:0 (identical size to the room), every
-              percentage/inset resolves to the exact same value it always
-              did. room-backdrop/-wash above stay outside, untouched. */}
-          <div className="tweety-cage-ground-shift">
-          <div className="cage-frame-back" aria-hidden="true"><CageFrameBack /></div>
           <div className="tweety-room-glow" aria-hidden="true" />
           {ROOM_ITEMS.map((it) => {
             // Treats is a repeatable consumable, never added to the permanent
@@ -2517,13 +2411,6 @@ export function TweetyHomeCard({
               )}
             </span>
           </div>
-          {/* Front cage bars — the last child so they paint above the bird
-              and every room item, "looking into the aviary" from outside.
-              Thin, sparse and pointer-events:none (see .cage-frame-front in
-              App.css) so Tweety stays clearly the focal point and every tap
-              target underneath still works. */}
-          <div className="cage-frame-front" aria-hidden="true"><CageFrameFront /></div>
-          </div>
         </div>
         {!tweety?.songHintSeen && (
           <p className="tweety-song-hint">🎵 Tap to hear {name} sing</p>
@@ -2552,6 +2439,13 @@ export function TweetyHomeCard({
       </div>
 
       {loveLetter && <p className="tweety-letter-text">💌 {loveLetter}</p>}
+
+      {/* Phase 3a: the promised primary CTA Phase 2 deliberately left out
+          (a dead button with no Play Mode behind it would have been worse
+          than no button) — now wired to the real thing. */}
+      <button className="primary-btn tweety-take-out-btn" type="button" onClick={() => setHomeView('play')}>
+        🚪 Take {name} out
+      </button>
 
       {win ? (
         <>
@@ -2615,6 +2509,33 @@ export function TweetyHomeCard({
         <button className="secondary-btn tweety-release-btn" type="button" onClick={onReleaseToGarden}>
           🌳 Release {name} to the Garden
         </button>
+      )}
+      </>
+      )}
+
+      {/* Phase 3a: Play Mode shell only — a warm open scene with two landing
+          spots and a much bigger Tweety, purely to prove the transition
+          works. No idle animation, no Pet/Treat/Play/Call reactions, no
+          hopping between the two spots yet — those are Phase 3b/3c. Her
+          care/happiness state is completely unaffected: this is local view
+          state only (homeView), nothing here reads or writes `tweety`. */}
+      {homeView === 'play' && (
+        <div className="tweety-play-scene">
+          <div className="tweety-play-glow" aria-hidden="true" />
+          <div className="tweety-play-perch tweety-play-perch-a" aria-hidden="true" />
+          <div className="tweety-play-perch tweety-play-perch-b" aria-hidden="true" />
+          <span className="tweety-play-bird" aria-hidden="true">
+            <GardenBird
+              template={speciesArt.template || 'songbird-small'}
+              zones={tweetyZones}
+              size={PLAY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * stageScale * (speciesArt.sizeScale || 1)}
+              ground={false}
+            />
+          </span>
+          <button className="secondary-btn tweety-play-back-btn" type="button" onClick={() => setHomeView('home')}>
+            ← Back to Home
+          </button>
+        </div>
       )}
     </section>
   )
