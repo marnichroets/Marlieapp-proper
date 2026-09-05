@@ -2386,6 +2386,18 @@ export function TweetyHomeCard({
             <RoomBackdrop theme={roomTheme} timePhase={saTimePhase()} />
           </div>
           <div className="room-backdrop-wash" aria-hidden="true" />
+          {/* Ground-shift wrapper (repair pass) — a single shared wrapper
+              around every cage-content layer below, so the whole
+              composition moves down as ONE rigid unit (see
+              .tweety-cage-ground-shift in App.css) to close the small
+              visual gap between the tray and the room's own bottom edge.
+              No child inside has its own coordinates touched — they're all
+              still positioned exactly as before, just relative to this
+              wrapper instead of .tweety-room directly, and since this
+              wrapper is inset:0 (identical size to the room), every
+              percentage/inset resolves to the exact same value it always
+              did. room-backdrop/-wash above stay outside, untouched. */}
+          <div className="tweety-cage-ground-shift">
           <div className="cage-frame-back" aria-hidden="true"><CageFrameBack /></div>
           <div className="tweety-room-glow" aria-hidden="true" />
           {ROOM_ITEMS.map((it) => {
@@ -2511,6 +2523,7 @@ export function TweetyHomeCard({
               App.css) so Tweety stays clearly the focal point and every tap
               target underneath still works. */}
           <div className="cage-frame-front" aria-hidden="true"><CageFrameFront /></div>
+          </div>
         </div>
         {!tweety?.songHintSeen && (
           <p className="tweety-song-hint">🎵 Tap to hear {name} sing</p>
