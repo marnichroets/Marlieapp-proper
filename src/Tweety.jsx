@@ -84,6 +84,10 @@ const TWEETY_BASE_SIZE = 213
 // — never the old 60px collapse.
 const TWEETY_NARROW_SIZE_FACTOR = 0.74
 const TWEETY_NARROW_MEDIA_QUERY = '(max-width: 430px)'
+// Every bird template's viewBox is 620x460 (see birdTemplates.jsx) — used
+// here to convert a render WIDTH into the matching render HEIGHT, for the
+// stage-aware perch rest offset below (see stageRestOffsetPx).
+const SONGBIRD_SVG_ASPECT = 460 / 620
 
 // Same blend-toward-white used for the garden plant templates' secondary-leaf
 // tone (see Garden.jsx's lightenHex) — duplicated locally rather than shared
@@ -1649,11 +1653,16 @@ function CageFrameBack() {
           whichever nest-base tier is showing (basic/cosy/birdhouse) into the
           same branch structure instead of it reading as a separate object on
           the floor — see the item hierarchy note in the refinement brief. */}
-      <rect x="145" y="160" width="10" height="44" rx="4" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <rect x="145" y="163" width="10" height="41" rx="4" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
       <ellipse cx="150" cy="205" rx="36" ry="7" fill="var(--wood-dark)" opacity="0.32" />
-      <rect x="95" y="155" width="110" height="7" rx="3.5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
-      <ellipse cx="90" cy="158" rx="7" ry="4" fill="var(--leaf)" transform="rotate(-20 90 158)" />
-      <ellipse cx="210" cy="158" rx="7" ry="4" fill="var(--leaf-dark)" transform="rotate(20 210 158)" />
+      {/* Main perch branch — thickened and given a warm top sheen + a grain
+          line in the refinement pass (was reading as too thin a stroke for
+          Tweety to visibly stand on). */}
+      <rect x="93" y="154" width="114" height="10" rx="5" fill="var(--wood)" stroke="var(--wood-dark)" strokeWidth="1.5" />
+      <path d="M99 158.5 Q150 161 201 158.5" stroke="var(--wood-dark)" strokeWidth="1" opacity="0.3" fill="none" />
+      <rect x="98" y="155.5" width="104" height="2.6" rx="1.3" fill="var(--honey)" opacity="0.4" />
+      <ellipse cx="88" cy="159" rx="8" ry="4.6" fill="var(--leaf)" transform="rotate(-20 88 159)" />
+      <ellipse cx="212" cy="159" rx="8" ry="4.6" fill="var(--leaf-dark)" transform="rotate(20 212 159)" />
       <ellipse cx="150" cy="225" rx="140" ry="14" fill="var(--wood)" />
       <ellipse cx="150" cy="220" rx="135" ry="12" fill="var(--honey)" opacity="0.8" />
     </svg>
@@ -2068,6 +2077,24 @@ export function TweetyHomeCard({
   const stageMute = TWEETY_STAGE_MUTE[birdLevel] ?? 0
   const speciesArt = speciesArtFor(tweety?.companion, tweety?.realSpecies)
   const tweetyZones = mutedZones(speciesArt.zones, stageMute)
+  // Cage-view render size, and the stage-aware rest offset that keeps her
+  // FEET on the main perch (see CageFrameBack's perch branch) at every
+  // growth stage — .tweety-nest anchors from the TOP (see App.css), so a
+  // shorter chick/fledgling/young box naturally ends higher up than the
+  // adult box the perch was tuned against, reading as "floating" above it.
+  // birdSizeMul is the same per-render multiplier the size prop below uses,
+  // just without the stageScale factor — i.e. what her height WOULD be at
+  // full (adult) scale. Nudging every non-adult stage down by the difference
+  // between that and its own (smaller) height lands every stage's feet on
+  // the exact same line adult already sits on, with zero effect at
+  // adult/crowned (stageScale 1 -> offset 0). Purely a static translateY on a
+  // new middle wrapper (.tweety-stage-offset, between the existing posture
+  // wrapper and the animated motion-shell) — doesn't touch growth logic,
+  // species art, or the motion-shell's own keyframes.
+  const birdSizeMul = TWEETY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * (speciesArt.sizeScale || 1)
+  const birdSize = birdSizeMul * stageScale
+  const birdHeightAtFullScale = birdSizeMul * SONGBIRD_SVG_ASPECT
+  const stageRestOffsetPx = birdHeightAtFullScale * (1 - stageScale)
   const roomTheme = tweety?.roomTheme || 'cottage'
   const fedToday = tweetyFedToday(tweety)
   // "Tweety's cosy home ✨" — a small badge once she's actually filled the
@@ -2380,9 +2407,11 @@ export function TweetyHomeCard({
                 </button>
               </div>
             )}
-            {/* The button owns layout/tap/mood posture; the inner shell owns
-                motion animations so static transforms and active animations
-                do not overwrite each other. */}
+            {/* The button owns layout/tap/mood posture; .tweety-stage-offset
+                (new, refinement pass) owns the static per-stage rest nudge
+                described above; the inner shell owns motion animations — all
+                three compose independently since they're separate nested
+                elements, so none of them fight or overwrite each other. */}
             <button
               type="button"
               className={`tweety-bird tweety-posture-${posture}`}
@@ -2390,49 +2419,58 @@ export function TweetyHomeCard({
               onClick={handleBirdTap}
               disabled={sleepPhase !== 'idle'}
             >
-              <span className={`tweety-motion-shell${motionClass ? ` ${motionClass}` : ''}`}>
-                <GardenBird
-                  template={speciesArt.template || 'songbird-small'}
-                  zones={tweetyZones}
-                  size={TWEETY_BASE_SIZE * (isNarrowViewport ? TWEETY_NARROW_SIZE_FACTOR : 1) * stageScale * (speciesArt.sizeScale || 1)}
-                />
-                {birdLevel === 'crowned' && <TweetyCrown />}
-                {roomTheme === 'winter-cabin' && (
-                  <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
-                )}
-                {singingNote && <span className="tweety-song-note" aria-hidden="true">🎵</span>}
+              <span className="tweety-stage-offset" style={{ transform: `translateY(${stageRestOffsetPx}px)` }}>
+                <span className={`tweety-motion-shell${motionClass ? ` ${motionClass}` : ''}`}>
+                  <GardenBird
+                    template={speciesArt.template || 'songbird-small'}
+                    zones={tweetyZones}
+                    size={birdSize}
+                  />
+                  {birdLevel === 'crowned' && <TweetyCrown />}
+                  {roomTheme === 'winter-cabin' && (
+                    <span className="tweety-scarf" aria-hidden="true"><WinterScarf /></span>
+                  )}
+                  {singingNote && <span className="tweety-song-note" aria-hidden="true">🎵</span>}
+                </span>
               </span>
             </button>
             {loveLetter && <span className="tweety-letter" title={loveLetter} aria-hidden="true">💌</span>}
-            {nestTier === 'treehouse' ? (
-              // Walls, roof, entrance and its tree decoration all drawn as ONE
-              // self-contained, viewBox-scaled SVG (see LuxuryBirdhouseArt
-              // below) inside a single stable bounding wrapper — same pattern
-              // every other room item uses (see .room-slot in App.css) —
-              // instead of the old CSS triangle-hack roof plus a separately
-              // positioned emoji tree that needed hand-tuned pixel overrides
-              // to avoid falling apart on mobile.
-              <button
-                type="button"
-                className={`tweety-nest-base nest-base-treehouse${justTapped === 'birdhouse' ? ' tapped' : ''}${justPurchasedItem === 'birdhouse' ? ' gift-pop' : ''}${sleepPhase !== 'idle' ? ` nest-sleep-${sleepPhase}` : ''}`}
-                title="Luxury Birdhouse"
-                onClick={() => tapGift('birdhouse')}
-              >
-                <LuxuryBirdhouseArt />
-                {(sleepPhase === 'entering' || sleepPhase === 'sleeping' || sleepPhase === 'waking') && (
-                  <span className="birdhouse-zzz" aria-hidden="true">Zzz</span>
-                )}
-              </button>
-            ) : nestTier === 'basic' ? (
-              <div className="tweety-nest-base nest-base-basic" aria-hidden="true" />
-            ) : (
-              <button
-                type="button"
-                className={`tweety-nest-base nest-base-cosy${justTapped === 'cozynest' ? ' tapped' : ''}${justPurchasedItem === 'cozynest' ? ' gift-pop' : ''}`}
-                title="Cozy Nest Upgrade"
-                onClick={() => tapGift('cozynest')}
-              />
-            )}
+            {/* Same stage rest offset as the bird above, on its own wrapper
+                (not a direct inline style on .tweety-nest-base — that would
+                override its CSS hover:scale via inline-style precedence) —
+                so whichever tier is showing moves down together with her
+                for shorter growth stages, instead of looking left behind. */}
+            <span className="tweety-stage-offset" style={{ transform: `translateY(${stageRestOffsetPx}px)` }}>
+              {nestTier === 'treehouse' ? (
+                // Walls, roof, entrance and its tree decoration all drawn as ONE
+                // self-contained, viewBox-scaled SVG (see LuxuryBirdhouseArt
+                // below) inside a single stable bounding wrapper — same pattern
+                // every other room item uses (see .room-slot in App.css) —
+                // instead of the old CSS triangle-hack roof plus a separately
+                // positioned emoji tree that needed hand-tuned pixel overrides
+                // to avoid falling apart on mobile.
+                <button
+                  type="button"
+                  className={`tweety-nest-base nest-base-treehouse${justTapped === 'birdhouse' ? ' tapped' : ''}${justPurchasedItem === 'birdhouse' ? ' gift-pop' : ''}${sleepPhase !== 'idle' ? ` nest-sleep-${sleepPhase}` : ''}`}
+                  title="Luxury Birdhouse"
+                  onClick={() => tapGift('birdhouse')}
+                >
+                  <LuxuryBirdhouseArt />
+                  {(sleepPhase === 'entering' || sleepPhase === 'sleeping' || sleepPhase === 'waking') && (
+                    <span className="birdhouse-zzz" aria-hidden="true">Zzz</span>
+                  )}
+                </button>
+              ) : nestTier === 'basic' ? (
+                <div className="tweety-nest-base nest-base-basic" aria-hidden="true" />
+              ) : (
+                <button
+                  type="button"
+                  className={`tweety-nest-base nest-base-cosy${justTapped === 'cozynest' ? ' tapped' : ''}${justPurchasedItem === 'cozynest' ? ' gift-pop' : ''}`}
+                  title="Cozy Nest Upgrade"
+                  onClick={() => tapGift('cozynest')}
+                />
+              )}
+            </span>
           </div>
           {/* Front cage bars — the last child so they paint above the bird
               and every room item, "looking into the aviary" from outside.

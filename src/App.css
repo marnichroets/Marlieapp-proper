@@ -5028,6 +5028,22 @@ textarea:focus {
 }
 .tweety-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
+/* Stage-aware rest offset (refinement pass) — a static translateY (set
+   inline per-render from stageRestOffsetPx in Tweety.jsx) so Tweety's feet
+   land on the main perch (see CageFrameBack) at every growth stage, and the
+   nest-base/birdhouse below moves down together with her instead of being
+   left at its un-offset position. Deliberately its own element rather than a
+   value merged into an existing rule: an inline style here would otherwise
+   override .tweety-bird's posture transform or .tweety-nest-base's
+   hover:scale (inline always wins over a class for the same property),
+   which is exactly the conflict this separate wrapper avoids. Purely a
+   paint-time transform — doesn't change either element's own layout box, so
+   it never affects the room's grid/centring. */
+.tweety-stage-offset {
+  display: inline-block;
+  line-height: 0;
+}
+
 /* Tiny knitted scarf overlay (Winter Cabin theme only) — sits near the
    bird's chest/neck regardless of her current growth-stage scale. */
 .tweety-scarf {
