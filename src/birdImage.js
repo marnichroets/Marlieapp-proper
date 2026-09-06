@@ -24,6 +24,16 @@ export function usableBirdImage(value) {
   return cleanImageUrl(value)
 }
 
+// Cheerful/decorative surfaces (magazine cover, "near you" cards, celebratory
+// cards) should never show a real photo flagged editorialImageSafe: false on
+// a species entry — some factually-accurate reference photos (e.g. a natural
+// camouflage/freeze posture) read as distressing out of context. Absent or
+// true means safe. Factual/reference surfaces (Bird Profile, identification)
+// are unaffected — they don't call this.
+export function isEditorialBirdImageSafe(bird) {
+  return bird?.editorialImageSafe !== false
+}
+
 /** Personal photos first, including legacy sightings and stored herPhotos. */
 export function getPersonalBirdPhotos(bird, sightings = []) {
   const sightingPhotos = sightings

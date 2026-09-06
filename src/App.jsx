@@ -4,7 +4,7 @@ import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { dedupePhotosForStorage, rehydratePhotos, stripPhotosForLocalStorage } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
-import { getBirdImageSources, getPersonalBirdPhotos, usableBirdImage } from './birdImage'
+import { getBirdImageSources, getPersonalBirdPhotos, usableBirdImage, isEditorialBirdImageSafe } from './birdImage'
 import { rankBirdMatches, identificationIsUncertain } from './aiIdentification'
 import { findOfficialBird } from './discoveryRules'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
@@ -1973,7 +1973,13 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
     week: getSundayKey(date),
     countdown: getNextIssueCountdown(date),
     featuredBirds,
-    birdOfWeek: pinnedBird || featuredBirds[0] || null,
+    // The cover is the first EDITORIALLY SAFE bird in the deterministic
+    // rotation (pinned bird first, when set) — never a random reroll, just
+    // a skip-forward past any flagged photo (see editorialImageSafe in
+    // saBirdLibrary.js / isEditorialBirdImageSafe). Falls back to the plain
+    // first pick (and from there to GenericBirdFallback in the render) on
+    // the practically-unreachable case where every candidate is flagged.
+    birdOfWeek: featuredBirds.find(isEditorialBirdImageSafe) || featuredBirds[0] || null,
   }
 }
 
@@ -9318,7 +9324,7 @@ function StatCard({ label, value, detail }) {
 // A real bird photo with a graceful fall-back to the shared illustrated bird.
 function FieldGuidePhoto({ bird, className = '' }) {
   const [errored, setErrored] = useState(false)
-  const usable = bird.imageUrl && !bird.imageUrl.includes('placehold')
+  const usable = bird.imageUrl && !bird.imageUrl.includes('placehold') && isEditorialBirdImageSafe(bird)
   if (errored || !usable) {
     return <GenericBirdFallback className={`field-guide-photo ${className}`.trim()} />
   }
@@ -13652,9 +13658,13 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     plantCount: plantScannerVisible ? 4 : 0,
   })
 
-  const coverPhoto = (commonName, imageUrl) => (
+  // `safe` defaults true (plants have no editorialImageSafe field to check);
+  // the bird cover call below passes the real check. Belt-and-suspenders
+  // alongside the birdOfWeek selection above — the magazine must never
+  // render a flagged photo even if a future caller forgets to pre-filter.
+  const coverPhoto = (commonName, imageUrl, safe = true) => (
     <div className="magazine-cover-photo-frame">
-      {imageUrl ? (
+      {imageUrl && safe ? (
         <img className="magazine-cover-photo" src={imageUrl} alt={commonName} />
       ) : (
         <GenericBirdFallback className="magazine-cover-photo" />
@@ -13671,7 +13681,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
       <p className="magazine-season">Issue #{issue.issueIndex} — {season.name} Edition</p>
       <p className="fine-print">A fresh flock every Sunday · {season.greeting}</p>
       <p className="magazine-countdown">🗞️ {issue.countdown.text}</p>
-      {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
+      {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl, isEditorialBirdImageSafe(coverBird))}
       <p className="magazine-quote">“{quote}”</p>
       {coverBird && (
         <>
