@@ -7366,6 +7366,7 @@ function App() {
     <div className={`app-shell has-bottom-nav season-${season.key}${activePage === 'home' ? ' on-home' : ''}`}>
       <div className="season-wash" aria-hidden="true" />
       {activePage === 'home' && <HomeAmbientBirds />}
+      {activePage === 'home' && <HomeAmbientMeadowLife />}
       <Toast toast={toast} />
       {activePage === 'home' && <HomePawTrail />}
       <InstallPrompt />
@@ -7869,6 +7870,44 @@ function HomeAmbientBirds() {
         <span key={index} className={`home-ambient-bird ${bird.tone}`} style={{ top: bird.top, animationDelay: bird.delay, animationDuration: bird.duration }}>
           {bird.glyph}
         </span>
+      ))}
+    </div>
+  )
+}
+
+// A little more life sharing HomeAmbientBirds' same fixed flight lane (same
+// .home-bird-corridor geometry + reduced-motion coverage, so nothing new
+// needs its own overlay or media query): two drifting butterflies, one
+// gently hovering bee, and a few falling petals. Kept sparse on purpose —
+// this is meant to read as "alive", not busy.
+function HomeAmbientMeadowLife() {
+  const butterflies = [
+    { tone: 'lilac', top: '22%', delay: '2s', duration: '34s' },
+    { tone: 'sky', top: '58%', delay: '15s', duration: '39s' },
+  ]
+  const petals = [
+    { left: '16%', delay: '0s', duration: '12s' },
+    { left: '48%', delay: '4.5s', duration: '14s' },
+    { left: '78%', delay: '9s', duration: '13s' },
+  ]
+  return (
+    <div className="home-bird-corridor" aria-hidden="true">
+      {butterflies.map((b, index) => (
+        <span
+          key={index}
+          className={`home-ambient-butterfly ${b.tone}`}
+          style={{ top: b.top, animationDelay: b.delay, animationDuration: b.duration }}
+        >
+          🦋
+        </span>
+      ))}
+      <span className="home-ambient-bee" aria-hidden="true">🐝</span>
+      {petals.map((p, index) => (
+        <span
+          key={index}
+          className="home-ambient-petal"
+          style={{ left: p.left, animationDelay: p.delay, animationDuration: p.duration }}
+        />
       ))}
     </div>
   )
@@ -8569,9 +8608,11 @@ function SeasonMotif({ seasonKey }) {
             <ellipse cx="4.5" cy="4.5" rx="2.6" ry="1.8" fill="#f2ead9" />
             <ellipse cx="0" cy="1.5" rx="7" ry="5.4" fill="#e8dcc8" />
             <circle cx="-4.6" cy="-4.2" r="4" fill="#e8dcc8" />
-            <path d="M-7 -6.5 Q-8.4 -13 -6 -13.8 Q-4.6 -13 -5.4 -6 Z" fill="#e8dcc8" />
-            <path d="M-2.6 -6.8 Q-2.6 -13.4 -0.6 -13.8 Q0.6 -13 -1 -6.2 Z" fill="#e8dcc8" />
-            <path d="M-6.6 -7.6 Q-7.4 -11.6 -6.2 -12.2 Q-5.4 -11.8 -5.8 -7.2 Z" fill="#f6c9d8" opacity="0.8" />
+            <g className="season-spring-bunny-ears">
+              <path d="M-7 -6.5 Q-8.4 -13 -6 -13.8 Q-4.6 -13 -5.4 -6 Z" fill="#e8dcc8" />
+              <path d="M-2.6 -6.8 Q-2.6 -13.4 -0.6 -13.8 Q0.6 -13 -1 -6.2 Z" fill="#e8dcc8" />
+              <path d="M-6.6 -7.6 Q-7.4 -11.6 -6.2 -12.2 Q-5.4 -11.8 -5.8 -7.2 Z" fill="#f6c9d8" opacity="0.8" />
+            </g>
             <circle cx="-6.4" cy="-4.6" r="0.7" fill="#201a14" />
             <circle cx="-8.2" cy="-3.2" r="0.7" fill="#e88ba0" />
           </g>
