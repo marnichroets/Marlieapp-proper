@@ -50,3 +50,9 @@ previews/
 *.sw?
 
 .vercel
+
+# Claude Code local tooling (session config, installed skills) -- not part
+# of the product, machine/session-specific, never commit
+.claude/
+.agents/
+skills-lock.json
