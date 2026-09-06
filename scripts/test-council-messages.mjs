@@ -55,8 +55,11 @@ for (const d of [...presentationWeek, ...capeTownWeek]) {
   ok(`special dispatch scheduled for ${d}`, typeof specialCouncilMessage(d) === 'string')
 }
 ok('a normal day has no special (rotation runs)', specialCouncilMessage('2026-07-01') === null)
-ok(`every special day is in the map (${Object.keys(SPECIAL_COUNCIL_MESSAGES).length} total)`,
-  Object.keys(SPECIAL_COUNCIL_MESSAGES).length === presentationWeek.length + capeTownWeek.length)
+// The map also contains two later one-off letters, so assert the scheduled
+// June windows explicitly rather than treating those intentional entries as a
+// mismatch.
+ok(`every scheduled special day is in the map (${Object.keys(SPECIAL_COUNCIL_MESSAGES).length} total)`,
+  [...presentationWeek, ...capeTownWeek].every((day) => Object.prototype.hasOwnProperty.call(SPECIAL_COUNCIL_MESSAGES, day)))
 
 // --- 6. Consecutive-day simulation of the real inbox effect -----------------
 // Generate a run of consecutive YYYY-MM-DD keys (the same key space saDateKey
