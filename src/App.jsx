@@ -159,6 +159,7 @@ import {
   settleJourneyArrival,
   startWaitingJourney,
 } from './birdPostJourney'
+import { birdPostJourneySurfaces, messagesVisibleToAccount } from './birdPostVisibility'
 
 // Bird Post — Pooks' fixed receiving location (see brief).
 const BIRD_POST_DEST_LAT = -26.7145
@@ -5931,22 +5932,27 @@ function App() {
       deliveredAt: null,
       read: false,
     } : null
-    const waitingMessage = journey.status === BIRD_POST_STATUS.WAITING ? {
+    const needsDestinationPrompt = journey.status === BIRD_POST_STATUS.WAITING
+    const incomingMessage = {
       id: `birdpost-destination-${id}`,
       sender: 'Bird Post 📬',
       icon: '🐦',
       type: 'marnich',
-      title: `${birdPostAccount(senderId).name} sent you a bird!`,
-      body: 'Your visitor needs to know where to find you 🐦 Open Bird Post and share your current location so the journey can begin.',
+      title: `${birdPostAccount(senderId).name} sent you a bird! 🐦`,
+      body: needsDestinationPrompt
+        ? 'Your visitor needs to know where to find you 🐦 Open Bird Post and share your current location so the journey can begin.'
+        : `Your visitor is in flight and carrying a little letter. Open Bird Post to follow the ${Math.round(journey.distanceKm)}km journey.`,
+      audienceAccountId: recipientId,
+      birdPostJourneyId: id,
       date: sentAt,
       read: false,
       favourite: false,
-    } : null
+    }
     const next = {
       ...current,
       birdPost: post,
-      birdPostJourneys: [...visibleJourneys, { ...journey, destinationPromptedAt: waitingMessage ? sentAt : null }],
-      messages: waitingMessage ? [waitingMessage, ...(current.messages || [])] : current.messages,
+      birdPostJourneys: [...visibleJourneys, { ...journey, destinationPromptedAt: needsDestinationPrompt ? sentAt : null }],
+      messages: [incomingMessage, ...(current.messages || [])],
       featherCoins: current.featherCoins - cost,
       birdPostsSent: (current.birdPostsSent || 0) + 1,
     }
@@ -5960,9 +5966,9 @@ function App() {
         return {
           ...remoteState,
           birdPost: post,
-          birdPostJourneys: [...remoteJourneys, { ...journey, destinationPromptedAt: waitingMessage ? sentAt : null }],
-          messages: waitingMessage && !(remoteState.messages || []).some((entry) => entry.id === waitingMessage.id)
-            ? [waitingMessage, ...(remoteState.messages || [])]
+          birdPostJourneys: [...remoteJourneys, { ...journey, destinationPromptedAt: needsDestinationPrompt ? sentAt : null }],
+          messages: !(remoteState.messages || []).some((entry) => entry.id === incomingMessage.id)
+            ? [incomingMessage, ...(remoteState.messages || [])]
             : remoteState.messages,
           featherCoins: Math.max(0, (remoteState.featherCoins || 0) - cost),
           birdPostsSent: (remoteState.birdPostsSent || 0) + 1,
@@ -6000,6 +6006,8 @@ function App() {
       ...birdPostDeliveredMessage(target.message, speciesLabel, Math.round(target.distanceKm || 0)),
       id: notificationId,
       title: `🐦 Your bird has arrived from ${birdPostAccount(target.sender).name}!`,
+      audienceAccountId: target.recipient,
+      birdPostJourneyId: target.id,
     }
     const next = {
       ...current,
@@ -6051,7 +6059,7 @@ function App() {
     } : null
     const patchAddress = (state) => {
       const journeys = normalizeBirdPostJourneys(state.birdPostJourneys, state.birdPost)
-      let rerouted = false
+      let reroutedJourney = null
       const nextJourneys = journeys.map((journey) => {
         if (journey.recipient !== locationAccountId || !currentLocation) return journey
         if (journey.status === BIRD_POST_STATUS.WAITING) return startWaitingJourney(journey, currentLocation, changedAt)
@@ -6060,20 +6068,22 @@ function App() {
             && Math.abs(journey.destination.latitude - currentLocation.latitude) < 0.00001
             && Math.abs(journey.destination.longitude - currentLocation.longitude) < 0.00001
           if (sameDestination) return journey
-          rerouted = true
-          return rerouteJourney(journey, currentLocation, changedAt)
+          reroutedJourney = rerouteJourney(journey, currentLocation, changedAt)
+          return reroutedJourney
         }
         return journey
       })
       const activeJourney = nextJourneys.find((journey) => journey.status === BIRD_POST_STATUS.IN_FLIGHT || (journey.status === BIRD_POST_STATUS.ARRIVED && !journey.read))
       const rerouteMessageId = `birdpost-reroute-${locationAccountId}-${changedAt}`
-      const rerouteMessage = rerouted ? {
+      const rerouteMessage = reroutedJourney ? {
         id: rerouteMessageId,
         sender: 'Bird Post 📬',
         icon: '🐦',
         type: 'system',
         title: `${birdPostAccount(locationAccountId).name} moved — your bird changed course 🐦`,
         body: 'The bird kept flying from its current position and is following the new route now.',
+        audienceAccountId: reroutedJourney.sender,
+        birdPostJourneyId: reroutedJourney.id,
         date: changedAt,
         read: false,
         favourite: false,
@@ -7249,7 +7259,12 @@ function App() {
       : account === 'marnich'
         ? [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳'], ['companiongallery', 'Companion Gallery', '🧪']]
         : [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳']]
-  const unreadMessages = (data.messages || []).filter((m) => !m.read).length
+  const visibleMessages = messagesVisibleToAccount(
+    data.messages || [],
+    normalizeBirdPostJourneys(data.birdPostJourneys, data.birdPost),
+    session?.role === 'marnich' ? 'marnich' : 'pooks',
+  )
+  const unreadMessages = visibleMessages.filter((m) => !m.read).length
 
   if (!session) {
     if (adminGate) {
@@ -7735,17 +7750,27 @@ function App() {
         {activePage === 'codes' && <SecretCodesPage data={data} redeemCode={redeemCode} />}
         {activePage === 'messages' && (
           <InboxPage
-            messages={data.messages}
+            messages={visibleMessages}
             onRead={markMessageRead}
             onToggleFavourite={toggleMessageFavourite}
             onReact={reactToMessage}
           />
         )}
         {activePage === 'birdmap' && (
-          <BirdMapPage data={data} onBack={goBack} />
+          <BirdMapPage
+            data={data}
+            myRole={session.role === 'marnich' || session.role === 'admin' ? 'marnich' : 'pooks'}
+            onBack={goBack}
+            onTrackFlight={() => setActivePage('birdflight')}
+          />
         )}
         {activePage === 'birdflight' && (
-          <BirdFlightMapPage birdPost={data.birdPost} birdLibrary={data.birdLibrary} onBack={goBack} />
+          <BirdFlightMapPage
+            data={data}
+            myRole={session.role === 'marnich' || session.role === 'admin' ? 'marnich' : 'pooks'}
+            birdLibrary={data.birdLibrary}
+            onBack={goBack}
+          />
         )}
         {activePage === 'profile' && (
           <ProfilePage
@@ -9540,9 +9565,10 @@ function BirdPostComposePage({ data, birdLibrary, myRole, onSend, onSaveAddress,
   const journeySpeed = activeJourney ? Math.round(activeJourney.flightSpeedKmh || flightSpeedForSpecies(activeJourney.bird)) : 0
   const activeProgress = activeJourney ? journeyProgress(activeJourney, journeyNow) : 0
   const activeRemainingSeconds = journeyEta ? Math.max(0, (journeyEta.getTime() - journeyNow) / 1000) : 0
-  const incomingJourneys = accountJourneys.filter((journey) => journey.recipient === sender.id && journey.status === BIRD_POST_STATUS.ARRIVED && !journey.read)
-  const flyingJourneys = accountJourneys.filter((journey) => journey.status === BIRD_POST_STATUS.IN_FLIGHT || journey.status === BIRD_POST_STATUS.WAITING)
-  const historyJourneys = accountJourneys.filter((journey) => journey.status === BIRD_POST_STATUS.ARRIVED && (journey.read || journey.sender === sender.id))
+  const journeySurfaces = birdPostJourneySurfaces(accountJourneys, sender.id)
+  const incomingJourneys = journeySurfaces.incoming
+  const flyingJourneys = journeySurfaces.inFlight
+  const historyJourneys = journeySurfaces.history
 
   return (
     <div className="page-grid birdpost-compose-page">
