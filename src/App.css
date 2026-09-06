@@ -5104,6 +5104,30 @@ textarea:focus {
 /* Overrides the app-wide button:disabled dimming — she's disabled only to
    block taps mid-sleep-visit, not to look like a disabled form control. */
 .tweety-bird:disabled { cursor: default; opacity: 1; }
+/* A soft, blurred contact shadow at her toe-line. Lives on .tweety-motion-shell
+   (not the outer .tweety-bird) deliberately — .tweety-stage-offset's per-stage
+   translateY (see stageRestOffsetPx in Tweety.jsx) visually shifts the bird
+   without changing .tweety-bird's own layout box, so a shadow positioned by
+   percentage against .tweety-bird would land at the wrong height at every
+   stage except the one the offset was zeroed against. .tweety-motion-shell
+   is inside that same shifted wrapper and its own height matches the SVG's
+   real rendered size, so 85% down it lines up with her feet at every growth
+   stage. GardenBird's own built-in ground/shadow is deliberately off here
+   (ground={false} in Tweety.jsx, this is an open room, not a branch), but
+   with nothing at all under her feet she read as floating — kept
+   intentionally faint/soft, not the harder line that comment says was
+   removed on purpose. */
+.tweety-motion-shell::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 85%;
+  width: 46%;
+  height: 8%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(58, 47, 30, 0.32), transparent 72%);
+  pointer-events: none;
+}
 .tweety-motion-shell {
   display: inline-block;
   position: relative;
@@ -5207,6 +5231,15 @@ textarea:focus {
   height: auto;
   transform: translateX(-50%);
   pointer-events: none;
+}
+/* The Southern Double-collared Sunbird template (SouthernDoubleCollaredSunbird
+   in birdTemplates.jsx) has its head much further left and lower in its own
+   viewBox (620x460, head/eye around x388/y172) than songbird-small's — the
+   default crown position above floated it off past the window, nowhere near
+   the actual head. Verified live at the crowned-adult stage. */
+.tweety-bird.tweety-template-sunbird-double-collared .tweety-garden-crown {
+  left: 65%;
+  top: 7%;
 }
 
 /* Distinct, quicker chick timing so Tweety reads differently from the

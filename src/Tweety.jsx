@@ -1318,6 +1318,18 @@ function CottageBackdrop({ timePhase = 'midday' }) {
       {[0, 1, 2, 3, 4].map((i) => (
         <rect key={i} x="0" y={149 + i * 18.2} width="300" height="18" fill={i % 2 === 0 ? '#b77a46' : '#9f633b'} />
       ))}
+      {/* Soft contact shadow right at the wall/floor seam — the wall (flat
+          cream) met the floor (warm brown) with no transition at all, a hard
+          line. A short vertical fade reads as the wall casting a little shadow
+          onto the floor, without a hard baseboard shape (matches this room's
+          otherwise flat, illustrated style). */}
+      <rect x="0" y="149" width="300" height="10" fill="url(#roomFloorSeam-cottage)" />
+      <defs>
+        <linearGradient id="roomFloorSeam-cottage" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4f2f20" stopOpacity="0.22" />
+          <stop offset="1" stopColor="#4f2f20" stopOpacity="0" />
+        </linearGradient>
+      </defs>
       {[0, 1, 2, 3, 4].map((i) => (
         <line key={i} x1="0" y1={149 + i * 18.2} x2="300" y2={149 + i * 18.2} stroke="#4f2f20" strokeOpacity="0.28" strokeWidth="1" />
       ))}
@@ -2327,7 +2339,7 @@ export function TweetyHomeCard({
                 elements, so none of them fight or overwrite each other. */}
             <button
               type="button"
-              className={`tweety-bird tweety-posture-${posture}`}
+              className={`tweety-bird tweety-posture-${posture} tweety-template-${speciesArt.template || 'songbird-small'}`}
               title={`Tap to pet or hear ${name} sing`}
               onClick={handleBirdTap}
               disabled={sleepPhase !== 'idle'}
