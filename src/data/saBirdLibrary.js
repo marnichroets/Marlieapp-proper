@@ -98,6 +98,13 @@ function makeBird(entry) {
       entry.imageUrl ||
       birdPhotos[entry.commonName] ||
       `https://placehold.co/400x300?text=${encodeURIComponent(entry.commonName)}`,
+    // Static, hand-set per species — false only for a real reference photo
+    // that's factually fine (e.g. a natural camouflage/freeze posture) but
+    // reads as distressing out of context, so it's excluded from cheerful/
+    // editorial surfaces (magazine cover, near-you cards) while remaining
+    // available on factual pages (Bird Profile, identification). Absent/true
+    // means safe — see isEditorialBirdImageSafe in birdImage.js.
+    editorialImageSafe: entry.editorialImageSafe !== false,
     soundUrl: entry.soundUrl || '',
     rarity: entry.rarity || 'Common',
     special: Boolean(entry.special),
@@ -1936,6 +1943,11 @@ const baseBirdLibrary = [
     behaviour: 'Freezes by day; forages at night.',
     conservationStatus: 'Least Concern',
     imageUrl: 'https://en.wikipedia.org/wiki/Special:FilePath/Spotted_Thick-knee_(Burhinus_capensis).jpg?width=500',
+    // The reference photo shows her genuine daytime freeze/camouflage
+    // posture (flat on the ground, neck out) — factually accurate, but
+    // reads as an injured/dead bird out of context. Keep the real photo for
+    // factual/ID surfaces; exclude it from cheerful/editorial ones.
+    editorialImageSafe: false,
   }),
   makeBird({
     commonName: 'Black-headed Heron',

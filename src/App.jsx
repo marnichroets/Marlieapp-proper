@@ -4,7 +4,7 @@ import './features.css'
 import { defaultBirdLibrary } from './data/saBirdLibrary'
 import { dedupePhotosForStorage, rehydratePhotos, stripPhotosForLocalStorage } from './photoPool'
 import { normalizeBirdName, canonicalSpeciesKey } from './speciesMatch'
-import { getBirdImageSources, getPersonalBirdPhotos, usableBirdImage } from './birdImage'
+import { getBirdImageSources, getPersonalBirdPhotos, usableBirdImage, isEditorialBirdImageSafe } from './birdImage'
 import { rankBirdMatches, identificationIsUncertain } from './aiIdentification'
 import { findOfficialBird } from './discoveryRules'
 import { mergeBirdLibrary, slimBirdLibrary } from './birdLibraryStorage'
@@ -1973,7 +1973,13 @@ function getWeeklyMagazineIssue(birdLibrary, settings = {}, date = new Date()) {
     week: getSundayKey(date),
     countdown: getNextIssueCountdown(date),
     featuredBirds,
-    birdOfWeek: pinnedBird || featuredBirds[0] || null,
+    // The cover is the first EDITORIALLY SAFE bird in the deterministic
+    // rotation (pinned bird first, when set) — never a random reroll, just
+    // a skip-forward past any flagged photo (see editorialImageSafe in
+    // saBirdLibrary.js / isEditorialBirdImageSafe). Falls back to the plain
+    // first pick (and from there to GenericBirdFallback in the render) on
+    // the practically-unreachable case where every candidate is flagged.
+    birdOfWeek: featuredBirds.find(isEditorialBirdImageSafe) || featuredBirds[0] || null,
   }
 }
 
@@ -7858,11 +7864,20 @@ function GenericBirdFallback({ className = '' }) {
   )
 }
 
+// A small +/- jitter around a base value, computed once per mount (not per
+// render — these components never re-render on their own) so the ambient
+// corridor doesn't start at the exact same animation phase on every load. A
+// negative delay is valid CSS and reads as "already mid-flight", which is
+// actually the more natural look here — not just a start-time offset.
+function jitter(base, spread) {
+  return base + (Math.random() * 2 - 1) * spread
+}
+
 function HomeAmbientBirds() {
   const birds = [
-    { glyph: '🪽', tone: 'coral', top: '18%', delay: '0s', duration: '26s' },
-    { glyph: '🪽', tone: 'pink', top: '34%', delay: '8s', duration: '31s' },
-    { glyph: '🪽', tone: 'gold', top: '52%', delay: '16s', duration: '29s' },
+    { glyph: '🪽', tone: 'coral', top: '18%', delay: `${jitter(0, 3)}s`, duration: `${jitter(26, 4)}s` },
+    { glyph: '🪽', tone: 'pink', top: '34%', delay: `${jitter(8, 3)}s`, duration: `${jitter(31, 4)}s` },
+    { glyph: '🪽', tone: 'gold', top: '52%', delay: `${jitter(16, 3)}s`, duration: `${jitter(29, 4)}s` },
   ]
   return (
     <div className="home-bird-corridor" aria-hidden="true">
@@ -7882,14 +7897,15 @@ function HomeAmbientBirds() {
 // this is meant to read as "alive", not busy.
 function HomeAmbientMeadowLife() {
   const butterflies = [
-    { tone: 'lilac', top: '22%', delay: '2s', duration: '34s' },
-    { tone: 'sky', top: '58%', delay: '15s', duration: '39s' },
+    { tone: 'lilac', top: '22%', delay: `${jitter(2, 4)}s`, duration: `${jitter(34, 5)}s` },
+    { tone: 'sky', top: '58%', delay: `${jitter(15, 4)}s`, duration: `${jitter(39, 5)}s` },
   ]
   const petals = [
-    { left: '16%', delay: '0s', duration: '12s' },
-    { left: '48%', delay: '4.5s', duration: '14s' },
-    { left: '78%', delay: '9s', duration: '13s' },
+    { left: '16%', delay: `${jitter(0, 2)}s`, duration: `${jitter(12, 2)}s` },
+    { left: '48%', delay: `${jitter(4.5, 2)}s`, duration: `${jitter(14, 2)}s` },
+    { left: '78%', delay: `${jitter(9, 2)}s`, duration: `${jitter(13, 2)}s` },
   ]
+  const beeDelay = `${jitter(0, 3.5)}s`
   return (
     <div className="home-bird-corridor" aria-hidden="true">
       {butterflies.map((b, index) => (
@@ -7901,7 +7917,7 @@ function HomeAmbientMeadowLife() {
           🦋
         </span>
       ))}
-      <span className="home-ambient-bee" aria-hidden="true">🐝</span>
+      <span className="home-ambient-bee" aria-hidden="true" style={{ animationDelay: beeDelay }}>🐝</span>
       {petals.map((p, index) => (
         <span
           key={index}
@@ -8593,10 +8609,14 @@ function SeasonMotif({ seasonKey }) {
           const y = 22 + Math.sin(i * 1.3) * 10
           return (
             <g key={x} transform={`translate(${x} ${y})`}>
-              {[0, 72, 144, 216, 288].map((rot) => (
-                <ellipse key={rot} cx="0" cy="-3.2" rx="2.6" ry="3.4" fill={i % 2 ? '#f8b4d0' : '#f6a5c0'} transform={`rotate(${rot})`} />
-              ))}
-              <circle r="1.6" fill="#ffd45e" />
+              {/* Inner group carries the sway so it composes with, rather than
+                  replaces, the outer translate placement above. */}
+              <g className="season-spring-blossom-sway" style={{ animationDelay: `${i * 0.45}s` }}>
+                {[0, 72, 144, 216, 288].map((rot) => (
+                  <ellipse key={rot} cx="0" cy="-3.2" rx="2.6" ry="3.4" fill={i % 2 ? '#f8b4d0' : '#f6a5c0'} transform={`rotate(${rot})`} />
+                ))}
+                <circle r="1.6" fill="#ffd45e" />
+              </g>
             </g>
           )
         })}
@@ -9318,7 +9338,7 @@ function StatCard({ label, value, detail }) {
 // A real bird photo with a graceful fall-back to the shared illustrated bird.
 function FieldGuidePhoto({ bird, className = '' }) {
   const [errored, setErrored] = useState(false)
-  const usable = bird.imageUrl && !bird.imageUrl.includes('placehold')
+  const usable = bird.imageUrl && !bird.imageUrl.includes('placehold') && isEditorialBirdImageSafe(bird)
   if (errored || !usable) {
     return <GenericBirdFallback className={`field-guide-photo ${className}`.trim()} />
   }
@@ -13652,9 +13672,13 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
     plantCount: plantScannerVisible ? 4 : 0,
   })
 
-  const coverPhoto = (commonName, imageUrl) => (
+  // `safe` defaults true (plants have no editorialImageSafe field to check);
+  // the bird cover call below passes the real check. Belt-and-suspenders
+  // alongside the birdOfWeek selection above — the magazine must never
+  // render a flagged photo even if a future caller forgets to pre-filter.
+  const coverPhoto = (commonName, imageUrl, safe = true) => (
     <div className="magazine-cover-photo-frame">
-      {imageUrl ? (
+      {imageUrl && safe ? (
         <img className="magazine-cover-photo" src={imageUrl} alt={commonName} />
       ) : (
         <GenericBirdFallback className="magazine-cover-photo" />
@@ -13671,7 +13695,7 @@ function WeeklyMagazinePage({ data, openBirdProfile, openPlantProfile, claimWeek
       <p className="magazine-season">Issue #{issue.issueIndex} — {season.name} Edition</p>
       <p className="fine-print">A fresh flock every Sunday · {season.greeting}</p>
       <p className="magazine-countdown">🗞️ {issue.countdown.text}</p>
-      {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl)}
+      {coverBird && coverPhoto(coverBird.commonName, coverBird.imageUrl, isEditorialBirdImageSafe(coverBird))}
       <p className="magazine-quote">“{quote}”</p>
       {coverBird && (
         <>
