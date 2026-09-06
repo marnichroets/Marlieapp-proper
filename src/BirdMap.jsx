@@ -7,6 +7,14 @@ import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
 import { haversineDistanceKm, formatDurationShort, flightSpeedForSpecies } from './birdFlightSpeed'
 import { getSeason } from './seasons'
+import { BIRD_POST_STATUS, normalizeBirdPostJourneys, journeysForAccount, journeyProgress } from './birdPostJourney'
+import { birdPostJourneySurfaces } from './birdPostVisibility'
+
+// Bird Post only has two accounts — kept as a small local label map (rather
+// than importing App.jsx's BIRD_POST_ACCOUNTS) to avoid a circular import
+// between the two modules.
+const BIRD_POST_ACCOUNT_NAME = { pooks: 'Pooks', marnich: 'Marnich' }
+const birdPostAccountName = (id) => BIRD_POST_ACCOUNT_NAME[id] || id
 
 const VIEW_W = 1000
 const VIEW_H = 820
@@ -385,9 +393,28 @@ function SAMapBase({ children, ariaLabel = 'Map of South Africa', variant = '', 
   )
 }
 
-export function BirdMapPage({ data, onBack }) {
+export function BirdMapPage({ data, myRole, onBack, onTrackFlight }) {
   const birdLibrary = data.birdLibrary || []
   const sightings = data.sightings || []
+
+  // Bird Post live tracking: surface the current journey right on the Map
+  // tab (reusing the same journeysForAccount/birdPostJourneySurfaces logic
+  // as the Bird Post compose page) so sending a bird makes it obviously
+  // trackable from Map without duplicating the flight-rendering itself —
+  // "See it flying" hands off to BirdFlightMapPage for the full route view.
+  const [flightNow, setFlightNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!myRole) return undefined
+    const timer = window.setInterval(() => setFlightNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [myRole])
+  const journeys = normalizeBirdPostJourneys(data.birdPostJourneys, data.birdPost)
+  const accountJourneys = myRole ? journeysForAccount(journeys, myRole) : []
+  const journeySurfaces = birdPostJourneySurfaces(accountJourneys, myRole)
+  const activeFlight = [...journeySurfaces.inFlight]
+    .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0] || null
+  const justArrived = journeySurfaces.incoming[0] || null
+  const flightProgress = activeFlight ? journeyProgress(activeFlight, flightNow) : 0
 
   // Group sightings by their normalized geographic position so different
   // labels for the same saved place do not create overlapping pins.
@@ -440,6 +467,52 @@ export function BirdMapPage({ data, onBack }) {
             <span className="map-province-progress"><strong>{exploredProvinceCount}</strong> / 9 provinces explored</span>
           </div>
         </div>
+
+        {activeFlight ? (
+          <article className="birdpost-flight-card map-flight-banner">
+            <div className="birdpost-flight-card-head">
+              <span className="birdpost-flight-bird" aria-hidden="true">🐦</span>
+              <div>
+                <p className="eyebrow">Live tracking</p>
+                <h3>{birdPostAccountName(activeFlight.recipient)}&apos;s visitor is on the way</h3>
+              </div>
+              <span className="birdpost-live-pill">
+                {activeFlight.status === BIRD_POST_STATUS.WAITING ? 'Waiting' : 'In flight'}
+              </span>
+            </div>
+            <div className="birdpost-route-people">
+              <span><small>From</small><strong>{birdPostAccountName(activeFlight.sender)}</strong></span>
+              <span className="birdpost-route-dots" aria-hidden="true">••••• 🐦 •••••</span>
+              <span><small>To</small><strong>{birdPostAccountName(activeFlight.recipient)}</strong></span>
+            </div>
+            {activeFlight.status === BIRD_POST_STATUS.WAITING ? (
+              <p className="fine-print">
+                Waiting for {birdPostAccountName(activeFlight.recipient)} to share a destination before this bird can take off.
+              </p>
+            ) : (
+              <>
+                <div className="progress-track bird-post-track"><span style={{ width: `${flightProgress * 100}%` }} /></div>
+                <p className="fine-print">
+                  {Math.round(flightProgress * 100)}% of the journey flown · arrives{' '}
+                  {new Date(activeFlight.estimatedArrivalAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </>
+            )}
+            {onTrackFlight && (
+              <button className="text-btn bird-post-flight-link" type="button" onClick={onTrackFlight}>
+                See it flying on the map →
+              </button>
+            )}
+          </article>
+        ) : justArrived ? (
+          <p className="fine-print map-hint">
+            📬 A bird just landed from {birdPostAccountName(justArrived.sender)} — check your Inbox to read it.
+          </p>
+        ) : (
+          <p className="fine-print map-hint">
+            🐦 No bird is currently in flight. Send one from Bird Post and it'll show up here, live.
+          </p>
+        )}
 
         {unresolvedCount > 0 && (
           <p className="fine-print map-location-note">
@@ -553,7 +626,7 @@ function speciesLabelForFlight(birdLibrary, speciesId) {
 // logic as the progress-bar card on Home (see BirdPostCard in App.jsx) — just
 // rendered as a real position on the province map instead of a bar. Reached
 // via the "See it flying" link on that card.
-export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
+export function BirdFlightMapPage({ data, myRole, birdLibrary, onBack }) {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -561,7 +634,17 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
     return () => window.clearInterval(id)
   }, [])
 
-  if (!birdPost || birdPost.destLat == null || birdPost.destLng == null) {
+  // Picks the same "currently flying" journey birdPostJourneySurfaces
+  // surfaces on the Bird Post compose page and the Map tab banner — the
+  // most recently sent journey that's in flight for this account. A WAITING
+  // journey (sent, no destination yet) has no `destination` and falls
+  // through to the empty state below, same as before.
+  const journeys = normalizeBirdPostJourneys(data?.birdPostJourneys, data?.birdPost)
+  const accountJourneys = myRole ? journeysForAccount(journeys, myRole) : []
+  const journey = [...birdPostJourneySurfaces(accountJourneys, myRole).inFlight]
+    .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())[0] || null
+
+  if (!journey || !journey.destination) {
     return (
       <div className="page-grid bird-map-page">
         <section className="soft-card full-span">
@@ -574,18 +657,16 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
     )
   }
 
-  const destLat = birdPost.destLat
-  const destLng = birdPost.destLng
-  const departedAtMs = new Date(birdPost.departedAt || birdPost.createdAt).getTime()
-  const etaMs = birdPost.estimatedArrivalAt
-    ? new Date(birdPost.estimatedArrivalAt).getTime()
-    : departedAtMs + birdPost.travelTimeSeconds * 1000
-  const progress = birdPost.delivered
+  const destLat = journey.destination.latitude
+  const destLng = journey.destination.longitude
+  const departedAtMs = new Date(journey.departedAt).getTime()
+  const etaMs = new Date(journey.estimatedArrivalAt).getTime()
+  const progress = journey.status === BIRD_POST_STATUS.ARRIVED
     ? 1
     : Math.min(1, Math.max(0, (now - departedAtMs) / Math.max(1, etaMs - departedAtMs)))
   const arrived = progress >= 1
 
-  const [sx, sy] = project(birdPost.senderLng, birdPost.senderLat)
+  const [sx, sy] = project(journey.origin.longitude, journey.origin.latitude)
   const [ex, ey] = project(destLng, destLat)
 
   // A real journey curves — draw the route as a quadratic Bézier instead of a
@@ -625,11 +706,11 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
   // riding air currents rather than sliding along a rail.
   const bob = arrived ? 0 : Math.sin(now / 420 + t * 9) * 3.5
 
-  const distanceKm = haversineDistanceKm(birdPost.senderLat, birdPost.senderLng, destLat, destLng)
+  const distanceKm = haversineDistanceKm(journey.origin.latitude, journey.origin.longitude, destLat, destLng)
   const remainingSeconds = Math.max(0, (etaMs - now) / 1000)
-  const speciesEntry = BIRD_COLOUR_MAP[birdPost.birdSpeciesId]
-  const speciesLabel = speciesLabelForFlight(birdLibrary, birdPost.birdSpeciesId)
-  const fromProvince = provinceForPoint(birdPost.senderLng, birdPost.senderLat) || 'the field'
+  const speciesEntry = BIRD_COLOUR_MAP[journey.bird]
+  const speciesLabel = speciesLabelForFlight(birdLibrary, journey.bird)
+  const fromProvince = provinceForPoint(journey.origin.longitude, journey.origin.latitude) || 'the field'
   const toProvince = provinceForPoint(destLng, destLat) || 'home'
   const curvePath = `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`
   const routeMinX = Math.max(0, Math.min(sx, ex, cx) - 58)
@@ -659,10 +740,10 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
           <span><small>To</small>{toProvince}</span>
         </p>
 
-        {birdPost.message && (
+        {journey.message && (
           <blockquote className="flight-letter">
             <span aria-hidden="true">💌</span>
-            <div><small>Carrying this little letter</small><p>{birdPost.message}</p></div>
+            <div><small>Carrying this little letter</small><p>{journey.message}</p></div>
           </blockquote>
         )}
 
@@ -788,7 +869,7 @@ export function BirdFlightMapPage({ birdPost, birdLibrary, onBack }) {
             </div>
             <div className="flight-stat">
               <span className="flight-stat-label">Speed</span>
-              <span className="flight-stat-value">{Math.round(birdPost.flightSpeedKmh || flightSpeedForSpecies(birdPost.birdSpeciesId))} km/h</span>
+              <span className="flight-stat-value">{Math.round(journey.flightSpeedKmh || flightSpeedForSpecies(journey.bird))} km/h</span>
             </div>
             <div className="flight-stat">
               <span className="flight-stat-label">Time remaining</span>

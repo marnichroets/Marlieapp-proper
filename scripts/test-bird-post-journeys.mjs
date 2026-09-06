@@ -13,6 +13,10 @@ import {
   settleJourneyArrival,
   startWaitingJourney,
 } from '../src/birdPostJourney.js'
+import {
+  birdPostJourneySurfaces,
+  messagesVisibleToAccount,
+} from '../src/birdPostVisibility.js'
 
 const origin = { label: 'Potchefstroom', latitude: -26.7145, longitude: 27.097, enabled: true }
 const destination = { label: 'Grahamstown', latitude: -33.3106, longitude: 26.5256, enabled: true }
@@ -106,6 +110,42 @@ const visible = [journey, createBirdPostJourney({
 assert.equal(journeysForAccount(visible, 'pooks').length, 2, 'Pooks sees sent and received journeys')
 assert.equal(journeysForAccount(visible, 'marnich').length, 2, 'Marnich sees sent and received journeys')
 assert.throws(() => createBirdPostJourney({ id: 'bad', sender: 'pooks', recipient: 'pooks', bird: 'x', origin, destination, flightSpeedKmh: 40 }))
+
+const arrivedToPooks = settleJourneyArrival(journey, journey.estimatedArrivalAt).journey
+const pooksSurfaces = birdPostJourneySurfaces([journey, arrivedToPooks], 'pooks')
+const marnichSurfaces = birdPostJourneySurfaces([journey, arrivedToPooks], 'marnich')
+assert.equal(pooksSurfaces.incoming.length, 1, 'recipient sees the incoming journey')
+assert.equal(marnichSurfaces.incoming.length, 0, 'sender does not see their own journey as incoming')
+assert.equal(marnichSurfaces.inFlight.some((entry) => entry.id === journey.id), true, 'sender sees in-flight status')
+assert.equal(pooksSurfaces.inFlight.some((entry) => entry.id === journey.id), true, 'recipient sees the correct in-flight journey')
+assert.equal(marnichSurfaces.history.some((entry) => entry.id === arrivedToPooks.id), true, 'delivered status appears for sender')
+
+const waitingNotification = {
+  id: `birdpost-destination-${journey.id}`,
+  title: 'Marnich sent you a bird! 🐦',
+  audienceAccountId: 'pooks',
+  birdPostJourneyId: journey.id,
+}
+const arrivalNotification = {
+  id: `birdpost-arrived-${journey.id}`,
+  title: 'A bird arrived',
+  audienceAccountId: 'pooks',
+  birdPostJourneyId: journey.id,
+}
+assert.deepEqual(messagesVisibleToAccount([waitingNotification, arrivalNotification], [journey], 'marnich'), [], 'arrival notification only appears for recipient, not sender')
+assert.equal(messagesVisibleToAccount([waitingNotification, arrivalNotification], [journey], 'pooks').length, 2, 'recipient sees waiting and arrival notifications')
+
+const reverseJourney = visible.find((entry) => entry.sender === 'pooks')
+const reverseArrived = settleJourneyArrival(reverseJourney, reverseJourney.estimatedArrivalAt).journey
+const reversePooks = birdPostJourneySurfaces([reverseJourney, reverseArrived], 'pooks')
+const reverseMarnich = birdPostJourneySurfaces([reverseJourney, reverseArrived], 'marnich')
+assert.equal(reverseMarnich.incoming.length, 1, 'reverse recipient sees incoming journey')
+assert.equal(reversePooks.incoming.length, 0, 'reverse sender does not see incoming journey')
+assert.equal(reversePooks.history.some((entry) => entry.id === reverseArrived.id), true, 'reverse sender sees delivered status')
+
+const legacyArrivalNotification = { id: `birdpost-arrived-${journey.id}`, title: 'Legacy arrival without audience metadata' }
+assert.equal(messagesVisibleToAccount([legacyArrivalNotification], [journey], 'marnich').length, 0, 'legacy saved arrival is hidden from sender by journey recipient ID')
+assert.equal(messagesVisibleToAccount([legacyArrivalNotification], [journey], 'pooks').length, 1, 'legacy saved arrival remains visible to recipient')
 
 const mapSource = await readFile(new URL('../src/BirdMap.jsx', import.meta.url), 'utf8')
 assert.match(mapSource, /routeViewBox/, 'live flight map uses a route-focused viewport')
