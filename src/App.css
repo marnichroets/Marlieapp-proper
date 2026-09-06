@@ -2220,17 +2220,23 @@ textarea:focus {
 
 /* ---- Gentle transition between screens ---- */
 .page-stage {
-  animation: page-enter 440ms ease both;
+  animation: page-enter 440ms ease backwards;
 }
 
-/* `to` must end on transform: none (not translateY(0)) — animation-fill-mode:
-   both holds the `to` keyframe's values after the animation ends, and any
-   non-`none` transform (even an identity translate) creates a new containing
-   block for descendant `position: fixed` elements. With translateY(0) here,
+/* fill-mode must be `backwards`, not `both` — verified live (2026-09-05):
+   even though the `to` keyframe already ends on `transform: none`, a `both`
+   fill keeps this animation "in effect" forever after it finishes (it never
+   gets removed), and Chrome then treats the element as having a transform
+   for containing-block purposes regardless of the resolved value — computed
+   style reports `matrix(1,0,0,1,0,0)`, not the literal `none`. That still
+   creates a containing block for descendant `position: fixed` elements, so
    every full-viewport modal backdrop mounted inside a page (e.g. the weekly
    magazine popup) got pinned to this page's scrollable box instead of the
    real viewport — reading as an oversized, scrollable backdrop instead of a
-   fixed overlay. */
+   fixed overlay. `backwards` only holds the `from` state before the
+   animation starts (preventing an initial flash) and lets the animation
+   fully exit once finished, so the element reverts to its true static
+   (transform: none) style. */
 @keyframes page-enter {
   from {
     opacity: 0;
@@ -3241,6 +3247,7 @@ textarea:focus {
   opacity: 0.62;
 }
 .room-theme-thumb {
+  position: relative;
   width: 100%;
   aspect-ratio: 5 / 4;
   border-radius: 12px;
