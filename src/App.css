@@ -4913,6 +4913,19 @@ textarea:focus {
   72% { transform: translate(350px, 18px); opacity: 0.78; }
   78%, 100% { transform: translate(350px, 18px); opacity: 0; }
 }
+/* A very small breeze-sway on the hero banner's blossom clusters — staggered
+   per-cluster delay (set inline) so they don't all sway in lockstep. Applied
+   to an inner <g>, not the outer translated one, so it composes instead of
+   overwriting that positioning transform. */
+.season-spring-blossom-sway {
+  animation: season-spring-blossom-sway 6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes season-spring-blossom-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(4deg); }
+}
 
 /* Spring theme extension: coral marks selected, personal and celebratory
    moments while cream, leaf, terracotta and gold keep their existing roles. */
@@ -4977,6 +4990,7 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .season-spring-bunny,
   .season-spring-bunny-ears,
+  .season-spring-blossom-sway,
   .season-spring-passer { animation: none; }
   .season-spring-passer { display: none; }
 }
