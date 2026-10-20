@@ -143,6 +143,25 @@ import {
   birdPostDeliveredMessage,
 } from './messages'
 import BotanicalReveal from './BotanicalReveal'
+import {
+  accountStorageKey,
+  canPersistAccount,
+  fieldFolioEnabled,
+  isReelSession,
+  reelRequested,
+} from './reelGuard'
+import { buildReelPatch } from './reelWorld'
+import {
+  DiscoveryPlaque,
+  FieldPremiere,
+  FolioBook,
+  LoginLivingEdge,
+  MembershipSheet,
+  OfflineRibbon,
+  PrivacyNote,
+  ReelControls,
+} from './FieldReel.jsx'
+import { downloadStoryCard } from './reelShare.js'
 import { tweetyGrowthIndex, tweetyGrowth, tweetyGrowthProgress } from './tweetyData'
 import { GardenBird } from './birdTemplates'
 import { BIRD_COLOUR_MAP } from './birdColourMap'
@@ -233,7 +252,7 @@ const STORAGE_KEY = 'marlie-bird-app-v1'
 const MARNICH_STORAGE_KEY = 'marlie-bird-app-marnich-v1'
 
 function storageKeyForAccount(account) {
-  return account === 'marnich' ? MARNICH_STORAGE_KEY : STORAGE_KEY
+  return accountStorageKey(account, { pooks: STORAGE_KEY, marnich: MARNICH_STORAGE_KEY })
 }
 
 // Marnich's login has two modes:
@@ -263,6 +282,7 @@ function writeMarnichMode(mode) {
 // his own test save; everyone else (Pooks, admin, and Marnich's view mirror) →
 // Pooks' real save.
 function dataAccountFor(session, marnichMode) {
+  if (isReelSession(session)) return 'reel'
   if (session?.role === 'marnich' && marnichMode === 'sandbox') return 'marnich'
   return 'pooks'
 }
@@ -2275,6 +2295,7 @@ function loadState(account = 'pooks') {
 function loadStateRaw(account = 'pooks') {
   const key = storageKeyForAccount(account)
   const base = buildDefaultState()
+  if (!key) return base
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return base
@@ -2697,6 +2718,13 @@ const KALLIE_TOAST_MESSAGES = [
 ]
 
 function App() {
+  const reelBoot = useMemo(
+    () =>
+      reelRequested(window.location.search, window.location.hash)
+        ? normalizeLoadedState(buildReelPatch(defaultBirdLibrary, SA_PLANT_LIBRARY))
+        : null,
+    [],
+  )
   const [activePage, setActivePage] = useState('home')
   // When set, the next top-scroll effect (below) scrolls to this element id
   // instead of resetting to the top — lets old `goTo('magazine')` deep-links
@@ -2707,7 +2735,9 @@ function App() {
   // ExploreHubPage so the "Plants near you" home card can jump straight to
   // the plants side instead of always landing on Birds.
   const [exploreMode, setExploreMode] = useState('birds')
-  const [session, setSession] = useState(readStoredSession)
+  const [session, setSession] = useState(() =>
+    reelBoot ? { role: 'reel', name: 'Field Guest' } : readStoredSession(),
+  )
   // Pre-login maintenance gate for Pooks (see MaintenanceGate + the mount
   // effect below). Checked via an unauthenticated GET of her own account
   // settings, so it can show before she's ever logged in.
@@ -2724,7 +2754,7 @@ function App() {
   // nothing pops up about gifts she can't see yet.
   const giftsEnabled = account === 'marnich'
   const [data, setData] = useState(() =>
-    loadStateForSession(readStoredSession(), readMarnichMode()),
+    reelBoot || loadStateForSession(readStoredSession(), readMarnichMode()),
   )
   // Plant features (Scan a Plant, Plants Collection, Seed Pouch, etc.) stay
   // fully hidden everywhere — including Marnich's own sandbox — until
@@ -2779,8 +2809,14 @@ function App() {
   // Has the active account already seen the one-time cinematic intro? Read
   // immediately on app load so a refresh/navigation never replays it.
   const [introSeen, setIntroSeen] = useState(() =>
-    readIntroSeen(dataAccountFor(readStoredSession(), readMarnichMode())),
+    reelBoot ? true : readIntroSeen(dataAccountFor(readStoredSession(), readMarnichMode())),
   )
+  const [showPremiere, setShowPremiere] = useState(() => Boolean(reelBoot))
+  const [privacyOpen, setPrivacyOpen] = useState(false)
+  const [plaqueBird, setPlaqueBird] = useState(null)
+  const [folioOpen, setFolioOpen] = useState(false)
+  const [membershipOpen, setMembershipOpen] = useState(false)
+  const [folioJoined, setFolioJoined] = useState(false)
   const [reveal, setReveal] = useState(null)
   const [rewardUnlockQueue, setRewardUnlockQueue] = useState([])
   const [missedDraft, setMissedDraft] = useState({ location: '', note: '' })
@@ -3363,12 +3399,15 @@ function App() {
 
   useEffect(() => {
     // Read-only mirror of Pooks: never write anything back to her save.
-    if (readOnly) return
+    // The field reel is memory-only and must not touch either real save.
+    if (readOnly || !canPersistAccount(account)) return
+    const storageKey = storageKeyForAccount(account)
+    if (!storageKey) return
     try {
       // Always save under the active account's key, so Marnich's test save and
       // Pooks' real save never overwrite one another.
       localStorage.setItem(
-        storageKeyForAccount(account),
+        storageKey,
         JSON.stringify(prepareStateForStorage(data, { forLocalStorage: true })),
       )
     } catch (error) {
@@ -3633,8 +3672,9 @@ function App() {
   // from the backend so reopening on any device shows the latest (the read-only
   // Pooks mirror is handled separately by its own effect).
   useEffect(() => {
+    if (reelRequested(window.location.search, window.location.hash)) return undefined
     const stored = readStoredSession()
-    if (!stored) return undefined
+    if (!stored || isReelSession(stored)) return undefined
     const mode = readMarnichMode()
     if (isReadOnlyView(stored, mode)) return undefined
     const acct = dataAccountFor(stored, mode)
@@ -3685,6 +3725,9 @@ function App() {
   // which also covers Marnich's read-only mirror of her) — his own
   // login/session never checks this.
   useEffect(() => {
+    if (reelRequested(window.location.search, window.location.hash) || isReelSession(session)) {
+      return undefined
+    }
     let cancelled = false
     function check() {
       fetchRemoteState('pooks').then((remote) => {
@@ -3698,7 +3741,7 @@ function App() {
       cancelled = true
       window.clearInterval(iv)
     }
-  }, [])
+  }, [session])
 
   // One-time garden gift from Marnich (2026-07-15): a warm inbox note plus a
   // fully-grown Wishing Well already waiting in the garden (no watering
@@ -3866,13 +3909,16 @@ function App() {
     const state = normalizeLoadedState(rawState)
     stateVersionRef.current = version || 0
     everSyncedRef.current = true
-    try {
-      localStorage.setItem(
-        storageKeyForAccount(acct),
-        JSON.stringify(prepareStateForStorage(state, { forLocalStorage: true })),
-      )
-    } catch {
-      /* cache may be full — backend remains the source of truth */
+    const storageKey = storageKeyForAccount(acct)
+    if (storageKey && canPersistAccount(acct)) {
+      try {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify(prepareStateForStorage(state, { forLocalStorage: true })),
+        )
+      } catch {
+        /* cache may be full — backend remains the source of truth */
+      }
     }
     setData(state)
     lastSyncedRef.current = state
@@ -3926,6 +3972,86 @@ function App() {
       stateVersionRef.current = 0
       setData(loadStateForSession(session, nextMode))
       setIntroSeen(readIntroSeen('pooks'))
+    }
+  }
+
+  // Local field reel. Sample world only — never written to localStorage or the
+  // backend, and never attached to the saved login session.
+  function enterReel() {
+    const seeded = normalizeLoadedState(buildReelPatch(defaultBirdLibrary, SA_PLANT_LIBRARY))
+    stateVersionRef.current = 0
+    everSyncedRef.current = false
+    lastSyncedRef.current = seeded
+    dataRef.current = seeded
+    setData(seeded)
+    setIntroSeen(true)
+    setSession({ role: 'reel', name: 'Field Guest' })
+    setShowPremiere(true)
+    setPrivacyOpen(false)
+    setPlaqueBird(null)
+    setFolioOpen(false)
+    setMembershipOpen(false)
+    setActivePage('home')
+    setMenuOpen(false)
+  }
+
+  function openDiscoveryPlaque(name = 'Malachite Sunbird') {
+    const library = dataRef.current?.birdLibrary || []
+    const bird = library.find((item) => item.commonName === name && item.seen)
+      || library.find((item) => item.commonName === name)
+      || library.find((item) => item.seen)
+    if (!bird) return
+    setFolioOpen(false)
+    setMembershipOpen(false)
+    setPlaqueBird(bird)
+  }
+
+  async function shareFieldCard(card) {
+    const filename = await downloadStoryCard(card)
+    if (!filename) return
+    setToast({
+      title: 'Story card ready',
+      body: 'Saved on this device. Nothing was uploaded.',
+      tone: 'success',
+    })
+  }
+
+  function handleReelAction(action) {
+    if (action === 'premiere') {
+      setShowPremiere(true)
+      return
+    }
+    if (action === 'reveal') {
+      openDiscoveryPlaque()
+      return
+    }
+    if (action === 'folio') {
+      setPlaqueBird(null)
+      setMembershipOpen(false)
+      setFolioOpen(true)
+      return
+    }
+    if (action === 'garden') {
+      setPlaqueBird(null)
+      setFolioOpen(false)
+      setMembershipOpen(false)
+      setActivePage('garden')
+      return
+    }
+    if (action === 'share') {
+      const bird = (dataRef.current?.birdLibrary || []).find((item) => item.commonName === 'Malachite Sunbird')
+      shareFieldCard({
+        title: bird?.commonName || 'The living garden',
+        scientific: bird?.scientificName || 'A South African garden',
+        rarity: bird?.rarity || 'In the garden',
+        line: bird?.description || 'Birds, plants, and a garden that keeps its own time.',
+      })
+      return
+    }
+    if (action === 'membership') {
+      setPlaqueBird(null)
+      setFolioOpen(false)
+      setMembershipOpen(true)
     }
   }
 
@@ -7259,12 +7385,28 @@ function App() {
   // Inbox lives in the bottom nav and the Magazine now lives on Home, so the
   // gear menu only carries the role-specific extras (Pooks: Bird Battles;
   // Admin: full feature set).
-  const fullMenu =
-    session?.role === 'admin'
+  const folioPreview = fieldFolioEnabled({
+    envFlag: import.meta.env.VITE_FIELD_FOLIO,
+    storageFlag: (() => {
+      try {
+        return localStorage.getItem('fieldFolioPreview') || ''
+      } catch {
+        return ''
+      }
+    })(),
+    reel: isReelSession(session),
+  })
+  const fullMenu = [
+    ...(session?.role === 'admin'
       ? [...menuItems, ['admin', 'Admin', '🔒']]
-      : account === 'marnich'
-        ? [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳'], ['companiongallery', 'Companion Gallery', '🧪']]
-        : [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳']]
+      : isReelSession(session)
+        ? [['garden', 'Bird Garden', '🌳']]
+        : account === 'marnich'
+          ? [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳'], ['companiongallery', 'Companion Gallery', '🧪']]
+          : [['games', 'Bird Battles', '⚔️'], ['garden', 'Bird Garden', '🌳']]),
+    ...(folioPreview ? [['membership', 'Field & Folio', '✦']] : []),
+    ['privacy', 'Privacy note', '📄'],
+  ]
   const visibleMessages = messagesVisibleToAccount(
     data.messages || [],
     normalizeBirdPostJourneys(data.birdPostJourneys, data.birdPost),
@@ -7273,13 +7415,35 @@ function App() {
   const unreadMessages = visibleMessages.filter((m) => !m.read).length
 
   if (!session) {
+    if (privacyOpen) {
+      return (
+        <>
+          <OfflineRibbon />
+          <PrivacyNote onBack={() => setPrivacyOpen(false)} />
+        </>
+      )
+    }
     if (adminGate) {
       return <AdminGate onLogin={adminLogin} onCancel={() => setAdminGate(false)} />
     }
     if (pooksMaintenance) {
       return <MaintenanceGate data={data} onLogin={login} />
     }
-    return <LoginScreen data={data} onLogin={login} />
+    return (
+      <>
+        <OfflineRibbon />
+        <LoginScreen
+          data={data}
+          onLogin={login}
+          onReel={enterReel}
+          onPrivacy={() => setPrivacyOpen(true)}
+        />
+      </>
+    )
+  }
+
+  if (isReelSession(session) && showPremiere) {
+    return <FieldPremiere onEnter={() => setShowPremiere(false)} />
   }
 
   // Enforce maintenance mode for an ALREADY-authenticated Pooks session too —
@@ -7467,6 +7631,49 @@ function App() {
       <RevealModal reveal={reveal} onClose={() => setReveal(null)} />
       <EncounterModal encounter={encounter} onResolve={resolveEncounter} />
 
+      <OfflineRibbon />
+      {isReelSession(session) && !showPremiere && (
+        <ReelControls onAction={handleReelAction} />
+      )}
+      {plaqueBird && (
+        <DiscoveryPlaque
+          bird={plaqueBird}
+          onClose={() => setPlaqueBird(null)}
+          onShare={() => shareFieldCard({
+            title: plaqueBird.commonName,
+            scientific: plaqueBird.scientificName,
+            rarity: plaqueBird.rarity,
+            line: plaqueBird.description || plaqueBird.funFact || 'Pressed into the folio.',
+          })}
+        />
+      )}
+      {folioOpen && (
+        <FolioBook
+          birds={data.birdLibrary}
+          onBack={() => setFolioOpen(false)}
+          onShare={(bird) => shareFieldCard({
+            title: bird.commonName,
+            scientific: bird.scientificName,
+            rarity: bird.rarity,
+            line: bird.description || bird.funFact || 'Pressed into the folio.',
+          })}
+        />
+      )}
+      {membershipOpen && (
+        <MembershipSheet
+          joined={folioJoined}
+          onClose={() => setMembershipOpen(false)}
+          onJoin={() => {
+            setFolioJoined(true)
+            setToast({
+              title: 'Preview only',
+              body: 'No payment was taken. Field & Folio is not connected to a store.',
+              tone: 'calm',
+            })
+          }}
+        />
+      )}
+      {privacyOpen && <PrivacyNote onBack={() => setPrivacyOpen(false)} />}
       <header className="app-header">
         <div className="brand-wrap">
           {activePage !== 'home' && (
@@ -7484,6 +7691,7 @@ function App() {
             type="button"
             onClick={handleBrandTap}
             title="Back to Home"
+            aria-label="Pooks, back to home"
           >
             <WeeklyBird size={32} className="brand-bird" />
             Pooks
@@ -7511,6 +7719,16 @@ function App() {
           items={fullMenu}
           session={session}
           onPick={(id) => {
+            if (id === 'privacy') {
+              setPrivacyOpen(true)
+              setMenuOpen(false)
+              return
+            }
+            if (id === 'membership') {
+              setMembershipOpen(true)
+              setMenuOpen(false)
+              return
+            }
             setActivePage(id)
             setMenuOpen(false)
           }}
@@ -7576,12 +7794,13 @@ function App() {
         {activePage === 'companiongallery' && account === 'marnich' && (
           <CompanionGalleryPage onBack={goBack} />
         )}
-        {activePage === 'garden' && (account === 'pooks' || account === 'marnich') && (
+        {activePage === 'garden' && (account === 'pooks' || account === 'marnich' || account === 'reel') && (
           <GardenPage
             garden={data.garden}
             coins={data.featherCoins}
             collection={gardenVisitors}
             season={season}
+            cinematicCycle={account === 'reel'}
             onPlace={placeGardenItem}
             onWater={waterGardenPlant}
             onRemove={removeGardenPlant}
@@ -7979,7 +8198,7 @@ function AdminGate({ onLogin, onCancel, overlay = false }) {
   )
 }
 
-function LoginScreen({ data, onLogin }) {
+function LoginScreen({ data, onLogin, onReel, onPrivacy }) {
   const [name, setName] = useState('')
   const [secret, setSecret] = useState('')
   const [error, setError] = useState('')
@@ -8004,6 +8223,7 @@ function LoginScreen({ data, onLogin }) {
         <div className="login-logo">
           <WeeklyBird size={88} />
         </div>
+        <LoginLivingEdge />
         <p className="login-tag" id="login-title">{season.greeting}</p>
         <p className="login-sub">Whisper your name and secret word to come inside.</p>
         <form className="login-form" onSubmit={submit}>
@@ -8039,6 +8259,20 @@ function LoginScreen({ data, onLogin }) {
         </form>
         {!data.settings.pooksSecret && (
           <p className="login-hint">Ask Marnich to set your secret word.</p>
+        )}
+        {(onReel || onPrivacy) && (
+          <div className="login-reel-row">
+            {onReel && (
+              <button className="secondary-btn wide big-btn" type="button" onClick={onReel}>
+                Watch the field reel
+              </button>
+            )}
+            {onPrivacy && (
+              <button className="text-btn" type="button" onClick={onPrivacy}>
+                Privacy note
+              </button>
+            )}
+          </div>
         )}
       </section>
     </main>

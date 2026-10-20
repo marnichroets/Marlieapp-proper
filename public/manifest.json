@@ -1,7 +1,10 @@
 {
-  "name": "Pooks Birds",
-  "short_name": "Pooks Birds",
-  "description": "Pooks' magical bird adventure world.",
+  "name": "PooksBooks",
+  "short_name": "PooksBooks",
+  "description": "A South African field guide for birds, plants, and a living garden.",
+  "id": "/",
+  "categories": ["education", "lifestyle"],
+  "lang": "en-ZA",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

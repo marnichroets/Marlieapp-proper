@@ -2014,6 +2014,7 @@ export function GardenPage({
   tweety = null,
   seeds = 0,
   plantableSpecies = [],
+  cinematicCycle = false,
 }) {
   const plantings = useMemo(() => garden?.plantings || [], [garden])
   const residents = garden?.residents || []
@@ -2072,8 +2073,27 @@ export function GardenPage({
 
   // Time-of-day phase from real SA local time; refreshed on an interval and when
   // the tab regains focus so it rolls over (e.g. into night) while the page is open.
-  const [phase, setPhase] = useState(() => saTimePhase())
+  const [phase, setPhase] = useState(() => {
+    if (
+      cinematicCycle
+      && typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    ) return 'evening'
+    return cinematicCycle ? 'morning' : saTimePhase()
+  })
   useEffect(() => {
+    if (cinematicCycle) {
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+      if (reduced) return undefined
+      const order = ['morning', 'midday', 'evening', 'night']
+      let index = 0
+      const iv = window.setInterval(() => {
+        if (document.hidden) return
+        index = (index + 1) % order.length
+        setPhase(order[index])
+      }, 4200)
+      return () => window.clearInterval(iv)
+    }
     const tick = () => setPhase(saTimePhase())
     const iv = window.setInterval(tick, 60000)
     const onVis = () => { if (!document.hidden) tick() }
@@ -2084,7 +2104,7 @@ export function GardenPage({
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('focus', onVis)
     }
-  }, [])
+  }, [cinematicCycle])
   const isNight = phase === 'night'
 
   // Live weather (via geolocation + Open-Meteo — see gardenWeather.js): a
@@ -2096,6 +2116,18 @@ export function GardenPage({
   // stays open.
   const [weather, setWeather] = useState('clear')
   useEffect(() => {
+    if (cinematicCycle) {
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+      if (reduced) return undefined
+      const order = ['clear', 'clear', 'cloudy', 'rain']
+      let index = 0
+      const iv = window.setInterval(() => {
+        if (document.hidden) return
+        index = (index + 1) % order.length
+        setWeather(order[index])
+      }, 6400)
+      return () => window.clearInterval(iv)
+    }
     let alive = true
     const refresh = () => {
       fetchGardenWeather().then((w) => {
@@ -2108,7 +2140,7 @@ export function GardenPage({
       alive = false
       window.clearInterval(iv)
     }
-  }, [])
+  }, [cinematicCycle])
   // Presentation only — see SEASON_WASH above. `season` already comes from
   // the same app-wide getSeasonInfo() the Home page's own banner uses (see
   // App.jsx), so this never computes or persists anything of its own.
@@ -2404,17 +2436,28 @@ export function GardenPage({
   )
 
   return (
-    <div className="page-grid garden-page">
+    <div className={`page-grid garden-page${cinematicCycle ? ' cinematic' : ''}`}>
       <section className="soft-card full-span">
         <button className="text-btn back-btn" type="button" onClick={onBack}>Back</button>
         <p className="eyebrow">Bird Garden 🌳</p>
-        <h2>Pooks&apos; Bird Garden</h2>
+        <h2>{cinematicCycle ? 'A Highveld garden' : 'Pooks\u2019 Bird Garden'}</h2>
         <p className="fine-print">
           Buy an item, then tap the grass to place it wherever you like. Tend it daily to grow it. · 🪙 {coins}
         </p>
         <p className="fine-print garden-time-note">
-          Garden time: <strong>{PHASE_META[phase].label} {PHASE_META[phase].icon}</strong> · live South African time
-          {' · '}Weather: <strong>{WEATHER_META[weather].label} {WEATHER_META[weather].icon}</strong>
+          {cinematicCycle ? (
+            <>
+              Reel light: <strong>{PHASE_META[phase].label} {PHASE_META[phase].icon}</strong>
+              {' · '}
+              <strong>{WEATHER_META[weather].label} {WEATHER_META[weather].icon}</strong>
+              . This cycle is only for the local preview.
+            </>
+          ) : (
+            <>
+              Garden time: <strong>{PHASE_META[phase].label} {PHASE_META[phase].icon}</strong> · live South African time
+              {' · '}Weather: <strong>{WEATHER_META[weather].label} {WEATHER_META[weather].icon}</strong>
+            </>
+          )}
         </p>
       </section>
 
@@ -2425,7 +2468,9 @@ export function GardenPage({
           className={`garden-scene-svg${placingAny ? ' placing' : ''}`}
           viewBox={`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`}
           preserveAspectRatio="xMidYMid meet"
-          style={{ width: viewBox.width * unitPx, height: viewBox.height * unitPx }}
+          style={cinematicCycle
+            ? { width: '100%', height: '68vh' }
+            : { width: viewBox.width * unitPx, height: viewBox.height * unitPx }}
           xmlns="http://www.w3.org/2000/svg"
           role="img"
           aria-label="Pooks' bird garden"

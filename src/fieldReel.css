@@ -1,0 +1,520 @@
+/* Field & Folio reel layer. Motion is transform/opacity only. */
+
+.reel-premiere {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: end center;
+  padding: 28px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+  color: #f7f2ea;
+  background: #163528;
+}
+
+.reel-sky,
+.reel-ground,
+.reel-haze {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reel-sky {
+  background:
+    radial-gradient(120% 70% at 70% 8%, rgba(255, 214, 160, 0.55), transparent 46%),
+    linear-gradient(180deg, #1d4a3a 0%, #2f6a50 42%, #e7d7b4 100%);
+}
+
+.reel-premiere[data-beat='1'] .reel-sky,
+.reel-premiere[data-beat='2'] .reel-sky {
+  background:
+    radial-gradient(90% 60% at 78% 18%, rgba(255, 196, 122, 0.7), transparent 42%),
+    linear-gradient(180deg, #245743 0%, #3e7a58 38%, #f0e2c4 100%);
+}
+
+.reel-ground {
+  top: 58%;
+  background:
+    radial-gradient(80% 60% at 20% 0%, rgba(255, 255, 255, 0.2), transparent 40%),
+    linear-gradient(180deg, #6ea36a 0%, #3e6b45 55%, #2a4a34 100%);
+}
+
+.reel-haze {
+  background: radial-gradient(70% 50% at 50% 70%, transparent 40%, rgba(18, 32, 24, 0.28) 100%);
+}
+
+.reel-tree,
+.reel-bird,
+.reel-bloom {
+  position: absolute;
+  pointer-events: none;
+}
+
+.reel-tree {
+  bottom: 18%;
+  width: 18px;
+  height: 120px;
+  border-radius: 10px;
+  background: #244436;
+  transform-origin: 50% 100%;
+}
+
+.reel-tree::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 36px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: #2f6a45;
+  transform: translateX(-50%);
+}
+
+.reel-tree.a { left: 12%; height: 150px; }
+.reel-tree.b { left: 28%; height: 96px; opacity: 0.85; }
+.reel-tree.c { right: 14%; height: 170px; }
+
+.reel-bloom {
+  bottom: 16%;
+  width: 14px;
+  height: 42px;
+  background: #2c5a3e;
+  border-radius: 8px;
+}
+
+.reel-bloom::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e7b15a;
+  transform: translateX(-50%);
+}
+
+.reel-bloom.one { left: 42%; }
+.reel-bloom.two { left: 48%; height: 34px; }
+.reel-bloom.two::before { background: #d46a4a; }
+.reel-bloom.three { left: 54%; }
+.reel-bloom.three::before { background: #f2efe4; }
+
+.reel-bird {
+  top: 22%;
+  left: -12%;
+  font-size: 28px;
+  animation: reel-fly 9s linear infinite;
+}
+
+.reel-bird.late { top: 34%; animation-delay: -4s; font-size: 18px; opacity: 0.85; }
+
+@keyframes reel-fly {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(55vw, -18px, 0); }
+  100% { transform: translate3d(112vw, 8px, 0); }
+}
+
+.reel-copy {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  text-align: left;
+}
+
+.reel-kicker,
+.plaque-kicker,
+.folio-kicker,
+.member-kicker,
+.privacy-kicker {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.reel-copy h1,
+.plaque-card h2,
+.folio-sheet h2,
+.member-sheet h2,
+.privacy-sheet h1 {
+  margin: 0;
+  font-family: var(--serif, Georgia, serif);
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 0.96;
+}
+
+.reel-copy h1 {
+  font-size: clamp(3.2rem, 12vw, 5.4rem);
+  text-shadow: 0 10px 30px rgba(16, 32, 24, 0.25);
+}
+
+.reel-line {
+  max-width: 26rem;
+  margin: 14px 0 0;
+  font-size: 1.12rem;
+  line-height: 1.45;
+  color: rgba(247, 242, 234, 0.92);
+}
+
+.reel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.reel-premiere .primary-btn,
+.reel-premiere .ghost-btn {
+  min-height: 48px;
+}
+
+.reel-premiere .ghost-btn {
+  color: #f7f2ea;
+  border-color: rgba(247, 242, 234, 0.4);
+}
+
+.reel-chip {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(420px, calc(100% - 24px));
+}
+
+.reel-chip-toggle,
+.reel-chip-actions button,
+.plaque-actions button,
+.folio-nav button,
+.member-choice,
+.privacy-sheet button {
+  min-height: 44px;
+}
+
+.reel-chip-toggle {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #244436;
+  color: #f7f2ea;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reel-chip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.96);
+  box-shadow: var(--shadow, 0 8px 24px rgba(32, 26, 20, 0.12));
+}
+
+.reel-chip-actions button {
+  border: 1px solid var(--line, #e5dac7);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #fffdf9;
+  color: var(--ink-strong, #201a14);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.reel-note {
+  width: 100%;
+  margin: 0;
+  color: var(--muted, #8a7c6a);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.plaque-root,
+.folio-root,
+.member-root,
+.privacy-root {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.plaque-scrim,
+.folio-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(24, 20, 16, 0.46);
+}
+
+.plaque-card,
+.folio-sheet,
+.member-sheet,
+.privacy-sheet {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: calc(100svh - 36px);
+  overflow: auto;
+  padding: 28px 24px 22px;
+  border-radius: 28px;
+  background: #fffdf9;
+  color: var(--ink, #362e26);
+  box-shadow: 0 24px 60px rgba(24, 20, 16, 0.28);
+}
+
+.plaque-card {
+  transform-origin: 50% 80%;
+  animation: plaque-turn 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes plaque-turn {
+  from { transform: rotateY(78deg) translateY(12px); opacity: 0.2; }
+  to { transform: none; opacity: 1; }
+}
+
+.plaque-seal {
+  display: inline-flex;
+  margin-bottom: 14px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #efe6d6;
+  color: #244436;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.plaque-seal.rare { background: #f3e2c2; color: #8a5a12; }
+.plaque-seal.uncommon { background: #e5efe8; color: #244436; }
+
+.plaque-card h2,
+.folio-sheet h2,
+.member-sheet h2 {
+  font-size: clamp(2.1rem, 8vw, 3rem);
+}
+
+.plaque-sci,
+.folio-sci {
+  margin: 8px 0 0;
+  color: var(--muted, #8a7c6a);
+  font-family: var(--serif, Georgia, serif);
+  font-style: italic;
+}
+
+.plaque-fact {
+  margin: 16px 0 0;
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.plaque-actions,
+.folio-nav,
+.member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.folio-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.folio-progress div,
+.folio-badge {
+  padding: 10px;
+  border-radius: 14px;
+  background: #f7f2ea;
+}
+
+.folio-progress strong,
+.folio-badge strong {
+  display: block;
+  font-family: var(--serif, Georgia, serif);
+  font-size: 1.3rem;
+}
+
+.folio-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folio-badge {
+  min-width: 120px;
+}
+
+.folio-page {
+  min-height: 220px;
+}
+
+.folio-page.turning-next { animation: folio-next 280ms ease; }
+.folio-page.turning-prev { animation: folio-prev 280ms ease; }
+
+@keyframes folio-next {
+  from { transform: translateX(18px); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes folio-prev {
+  from { transform: translateX(-18px); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+
+.member-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.member-choice {
+  text-align: left;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line, #e5dac7);
+  background: #fffdf9;
+  color: inherit;
+}
+
+.member-choice.selected {
+  border-color: #244436;
+  background: #f3f7f4;
+}
+
+.member-choice h3 {
+  margin: 0 0 6px;
+  font-family: var(--serif, Georgia, serif);
+}
+
+.member-choice ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.member-warning,
+.privacy-sheet p,
+.reel-error p {
+  line-height: 1.5;
+}
+
+.privacy-root {
+  background: #f7f2ea;
+  overflow: auto;
+  display: block;
+}
+
+.privacy-sheet {
+  width: min(680px, 100%);
+  margin: 24px auto;
+  box-shadow: none;
+}
+
+.offline-ribbon {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  margin: 0 auto;
+  width: min(640px, calc(100% - 24px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #244436;
+  color: #f7f2ea;
+  font-size: 0.88rem;
+}
+
+.reel-error {
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 32px 22px;
+  background: #f7f2ea;
+  color: #201a14;
+}
+
+.reel-error h1 {
+  margin: 0;
+  font-family: Georgia, serif;
+}
+
+.login-reel-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.login-living {
+  height: 72px;
+  margin: -8px -8px 12px;
+  border-radius: 18px 18px 40% 40%;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(180deg, #245743, #d7e7c8 70%, #f7f2ea);
+}
+
+.login-living span {
+  position: absolute;
+  bottom: 8px;
+  width: 10px;
+  height: 28px;
+  background: #2f6a45;
+  border-radius: 8px;
+}
+
+.login-living span::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e7b15a;
+  transform: translateX(-50%);
+}
+
+.login-living span:nth-child(1) { left: 18%; }
+.login-living span:nth-child(2) { left: 46%; height: 36px; }
+.login-living span:nth-child(3) { left: 70%; }
+.login-living span:nth-child(3)::before { background: #d46a4a; }
+
+.garden-page.cinematic > .soft-card:not(.garden-scene-card):not(:first-child) {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .bottom-nav {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255, 253, 249, 0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reel-bird,
+  .plaque-card,
+  .folio-page.turning-next,
+  .folio-page.turning-prev {
+    animation: none;
+  }
+}
